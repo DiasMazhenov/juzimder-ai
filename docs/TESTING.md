@@ -90,7 +90,7 @@ Codex Browser на UI build версии 00.00.003 (Image UI в 00.00.004 не �
 
 ## Не проверено / не реализовано
 
-Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, live OpenRouter call, AI UI/consent/preview/project mutation/revision, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix Image и соседних блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
+Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, live OpenRouter call с save/reload, AI-генерация собственного текста/компонентов и targeted edits, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix Image и соседних блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
 
@@ -102,3 +102,12 @@ Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.
 ## Версия продукта · 00.00.005
 
 На production build в отдельной `.localhost` вкладке с временной SQLite визуально проверены dashboard и editor: оба показывают `00.00.005`, dashboard с подписью «Версия продукта», editor — «Версия». В проверке использовалась сборка после `npm run build`; существующая пользовательская вкладка на `127.0.0.1:8080` не менялась. В CSS версия оставлена видимой и в мобильной компоновке; отдельный визуальный mobile viewport smoke для этой подписи не выполнялся.
+
+
+## AI-план и typed preset operations · версия продукта 00.00.006
+
+`node --test tests/ai-plan.test.mjs` проверяет разбор плана, ограничения списка секций и палитры, использование только известных библиотечных presets, разрешение цветов плана при сохранении текущего font/radius, устранение ссылок на отсутствующие секции и переназначение конфликтующих preset-якорей. `npm test` прошёл целиком после разрешённого запуска HTTP integration на loopback с временной SQLite. `npm run build`, PHP syntax и `git diff --check` прошли; Vite сохранил известное предупреждение о большом GrapesJS chunk (~1.10 МБ raw / 291 КБ gzip).
+
+В отдельной Codex Browser вкладке на `juzimder-ai.localhost:18083`, с временной SQLite и dev login, создан тестовый проект. Проверены AI-панель, диалог, disclosure о передаче только prompt и disabled-состояние кнопки, когда `/api/ai/status` сообщает `configured: false`. Prompt не отправлялся; тестовый проект не менялся. Live OpenRouter запрос и UI save/reload после реального ответа остаются NOT RUN, потому что серверные credentials не настроены. Unit/API тесты helper и typed operations этот live acceptance не заменяют.
+
+В ходе этого продолжения повторно оценён clipboard: Codex Browser не выполнил сочетание в GrapesJS iframe и вернул timeout для selector/press, поэтому результат остаётся NOT RUN, не дефектом приложения. Системный clipboard не читался и не менялся.

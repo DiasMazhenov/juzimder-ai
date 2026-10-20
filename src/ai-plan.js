@@ -1,0 +1,113 @@
+import { normalizeDesignTokens } from './design-tokens.js';
+
+const COLOR_NAMES = ['ink', 'forest', 'canvas', 'paper', 'body', 'muted', 'line', 'accent'];
+const SECTION_IDS = ['navigation', 'hero', 'features', 'process', 'testimonial', 'faq', 'cta', 'text', 'footer'];
+
+export const AI_SECTION_LABELS = Object.freeze({
+  navigation: 'Навигация', hero: 'Первый экран', features: 'Возможности', process: 'Этапы работы',
+  testimonial: 'Отзыв', faq: 'Вопросы и ответы', cta: 'Контакты', text: 'Текст', footer: 'Подвал'
+});
+
+export function normalizeDesignPlan(plan) {
+  if (!plan || typeof plan !== 'object' || Array.isArray(plan)) throw new TypeError('AI вернул некорректный план.');
+  for (const [field, maxLength] of Object.entries({ siteType: 120, audience: 240, goal: 200, style: 200, responsiveNotes: 400 })) {
+    if (typeof plan[field] !== 'string' || !plan[field].trim() || plan[field].trim().length > maxLength) {
+      throw new TypeError(`AI вернул некорректное поле «${field}».`);
+    }
+  }
+  if (!plan.colors || typeof plan.colors !== 'object' || Array.isArray(plan.colors)
+      || COLOR_NAMES.some(name => typeof plan.colors[name] !== 'string' || !/^#[0-9a-f]{6}$/i.test(plan.colors[name]))) {
+    throw new TypeError('AI вернул некорректную палитру.');
+  }
+  if (!Array.isArray(plan.sections) || plan.sections.length < 3 || plan.sections.length > 9
+      || !plan.sections.includes('hero') || new Set(plan.sections).size !== plan.sections.length
+      || plan.sections.some(id => !SECTION_IDS.includes(id))) {
+    throw new TypeError('AI вернул некорректный список секций.');
+  }
+  return {
+    siteType: plan.siteType.trim(), audience: plan.audience.trim(), goal: plan.goal.trim(), style: plan.style.trim(),
+    responsiveNotes: plan.responsiveNotes.trim(),
+    colors: Object.fromEntries(COLOR_NAMES.map(name => [name, plan.colors[name].toLowerCase()])),
+    sections: [...plan.sections]
+  };
+}
+
+function resolveToken(value, colors, theme) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/var\(\s*--juzimder-color-(ink|forest|canvas|paper|body|muted|line|accent)\s*,\s*#[0-9a-f]{6}\s*\)/gi,
+      (_match, name) => colors[name.toLowerCase()])
+    .replace(/var\(\s*--juzimder-font-family\s*,\s*[^()]+?\s*\)/gi, theme.fontFamily)
+    .replace(/var\(\s*--juzimder-radius\s*,\s*\d+px\s*\)/gi, theme.radius);
+}
+
+function collectProjectIds(data) {
+  const ids = new Set();
+  const walk = node => {
+    if (!node || typeof node !== 'object') return;
+    const id = node.attributes?.id;
+    if (typeof id === 'string') ids.add(id);
+    if (Array.isArray(node.components)) node.components.forEach(walk);
+  };
+  for (const page of data?.pages || []) for (const frame of page.frames || []) walk(frame.component);
+  return ids;
+}
+
+function prepareComponent(component, colors, sectionIds, anchorIds, theme) {
+  if (!component || typeof component !== 'object' || Array.isArray(component)) throw new TypeError('Библиотека вернула некорректную секцию.');
+  const prepared = structuredClone(component);
+  const walk = node => {
+    if (node.style && typeof node.style === 'object' && !Array.isArray(node.style)) {
+      for (const [property, value] of Object.entries(node.style)) {
+        node.style[property] = resolveToken(value, colors, theme);
+        if (typeof node.style[property] === 'string' && /var\(/i.test(node.style[property])) {
+          throw new TypeError(`Для свойства «${property}» не удалось разрешить тему.`);
+        }
+      }
+    }
+    if (node.attributes && typeof node.attributes === 'object' && !Array.isArray(node.attributes)) {
+      const anchorTargets = { about: 'features', services: 'process', contact: 'cta' };
+      const nodeId = node.attributes.id;
+      if (typeof nodeId === 'string' && anchorIds[nodeId]) node.attributes.id = anchorIds[nodeId];
+      const href = node.attributes.href;
+      const match = typeof href === 'string' && href.match(/^#(about|services|contact)$/);
+      if (match) node.attributes.href = sectionIds.has(anchorTargets[match[1]]) ? `#${anchorIds[match[1]]}` : '#';
+    }
+    if (Array.isArray(node.components)) node.components.forEach(walk);
+  };
+  walk(prepared);
+  return prepared;
+}
+
+export function buildDesignPlanOperations(planInput, blocks, pageId, existingData = {}, themeInput = {}) {
+  const plan = normalizeDesignPlan(planInput);
+  const theme = normalizeDesignTokens(themeInput);
+  if (typeof pageId !== 'string' || !pageId.trim()) throw new TypeError('Не выбрана страница проекта.');
+  if (!Array.isArray(blocks)) throw new TypeError('Библиотека секций недоступна.');
+  const byId = new Map(blocks.map(block => [block.id, block]));
+  const sectionIds = new Set(plan.sections);
+  const existingIds = collectProjectIds(existingData);
+  const reservedIds = new Set(existingIds);
+  const anchorTargets = { about: 'features', services: 'process', contact: 'cta' };
+  const anchorIds = {};
+  for (const [anchor, section] of Object.entries(anchorTargets)) {
+    if (!sectionIds.has(section)) continue;
+    let candidate = anchor;
+    if (reservedIds.has(candidate)) {
+      candidate = `ai-${anchor}`;
+      let suffix = 2;
+      while (reservedIds.has(candidate)) candidate = `ai-${anchor}-${suffix++}`;
+    }
+    anchorIds[anchor] = candidate;
+    reservedIds.add(candidate);
+  }
+  return plan.sections.map(id => {
+    const block = byId.get(id);
+    if (!block || typeof block.content !== 'function') throw new TypeError(`Секция «${id}» отсутствует в библиотеке.`);
+    return {
+      operation: 'create_component',
+      parentId: `page:${pageId}`,
+      component: prepareComponent(block.content(), plan.colors, sectionIds, anchorIds, theme)
+    };
+  });
+}

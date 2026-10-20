@@ -33,9 +33,11 @@
 - [x] Inspector: Hug/Fill для ширины и высоты; min/max ограничения с проверкой единиц и сохранением/reload.
 - [x] Shared palette tokens и пять новых секций (Navigation, Process, Testimonial, FAQ, Footer); все presets проходят backend Project Data validator.
 - [x] Редактируемые глобальные design tokens проекта: восемь цветов, шрифт и скругление; сохраняются в Project Data и применяются к готовым секциям.
-- [ ] Полная библиотека секций и полная keyboard/copy-paste QA.
+- [x] Полная библиотека из десяти структурных секций с редактируемыми примерами.
+- [ ] Полная keyboard/copy-paste QA.
 - [x] Частичный Codex Browser responsive smoke: девять секций на 375/768 px, FAQ также на desktop; Tab и видимый focus ring.
-- [ ] Подтвердить Cmd/Ctrl+C/V в браузере, который передаёт модификаторы; проверить Image preset с тестовым HTTPS-ресурсом.
+- [x] Проверить Image preset с тестовым HTTPS-ресурсом, save и reload.
+- [ ] Подтвердить Cmd/Ctrl+C/V в браузере, который передаёт модификаторы.
 - [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
 - [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
@@ -49,6 +51,7 @@
 ## Phase 5 — AI
 
 - [x] Server OpenRouter abstraction and authenticated non-mutating design-plan endpoint with strict JSON Schema, token cap, timeout/retry, redacted errors and usage metadata.
+- [x] Редактор: disclosure о передаче prompt, статус провайдера, предпросмотр плана и отдельное подтверждение перед добавлением preset-секций typed operations с новой revision.
 - [ ] Intent → plan → structured generation → validate → editable output → revision.
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
 
@@ -69,4 +72,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.005, с рабочим ручным редактором, десятью библиотечными presets, редактируемой проектной темой, design-plan endpoint и начальным typed-operation API. Image preset подтверждён с HTTPS-ресурсом и сохранением/reload; clipboard Cmd/Ctrl+C/V всё ещё NOT RUN, потому что доступный Codex Browser не доставил сочетания к canvas. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — подтвердить clipboard в браузере с поддержкой modifier keys, затем соединить AI plan с preview и typed operations; AI пока не вызывает mutation endpoint. Import API/UI ещё не реализованы; для них описан versioned migration contract.
+**Текущее состояние:** foundation, версия продукта 00.00.006, с рабочим ручным редактором, десятью presets, редактируемой темой, design-plan endpoint и начальным typed-operation API. AI-план имеет disclosure, preview и отдельное подтверждение; выбранные presets добавляются одной server-validated CAS revision, а palette применяется к новым секциям. В изолированном Codex Browser подтверждены UI и состояние «provider не настроен»; live OpenRouter и mutation flow с реальным ответом остаются NOT RUN, потому что серверные credentials отсутствуют. Image preset подтверждён с HTTPS-ресурсом и save/reload; clipboard Cmd/Ctrl+C/V остаётся NOT RUN, так как браузерный мост не передал сочетание canvas. Полные 15 критериев MVP ещё не закрыты. Ближайшие шаги — принять clipboard и провести live OpenRouter + save/reload после настройки credentials. Import API/UI пока не реализованы; versioned migration contract уже описан.
