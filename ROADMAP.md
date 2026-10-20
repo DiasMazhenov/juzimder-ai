@@ -15,6 +15,7 @@
 ## Phase 1–2 — первый вертикальный срез
 
 - [x] PHP API, SQLite schema v1, session auth, CSRF, owner checks.
+- [x] Loopback-only `admin/admin` test login for `npm run serve`; not enabled for public hosting.
 - [x] Dashboard: создать проект и открыть редактор.
 - [x] GrapesJS Core: слои, traits, inspector, секции, pages/devices.
 - [x] Добавить → изменить → сохранить → reload → восстановить.
@@ -28,9 +29,12 @@
 - [x] Базовые структурные Hero/Features/CTA/Text/Image и CSS Flex/Grid controls.
 - [x] Переключение display сохраняет прочие CSS свойства; Undo/Redo Core.
 - [x] Структурная schema v1 согласована с runtime policy; negative/security fixtures и контракт импорта/миграций.
-- [ ] Полная библиотека секций, tokens, Hug/Fill, min/max controls, keyboard/copy-paste QA.
+- [x] Inspector: Hug/Fill для ширины и высоты; min/max ограничения с проверкой единиц и сохранением/reload.
+- [ ] Полная библиотека секций, design tokens и полная keyboard/copy-paste QA.
+- [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
+- [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
 - [ ] Универсальные component operations и расширение schema при добавлении новых типов.
-- [ ] Responsive browser матрица соседних блоков и полноценного mobile authoring.
+- [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
 ## Phase 4 — Zero Canvas
 

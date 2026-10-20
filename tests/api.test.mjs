@@ -4,14 +4,17 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-let server, dir;
+let server, devServer, dir, devDir;
 const base='http://127.0.0.1:18081';
+const devBase='http://127.0.0.1:18082';
 class Client {
+  constructor(url=base){this.url=url;}
   cookie=''; csrf='';
-  async call(path,method='GET',body,token=this.csrf){const r=await fetch(base+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
+  async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
 }
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:{...process.env,JUZIMDER_DB:join(dir,'test.sqlite')},stdio:'ignore'});for(let i=0;i<50;i++){try{await fetch(base+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error('API startup failed');});
-after(async()=>{if(server){server.kill();await new Promise(r=>server.once('exit',r));}if(dir)await rm(dir,{recursive:true,force:true});});
+async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
+before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:{...process.env,JUZIMDER_DB:join(dir,'test.sqlite')},stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...process.env,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
+after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();
 assert.equal((await anon.call('/projects')).status,401);
@@ -48,4 +51,13 @@ assert.equal((await a.call('/logout','POST',{})).status,200);assert.equal((await
 await a.call('/session');assert.equal((await a.call('/login','POST',{email:'one@example.test',password:'wrong-test-password'})).status,401);
 assert.equal((await a.call('/login','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
 assert.equal((await a.call('/projects/'+p.id)).data.version,3);
+});
+
+test('admin/admin is available only with loopback development auth enabled',async()=>{
+const regular=new Client(),dev=new Client(devBase),secondDev=new Client(devBase);
+await regular.call('/session');assert.equal((await regular.call('/login','POST',{email:'admin',password:'admin'})).status,422);
+const session=await dev.call('/session');assert.equal(session.data.devAuth,true);
+const login=await dev.call('/login','POST',{email:'admin',password:'admin'});assert.equal(login.status,200);assert.equal(login.data.user.email,'admin@localhost.test');
+assert.equal((await dev.call('/projects')).status,200);assert.deepEqual((await dev.call('/projects')).data,[]);
+await secondDev.call('/session');assert.equal((await secondDev.call('/login','POST',{email:'admin',password:'admin'})).status,200,'the seeded local account persists in SQLite');
 });

@@ -6,6 +6,7 @@ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: 
 ini_set('session.use_strict_mode','1');
 session_name('juzimder_session'); session_set_cookie_params(['httponly'=>true,'samesite'=>'Strict','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off','path'=>'/']); session_start();
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
+$devAuth = getenv('JUZIMDER_DEV_AUTH') === '1' && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1'], true);
 function result(mixed $data,int $status=200): never { http_response_code($status); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR); exit; }
 try {
     $store = new Store(getenv('JUZIMDER_DB') ?: __DIR__.'/../var/app.sqlite');
@@ -19,10 +20,14 @@ try {
         if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
         $body = get_object_vars($decodedBody);
     }
-    if ($path === '/api/session' && $method === 'GET') result(['user'=>$_SESSION['user'] ?? null,'csrf'=>$_SESSION['csrf']]);
+    if ($path === '/api/session' && $method === 'GET') result(['user'=>$_SESSION['user'] ?? null,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth]);
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {
-        $email = strtolower(trim(is_string($body['email'] ?? null) ? $body['email'] : '')); $password = $body['password'] ?? '';
-        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || !is_string($password) || strlen($password)<12 || strlen($password)>72) throw new Problem(422,'Укажите email и пароль от 12 до 72 байт.');
+        $identity = strtolower(trim(is_string($body['email'] ?? null) ? $body['email'] : ''));
+        $devAdminLogin = $devAuth && $path === '/api/login' && $identity === 'admin';
+        $email = $devAdminLogin ? 'admin@localhost.test' : $identity;
+        $password = $body['password'] ?? '';
+        $validPassword = is_string($password) && strlen($password)<=72 && ($devAdminLogin ? strlen($password)>=1 : strlen($password)>=12);
+        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || !$validPassword) throw new Problem(422,'Укажите email и пароль от 12 до 72 байт.');
         $ip = $_SERVER['REMOTE_ADDR']; $now = time();
         $store->query('DELETE FROM auth_attempts WHERE started_at < ?',[$now-900]);
         $attempt = $store->query('SELECT attempts FROM auth_attempts WHERE ip=?',[$ip])->fetchColumn();
@@ -32,7 +37,14 @@ try {
         if ($path === '/api/register') {
             if ($user) throw new Problem(422,'Не удалось зарегистрироваться с этим email.');
             $id = bin2hex(random_bytes(12)); $store->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',[$id,$email,password_hash($password,PASSWORD_DEFAULT)]); $user = ['id'=>$id,'email'=>$email];
-        } elseif (!$user || !password_verify($password,$user['password_hash'])) { throw new Problem(401,'Неверный email или пароль.'); }
+        } else {
+            if (!$user && $devAdminLogin && $password === 'admin') {
+                $id = bin2hex(random_bytes(12));
+                $store->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',[$id,$email,password_hash('admin',PASSWORD_DEFAULT)]);
+                $user = $store->query('SELECT * FROM users WHERE email=?',[$email])->fetch();
+            }
+            if (!$user || !password_verify($password,$user['password_hash'])) throw new Problem(401,'Неверный email или пароль.');
+        }
         session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
     }
     $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,'Войдите в аккаунт.');

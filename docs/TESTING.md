@@ -32,8 +32,31 @@ PNG: `docs/evidence/revision-history-restore.jpg`.
 
 В процессе выявлены init race при page events и head/main schema compatibility; исправлены. Реальный Core fixture добавлен в tests. Скриншоты просмотрены: тёмные компактные панели, светлый canvas, нейтральный зелёный accent; mobile hero не имеет видимого overflow. Часть inspector ниже fold имеет собственный scroll.
 
+## Codex Browser: responsive authoring и клавиатура
+
+На основном локальном приложении `http://127.0.0.1:8080` создан синтетический QA аккаунт и отдельный проект «QA — mobile authoring»; они остались в локальной SQLite. Проверка выполнена на production build, без mock API.
+
+- Viewport 320×740 и 390×844: холст, библиотека и инспектор доступны через панели «Холст», «Секции», «Свойства»; добавление Text из библиотеки открывает свойства выбранного блока. Пустое состояние холста отображается поверх frame; горизонтального overflow нет.
+- Viewport 768×1024: панель свойств доступна и прокручивается; горизонтального overflow нет.
+- Viewport 1280×800: сохранён трёхколоночный редактор с библиотекой, холстом и инспектором.
+- Meta+Z отменил добавление Text, Meta+Shift+Z вернул его, Meta+S показал «Сохранено · ревизия 5». Meta+Z при фокусе в textarea не отменил компонент.
+
+После проверки временная Hero-секция была удалена восстановлением ревизии 6; создалась новая ревизия 9, история сохранена. Эти проверки подтверждают панельный мобильный workflow в браузерном viewport, не реальное устройство, touch-жесты, все комбинации блоков или полную a11y/copy-paste матрицу.
+
+## Локальная авторизация admin/admin
+
+`npm run serve` запускает PHP только на `127.0.0.1` и включает `JUZIMDER_DEV_AUTH=1`. В Codex Browser вход `admin/admin` подтвердил открытие dashboard; после полной перезагрузки сессия сохранилась. Автотест проверяет тот же вход на отдельной временной SQLite, повторный login после создания пользователя и отказ от коротких credentials без dev-флага. Аккаунт `admin@localhost.test` в рабочей `var/app.sqlite` создан как обычный пользователь, не admin-role; он пока не владеет проектами. Два существовавших QA-проекта остались у прежних владельцев.
+
+Screenshot: `docs/evidence/admin-login-success.jpg`.
+
+## Codex Browser: Hug/Fill и min/max
+
+В изолированной QA SQLite на временном loopback-сервере проверены режимы ширины Auto/Hug/Fill и высоты Hug/Fill. Min/max для Hero (360px, 880px, 480px, 720px) применились, сохранились как CSS в Project Data и вернулись в инспектор после полной перезагрузки и повторного открытия проекта. Отдельно после reload подтверждён Fill 100% по ширине и высоте, затем QA-проект возвращён к Hug. Некорректное значение `inherit` отклонено без новой ревизии. Тестовая БД и сервер использовались только для этой проверки.
+
+Screenshot: `docs/evidence/phase3-sizing-controls.jpg`.
+
 ## Не проверено / не реализовано
 
-Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, AI provider/MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, narrow viewport authoring, полная keyboard/a11y матрица, pixel-perfect responsive inspection всех блоков, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
+Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, AI provider/MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix всех блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
