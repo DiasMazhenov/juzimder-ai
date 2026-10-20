@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
+require_once __DIR__ . '/Operations.php';
 use Juzimder\{Store, Problem};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -70,6 +71,14 @@ try {
         } catch (Juzimder\AiProviderFailure) {
             throw new Problem(502,'AI-провайдер временно недоступен. Проект не изменён.');
         }
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/operations$~D', $path, $operationMatch) && $method === 'POST') {
+        if (array_diff(array_keys($body), ['version','operations']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Укажите текущую версию и список операций.');
+        $projectId = $operationMatch[1];
+        $project = $store->owned($projectId, $user);
+        if ($project['version'] !== $body['version']) throw new Problem(409,'Версия проекта изменилась. Загрузите актуальную версию перед применением операций.');
+        $updatedDocument = Juzimder\ProjectOperations::apply($project['document'], $body['operations'] ?? null);
+        result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
     if ($path === '/api/logout' && $method === 'POST') { $_SESSION=[]; session_destroy(); result(['ok'=>true]); }
     if ($path === '/api/projects') {

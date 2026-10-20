@@ -37,7 +37,8 @@
 - [ ] Подтвердить Cmd/Ctrl+C/V в браузере, который передаёт модификаторы; проверить Image preset с тестовым HTTPS-ресурсом.
 - [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
-- [ ] Универсальные component operations и расширение schema при добавлении новых типов.
+- [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
+- [ ] Универсальные component operations, duplicate с безопасным remap ссылок/styles и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
 ## Phase 4 — Zero Canvas
@@ -67,4 +68,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.003, с рабочим ручным редактором, десятью библиотечными presets, редактируемой проектной темой и первым server-side AI plan endpoint. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — завершить clipboard и Image acceptance, затем связать AI plan с preview и typed component operations; ни один AI-ответ пока не применяет изменения к проекту. Import API/UI ещё не реализованы; для них описан versioned migration contract.
+**Текущее состояние:** foundation, версия продукта 00.00.004, с рабочим ручным редактором, десятью библиотечными presets, редактируемой проектной темой, design-plan endpoint и начальным typed-operation API. Image preset подтверждён с HTTPS-ресурсом и сохранением/reload; clipboard Cmd/Ctrl+C/V всё ещё NOT RUN, потому что доступный Codex Browser не доставил сочетания к canvas. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — подтвердить clipboard в браузере с поддержкой modifier keys, затем соединить AI plan с preview и typed operations; AI пока не вызывает mutation endpoint. Import API/UI ещё не реализованы; для них описан versioned migration contract.

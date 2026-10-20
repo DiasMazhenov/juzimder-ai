@@ -4,15 +4,15 @@
 
 `npm run build`: PASS, Vite 8.3.4. Lazy Core chunk ~1.10 МБ raw/291 КБ gzip; остаётся предупреждение chunk>500KB. Dashboard JS отдельно ~22КБ raw. Build не включает Playwright.
 
-`php -l backend/Domain.php`, `php -l backend/api.php`, `php -l public/router.php`: PASS.
+`php -l backend/Domain.php`, `php -l backend/Ai.php`, `php -l backend/Operations.php`, `php -l backend/api.php`, `php -l public/router.php`: PASS.
 
-`npm test`: domain assertions + один составной HTTP integration scenario (не выдаём его за десятки независимых tests). Проверяются migration v1, create, tenant 404, полный round trip с metadata/responsive CSS и CSS custom properties темы, ревизии/CAS conflict без лишней записи, запрет script/iframe/event/javascript URL/HTML payload/CSS url/custom-code, неверная schema/tree, disk reopen. Реальный Core 0.23.8 browser fixture включён в regression validation. Отдельные Node tests проверяют нормализацию токенов, fallback для повреждённых сохранённых значений, миграцию старых значений и использование токенов всеми presets. `tests/ai.php` отдельно проверяет OpenRouter request envelope, secret redaction, output cap, timeout, один bounded retry, usage/cost metadata и strict validation результата без реального network call.
+`npm test`: domain assertions, focused typed-operation PHP tests и составной HTTP integration scenario. Проверяются migration v1, create, tenant 404, полный round trip с metadata/responsive CSS и CSS custom properties темы, ревизии/CAS conflict без лишней записи, запрет script/iframe/event/javascript URL/HTML payload/CSS url/custom-code, неверная schema/tree и disk reopen. Реальный Core 0.23.8 browser fixture включён в regression validation. Node tests проверяют нормализацию токенов, fallback для повреждённых сохранённых значений, миграцию старых значений и использование токенов всеми presets. `tests/ai.php` проверяет OpenRouter request envelope, secret redaction, output cap, timeout, bounded retry, usage/cost metadata и strict validation результата без real network call. `tests/operations.php` покрывает stable IDs, create/update/delete/move/reorder, allowlists, cycle rejection и abort всей пачки при ошибке.
 
 HTTP scenario: anonymous 401, bad CSRF 403, register/session, create, чужой list/read/write, save/get equality, stale 409, invalid 422, revision list/restore (новая версия, сохранение истории, stale/foreign/missing target), logout, bad login, повторный вход и сохранённая версия. Используется временная SQLite и отдельный localhost:18081, удаляемые после теста. В sandbox, запрещающем binding порта, тест требует разрешения loopback; первоначальный запуск был блокирован средой, повторный с разрешением прошёл.
 
 `npm install` сообщил 0 vulnerabilities для установленного дерева. Это не полный vulnerability/SBOM review и не аудит bundled PHP-GrapesJS.
 
-AI API integration tests проверяют авторизацию `GET /ai/status`, CSRF и authentication для plan request, пустой/слишком длинный prompt, отключённый endpoint без серверных credentials и отсутствие создания/изменения проектов. В test server OpenRouter variables принудительно пустые; provider не вызывается.
+AI API integration tests проверяют авторизацию `GET /ai/status`, CSRF и authentication для plan request, пустой/слишком длинный prompt, отключённый endpoint без серверных credentials и отсутствие создания/изменения проектов. Typed-operation integration проверяет owner, CSRF, expected version, создание component IDs, сохранение revisions и отсутствие записи при невалидных операциях. В test server OpenRouter variables принудительно пустые; provider не вызывается.
 
 ## Codex Browser: выполнено через UI
 
@@ -82,9 +82,15 @@ Codex Browser, отдельная копия приложения с време�
 
 Реального OpenRouter вызова не было: `OPENROUTER_API_KEY` и `OPENROUTER_MODEL` в процессе не настроены. Браузерный интерфейс, согласие на передачу prompt, реальная стоимость и AI-операции над Project Data пока не существуют.
 
+## Typed operations · версия продукта 00.00.004
+
+`tests/operations.php` проверяет чистое преобразование документов, create с серверными stable IDs, update content/styles/layout, delete с явным `confirm`, move/reorder, неизвестные поля/свойства, unsafe CSS, циклы, лимит пачки и отказ без изменения входного документа. HTTP integration на временной SQLite проверяет создание секции и ID, targeted content update, stale 409, owner 404, удаление только с подтверждающим флагом, новую revision на успехе и сохранение исходной версии при ошибке. AI и UI этот endpoint ещё не вызывают.
+
+Codex Browser на UI build версии 00.00.003 (Image UI в 00.00.004 не менялся): в отдельном `.localhost` origin и отдельной временной SQLite Image preset с `https://placehold.co/1200x700/png` отрендерил изображение, сохранил alt/src в revision 1 и восстановил его после reload/reopen. На 375 px видимого горизонтального overflow нет. Это один проверенный mobile width, не полная responsive matrix. Cmd/Ctrl+C/V на выбранной Hero в том же изолированном проекте не вызвали копирование/вставку через доступный Codex Browser; clipboard acceptance остаётся NOT RUN, системный clipboard не читался.
+
 ## Не проверено / не реализовано
 
-Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, live OpenRouter call, AI UI/consent/project mutation/revision, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, responsive-проверка Image preset, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
+Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, live OpenRouter call, AI UI/consent/preview/project mutation/revision, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix Image и соседних блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
 

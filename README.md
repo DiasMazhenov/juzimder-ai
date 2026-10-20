@@ -2,11 +2,11 @@
 
 From idea to website. Платформа визуального создания сайтов на базе **GrapesJS Core**. Собственная оболочка редактора, PHP API и переносимое состояние проекта. Самостоятельный продукт, не официальный продукт GrapesJS.
 
-**Версия продукта: 00.00.003 · Статус: foundation.** Первый вертикальный срез работает; полноценный MVP с AI и публикацией ещё не готов. npm-поле `version` сохраняет SemVer-формат (`0.1.3`), а `productVersion` задаёт номер продукта.
+**Версия продукта: 00.00.004 · Статус: foundation.** Первый вертикальный срез работает; полноценный MVP с AI и публикацией ещё не готов. npm-поле `version` сохраняет SemVer-формат (`0.1.4`), а `productVersion` задаёт номер продукта.
 
 Реализовано: локальная регистрация/вход, проекты с проверкой владельца, несколько страниц, десять структурных секций, глобальная тема проекта (восемь цветов, шрифт и скругление), слои и инспектор стилей/свойств, Flex/Grid, desktop/tablet/mobile canvas, Undo/Redo, sandbox preview, debounce-автосохранение, история до 200 ревизий с безопасным восстановлением, защита от конфликта версий и JSON export.
 
-AI foundation: серверный OpenRouter adapter и authenticated design-plan endpoint. Endpoint возвращает план по строгой схеме и не меняет проект. AI Chat, генерация компонентов и точечные AI-изменения ещё не подключены к редактору; для реального вызова серверу нужны `OPENROUTER_API_KEY` и `OPENROUTER_MODEL`. Также не реализованы MCP, Zero Canvas, upload/media storage, static publication/ZIP, custom domains и templates marketplace.
+AI foundation: серверный OpenRouter adapter и authenticated design-plan endpoint. Отдельный authenticated `POST /api/projects/{id}/operations` принимает ограниченный список typed operations (`create`, `update_content`, `update_styles`, `update_layout`, `delete`, `move`, `reorder`) и сохраняет каждое успешное применение новой CAS-ревизией. Удаление требует `confirm: true`; создание назначает стабильные component IDs. Эти API пока не подключены к AI Chat или редактору. Для реального вызова OpenRouter серверу нужны `OPENROUTER_API_KEY` и `OPENROUTER_MODEL`. Также не реализованы MCP, Zero Canvas, upload/media storage, static publication/ZIP, custom domains и templates marketplace.
 
 ## Локальный запуск
 
