@@ -60,3 +60,8 @@ Screenshot: `docs/evidence/phase3-sizing-controls.jpg`.
 Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, AI provider/MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix всех блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
+
+
+## Библиотека секций · версия продукта 00.00.001
+
+`node --test tests/blocks.test.mjs`: проверяет уникальные id и метаданные десяти presets, свежий объект для каждой вставки, разрешение внутренних ссылок и принятие всей библиотеки серверным `Document::validate` по Project Data v1. Codex Browser: все пять новых блоков вставлены в отдельный локальный проект, autosave сохранил ревизию 2, повторное открытие восстановило их. На desktop проверены навигация и карточки этапов; на viewport 390×844 canvas шириной 375px, внешний документ не переполняет экран (390/390). QA выполнялась на копии backend с отдельным именем session cookie и временной SQLite; пользовательская сессия/БД не менялись.

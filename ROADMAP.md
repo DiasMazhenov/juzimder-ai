@@ -30,6 +30,7 @@
 - [x] Переключение display сохраняет прочие CSS свойства; Undo/Redo Core.
 - [x] Структурная schema v1 согласована с runtime policy; negative/security fixtures и контракт импорта/миграций.
 - [x] Inspector: Hug/Fill для ширины и высоты; min/max ограничения с проверкой единиц и сохранением/reload.
+- [x] Shared palette tokens и пять новых секций (Navigation, Process, Testimonial, FAQ, Footer); все presets проходят backend Project Data validator.
 - [ ] Полная библиотека секций, design tokens и полная keyboard/copy-paste QA.
 - [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
@@ -63,4 +64,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation с рабочим ручным редактором. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — расширить библиотеку и пройти responsive/accessibility QA перед интеграцией AI. Import API/UI ещё не реализованы; для них описан versioned migration contract.
+**Текущее состояние:** foundation, версия продукта 00.00.001, с рабочим ручным редактором и десятью библиотечными presets. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — редактируемые глобальные design tokens, полная keyboard/copy-paste и responsive/accessibility QA перед интеграцией AI. Import API/UI ещё не реализованы; для них описан versioned migration contract.
