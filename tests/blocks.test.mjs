@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { blocks } from '../src/blocks.js';
+import { DEFAULT_DESIGN_TOKENS, designTokensToStyle } from '../src/design-tokens.js';
 
 test('section library has unique ids and complete labels', () => {
   const ids = blocks.map(block => block.id);
@@ -39,7 +40,7 @@ test('all section presets pass the authoritative PHP Project Data validator', ()
       pages: [{
         id: 'home',
         name: 'Главная',
-        frames: [{ component: { type: 'wrapper', components: blocks.map(block => block.content()) } }]
+        frames: [{ component: { type: 'wrapper', style: designTokensToStyle(DEFAULT_DESIGN_TOKENS), components: blocks.map(block => block.content()) } }]
       }]
     }
   };
@@ -49,4 +50,18 @@ test('all section presets pass the authoritative PHP Project Data validator', ()
     env: { ...process.env, JUZIMDER_DOMAIN_PATH: fileURLToPath(new URL('../backend/Domain.php', import.meta.url)) }
   });
   assert.equal(validation.status, 0, validation.stderr || validation.stdout || 'PHP validator rejected the section library');
+});
+
+test('new section presets use editable global tokens for shared colors, typography and radius', () => {
+  const cssValues = [];
+  const visit = value => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== 'object') return;
+    for (const entry of Object.values(value.style || {})) cssValues.push(entry);
+    Object.values(value).forEach(visit);
+  };
+  blocks.forEach(block => visit(block.content()));
+  assert.ok(cssValues.some(value => String(value).includes('--juzimder-color-ink')));
+  assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-family')));
+  assert.ok(cssValues.some(value => String(value).includes('--juzimder-radius')));
 });

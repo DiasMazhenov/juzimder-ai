@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 20.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . В начале папка не содержала файлов/Git, git ls-remote не вернул refs. Репозиторий ведётся в main; ветка отслеживает origin/main. Последняя опубликованная версия продукта: 00.00.001 (npm SemVer 0.1.1).
+Обновлено 20.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . В начале папка не содержала файлов/Git, git ls-remote не вернул refs. Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.002 (npm SemVer 0.1.2).
 
 ## Принятые решения
 
@@ -28,6 +28,8 @@ Browser QA исправил init page event race и учёл служебный 
 
 Версия продукта 00.00.001: добавлены Navigation, Process, Testimonial, FAQ и Footer; в изолированной БД все секции вставились, автосохранились и восстановились после reload. На viewport 390×844 ширина canvas 375px, внешнего горизонтального переполнения нет. Проверки и детали в docs/TESTING.md.
 
+Версия продукта 00.00.002: добавлена панель проектной темы с восемью цветовыми токенами, выбором шрифта и радиуса карточек. Значения хранятся в стилях wrapper каждой страницы, пресеты используют CSS variables с безопасными fallback-цветами, а стандартные значения старых секций мигрируют при применении темы. Проверено в Codex Browser на изолированной временной SQLite: тема применилась к ранее добавленному Hero, новой секции FAQ на второй странице, автосохранилась в ревизии 5 и восстановилась после возврата в dashboard и повторного открытия проекта. Подробности в docs/TESTING.md.
+
 ## Ограничения / риски
 
 Не готовый SaaS: нет email verification/recovery, срока бездействия session, production deployment, managed assets/upload, backup restore drill. Небольшой DB schema v1 auto-bootstrap, нет полноценного migration runner v2. SQLite для одного сервера, нагрузка не измерена. Core lazy chunk около 1.10 МБ raw / 291 КБ gzip; Vite предупреждает о размере. Свободный пользовательский JS/embed/CSS url запрещены. Панельный мобильный workflow проверен в браузерном viewport 390×844 и 768×1024; touch на реальном устройстве, полный responsive matrix блоков, clipboard и полная keyboard/a11y матрица ещё не приняты.
@@ -37,6 +39,6 @@ AI/OpenRouter, MCP, Zero Canvas, advanced Auto Layout, publication/ZIP, custom d
 ## Следующие задачи
 
 1. Реализовано: schema/policy v1, негативные security fixtures и явный import/migration contract. Импорт JSON UI/API пока не реализован.
-2. Реализованы Hug/Fill и min/max, общая палитра section presets, а также Navigation, Process, Testimonial, FAQ и Footer. Дальше — user-editable design tokens, полная keyboard/copy-paste QA и responsive-визуальная матрица соседних блоков.
+2. Реализованы Hug/Fill и min/max, десять секций и редактируемые global design tokens. Далее — полная keyboard/copy-paste QA и responsive-визуальная матрица соседних блоков перед интеграцией AI.
 3. Реальный OpenRouter provider на сервере, pipeline и targeted ops, тесты ошибок без записи.
 4. Static export/publication на отдельном origin и managed assets; затем scoped MCP transport с закрытым редактором. Подробный порядок в ROADMAP.md.

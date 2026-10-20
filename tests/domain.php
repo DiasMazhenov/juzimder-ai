@@ -14,7 +14,7 @@ Document::validate(json_decode(file_get_contents(__DIR__.'/grapesjs-0.23.8.fixtu
 check(true,'Real GrapesJS 0.23.8 fixture');
 $invalidFixtures=json_decode(file_get_contents(__DIR__.'/fixtures/invalid-documents.json'),false,64,JSON_THROW_ON_ERROR);
 foreach($invalidFixtures as $fixture) rejects(fn()=>Document::validate($fixture->document),422,$fixture->case);
-$d=Document::empty();$d['data']['pages'][0]['frames'][0]['component']['components']=[['type'=>'text','tagName'=>'h1','content'=>'Persistent heading','attributes'=>['id'=>'heading-stable'],'ai'=>['origin'=>'manual']]];
+$d=Document::empty();$d['data']['pages'][0]['frames'][0]['component']['style']=['--juzimder-color-ink'=>'#102030','--juzimder-radius'=>'12px'];$d['data']['pages'][0]['frames'][0]['component']['components']=[['type'=>'text','tagName'=>'h1','content'=>'Persistent heading','attributes'=>['id'=>'heading-stable'],'ai'=>['origin'=>'manual']]];
 $d['data']['styles']=[['selectors'=>['heading-stable'],'style'=>['font-size'=>'32px'],'mediaText'=>'(max-width: 576px)']];
 $r=$s->save($id,'a',0,$d);check(sameJson($r['document'],$d),'Lossless project round trip');check($r['version']===1,'Version increment');rejects(fn()=>$s->save($id,'a',0,$d),409);
 check((int)$s->query('SELECT COUNT(*) FROM revisions')->fetchColumn()===1,'Conflict creates no revision');

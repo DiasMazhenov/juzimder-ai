@@ -6,7 +6,7 @@
 
 `php -l backend/Domain.php`, `php -l backend/api.php`, `php -l public/router.php`: PASS.
 
-`npm test`: domain assertions + один составной HTTP integration scenario (не выдаём его за десятки независимых tests). Проверяются migration v1, create, tenant 404, полный round trip с metadata/responsive CSS, ревизии/CAS conflict без лишней записи, запрет script/iframe/event/javascript URL/HTML payload/CSS url/custom-code, неверная schema/tree, disk reopen. Реальный Core 0.23.8 browser fixture включён в regression validation.
+`npm test`: domain assertions + один составной HTTP integration scenario (не выдаём его за десятки независимых tests). Проверяются migration v1, create, tenant 404, полный round trip с metadata/responsive CSS и CSS custom properties темы, ревизии/CAS conflict без лишней записи, запрет script/iframe/event/javascript URL/HTML payload/CSS url/custom-code, неверная schema/tree, disk reopen. Реальный Core 0.23.8 browser fixture включён в regression validation. Отдельные Node tests проверяют нормализацию токенов, fallback для повреждённых сохранённых значений, миграцию старых значений и использование токенов всеми presets.
 
 HTTP scenario: anonymous 401, bad CSRF 403, register/session, create, чужой list/read/write, save/get equality, stale 409, invalid 422, revision list/restore (новая версия, сохранение истории, stale/foreign/missing target), logout, bad login, повторный вход и сохранённая версия. Используется временная SQLite и отдельный localhost:18081, удаляемые после теста. В sandbox, запрещающем binding порта, тест требует разрешения loopback; первоначальный запуск был блокирован средой, повторный с разрешением прошёл.
 
@@ -54,6 +54,14 @@ Screenshot: `docs/evidence/admin-login-success.jpg`.
 В изолированной QA SQLite на временном loopback-сервере проверены режимы ширины Auto/Hug/Fill и высоты Hug/Fill. Min/max для Hero (360px, 880px, 480px, 720px) применились, сохранились как CSS в Project Data и вернулись в инспектор после полной перезагрузки и повторного открытия проекта. Отдельно после reload подтверждён Fill 100% по ширине и высоте, затем QA-проект возвращён к Hug. Некорректное значение `inherit` отклонено без новой ревизии. Тестовая БД и сервер использовались только для этой проверки.
 
 Screenshot: `docs/evidence/phase3-sizing-controls.jpg`.
+
+## Проектная тема · версия продукта 00.00.002
+
+`node --test tests/design-tokens.test.mjs` проверяет восемь цветов, список шрифтов, границу радиуса 0–32 px, чтение/запись CSS variables и замену стандартных значений старых presets. `tests/blocks.test.mjs` подтверждает, что десять presets используют общие токены и что готовая библиотека вместе с переменными темы проходит backend `Document::validate`.
+
+Codex Browser, отдельная копия приложения с временной SQLite и отдельной session cookie: применены новая палитра, Georgia и 12 px к уже вставленному Hero; добавлена Features-секция; создана вторая страница и вставлен FAQ. Автосохранение дошло до ревизии 5. После выхода в dashboard и повторного открытия проекта контролы показали те же значения темы. Desktop viewport 1280×720: Hero и FAQ отрисовали новую типографику, цвета и границы. Пользовательская база и сессия не использовались.
+
+Полная матрица тем на всех соседних секциях и мобильных viewport пока остаётся следующим QA-этапом.
 
 ## Не проверено / не реализовано
 
