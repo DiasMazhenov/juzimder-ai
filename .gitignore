@@ -1,0 +1,7 @@
+node_modules/
+public/assets/
+public/index.html
+var/
+.env
+*.log
+.DS_Store
