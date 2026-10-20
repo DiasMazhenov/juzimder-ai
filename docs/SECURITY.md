@@ -1,0 +1,13 @@
+# Безопасность первого среза
+
+Статус: локальная foundation, не проверенный публичный SaaS. Все запросы к проекту проверяют session и owner. IDs случайные, но это не замена authorization. PDO prepared statements, CSRF header + SameSite Strict/HttpOnly cookies, session rotation после входа, password_hash/password_verify, лимит попыток auth 15/15 минут по REMOTE_ADDR. DB и backend вне public. Ошибки не возвращают SQL, credentials или stack traces. Логи содержат только класс исключения.
+
+Модель документа валидируется до записи: schemaVersion, pages/frames, структура components, типы/теги, запрет scripts и event attributes, ограниченные URI, rich text и CSS. Политика нарочно ограничивает MVP: произвольные embed/forms/scripts/custom plugins/CSS url() пока не поддерживаются. JSON Schema описывает структуру, PHP validator применяет security policy. Это не универсальный HTML sanitizer. До публичного запуска нужен специализированный sanitizer/parser review, fuzz/mutation tests, ограничения asset fetch и threat model для editor origin.
+
+Preview запускается в iframe sandbox без allow-scripts/allow-same-origin. allowScripts=false в Core. CSP административной страницы: self scripts, inline styles для editor, HTTPS images, object-src none/base-uri none/frame-ancestors none. Не используем пользовательский HTML как серверный PHP. Upload endpoint отсутствует: изображения добавляются по HTTPS URL. Удалённые изображения раскрывают IP посетителя image host; proxy/cache и managed assets ещё не реализованы.
+
+CAS version защищает от silent overwrite, revision INSERT и save атомарны. Ввод с неизвестным типом или ошибкой не сохраняется. При 409 текущий редактор остаётся открыт, доступен export JSON; merge и force overwrite отсутствуют.
+
+До публичного deployment: HTTPS, явная session idle/absolute expiry, email verification/recovery, account lifecycle, distributed rate limiting/quotas, резервное копирование с restore drill, dependency/SBOM и license review, доступ к var только PHP user, проверка reverse-proxy HTTPS detection. Сейчас TLS берётся из $_SERVER['HTTPS']; forwarded headers не доверяются. SQLite — один сервер с локальным диском; масштабирование не заявлено. Нельзя размещать repo root как document root. .env не загружается автоматически.
+
+Модель угроз: браузер/AI/MCP — недоверенные клиенты. Будущие операции используют один application-service и policy. AI ключи только на сервере, encryption key из окружения, никогда не в Project Data/logs. Сейчас AI/MCP не реализованы, endpoints отсутствуют. Публикация требует отдельного origin: user output не должен исполняться на origin админки.
