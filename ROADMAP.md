@@ -46,7 +46,7 @@
 
 ## Phase 5 — AI
 
-- [ ] Server OpenRouter abstraction, limits/timeout/retry/cost/error handling.
+- [x] Server OpenRouter abstraction and authenticated non-mutating design-plan endpoint with strict JSON Schema, token cap, timeout/retry, redacted errors and usage metadata.
 - [ ] Intent → plan → structured generation → validate → editable output → revision.
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
 
@@ -67,4 +67,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.002, с рабочим ручным редактором, десятью библиотечными presets и редактируемой проектной темой. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — завершить clipboard и Image acceptance, затем продолжить полную keyboard/accessibility QA перед интеграцией AI. Import API/UI ещё не реализованы; для них описан versioned migration contract.
+**Текущее состояние:** foundation, версия продукта 00.00.003, с рабочим ручным редактором, десятью библиотечными presets, редактируемой проектной темой и первым server-side AI plan endpoint. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — завершить clipboard и Image acceptance, затем связать AI plan с preview и typed component operations; ни один AI-ответ пока не применяет изменения к проекту. Import API/UI ещё не реализованы; для них описан versioned migration contract.

@@ -13,13 +13,21 @@ class Client {
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
 }
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:{...process.env,JUZIMDER_DB:join(dir,'test.sqlite')},stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...process.env,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
+before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));const testEnv={...process.env,JUZIMDER_DB:join(dir,'test.sqlite'),OPENROUTER_API_KEY:'',OPENROUTER_MODEL:''};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();
 assert.equal((await anon.call('/projects')).status,401);
+await anon.call('/session');assert.equal((await anon.call('/ai/status')).status,401,'AI status requires an authenticated user');
 await a.call('/session');assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'} ,'bad')).status,403);
 assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
+assert.deepEqual((await a.call('/ai/status')).data,{provider:'openrouter',configured:false,model:null});
+assert.equal((await a.call('/ai/design-plan','POST',{prompt:'Создай сайт клиники'},'bad')).status,403,'AI planning requires a valid CSRF token');
+assert.equal((await anon.call('/ai/design-plan','POST',{prompt:'Создай сайт клиники'})).status,401,'AI planning requires an authenticated user');
+assert.equal((await a.call('/ai/design-plan','POST',{prompt:'   '})).status,422,'AI planning rejects empty prompts');
+assert.equal((await a.call('/ai/design-plan','POST',{prompt:'x'.repeat(4001)})).status,422,'AI planning enforces its prompt limit');
+assert.equal((await a.call('/ai/design-plan','POST',{prompt:'Создай сайт клиники'})).status,503,'AI planning stays disabled without server credentials');
+assert.deepEqual((await a.call('/projects')).data,[],'AI planning does not create or mutate projects');
 const created=await a.call('/projects','POST',{name:'API workspace'});assert.equal(created.status,201);const p=created.data;
 await b.call('/session');await b.call('/register','POST',{email:'two@example.test',password:'another-test-password'});
 assert.deepEqual((await b.call('/projects')).data,[]);assert.equal((await b.call('/projects/'+p.id)).status,404);

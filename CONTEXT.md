@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . В начале папка не содержала файлов/Git, git ls-remote не вернул refs. Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.002 (npm SemVer 0.1.2).
+Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . В начале папка не содержала файлов/Git, git ls-remote не вернул refs. Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.003 (npm SemVer 0.1.3).
 
 ## Принятые решения
 
@@ -32,11 +32,13 @@ Browser QA исправил init page event race и учёл служебный 
 
 21.10.2026: в изолированном браузерном проекте проверены 9 из 10 секций в mobile 375 px и tablet 768 px; desktop отдельно проверен на FAQ. Горизонтального переполнения нет. Tab-навигация и видимый фокус работают. Полная clipboard проверка и Image preset остаются открытыми; Codex Browser в этой сессии не передал флаги Cmd/Ctrl для copy/paste. Подробности и точные пределы проверки — docs/TESTING.md.
 
+Версия продукта 00.00.003: добавлен backend OpenRouter adapter и authenticated `POST /api/ai/design-plan` с фиксированной строгой JSON Schema, server-side secret, лимитом 1200 output tokens, timeout, ограниченным retry, redacted errors и usage/cost metadata. Endpoint только возвращает валидированный design plan, не меняя документ и revisions. `GET /api/ai/status` не раскрывает ключ. Реальный OpenRouter вызов не делался; UI, AI component operations, generation и save revision ещё не реализованы. Подробности: docs/AI_ENGINE.md, docs/TESTING.md.
+
 ## Ограничения / риски
 
 Не готовый SaaS: нет email verification/recovery, срока бездействия session, production deployment, managed assets/upload, backup restore drill. Небольшой DB schema v1 auto-bootstrap, нет полноценного migration runner v2. SQLite для одного сервера, нагрузка не измерена. Core lazy chunk около 1.10 МБ raw / 291 КБ gzip; Vite предупреждает о размере. Свободный пользовательский JS/embed/CSS url запрещены. Панельный мобильный workflow проверен в браузерном viewport 390×844 и 768×1024. Дополнительная частичная responsive matrix: 9/10 секций на mobile 375 px и tablet 768 px, FAQ также на desktop; Image, touch на реальном устройстве, clipboard и полная keyboard/a11y матрица ещё не приняты.
 
-AI/OpenRouter, MCP, Zero Canvas, advanced Auto Layout, publication/ZIP, custom domains ещё НЕ реализованы. JSON export не static export. Не называть весь MVP завершённым. Полный SBOM/CVE audit upstream не выполнен, audit статический, без exploit proof.
+AI chat, генерация/редактирование компонентов и сохранение AI revisions, MCP, Zero Canvas, advanced Auto Layout, publication/ZIP и custom domains ещё НЕ реализованы. Есть только OpenRouter design-plan API foundation; без ключа API остаётся не настроенным, реальный provider не проверен. JSON export не static export. Не называть весь MVP завершённым. Полный SBOM/CVE audit upstream не выполнен, audit статический, без exploit proof.
 
 ## Следующие задачи
 

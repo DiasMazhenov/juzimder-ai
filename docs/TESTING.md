@@ -6,11 +6,13 @@
 
 `php -l backend/Domain.php`, `php -l backend/api.php`, `php -l public/router.php`: PASS.
 
-`npm test`: domain assertions + один составной HTTP integration scenario (не выдаём его за десятки независимых tests). Проверяются migration v1, create, tenant 404, полный round trip с metadata/responsive CSS и CSS custom properties темы, ревизии/CAS conflict без лишней записи, запрет script/iframe/event/javascript URL/HTML payload/CSS url/custom-code, неверная schema/tree, disk reopen. Реальный Core 0.23.8 browser fixture включён в regression validation. Отдельные Node tests проверяют нормализацию токенов, fallback для повреждённых сохранённых значений, миграцию старых значений и использование токенов всеми presets.
+`npm test`: domain assertions + один составной HTTP integration scenario (не выдаём его за десятки независимых tests). Проверяются migration v1, create, tenant 404, полный round trip с metadata/responsive CSS и CSS custom properties темы, ревизии/CAS conflict без лишней записи, запрет script/iframe/event/javascript URL/HTML payload/CSS url/custom-code, неверная schema/tree, disk reopen. Реальный Core 0.23.8 browser fixture включён в regression validation. Отдельные Node tests проверяют нормализацию токенов, fallback для повреждённых сохранённых значений, миграцию старых значений и использование токенов всеми presets. `tests/ai.php` отдельно проверяет OpenRouter request envelope, secret redaction, output cap, timeout, один bounded retry, usage/cost metadata и strict validation результата без реального network call.
 
 HTTP scenario: anonymous 401, bad CSRF 403, register/session, create, чужой list/read/write, save/get equality, stale 409, invalid 422, revision list/restore (новая версия, сохранение истории, stale/foreign/missing target), logout, bad login, повторный вход и сохранённая версия. Используется временная SQLite и отдельный localhost:18081, удаляемые после теста. В sandbox, запрещающем binding порта, тест требует разрешения loopback; первоначальный запуск был блокирован средой, повторный с разрешением прошёл.
 
 `npm install` сообщил 0 vulnerabilities для установленного дерева. Это не полный vulnerability/SBOM review и не аудит bundled PHP-GrapesJS.
+
+AI API integration tests проверяют авторизацию `GET /ai/status`, CSRF и authentication для plan request, пустой/слишком длинный prompt, отключённый endpoint без серверных credentials и отсутствие создания/изменения проектов. В test server OpenRouter variables принудительно пустые; provider не вызывается.
 
 ## Codex Browser: выполнено через UI
 
@@ -74,9 +76,15 @@ Codex Browser, отдельная копия приложения с време�
 
 Это частичная браузерная матрица, не приёмка на физическом устройстве и не полная keyboard/a11y проверка. Скриншоты проверены в текущей QA-сессии; отдельные PNG в репозиторий не добавлялись.
 
+## AI design-plan API · версия продукта 00.00.003
+
+Проверены PHP unit tests с поддельным HTTP transport и API integration tests на отдельной временной SQLite. Покрыты JSON Schema request, fixed OpenRouter endpoint, server-only bearer header, `max_completion_tokens=1200`, structured outputs, usage request, timeout clamp, resolved model/cost parsing, однократный retry на 429 и отсутствие retry на 401. Ошибка не содержит upstream response/key. Недопустимые JSON планы, неизвестные секции и отсутствие Hero отклоняются. API возвращает 401 без сессии, 403 без CSRF, 422 для пустого/длинного prompt и 503 без env credentials; проект не меняется.
+
+Реального OpenRouter вызова не было: `OPENROUTER_API_KEY` и `OPENROUTER_MODEL` в процессе не настроены. Браузерный интерфейс, согласие на передачу prompt, реальная стоимость и AI-операции над Project Data пока не существуют.
+
 ## Не проверено / не реализовано
 
-Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, AI provider/MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, responsive-проверка Image preset, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
+Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, live OpenRouter call, AI UI/consent/project mutation/revision, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, responsive-проверка Image preset, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
 

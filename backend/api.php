@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/Domain.php';
+require_once __DIR__ . '/Ai.php';
 use Juzimder\{Store, Problem};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -48,6 +49,28 @@ try {
         session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
     }
     $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,'Войдите в аккаунт.');
+    if ($path === '/api/ai/status' && $method === 'GET') {
+        $settings = Juzimder\OpenRouterSettings::fromEnvironment();
+        result($settings?->publicStatus() ?? ['provider'=>'openrouter','configured'=>false,'model'=>null]);
+    }
+    if ($path === '/api/ai/design-plan' && $method === 'POST') {
+        $prompt = $body['prompt'] ?? null;
+        if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
+        $settings = Juzimder\OpenRouterSettings::fromEnvironment();
+        if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
+        $now = time();
+        $storedRequests = $_SESSION['ai_requests'] ?? [];
+        if (!is_array($storedRequests)) $storedRequests = [];
+        $requests = array_values(array_filter($storedRequests, static fn($at) => is_int($at) && $at > $now - 60));
+        if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
+        $requests[] = $now;
+        $_SESSION['ai_requests'] = $requests;
+        try {
+            result(Juzimder\AiDesignPlanner::create($prompt, new Juzimder\OpenRouterProvider($settings)));
+        } catch (Juzimder\AiProviderFailure) {
+            throw new Problem(502,'AI-провайдер временно недоступен. Проект не изменён.');
+        }
+    }
     if ($path === '/api/logout' && $method === 'POST') { $_SESSION=[]; session_destroy(); result(['ok'=>true]); }
     if ($path === '/api/projects') {
         if ($method === 'GET') result($store->query('SELECT p.id,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC',[$user])->fetchAll());
