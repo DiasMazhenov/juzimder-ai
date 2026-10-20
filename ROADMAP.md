@@ -1,6 +1,6 @@
 # План Juzimder AI
 
-Обновлено 20.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
+Обновлено 21.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
 
 ## Phase 0 — аудит и архитектура
 
@@ -33,6 +33,8 @@
 - [x] Shared palette tokens и пять новых секций (Navigation, Process, Testimonial, FAQ, Footer); все presets проходят backend Project Data validator.
 - [x] Редактируемые глобальные design tokens проекта: восемь цветов, шрифт и скругление; сохраняются в Project Data и применяются к готовым секциям.
 - [ ] Полная библиотека секций и полная keyboard/copy-paste QA.
+- [x] Частичный Codex Browser responsive smoke: девять секций на 375/768 px, FAQ также на desktop; Tab и видимый focus ring.
+- [ ] Подтвердить Cmd/Ctrl+C/V в браузере, который передаёт модификаторы; проверить Image preset с тестовым HTTPS-ресурсом.
 - [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
 - [ ] Универсальные component operations и расширение schema при добавлении новых типов.
@@ -65,4 +67,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.002, с рабочим ручным редактором, десятью библиотечными presets и редактируемой проектной темой. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — полная keyboard/copy-paste и responsive/accessibility QA перед интеграцией AI. Import API/UI ещё не реализованы; для них описан versioned migration contract.
+**Текущее состояние:** foundation, версия продукта 00.00.002, с рабочим ручным редактором, десятью библиотечными presets и редактируемой проектной темой. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — завершить clipboard и Image acceptance, затем продолжить полную keyboard/accessibility QA перед интеграцией AI. Import API/UI ещё не реализованы; для них описан versioned migration contract.

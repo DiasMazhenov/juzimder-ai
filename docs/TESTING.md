@@ -1,4 +1,4 @@
-# Проверки, 20.10.2026
+# Проверки, 21.10.2026
 
 ## Автоматические
 
@@ -61,11 +61,22 @@ Screenshot: `docs/evidence/phase3-sizing-controls.jpg`.
 
 Codex Browser, отдельная копия приложения с временной SQLite и отдельной session cookie: применены новая палитра, Georgia и 12 px к уже вставленному Hero; добавлена Features-секция; создана вторая страница и вставлен FAQ. Автосохранение дошло до ревизии 5. После выхода в dashboard и повторного открытия проекта контролы показали те же значения темы. Desktop viewport 1280×720: Hero и FAQ отрисовали новую типографику, цвета и границы. Пользовательская база и сессия не использовались.
 
-Полная матрица тем на всех соседних секциях и мобильных viewport пока остаётся следующим QA-этапом.
+## Codex Browser: responsive matrix и keyboard smoke · версия 00.00.002
+
+Проверено в изолированной временной копии приложения со своей SQLite и проектом `Design token QA`; основная база и вкладка пользователя не использовались. В главную страницу добавлены Hero, Features, CTA, Text, Navigation, Process, Testimonial и Footer; FAQ открыт на второй странице.
+
+- Mobile: CSS viewport 375 px; главная страница и FAQ не имеют горизонтального переполнения. Визуально выборочно проверены Hero и FAQ.
+- Tablet: CSS viewport 768 px; главная страница и FAQ не имеют горизонтального переполнения.
+- Desktop: FAQ визуально проверен в доступной ширине редактора (734 px); горизонтального переполнения нет. Main page на desktop в этом прогоне не проверялся.
+- Клавиша Tab переводит фокус между контролами и показывает видимый focus ring. Кнопки в проверенном accessibility tree имеют доступные имена.
+- GrapesJS Core 0.23.8 содержит стандартные keymaps `⌘/Ctrl+C` и `⌘/Ctrl+V`; само сочетание в этом прогоне не подтверждено. Codex Browser не передал `metaKey`/`ctrlKey` при синтетическом нажатии модификаторов, поэтому clipboard acceptance остаётся NOT RUN. Пользовательский clipboard не читался и не изменялся.
+- Image preset не включён в визуальную матрицу: для осмысленной проверки ему нужен отдельный HTTPS-ресурс.
+
+Это частичная браузерная матрица, не приёмка на физическом устройстве и не полная keyboard/a11y проверка. Скриншоты проверены в текущей QA-сессии; отдельные PNG в репозиторий не добавлялись.
 
 ## Не проверено / не реализовано
 
-Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, AI provider/MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix всех блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
+Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, AI provider/MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, responsive-проверка Image preset, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
 

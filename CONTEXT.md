@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 20.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . В начале папка не содержала файлов/Git, git ls-remote не вернул refs. Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.002 (npm SemVer 0.1.2).
+Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . В начале папка не содержала файлов/Git, git ls-remote не вернул refs. Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.002 (npm SemVer 0.1.2).
 
 ## Принятые решения
 
@@ -30,9 +30,11 @@ Browser QA исправил init page event race и учёл служебный 
 
 Версия продукта 00.00.002: добавлена панель проектной темы с восемью цветовыми токенами, выбором шрифта и радиуса карточек. Значения хранятся в стилях wrapper каждой страницы, пресеты используют CSS variables с безопасными fallback-цветами, а стандартные значения старых секций мигрируют при применении темы. Проверено в Codex Browser на изолированной временной SQLite: тема применилась к ранее добавленному Hero, новой секции FAQ на второй странице, автосохранилась в ревизии 5 и восстановилась после возврата в dashboard и повторного открытия проекта. Подробности в docs/TESTING.md.
 
+21.10.2026: в изолированном браузерном проекте проверены 9 из 10 секций в mobile 375 px и tablet 768 px; desktop отдельно проверен на FAQ. Горизонтального переполнения нет. Tab-навигация и видимый фокус работают. Полная clipboard проверка и Image preset остаются открытыми; Codex Browser в этой сессии не передал флаги Cmd/Ctrl для copy/paste. Подробности и точные пределы проверки — docs/TESTING.md.
+
 ## Ограничения / риски
 
-Не готовый SaaS: нет email verification/recovery, срока бездействия session, production deployment, managed assets/upload, backup restore drill. Небольшой DB schema v1 auto-bootstrap, нет полноценного migration runner v2. SQLite для одного сервера, нагрузка не измерена. Core lazy chunk около 1.10 МБ raw / 291 КБ gzip; Vite предупреждает о размере. Свободный пользовательский JS/embed/CSS url запрещены. Панельный мобильный workflow проверен в браузерном viewport 390×844 и 768×1024; touch на реальном устройстве, полный responsive matrix блоков, clipboard и полная keyboard/a11y матрица ещё не приняты.
+Не готовый SaaS: нет email verification/recovery, срока бездействия session, production deployment, managed assets/upload, backup restore drill. Небольшой DB schema v1 auto-bootstrap, нет полноценного migration runner v2. SQLite для одного сервера, нагрузка не измерена. Core lazy chunk около 1.10 МБ raw / 291 КБ gzip; Vite предупреждает о размере. Свободный пользовательский JS/embed/CSS url запрещены. Панельный мобильный workflow проверен в браузерном viewport 390×844 и 768×1024. Дополнительная частичная responsive matrix: 9/10 секций на mobile 375 px и tablet 768 px, FAQ также на desktop; Image, touch на реальном устройстве, clipboard и полная keyboard/a11y матрица ещё не приняты.
 
 AI/OpenRouter, MCP, Zero Canvas, advanced Auto Layout, publication/ZIP, custom domains ещё НЕ реализованы. JSON export не static export. Не называть весь MVP завершённым. Полный SBOM/CVE audit upstream не выполнен, audit статический, без exploit proof.
 
