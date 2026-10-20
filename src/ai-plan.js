@@ -1,7 +1,14 @@
-import { normalizeDesignTokens } from './design-tokens.js';
+import { designTokensToStyle, normalizeDesignTokens } from './design-tokens.js';
 
 const COLOR_NAMES = ['ink', 'forest', 'canvas', 'paper', 'body', 'muted', 'line', 'accent'];
 const SECTION_IDS = ['navigation', 'hero', 'features', 'process', 'testimonial', 'faq', 'cta', 'text', 'footer'];
+const PROJECT_STYLE_TOKENS = new Set([
+  '--juzimder-font-family', '--juzimder-font-heading', '--juzimder-font-body',
+  '--juzimder-font-weight-body', '--juzimder-font-weight-heading', '--juzimder-font-size-base',
+  '--juzimder-font-size-h1', '--juzimder-font-size-h2', '--juzimder-font-size-h3',
+  '--juzimder-font-size-h4', '--juzimder-font-size-h5', '--juzimder-font-size-h6',
+  '--juzimder-line-height-body', '--juzimder-line-height-heading', '--juzimder-letter-spacing', '--juzimder-radius'
+]);
 
 export const AI_SECTION_LABELS = Object.freeze({
   navigation: 'Навигация', hero: 'Первый экран', features: 'Возможности', process: 'Этапы работы',
@@ -32,13 +39,41 @@ export function normalizeDesignPlan(plan) {
   };
 }
 
+function resolveCssVariables(value, styles) {
+  if (typeof value !== 'string') return value;
+  let output = '';
+  for (let index = 0; index < value.length;) {
+    if (value.slice(index, index + 4).toLowerCase() !== 'var(') {
+      output += value[index++];
+      continue;
+    }
+    let depth = 1, cursor = index + 4;
+    for (; cursor < value.length && depth > 0; cursor++) {
+      if (value[cursor] === '(') depth++;
+      else if (value[cursor] === ')') depth--;
+    }
+    if (depth !== 0) { output += value.slice(index); break; }
+    const expression = value.slice(index + 4, cursor - 1);
+    let nested = 0, comma = -1;
+    for (let offset = 0; offset < expression.length; offset++) {
+      if (expression[offset] === '(') nested++;
+      else if (expression[offset] === ')') nested--;
+      else if (expression[offset] === ',' && nested === 0) { comma = offset; break; }
+    }
+    const name = (comma < 0 ? expression : expression.slice(0, comma)).trim();
+    const fallback = comma < 0 ? '' : expression.slice(comma + 1).trim();
+    const replacement = styles[name];
+    output += typeof replacement === 'string' ? replacement : fallback ? resolveCssVariables(fallback, styles) : value.slice(index, cursor);
+    index = cursor;
+  }
+  return output;
+}
+
 function resolveToken(value, colors, theme) {
   if (typeof value !== 'string') return value;
-  return value
-    .replace(/var\(\s*--juzimder-color-(ink|forest|canvas|paper|body|muted|line|accent)\s*,\s*#[0-9a-f]{6}\s*\)/gi,
-      (_match, name) => colors[name.toLowerCase()])
-    .replace(/var\(\s*--juzimder-font-family\s*,\s*[^()]+?\s*\)/gi, theme.fontFamily)
-    .replace(/var\(\s*--juzimder-radius\s*,\s*\d+px\s*\)/gi, theme.radius);
+  const values = { ...designTokensToStyle(theme), '--juzimder-font-family': theme.bodyFontFamily };
+  for (const [name, color] of Object.entries(colors)) values[`--juzimder-color-${name}`] = color;
+  return resolveCssVariables(value, values);
 }
 
 function collectProjectIds(data) {
@@ -61,7 +96,8 @@ function prepareComponent(component, colors, sectionIds, anchorIds, theme) {
       for (const [property, value] of Object.entries(node.style)) {
         node.style[property] = resolveToken(value, colors, theme);
         if (typeof node.style[property] === 'string' && /var\(/i.test(node.style[property])) {
-          throw new TypeError(`Для свойства «${property}» не удалось разрешить тему.`);
+          const refs = [...node.style[property].matchAll(/var\(\s*(--[\w-]+)/gi)].map(match => match[1]);
+          if (refs.some(name => !PROJECT_STYLE_TOKENS.has(name))) throw new TypeError(`Для свойства «${property}» не удалось разрешить тему.`);
         }
       }
     }

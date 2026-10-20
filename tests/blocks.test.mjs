@@ -62,6 +62,8 @@ test('new section presets use editable global tokens for shared colors, typograp
   };
   blocks.forEach(block => visit(block.content()));
   assert.ok(cssValues.some(value => String(value).includes('--juzimder-color-ink')));
-  assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-family')));
+  assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-heading')));
+  assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-body')));
+  assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-size-h1')));
   assert.ok(cssValues.some(value => String(value).includes('--juzimder-radius')));
 });

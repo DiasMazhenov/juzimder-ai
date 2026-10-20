@@ -9,7 +9,16 @@ const palette = Object.freeze({
   muted: tokenValue('muted'),
   line: tokenValue('line'),
   accent: tokenValue('accent'),
-  font: tokenValue('fontFamily'),
+  font: tokenValue('bodyFontFamily'),
+  headingFont: tokenValue('headingFontFamily'),
+  bodySize: tokenValue('baseFontSize'),
+  bodyWeight: tokenValue('bodyFontWeight'),
+  headingWeight: tokenValue('headingFontWeight'),
+  bodyLineHeight: tokenValue('bodyLineHeight'),
+  headingLineHeight: tokenValue('headingLineHeight'),
+  letterSpacing: tokenValue('letterSpacing'),
+  h1: tokenValue('fontSizeH1'), h2: tokenValue('fontSizeH2'), h3: tokenValue('fontSizeH3'),
+  h4: tokenValue('fontSizeH4'), h5: tokenValue('fontSizeH5'), h6: tokenValue('fontSizeH6'),
   radius: tokenValue('radius')
 });
 
@@ -31,8 +40,8 @@ export const blocks = [
       },
       components: [
         text('p', 'ВАША ИДЕЯ. ВАШЕ ПРОСТРАНСТВО.', { 'font-size': '11px', 'letter-spacing': '2px', color: palette.body }),
-        text('h1', 'Место для\nнового начала.', { 'font-size': 'clamp(36px, 6vw, 76px)', 'line-height': '1.05', 'letter-spacing': '-3px', margin: '0', 'max-width': '700px' }),
-        text('p', 'Расскажите о том, что вы создаёте. Добавьте свой текст, выберите цвета и сделайте эту страницу своей.', { 'max-width': '440px', 'line-height': '1.7', color: palette.body }),
+        text('h1', 'Место для\nнового начала.', { 'font-family': palette.headingFont, 'font-size': palette.h1, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight, 'letter-spacing': palette.letterSpacing, margin: '0', 'max-width': '700px' }),
+        text('p', 'Расскажите о том, что вы создаёте. Добавьте свой текст, выберите цвета и сделайте эту страницу своей.', { 'font-size': palette.bodySize, 'font-weight': palette.bodyWeight, 'max-width': '440px', 'line-height': palette.bodyLineHeight, color: palette.body }),
         link('Начать знакомство', '#contact', { padding: '16px 24px', 'background-color': palette.forest, color: '#fff', 'border-radius': palette.radius, 'text-decoration': 'none', 'align-self': 'flex-start' })
       ]
     })
@@ -51,8 +60,8 @@ export const blocks = [
         style: { padding: '24px', 'border-top': '1px solid ' + palette.line },
         components: [
           text('p', '0' + (i + 1), { color: palette.body, 'font-size': '12px' }),
-          text('h3', title, { 'font-size': '20px', color: palette.ink }),
-          text('p', 'Добавьте описание вашей услуги или преимущества.', { 'line-height': '1.6', color: palette.muted })
+          text('h3', title, { 'font-family': palette.headingFont, 'font-size': palette.h3, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight, color: palette.ink }),
+          text('p', 'Добавьте описание вашей услуги или преимущества.', { 'font-size': palette.bodySize, 'font-weight': palette.bodyWeight, 'line-height': palette.bodyLineHeight, color: palette.muted })
         ]
       }))
     })
@@ -67,7 +76,7 @@ export const blocks = [
       attributes: { id: 'contact' },
       style: { display: 'flex', 'flex-direction': 'column', gap: '16px', padding: '56px 8%', 'background-color': palette.ink, color: palette.paper, 'font-family': palette.font },
       components: [
-        text('h2', 'Давайте создадим что-то вместе.', { 'font-size': '36px', margin: '0' }),
+        text('h2', 'Давайте создадим что-то вместе.', { 'font-family': palette.headingFont, 'font-size': palette.h2, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight, margin: '0' }),
         text('p', 'Оставьте здесь свой email или ссылку для связи.'),
         link('Написать нам', 'mailto:hello@example.com', { color: palette.accent })
       ]
@@ -77,7 +86,7 @@ export const blocks = [
     id: 'text',
     label: 'Текст',
     description: 'Редактируемый абзац',
-    content: () => text('p', 'Нажмите дважды, чтобы изменить этот текст.', { padding: '24px', 'font-family': palette.font, 'font-size': '18px', color: palette.ink })
+    content: () => text('p', 'Нажмите дважды, чтобы изменить этот текст.', { padding: '24px', 'font-family': palette.font, 'font-size': palette.bodySize, 'font-weight': palette.bodyWeight, 'line-height': palette.bodyLineHeight, color: palette.ink })
   },
   {
     id: 'image',
@@ -121,7 +130,7 @@ export const blocks = [
       style: { padding: '64px 8%', 'background-color': palette.canvas, color: palette.ink, 'font-family': palette.font },
       components: [
         text('p', 'ПОНЯТНО ОТ ИДЕИ ДО ЗАПУСКА', { 'font-size': '11px', 'letter-spacing': '1.8px', color: palette.body }),
-        text('h2', 'Как устроена работа', { 'font-size': 'clamp(28px, 4vw, 42px)', 'line-height': '1.15', 'max-width': '620px' }),
+        text('h2', 'Как устроена работа', { 'font-family': palette.headingFont, 'font-size': palette.h2, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight, 'max-width': '620px' }),
         {
           tagName: 'div',
           name: 'Шаги',
@@ -135,8 +144,8 @@ export const blocks = [
             style: { padding: '22px', 'background-color': palette.paper, 'border-radius': palette.radius },
             components: [
               text('p', number, { color: palette.forest, 'font-size': '12px', 'letter-spacing': '1px' }),
-              text('h3', title, { 'font-size': '18px', color: palette.ink }),
-              text('p', description, { 'font-size': '14px', 'line-height': '1.65', color: palette.muted })
+              text('h3', title, { 'font-family': palette.headingFont, 'font-size': palette.h3, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight, color: palette.ink }),
+              text('p', description, { 'font-size': palette.bodySize, 'font-weight': palette.bodyWeight, 'line-height': palette.bodyLineHeight, color: palette.muted })
             ]
           }))
         }
@@ -169,7 +178,7 @@ export const blocks = [
       style: { padding: '64px 8%', color: palette.ink, 'font-family': palette.font },
       components: [
         text('p', 'ВОПРОСЫ И ОТВЕТЫ', { 'font-size': '11px', 'letter-spacing': '1.8px', color: palette.body }),
-        text('h2', 'Что важно знать', { 'font-size': 'clamp(28px, 4vw, 42px)' }),
+        text('h2', 'Что важно знать', { 'font-family': palette.headingFont, 'font-size': palette.h2, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight }),
         {
           tagName: 'div',
           name: 'Список ответов',
@@ -182,8 +191,8 @@ export const blocks = [
             tagName: 'article',
             style: { padding: '18px 0', 'border-bottom': '1px solid ' + palette.line },
             components: [
-              text('h3', question, { 'font-size': '16px', 'font-weight': '600', color: palette.ink }),
-              text('p', answer, { 'font-size': '14px', 'line-height': '1.65', color: palette.muted })
+              text('h3', question, { 'font-family': palette.headingFont, 'font-size': palette.h3, 'font-weight': palette.headingWeight, 'line-height': palette.headingLineHeight, color: palette.ink }),
+              text('p', answer, { 'font-size': palette.bodySize, 'font-weight': palette.bodyWeight, 'line-height': palette.bodyLineHeight, color: palette.muted })
             ]
           }))
         }

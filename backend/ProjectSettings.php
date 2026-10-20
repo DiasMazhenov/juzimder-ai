@@ -13,6 +13,20 @@ final class ProjectSettings {
         'line' => '#dce4de',
         'accent' => '#b0dcc1',
         'fontFamily' => 'Arial, sans-serif',
+        'headingFontFamily' => 'Arial, sans-serif',
+        'bodyFontFamily' => 'Arial, sans-serif',
+        'bodyFontWeight' => '400',
+        'headingFontWeight' => '500',
+        'baseFontSize' => '16px',
+        'fontSizeH1' => '48px',
+        'fontSizeH2' => '36px',
+        'fontSizeH3' => '24px',
+        'fontSizeH4' => '20px',
+        'fontSizeH5' => '18px',
+        'fontSizeH6' => '16px',
+        'bodyLineHeight' => '1.6',
+        'headingLineHeight' => '1.15',
+        'letterSpacing' => '0px',
         'radius' => '8px',
     ];
     private const DESIGN_TOKEN_VARIABLES = [
@@ -25,6 +39,20 @@ final class ProjectSettings {
         'line' => '--juzimder-color-line',
         'accent' => '--juzimder-color-accent',
         'fontFamily' => '--juzimder-font-family',
+        'headingFontFamily' => '--juzimder-font-heading',
+        'bodyFontFamily' => '--juzimder-font-body',
+        'bodyFontWeight' => '--juzimder-font-weight-body',
+        'headingFontWeight' => '--juzimder-font-weight-heading',
+        'baseFontSize' => '--juzimder-font-size-base',
+        'fontSizeH1' => '--juzimder-font-size-h1',
+        'fontSizeH2' => '--juzimder-font-size-h2',
+        'fontSizeH3' => '--juzimder-font-size-h3',
+        'fontSizeH4' => '--juzimder-font-size-h4',
+        'fontSizeH5' => '--juzimder-font-size-h5',
+        'fontSizeH6' => '--juzimder-font-size-h6',
+        'bodyLineHeight' => '--juzimder-line-height-body',
+        'headingLineHeight' => '--juzimder-line-height-heading',
+        'letterSpacing' => '--juzimder-letter-spacing',
         'radius' => '--juzimder-radius',
     ];
     private const FONT_FAMILIES = ['Arial, sans-serif', 'system-ui, sans-serif', 'Georgia, serif'];
@@ -40,12 +68,12 @@ final class ProjectSettings {
             $used[$slug] = true;
             $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0];
         }
-        return ['schemaVersion' => 2, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
+        return ['schemaVersion' => 3, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -62,7 +90,7 @@ final class ProjectSettings {
             $routes[$id] = ['slug' => $slug, 'isHome' => $isHome];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 2;
+        $settings['schemaVersion'] = 3;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
         return $settings;
@@ -79,13 +107,35 @@ final class ProjectSettings {
             if (in_array($name, ['ink','forest','canvas','paper','body','muted','line','accent'], true)) {
                 if (!is_string($item) || !preg_match('/^#[0-9a-f]{6}$/i', $item)) throw new Problem(422, 'Укажите цвет в формате #RRGGBB.');
                 $tokens[$name] = strtolower($item);
-            } elseif ($name === 'fontFamily') {
+            } elseif (in_array($name, ['fontFamily','headingFontFamily','bodyFontFamily'], true)) {
                 if (!is_string($item) || !in_array($item, self::FONT_FAMILIES, true)) throw new Problem(422, 'Выберите шрифт из списка.');
+                $tokens[$name] = $item;
+            } elseif (in_array($name, ['bodyFontWeight','headingFontWeight'], true)) {
+                if (!is_string($item) || !in_array($item, ['300','400','500','600','700','800'], true)) throw new Problem(422, 'Укажите вес шрифта от 300 до 800.');
+                $tokens[$name] = $item;
+            } elseif (in_array($name, ['baseFontSize','fontSizeH1','fontSizeH2','fontSizeH3','fontSizeH4','fontSizeH5','fontSizeH6'], true)) {
+                $bounds = ['baseFontSize'=>[12,24],'fontSizeH1'=>[28,80],'fontSizeH2'=>[22,64],'fontSizeH3'=>[18,48],'fontSizeH4'=>[16,40],'fontSizeH5'=>[14,32],'fontSizeH6'=>[12,28]][$name];
+                if (!is_string($item) || !preg_match('/^(\d{1,3})px$/', $item, $size) || (int)$size[1] < $bounds[0] || (int)$size[1] > $bounds[1]) throw new Problem(422, 'Размер типографического токена вне допустимого диапазона.');
+                $tokens[$name] = ((int)$size[1]) . 'px';
+            } elseif (in_array($name, ['bodyLineHeight','headingLineHeight'], true)) {
+                if (!is_string($item) || !in_array($item, ['1','1.1','1.15','1.2','1.25','1.3','1.4','1.5','1.6','1.7','1.8','1.9','2'], true)) throw new Problem(422, 'Межстрочный интервал должен быть от 1 до 2.');
+                $tokens[$name] = $item;
+            } elseif ($name === 'letterSpacing') {
+                if (!is_string($item) || !in_array($item, ['-2px','-1px','-0.5px','0px','0.25px','0.5px','1px','1.5px','2px'], true)) throw new Problem(422, 'Выберите межбуквенный интервал из списка.');
                 $tokens[$name] = $item;
             } elseif ($name === 'radius') {
                 if (!is_string($item) || !preg_match('/^(?:0|[1-9]|[12][0-9]|3[0-2])px$/', $item)) throw new Problem(422, 'Скругление должно быть от 0 до 32 px.');
                 $tokens[$name] = $item;
             }
+        }
+        $hasSeparateFamilies = array_key_exists('headingFontFamily', $value) || array_key_exists('bodyFontFamily', $value);
+        if (array_key_exists('fontFamily', $value) && !$hasSeparateFamilies) {
+            $tokens['headingFontFamily'] = $tokens['fontFamily'];
+            $tokens['bodyFontFamily'] = $tokens['fontFamily'];
+        } else {
+            if (array_key_exists('headingFontFamily', $value)) $tokens['headingFontFamily'] = $value['headingFontFamily'];
+            if (array_key_exists('bodyFontFamily', $value)) $tokens['bodyFontFamily'] = $value['bodyFontFamily'];
+            $tokens['fontFamily'] = $tokens['bodyFontFamily'];
         }
         return $tokens;
     }
@@ -99,6 +149,8 @@ final class ProjectSettings {
                 self::migrateLegacyStyles($frame->component);
                 if (!isset($frame->component->style) || !$frame->component->style instanceof \stdClass) $frame->component->style = new \stdClass();
                 foreach (self::designTokenStyles($tokens) as $property => $value) $frame->component->style->{$property} = $value;
+                self::applyInheritedTypography($frame->component->style);
+                self::applyHeadingDefaults($frame->component);
             }
         }
         return $copy;
@@ -107,8 +159,15 @@ final class ProjectSettings {
     public static function designTokenStyles(array $tokens): array {
         $tokens = self::validateDesignTokens($tokens);
         $styles = [];
-        foreach (self::DESIGN_TOKEN_VARIABLES as $name => $variable) $styles[$variable] = $tokens[$name];
+        foreach (self::DESIGN_TOKEN_VARIABLES as $name => $variable) $styles[$variable] = self::designTokenCssValue($name, $tokens[$name]);
         return $styles;
+    }
+
+    private static function designTokenCssValue(string $name, string $value): string {
+        if ($name === 'fontSizeH1') return 'clamp(28px, calc(18px + 2.35vw), ' . $value . ')';
+        if ($name === 'fontSizeH2') return 'clamp(22px, calc(17px + 1.5vw), ' . $value . ')';
+        if ($name === 'fontSizeH3') return 'clamp(18px, calc(12px + 0.9vw), ' . $value . ')';
+        return $value;
     }
 
     private static function designTokensFromDocument(mixed $document): array {
@@ -118,7 +177,15 @@ final class ProjectSettings {
                 $style = $frame->component->style ?? null;
                 if (!$style instanceof \stdClass) continue;
                 foreach (self::DESIGN_TOKEN_VARIABLES as $name => $variable) {
-                    if (isset($style->{$variable})) $tokens[$name] = $style->{$variable};
+                    if (!isset($style->{$variable})) continue;
+                    $value = $style->{$variable};
+                    if (in_array($name, ['fontSizeH1','fontSizeH2','fontSizeH3'], true) && is_string($value) && preg_match('/,\s*(\d{1,3}px)\s*\)$/', $value, $size)) $value = $size[1];
+                    $tokens[$name] = $value;
+                }
+                if (isset($style->{'--juzimder-font-family'}) && !isset($style->{'--juzimder-font-heading'}) && !isset($style->{'--juzimder-font-body'})) {
+                    $tokens['fontFamily'] = $style->{'--juzimder-font-family'};
+                    $tokens['headingFontFamily'] = $style->{'--juzimder-font-family'};
+                    $tokens['bodyFontFamily'] = $style->{'--juzimder-font-family'};
                 }
                 return self::storedDesignTokens($tokens);
             }
@@ -135,6 +202,9 @@ final class ProjectSettings {
             try { $tokens[$name] = self::validateDesignTokens([$name => $item])[$name]; }
             catch (Problem) { /* Ignore invalid historical values and keep the documented default. */ }
         }
+        if (isset($value['fontFamily']) && !isset($value['headingFontFamily'])) $tokens['headingFontFamily'] = $tokens['fontFamily'];
+        if (isset($value['fontFamily']) && !isset($value['bodyFontFamily'])) $tokens['bodyFontFamily'] = $tokens['fontFamily'];
+        $tokens['fontFamily'] = $tokens['bodyFontFamily'];
         return $tokens;
     }
 
@@ -144,10 +214,23 @@ final class ProjectSettings {
                 '#183e31' => 'ink', '#245b46' => 'forest', '#ecf4ef' => 'canvas', '#f6faf7' => 'paper',
                 '#527063' => 'body', '#68736c' => 'muted', '#dce4de' => 'line', '#b0dcc1' => 'accent',
             ];
+            $tagName = strtolower((string)($component->tagName ?? ''));
             foreach ($component->style as $property => $value) {
                 if (!is_string($value)) continue;
-                if ($property === 'font-family' && strtolower(trim($value)) === strtolower(self::DESIGN_TOKEN_DEFAULTS['fontFamily'])) {
-                    $component->style->{$property} = 'var(--juzimder-font-family)';
+                if ($property === 'font-family' && (strtolower(trim($value)) === strtolower(self::DESIGN_TOKEN_DEFAULTS['fontFamily']) || str_contains($value, '--juzimder-font-family'))) {
+                    $fontToken = preg_match('/^h[1-6]$/', $tagName) ? '--juzimder-font-heading' : '--juzimder-font-body';
+                    $component->style->{$property} = 'var(' . $fontToken . ')';
+                } elseif ($property === 'font-size' && preg_match('/^h([1-6])$/', $tagName, $heading)) {
+                    $legacySizes = ['1'=>['clamp(36px, 6vw, 76px)'],'2'=>['36px','clamp(28px, 4vw, 42px)','clamp(28px,4vw,42px)'],'3'=>['20px','18px','16px']];
+                    if (str_contains($value, '--juzimder-font-size-h' . $heading[1]) || in_array(trim($value), $legacySizes[$heading[1]] ?? [], true)) $component->style->{$property} = 'var(--juzimder-font-size-h' . $heading[1] . ')';
+                } elseif ($property === 'font-size' && $tagName === 'p' && trim($value) === '18px') {
+                    $component->style->{$property} = 'var(--juzimder-font-size-base)';
+                } elseif ($property === 'font-weight' && preg_match('/^h[1-6]$/', $tagName) && in_array(trim($value), ['500','600','700'], true)) {
+                    $component->style->{$property} = 'var(--juzimder-font-weight-heading)';
+                } elseif ($property === 'line-height' && preg_match('/^h[1-6]$/', $tagName) && in_array(trim($value), ['1.05','1.15','1.2'], true)) {
+                    $component->style->{$property} = 'var(--juzimder-line-height-heading)';
+                } elseif ($property === 'line-height' && !preg_match('/^h[1-6]$/', $tagName) && in_array(trim($value), ['1.6','1.65','1.7'], true)) {
+                    $component->style->{$property} = 'var(--juzimder-line-height-body)';
                 } elseif ($property === 'border-radius' && in_array(trim($value), ['6px','8px'], true)) {
                     $component->style->{$property} = 'var(--juzimder-radius)';
                 } else {
@@ -159,6 +242,43 @@ final class ProjectSettings {
             }
         }
         foreach (($component->components ?? []) as $child) if ($child instanceof \stdClass) self::migrateLegacyStyles($child);
+    }
+
+    private static function applyInheritedTypography(\stdClass $style): void {
+        $defaults = [
+            'font-family' => 'var(--juzimder-font-body, Arial, sans-serif)',
+            'font-size' => 'var(--juzimder-font-size-base, 16px)',
+            'font-weight' => 'var(--juzimder-font-weight-body, 400)',
+            'line-height' => 'var(--juzimder-line-height-body, 1.6)',
+            'letter-spacing' => 'var(--juzimder-letter-spacing, 0px)',
+        ];
+        foreach ($defaults as $property => $value) {
+            $current = $style->{$property} ?? null;
+            if (!is_string($current) || !str_contains($current, '--juzimder-font') && !str_contains($current, '--juzimder-line-height') && !str_contains($current, '--juzimder-letter-spacing')) {
+                if ($current === null) $style->{$property} = $value;
+                continue;
+            }
+            $style->{$property} = $value;
+        }
+    }
+
+    private static function applyHeadingDefaults(\stdClass $component): void {
+        $tagName = strtolower((string)($component->tagName ?? ''));
+        if (preg_match('/^h([1-6])$/', $tagName, $match)) {
+            if (!isset($component->style) || !$component->style instanceof \stdClass) $component->style = new \stdClass();
+            $heading = $match[1];
+            $defaults = [
+                'font-family' => 'var(--juzimder-font-heading, Arial, sans-serif)',
+                'font-size' => 'var(--juzimder-font-size-h' . $heading . ')',
+                'font-weight' => 'var(--juzimder-font-weight-heading, 500)',
+                'line-height' => 'var(--juzimder-line-height-heading, 1.15)',
+            ];
+            foreach ($defaults as $property => $value) {
+                $current = $component->style->{$property} ?? null;
+                if ($current === null || is_string($current) && (str_contains($current, '--juzimder-font') || str_contains($current, '--juzimder-line-height'))) $component->style->{$property} = $value;
+            }
+        }
+        foreach (($component->components ?? []) as $child) if ($child instanceof \stdClass) self::applyHeadingDefaults($child);
     }
 
     public static function validateSlug(string $raw): string {
