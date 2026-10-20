@@ -27,8 +27,9 @@
 
 - [x] Базовые структурные Hero/Features/CTA/Text/Image и CSS Flex/Grid controls.
 - [x] Переключение display сохраняет прочие CSS свойства; Undo/Redo Core.
+- [x] Структурная schema v1 согласована с runtime policy; negative/security fixtures и контракт импорта/миграций.
 - [ ] Полная библиотека секций, tokens, Hug/Fill, min/max controls, keyboard/copy-paste QA.
-- [ ] Универсальные component operations и расширенная schema validation.
+- [ ] Универсальные component operations и расширение schema при добавлении новых типов.
 - [ ] Responsive browser матрица соседних блоков и полноценного mobile authoring.
 
 ## Phase 4 — Zero Canvas
@@ -58,4 +59,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation с рабочим ручным редактором. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — структурные операции, история/восстановление и надёжное сохранение перед интеграцией AI.
+**Текущее состояние:** foundation с рабочим ручным редактором. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — расширить библиотеку и пройти responsive/accessibility QA перед интеграцией AI. Import API/UI ещё не реализованы; для них описан versioned migration contract.

@@ -12,7 +12,7 @@
 
 ## Реализовано
 
-Auth регистрация/вход/выход, password hashing/session rotation/CSRF/rate limit. Dashboard: список и создание проектов. Несколько страниц в одном документе. Editor: библиотека структурных секций, слои, traits и style inspector, Flex/Grid, responsive devices, Undo/Redo, текст, изображения по HTTPS URL, preview sandbox, JSON export. Сервер хранит полный document и до 200 транзакционных revisions. Автосохранение с debounce 1,4 с; CAS 409 при параллельной записи предлагает экспорт или загрузку серверного состояния. История последних 50 ревизий в UI; восстановление пишет старое состояние в новую ревизию и не стирает текущую историю. Выход из редактора сначала пытается сохранить изменения.
+Auth регистрация/вход/выход, password hashing/session rotation/CSRF/rate limit. Dashboard: список и создание проектов. Несколько страниц в одном документе. Editor: библиотека структурных секций, слои, traits и style inspector, Flex/Grid, responsive devices, Undo/Redo, текст, изображения по HTTPS URL, preview sandbox, JSON export. Сервер хранит полный document и до 200 транзакционных revisions. Schema v1 уточнена и согласована с runtime policy; malformed/security JSON fixtures проверяются до сохранения. Автосохранение с debounce 1,4 с; CAS 409 при параллельной записи предлагает экспорт или загрузку серверного состояния. История последних 50 ревизий в UI; восстановление пишет старое состояние в новую ревизию и не стирает текущую историю. Выход из редактора сначала пытается сохранить изменения.
 
 Рабочая структура: src/, backend/Domain.php, backend/api.php, backend/migrations/, public/router.php, schemas/, tests/, docs/. Не создавать пустые пакеты для будущих функций. Production сборка public/index.html + assets игнорируется Git и воспроизводится npm ci && npm run build. var/app.sqlite — локальные данные, не Git.
 
@@ -30,8 +30,7 @@ AI/OpenRouter, MCP, Zero Canvas, advanced Auto Layout, publication/ZIP, custom d
 
 ## Следующие задачи
 
-1. Укрепить формальную schema/policy: поддерживаемые поля/структурные операции, sanitizer/parser review и негативные fixtures, импорт JSON с migration contract.
-2. Укрепить schema/policy и migration contract; расширить negative fixtures и импортную проверку.
-3. Стабилизировать block library, keyboard/accessibility и responsive authoring; расширить визуальную матрицу.
-4. Реальный OpenRouter provider на сервере, pipeline и targeted ops, тесты ошибок без записи.
-5. Static export/publication на отдельном origin и managed assets; затем scoped MCP transport с закрытым редактором. Подробный порядок в ROADMAP.md.
+1. Реализовано: schema/policy v1, негативные security fixtures и явный import/migration contract. Импорт JSON UI/API пока не реализован.
+2. Стабилизировать block library, keyboard/accessibility и responsive authoring; расширить визуальную матрицу.
+3. Реальный OpenRouter provider на сервере, pipeline и targeted ops, тесты ошибок без записи.
+4. Static export/publication на отдельном origin и managed assets; затем scoped MCP transport с закрытым редактором. Подробный порядок в ROADMAP.md.

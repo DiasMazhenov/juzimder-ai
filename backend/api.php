@@ -15,8 +15,9 @@ try {
         if (!hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 2100000) throw new Problem(413,'Запрос слишком большой.');
         $raw = file_get_contents('php://input',false,null,0,2100001); if (strlen($raw)>2100000) throw new Problem(413,'Запрос слишком большой.');
-        try { $body = json_decode($raw,true,64,JSON_THROW_ON_ERROR); } catch (JsonException) { throw new Problem(422,'Некорректный JSON.'); }
-        if (!is_array($body)) throw new Problem(422,'Ожидается JSON-объект.');
+        try { $decodedBody = json_decode($raw,false,64,JSON_THROW_ON_ERROR); } catch (JsonException) { throw new Problem(422,'Некорректный JSON.'); }
+        if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
+        $body = get_object_vars($decodedBody);
     }
     if ($path === '/api/session' && $method === 'GET') result(['user'=>$_SESSION['user'] ?? null,'csrf'=>$_SESSION['csrf']]);
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {

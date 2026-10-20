@@ -1,0 +1,22 @@
+[
+  { "case": "unsupported schema version", "document": { "schemaVersion": 2, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [] } }] }] } } },
+  { "case": "script field", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "script": "alert(1)", "components": [] } }] }] } } },
+  { "case": "disallowed tag", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "tagName": "iframe" }] } }] }] } } },
+  { "case": "event handler", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "attributes": { "onclick": "alert(1)" } }] } }] }] } } },
+  { "case": "javascript URI", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "attributes": { "href": "javascript:alert(1)" } }] } }] }] } } },
+  { "case": "unsafe rich text", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "content": "<img src=x onerror=alert(1)>" }] } }] }] } } },
+  { "case": "CSS URL", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "style": { "background": "url(https://example.test)" } }] } }] }] } } },
+  { "case": "CSS escaped URL token", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "style": { "background": "u\\72l(https://example.test)" } }] } }] }] } } },
+  { "case": "CSS comment-obfuscated URL token", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "style": { "background": "u/**/rl(https://example.test)" } }] } }] }] } } },
+  { "case": "unknown component type", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "type": "custom-code" }] } }] }] } } },
+  { "case": "components must be a list", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": { "one": { "type": "text" } } } }] }] } } },
+  { "case": "null content", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "type": "text", "content": null }] } }] }] } } },
+  { "case": "null component type", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "type": null }] } }] }] } } },
+  { "case": "null attributes", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "attributes": null }] } }] }] } } },
+  { "case": "null style", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper", "components": [{ "style": null }] } }] }] } } },
+  { "case": "pages must be a list", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": { "home": { "id": "home", "frames": [{ "component": { "type": "wrapper" } }] } } } } },
+  { "case": "page must be an object", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": ["broken"] } } },
+  { "case": "frames must be a list", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": { "main": { "component": { "type": "wrapper" } } } }] } } },
+  { "case": "duplicate page id", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "frames": [{ "component": { "type": "wrapper" } }] }, { "id": "home", "frames": [{ "component": { "type": "wrapper" } }] }] } } },
+  { "case": "invalid page name", "document": { "schemaVersion": 1, "engine": "grapesjs", "data": { "pages": [{ "id": "home", "name": null, "frames": [{ "component": { "type": "wrapper" } }] }] } } }
+]

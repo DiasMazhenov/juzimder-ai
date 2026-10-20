@@ -1,1 +1,68 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://juzimder.local/schemas/project-v1","title":"Juzimder Core document v1","type":"object","required":["schemaVersion","engine","data"],"properties":{"schemaVersion":{"const":1},"engine":{"const":"grapesjs"},"data":{"type":"object","required":["pages"],"properties":{"pages":{"type":"array","minItems":1,"maxItems":30,"items":{"type":"object","required":["id","frames"],"properties":{"id":{"type":"string","minLength":1},"name":{"type":"string"},"frames":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object","required":["component"],"properties":{"component":{"$ref":"#/$defs/component"}}}}}}},"styles":{"type":"array"},"assets":{"type":"array"}}}},"$defs":{"component":{"type":"object","properties":{"type":{"type":"string"},"tagName":{"type":"string"},"attributes":{"type":"object"},"style":{"type":"object"},"content":{"type":"string"},"components":{"type":"array","items":{"$ref":"#/$defs/component"}}}}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://juzimder.local/schemas/project-v1",
+  "title": "Juzimder Core document v1",
+  "type": "object",
+  "required": ["schemaVersion", "engine", "data"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "engine": { "const": "grapesjs" },
+    "data": {
+      "type": "object",
+      "required": ["pages"],
+      "properties": {
+        "pages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": { "$ref": "#/$defs/page" }
+        },
+        "styles": { "type": "array" },
+        "assets": { "type": "array" }
+      }
+    }
+  },
+  "$defs": {
+    "page": {
+      "type": "object",
+      "required": ["id", "frames"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string" },
+        "frames": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/frame" }
+        }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "required": ["component"],
+      "properties": {
+        "component": { "$ref": "#/$defs/component" }
+      }
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": ["", "default", "wrapper", "text", "textnode", "image", "link", "link-block", "head"]
+        },
+        "tagName": {
+          "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label"]
+        },
+        "attributes": { "type": "object" },
+        "style": { "type": "object" },
+        "content": { "type": "string" },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/component" }
+        },
+        "head": { "$ref": "#/$defs/component" },
+        "docEl": { "$ref": "#/$defs/component" }
+      }
+    }
+  }
+}
