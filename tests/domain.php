@@ -19,5 +19,15 @@ foreach ([['script'=>'alert(1)'],['tagName'=>'iframe'],['attributes'=>['onclick'
 $evil=$d;$evil['data']['pages'][0]['frames'][0]['component']['components']='bad';rejects(fn()=>Document::validate($evil),422);
 $evil=$d;$evil['schemaVersion']=2;rejects(fn()=>Document::validate($evil),422);
 check($s->owned($id,'a')['document']===$d,'Invalid writes preserve data');
+$next=$d;$next['data']['pages'][0]['frames'][0]['component']['components'][0]['content']='Second revision';
+$second=$s->save($id,'a',1,$next);check($second['version']===2,'Second revision saved');
+$restored=$s->restore($id,'a',2,1);check($restored['version']===3&&$restored['document']===$d,'Restore creates a new version with historical data');
+check((int)$s->query('SELECT COUNT(*) FROM revisions WHERE project_id=?',[$id])->fetchColumn()===3,'Restore preserves revision history');
+rejects(fn()=>$s->restore($id,'a',2,1),409);rejects(fn()=>$s->restore($id,'b',3,1),404);rejects(fn()=>$s->restore($id,'a',3,999),404);
 unset($s);$s=new Store($path);check($s->owned($id,'a')['document']===$d,'Disk persistence after reopen');
+$version=$s->owned($id,'a')['version'];$document=$s->owned($id,'a')['document'];
+for($i=0;$i<200;$i++){$saved=$s->save($id,'a',$version,$document);$version=$saved['version'];}
+$bounds=$s->query('SELECT COUNT(*) AS count,MIN(version) AS first,MAX(version) AS last FROM revisions WHERE project_id=?',[$id])->fetch();
+check((int)$bounds['count']===200&&(int)$bounds['first']===$version-199&&(int)$bounds['last']===$version,'Keep only the latest 200 revisions');
+rejects(fn()=>$s->restore($id,'a',$version,1),404);
 } finally {unset($s);@unlink($path);}

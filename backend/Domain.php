@@ -88,7 +88,26 @@ final class Store {
         try {
             $stmt = $this->query('UPDATE documents SET payload=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE project_id=? AND version=?',[$payload,$id,$version]);
             if ($stmt->rowCount() !== 1) throw new Problem(409,'На сервере есть новая версия. Экспортируйте свои изменения и откройте проект заново.');
-            $this->query('INSERT INTO revisions(project_id,version,payload) VALUES(?,?,?)',[$id,$version+1,$payload]); $this->db->commit();
+            $this->query('INSERT INTO revisions(project_id,version,payload) VALUES(?,?,?)',[$id,$version+1,$payload]);
+            $this->query('DELETE FROM revisions WHERE project_id=? AND version NOT IN (SELECT version FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 200)',[$id,$id]);
+            $this->db->commit();
+        } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        return $this->owned($id,$user);
+    }
+    public function restore(string $id,string $user,int $version,int $targetVersion): array {
+        $this->owned($id,$user);
+        $revision = $this->query('SELECT payload FROM revisions WHERE project_id=? AND version=?',[$id,$targetVersion])->fetch();
+        if (!$revision) throw new Problem(404,'Ревизия не найдена.');
+        $payload = $revision['payload'];
+        $document = json_decode($payload,true,64,JSON_THROW_ON_ERROR);
+        Document::validate($document);
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->query('UPDATE documents SET payload=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE project_id=? AND version=?',[$payload,$id,$version]);
+            if ($stmt->rowCount() !== 1) throw new Problem(409,'Проект изменился в другой вкладке. Обновите его перед восстановлением.');
+            $this->query('INSERT INTO revisions(project_id,version,payload) VALUES(?,?,?)',[$id,$version+1,$payload]);
+            $this->query('DELETE FROM revisions WHERE project_id=? AND version NOT IN (SELECT version FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 200)',[$id,$id]);
+            $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         return $this->owned($id,$user);
     }

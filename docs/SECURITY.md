@@ -6,7 +6,7 @@
 
 Preview запускается в iframe sandbox без allow-scripts/allow-same-origin. allowScripts=false в Core. CSP административной страницы: self scripts, inline styles для editor, HTTPS images, object-src none/base-uri none/frame-ancestors none. Не используем пользовательский HTML как серверный PHP. Upload endpoint отсутствует: изображения добавляются по HTTPS URL. Удалённые изображения раскрывают IP посетителя image host; proxy/cache и managed assets ещё не реализованы.
 
-CAS version защищает от silent overwrite, revision INSERT и save атомарны. Ввод с неизвестным типом или ошибкой не сохраняется. При 409 текущий редактор остаётся открыт, доступен export JSON; merge и force overwrite отсутствуют.
+CAS version защищает от silent overwrite; save и restore вместе с revision INSERT/retention атомарны. Ввод с неизвестным типом или ошибкой не сохраняется. При 409 текущий редактор остаётся открыт, доступен export JSON и явная загрузка серверной версии; merge и force overwrite отсутствуют. Восстановление старой ревизии само создаёт новую версию и не удаляет историю. На проект остаются последние 200 ревизий; очистка старых записей выполняется в той же транзакции, что и сохранение.
 
 До публичного deployment: HTTPS, явная session idle/absolute expiry, email verification/recovery, account lifecycle, distributed rate limiting/quotas, резервное копирование с restore drill, dependency/SBOM и license review, доступ к var только PHP user, проверка reverse-proxy HTTPS detection. Сейчас TLS берётся из $_SERVER['HTTPS']; forwarded headers не доверяются. SQLite — один сервер с локальным диском; масштабирование не заявлено. Нельзя размещать repo root как document root. .env не загружается автоматически.
 

@@ -21,7 +21,7 @@
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
 - [ ] Migration runner, account recovery, session expiry, production hardening.
-- [ ] History/restore UI, autosave/conflict recovery.
+- [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout
 

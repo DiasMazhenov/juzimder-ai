@@ -4,9 +4,9 @@ From idea to website. Платформа визуального создания
 
 **Статус: foundation 0.1.0.** Первый вертикальный срез работает; полноценный MVP с AI и публикацией ещё не готов.
 
-Реализовано: локальная регистрация/вход, проекты с проверкой владельца, несколько страниц, структурные Hero/Features/CTA/Text/Image, слои и инспектор стилей/свойств, Flex/Grid, desktop/tablet/mobile canvas, Undo/Redo, sandbox preview, серверное сохранение полного Project Data, ревизии, защита от конфликта версий, JSON export.
+Реализовано: локальная регистрация/вход, проекты с проверкой владельца, несколько страниц, структурные Hero/Features/CTA/Text/Image, слои и инспектор стилей/свойств, Flex/Grid, desktop/tablet/mobile canvas, Undo/Redo, sandbox preview, debounce-автосохранение, история до 200 ревизий с безопасным восстановлением, защита от конфликта версий и JSON export.
 
-Не реализовано: OpenRouter/AI chat, MCP, Zero Canvas, upload/media storage, static publication/ZIP, custom domains, templates marketplace, autosave, revision restore UI. Интерфейс честно обозначает AI как следующий этап.
+Не реализовано: OpenRouter/AI chat, MCP, Zero Canvas, upload/media storage, static publication/ZIP, custom domains, templates marketplace. Интерфейс честно обозначает AI как следующий этап.
 
 ## Локальный запуск
 

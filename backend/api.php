@@ -40,9 +40,13 @@ try {
         if ($method === 'GET') result($store->query('SELECT p.id,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC',[$user])->fetchAll());
         if ($method === 'POST') { if (!is_string($body['name'] ?? null)) throw new Problem(422,'Укажите название.'); result($store->create($user,$body['name']),201); }
     }
-    if (preg_match('~^/api/projects/([a-f0-9]{24})(/revisions)?$~D',$path,$match)) {
+    if (preg_match('~^/api/projects/([a-f0-9]{24})(/revisions(?:/restore)?)?$~D',$path,$match)) {
         $id=$match[1]; $store->owned($id,$user);
-        if (!empty($match[2]) && $method === 'GET') result($store->query('SELECT version,created_at FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 50',[$id])->fetchAll());
+        if (($match[2] ?? '') === '/revisions' && $method === 'GET') result($store->query('SELECT version,created_at FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 50',[$id])->fetchAll());
+        if (($match[2] ?? '') === '/revisions/restore' && $method === 'POST') {
+            if (!is_int($body['currentVersion'] ?? null) || !is_int($body['targetVersion'] ?? null) || $body['currentVersion'] < 0 || $body['targetVersion'] < 1) throw new Problem(422,'Некорректная версия ревизии.');
+            result($store->restore($id,$user,$body['currentVersion'],$body['targetVersion']));
+        }
         if (empty($match[2]) && $method === 'GET') result($store->owned($id,$user));
         if (empty($match[2]) && $method === 'PUT') { if (!is_int($body['version'] ?? null) || $body['version']<0) throw new Problem(422,'Укажите версию.'); result($store->save($id,$user,$body['version'],$body['document'] ?? null)); }
     }
