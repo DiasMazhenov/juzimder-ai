@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.004 (npm SemVer 0.1.4).
+Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.005 (npm SemVer 0.1.5).
 
 ## Принятые решения
 
@@ -36,6 +36,7 @@ Browser QA исправил init page event race и учёл служебный 
 
 Версия продукта 00.00.004: добавлен authenticated `POST /api/projects/{id}/operations` и общий server-side operation service. Поддерживаются create, update content/styles/layout, delete с явным `confirm: true`, move и reorder; операции ограничены allowlists и повторно проходят Document validation. Успех сохраняет документ через owner check, expected-version CAS и новую revision. Duplicate отложен до безопасного remap ссылок и styles; endpoint пока не вызывается AI или UI. В изолированном Codex Browser HTTPS Image preset отрендерился и сохранился/reloaded на 375px; clipboard Cmd/Ctrl+C/V остаётся NOT RUN, так как браузерный мост не выполнил сочетания.
 
+Версия продукта 00.00.005: dashboard явно подписывает `Версия продукта`, editor — `Версия`; обе надписи получают номер из общего `productVersion`.
 ## Ограничения / риски
 
 Не готовый SaaS: нет email verification/recovery, срока бездействия session, production deployment, managed assets/upload, backup restore drill. Небольшой DB schema v1 auto-bootstrap, нет полноценного migration runner v2. SQLite для одного сервера, нагрузка не измерена. Core lazy chunk около 1.10 МБ raw / 291 КБ gzip; Vite предупреждает о размере. Свободный пользовательский JS/embed/CSS url запрещены. Панельный мобильный workflow проверен в браузерном viewport 390×844 и 768×1024. Дополнительная частичная responsive matrix: 9/10 секций на mobile 375 px и tablet 768 px, FAQ также на desktop; Image, touch на реальном устройстве, clipboard и полная keyboard/a11y матрица ещё не приняты.

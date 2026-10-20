@@ -17,6 +17,7 @@
 - [x] PHP API, SQLite schema v1, session auth, CSRF, owner checks.
 - [x] Loopback-only `admin/admin` test login for `npm run serve`; not enabled for public hosting.
 - [x] Dashboard: создать проект и открыть редактор.
+- [x] Явно показывать текущую версию продукта в dashboard и editor из `productVersion`.
 - [x] GrapesJS Core: слои, traits, inspector, секции, pages/devices.
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
@@ -68,4 +69,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.004, с рабочим ручным редактором, десятью библиотечными presets, редактируемой проектной темой, design-plan endpoint и начальным typed-operation API. Image preset подтверждён с HTTPS-ресурсом и сохранением/reload; clipboard Cmd/Ctrl+C/V всё ещё NOT RUN, потому что доступный Codex Browser не доставил сочетания к canvas. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — подтвердить clipboard в браузере с поддержкой modifier keys, затем соединить AI plan с preview и typed operations; AI пока не вызывает mutation endpoint. Import API/UI ещё не реализованы; для них описан versioned migration contract.
+**Текущее состояние:** foundation, версия продукта 00.00.005, с рабочим ручным редактором, десятью библиотечными presets, редактируемой проектной темой, design-plan endpoint и начальным typed-operation API. Image preset подтверждён с HTTPS-ресурсом и сохранением/reload; clipboard Cmd/Ctrl+C/V всё ещё NOT RUN, потому что доступный Codex Browser не доставил сочетания к canvas. Полные 15 критериев MVP ещё не закрыты. Следующий шаг — подтвердить clipboard в браузере с поддержкой modifier keys, затем соединить AI plan с preview и typed operations; AI пока не вызывает mutation endpoint. Import API/UI ещё не реализованы; для них описан versioned migration contract.
