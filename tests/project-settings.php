@@ -20,6 +20,8 @@ try {
     $store=new Store($path);
     settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===2,'Upgrade existing database to schema 2');
     $project=$store->owned('0123456789abcdef01234567','legacy');
+    settingsCheck($project['settings']['schemaVersion']===2,'Project settings migrate to schema version 2');
+    settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');
     settingsCheck(count($project['document']->data->pages)===2,'Legacy page content preserved');
     settingsCheck($project['settings']['pages']['home']['isHome']===true,'First legacy page becomes home');
     settingsCheck($project['settings']['pages']['about-page']['slug']==='o-kompanii','Cyrillic legacy title gets stable slug');
@@ -28,4 +30,18 @@ try {
     settingsCheck(ProjectSettings::validateSlug('/О нас')==='o-nas','Cyrillic and leading slash normalize');
     settingsReject(fn()=>ProjectSettings::validateSlug('api'),422);
     settingsReject(fn()=>ProjectSettings::validateSlug('nested/path'),422);
+
+    $legacyDocument=Document::empty();
+    $legacyDocument['data']['pages'][0]['frames'][0]['component']['style']=['--juzimder-color-forest'=>'#123456'];
+    $legacyDocument['data']['pages'][0]['frames'][0]['component']['components']=[['tagName'=>'a','style'=>['color'=>'#245b46','background-color'=>'#123456']]];
+    $secondPage=$legacyDocument['data']['pages'][0];$secondPage['id']='about';$secondPage['name']='About';$legacyDocument['data']['pages'][]=$secondPage;
+    $legacyObject=json_decode(json_encode($legacyDocument,JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+    $inferred=ProjectSettings::initial($legacyObject);
+    settingsCheck($inferred['designTokens']['forest']==='#123456','Legacy root style seeds project design tokens');
+    $tokens=ProjectSettings::validateDesignTokens(['forest'=>'#654321','radius'=>'12px'],$inferred['designTokens']);
+    $styled=ProjectSettings::applyDesignTokensToDocument($legacyObject,$tokens);
+    settingsCheck($styled->data->pages[0]->frames[0]->component->style->{'--juzimder-color-forest'}==='#654321'&&$styled->data->pages[1]->frames[0]->component->style->{'--juzimder-color-forest'}==='#654321','Project tokens reach every page root');
+    settingsCheck($styled->data->pages[0]->frames[0]->component->components[0]->style->color==='var(--juzimder-color-forest)'&&$styled->data->pages[0]->frames[0]->component->components[0]->style->{'background-color'}==='#123456','Preset colors follow tokens while custom local colors remain overrides');
+    settingsReject(fn()=>ProjectSettings::validateDesignTokens(['ink'=>'red']),422);
+    settingsReject(fn()=>ProjectSettings::validateDesignTokens(['unknown'=>'#123456']),422);
 } finally { unset($store); @unlink($path); }

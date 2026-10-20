@@ -56,17 +56,17 @@ assert.equal((await b.call('/projects/'+p.id,'PUT',{version:0,document:p.documen
 p.document.data.pages[0].frames[0].component.components.push({type:'text',tagName:'h1',content:'API saved heading',attributes:{id:'stable-heading'},style:{}});
 p.document.data.pages[0].frames[0].component.components.push({type:'text',tagName:'span',content:'Empty object round trip',attributes:{},style:{}});
 const saved=await a.call('/projects/'+p.id,'PUT',{version:0,document:p.document});assert.equal(saved.status,200);assert.equal(saved.data.version,1);
-assert.deepEqual((await a.call('/projects/'+p.id)).data.document,p.document);
+const savedDocument=saved.data.document;assert.deepEqual((await a.call('/projects/'+p.id)).data.document,savedDocument);assert.equal(savedDocument.data.pages[0].frames[0].component.style['--juzimder-color-ink'],'#183e31');
 assert.equal((await a.call('/projects/'+p.id,'PUT',{version:0,document:p.document})).status,409);
 assert.equal((await a.call('/projects/'+p.id,'PUT',{version:1,document:{schemaVersion:99}})).status,422);
 const malformedDocument={schemaVersion:1,engine:'grapesjs',data:{pages:{home:{id:'home',frames:[{component:{type:'wrapper'}}]}}}};
 assert.equal((await a.call('/projects/'+p.id,'PUT',{version:1,document:malformedDocument})).status,422);
-const nullContent=structuredClone(p.document);nullContent.data.pages[0].frames[0].component.components[0].content=null;
+const nullContent=structuredClone(savedDocument);nullContent.data.pages[0].frames[0].component.components[0].content=null;
 assert.equal((await a.call('/projects/'+p.id,'PUT',{version:1,document:nullContent})).status,422);
 assert.equal((await a.call('/projects/'+p.id)).data.version,1,'Rejected documents do not advance the project version');
-assert.deepEqual((await a.call('/projects/'+p.id)).data.document,p.document,'Rejected documents preserve the last accepted data');
+assert.deepEqual((await a.call('/projects/'+p.id)).data.document,savedDocument,'Rejected documents preserve the last accepted data');
 assert.equal((await a.call('/projects/'+p.id+'/revisions')).data.length,1);
-const originalDocument=structuredClone(p.document),secondDocument=structuredClone(p.document);
+const originalDocument=structuredClone(savedDocument),secondDocument=structuredClone(savedDocument);
 secondDocument.data.pages[0].frames[0].component.components[0].content='Second revision';
 assert.equal((await a.call('/projects/'+p.id,'PUT',{version:1,document:secondDocument})).data.version,2);
 const restored=await a.call('/projects/'+p.id+'/revisions/restore','POST',{currentVersion:2,targetVersion:1});
@@ -107,4 +107,22 @@ result=await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{v
 result=await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:5,action:'delete'});assert.equal(result.status,200);listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages[0].isHome,true,'deleting home chooses the first remaining page');
 assert.equal((await other.call(`/projects/${project.id}/pages`)).status,404,'page metadata follows project ownership');
 const restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:6,targetVersion:4});assert.equal(restored.status,200);assert.equal(restored.data.version,7);assert.equal(restored.data.settings.pages.home.isHome,true,'page routes restore with the matching document revision');
+});
+
+test('Project design tokens use validated settings, revisions and server-owned route metadata',async()=>{
+const owner=new Client(),other=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'tokens@example.test',password:'a-long-token-password'});await other.call('/session');await other.call('/register','POST',{email:'token-outsider@example.test',password:'another-token-password'});
+const created=await owner.call('/projects','POST',{name:'Token workspace'}),project=created.data;assert.equal(created.status,201);assert.equal(project.settings.schemaVersion,2);assert.equal(project.settings.designTokens.fontFamily,'Arial, sans-serif');
+const settingsPath=`/projects/${project.id}/settings`,changes={ink:'#112233',fontFamily:'Georgia, serif',radius:'16px'};
+assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:changes},'bad')).status,403,'Project settings require CSRF');
+assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:{...changes,unknown:'#ffffff'}})).status,422,'Unknown design tokens are rejected');
+assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:{ink:'red'}})).status,422,'Unsafe token values are rejected');
+assert.equal((await owner.call(settingsPath,'PUT',{version:1,designTokens:changes})).status,409,'Project settings use version preconditions');
+assert.equal((await other.call(settingsPath,'PUT',{version:0,designTokens:changes})).status,404,'Project settings enforce ownership');
+let saved=await owner.call(settingsPath,'PUT',{version:0,designTokens:changes});assert.equal(saved.status,200);assert.equal(saved.data.version,1);assert.equal(saved.data.settings.designTokens.ink,'#112233');assert.equal(saved.data.settings.designTokens.fontFamily,'Georgia, serif');
+assert.equal(saved.data.document.data.pages[0].frames[0].component.style['--juzimder-color-ink'],'#112233');assert.equal((await owner.call(`/projects/${project.id}/revisions`)).data[0].version,1,'A settings save creates a revision');
+let page=await owner.call(`/projects/${project.id}/pages`,'POST',{version:1,action:'create',name:'About'});assert.equal(page.status,200);assert.equal(page.data.document.data.pages[1].frames[0].component.style['--juzimder-font-family'],'Georgia, serif','New pages inherit persisted global tokens');
+let restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:2,targetVersion:1});assert.equal(restored.status,200);assert.equal(restored.data.version,3);assert.equal(restored.data.settings.designTokens.ink,'#112233','Design tokens restore with their matching revision');
+const nextTokens={...restored.data.settings.designTokens,accent:'#8899aa'};
+saved=await owner.call(`/projects/${project.id}`,'PUT',{version:3,document:restored.data.document,settings:{designTokens:nextTokens}});assert.equal(saved.status,200);assert.equal(saved.data.settings.designTokens.accent,'#8899aa');assert.equal(Object.keys(saved.data.settings.pages).length,1,'Editor settings cannot replace route metadata');
+assert.equal((await owner.call(`/projects/${project.id}`,'PUT',{version:4,document:saved.data.document,settings:{pages:{}}})).status,422,'Editor settings accept only design tokens');
 });

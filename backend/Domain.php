@@ -150,6 +150,8 @@ final class Store {
         $current = $this->owned($id,$user); Document::validate($doc);
         if ($current['version'] !== $version) throw new Problem(409,'На сервере есть новая версия. Экспортируйте свои изменения и откройте проект заново.');
         $settings = ProjectSettings::reconcile($settingsOverride ?? $current['settings'], $doc);
+        $doc = ProjectSettings::applyDesignTokensToDocument($doc, $settings['designTokens']);
+        Document::validate($doc);
         $payload = json_encode($doc, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $settingsPayload = json_encode($settings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         if (strlen($payload) > 2000000) throw new Problem(413,'Проект превышает 2 МБ.');

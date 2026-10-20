@@ -80,6 +80,16 @@ try {
         $updatedDocument = Juzimder\ProjectOperations::apply($project['document'], $body['operations'] ?? null);
         result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/settings$~D', $path, $settingsMatch) && $method === 'PUT') {
+        if (array_diff(array_keys($body), ['version','designTokens']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !array_key_exists('designTokens', $body)) throw new Problem(422,'Укажите текущую версию и настройки цветов и шрифтов.');
+        $projectId = $settingsMatch[1];
+        $project = $store->owned($projectId, $user);
+        $tokens = Juzimder\ProjectSettings::validateDesignTokens($body['designTokens'], $project['settings']['designTokens']);
+        $settings = $project['settings'];
+        $settings['designTokens'] = $tokens;
+        $document = Juzimder\ProjectSettings::applyDesignTokensToDocument($project['document'], $tokens);
+        result($store->save($projectId, $user, $body['version'], $document, $settings));
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/pages(?:/([A-Za-z0-9_-]{1,128}))?$~D',$path,$pageMatch)) {
         $projectId = $pageMatch[1];
         $pageId = $pageMatch[2] ?? null;
@@ -107,7 +117,21 @@ try {
             result($store->restore($id,$user,$body['currentVersion'],$body['targetVersion']));
         }
         if (empty($match[2]) && $method === 'GET') result($store->owned($id,$user));
-        if (empty($match[2]) && $method === 'PUT') { if (!is_int($body['version'] ?? null) || $body['version']<0) throw new Problem(422,'Укажите версию.'); result($store->save($id,$user,$body['version'],$body['document'] ?? null)); }
+        if (empty($match[2]) && $method === 'PUT') {
+            if (array_diff(array_keys($body), ['version','document','settings']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Укажите версию проекта.');
+            $settingsOverride = null;
+            if (array_key_exists('settings', $body)) {
+                if (!$body['settings'] instanceof stdClass) throw new Problem(422,'Настройки проекта должны быть объектом.');
+                $settingsInput = get_object_vars($body['settings']);
+                if (array_diff(array_keys($settingsInput), ['designTokens']) || !array_key_exists('designTokens', $settingsInput)) throw new Problem(422,'Можно обновить только проверенные design tokens.');
+                $current = $store->owned($id, $user);
+                $tokens = Juzimder\ProjectSettings::validateDesignTokens($settingsInput['designTokens'], $current['settings']['designTokens']);
+                $settingsOverride = $current['settings'];
+                $settingsOverride['designTokens'] = $tokens;
+                $body['document'] = Juzimder\ProjectSettings::applyDesignTokensToDocument($body['document'] ?? null, $tokens);
+            }
+            result($store->save($id,$user,$body['version'],$body['document'] ?? null,$settingsOverride));
+        }
     }
     throw new Problem(404,'Маршрут не найден.');
 } catch (Problem $e) { result(['error'=>$e->getMessage()],$e->status); } catch (Throwable $e) { error_log('Juzimder API: '.get_class($e)); result(['error'=>'Внутренняя ошибка сервера.'],500); }

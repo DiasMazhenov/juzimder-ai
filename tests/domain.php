@@ -16,16 +16,16 @@ $invalidFixtures=json_decode(file_get_contents(__DIR__.'/fixtures/invalid-docume
 foreach($invalidFixtures as $fixture) rejects(fn()=>Document::validate($fixture->document),422,$fixture->case);
 $d=Document::empty();$d['data']['pages'][0]['frames'][0]['component']['style']=['--juzimder-color-ink'=>'#102030','--juzimder-radius'=>'12px'];$d['data']['pages'][0]['frames'][0]['component']['components']=[['type'=>'text','tagName'=>'h1','content'=>'Persistent heading','attributes'=>['id'=>'heading-stable'],'ai'=>['origin'=>'manual']]];
 $d['data']['styles']=[['selectors'=>['heading-stable'],'style'=>['font-size'=>'32px'],'mediaText'=>'(max-width: 576px)']];
-$r=$s->save($id,'a',0,$d);check(sameJson($r['document'],$d),'Lossless project round trip');check($r['version']===1,'Version increment');rejects(fn()=>$s->save($id,'a',0,$d),409);
+$r=$s->save($id,'a',0,$d);check($r['version']===1,'Version increment');check($r['document']->data->pages[0]->frames[0]->component->style->{'--juzimder-color-ink'}==='#183e31','Project settings add canonical root tokens');check($r['document']->data->pages[0]->frames[0]->component->components[0]->content==='Persistent heading'&&$r['document']->data->styles[0]->style->{'font-size'}==='32px','Central tokens preserve page content and responsive styles');$persistedDocument=$r['document'];rejects(fn()=>$s->save($id,'a',0,$d),409);
 check((int)$s->query('SELECT COUNT(*) FROM revisions')->fetchColumn()===1,'Conflict creates no revision');
 foreach ([['script'=>'alert(1)'],['tagName'=>'iframe'],['attributes'=>['onclick'=>'alert(1)']],['attributes'=>['href'=>'javascript:alert(1)']],['content'=>'<img src=x onerror=alert(1)>'],['style'=>['background'=>'url(https://example.test)']],['type'=>'custom-code']] as $bad) {$evil=$d;$evil['data']['pages'][0]['frames'][0]['component']['components'][]=$bad;rejects(fn()=>Document::validate($evil),422);}
-check(sameJson($s->owned($id,'a')['document'],$d),'Invalid writes preserve data');
+check(sameJson($s->owned($id,'a')['document'],$persistedDocument),'Invalid writes preserve data');
 $next=$d;$next['data']['pages'][0]['frames'][0]['component']['components'][0]['content']='Second revision';
 $second=$s->save($id,'a',1,$next);check($second['version']===2,'Second revision saved');
-$restored=$s->restore($id,'a',2,1);check($restored['version']===3&&sameJson($restored['document'],$d),'Restore creates a new version with historical data');
+$restored=$s->restore($id,'a',2,1);check($restored['version']===3&&sameJson($restored['document'],$persistedDocument),'Restore creates a new version with historical data');
 check((int)$s->query('SELECT COUNT(*) FROM revisions WHERE project_id=?',[$id])->fetchColumn()===3,'Restore preserves revision history');
 rejects(fn()=>$s->restore($id,'a',2,1),409);rejects(fn()=>$s->restore($id,'b',3,1),404);rejects(fn()=>$s->restore($id,'a',3,999),404);
-unset($s);$s=new Store($path);check(sameJson($s->owned($id,'a')['document'],$d),'Disk persistence after reopen');
+unset($s);$s=new Store($path);check(sameJson($s->owned($id,'a')['document'],$persistedDocument),'Disk persistence after reopen');
 $version=$s->owned($id,'a')['version'];$document=$s->owned($id,'a')['document'];
 for($i=0;$i<200;$i++){$saved=$s->save($id,'a',$version,$document);$version=$saved['version'];}
 $bounds=$s->query('SELECT COUNT(*) AS count,MIN(version) AS first,MAX(version) AS last FROM revisions WHERE project_id=?',[$id])->fetch();

@@ -35,7 +35,7 @@
 - [x] Структурная schema v1 согласована с runtime policy; negative/security fixtures и контракт импорта/миграций.
 - [x] Inspector: Hug/Fill для ширины и высоты; min/max ограничения с проверкой единиц и сохранением/reload.
 - [x] Shared palette tokens и пять новых секций (Navigation, Process, Testimonial, FAQ, Footer); все presets проходят backend Project Data validator.
-- [x] Редактируемые глобальные design tokens проекта: восемь цветов, шрифт и скругление; сохраняются в Project Data и применяются к готовым секциям.
+- [x] Базовые design tokens проекта: восемь цветов, общий шрифт и скругление; schema-validated настройки и CSS variables корней синхронизированы с Project Data, применяются к presets.
 - [x] Библиотека десяти структурных секций и базовых элементов (контейнер/кнопка) с поиском и категориями.
 - [ ] Полная keyboard/copy-paste QA.
 - [x] Частичный Codex Browser responsive smoke: девять секций на 375/768 px, FAQ также на desktop; Tab и видимый focus ring.
@@ -66,8 +66,10 @@
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
 
-- [ ] Типографические токены и глобальные design tokens в schema-validated project settings service.
-- [ ] Применение глобальных токенов к редактору, AI sections и будущему export без затирания локальных overrides.
+- [x] Базовые tokens (8 цветов, общий системный шрифт, radius) сохраняются в versioned project settings и revisions; forms валидируются на сервере.
+- [x] Editor и AI presets используют общую тему; изменения синхронизируют page roots и сохраняют локальные overrides.
+- [ ] Полная typography: раздельные heading/body fonts, weights, base size, H1–H6, line height, letter spacing и responsive шкала.
+- [ ] Подключить tokens к будущему renderer/export; пока public output не существует.
 - [ ] SEO metadata and analytics ids; inject only in public renderer.
 - [ ] Forms: validated submission endpoints, rate limiting, safe integrations and spam protections.
 - [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
@@ -91,4 +93,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.007. P0 project pages/dashboard, версионируемые route/home settings, settings navigation shell и редакторские Layers/Sections/Body/Flex controls реализованы. Временная Codex Browser проверка подтвердила страницы, панели и Body Flex save/reload. Header/Footer/404 показаны отдельно с честным неподключённым статусом. P1-параметры, публикация и интеграции ещё не готовы; следующий этап — сохраняемые и валидируемые Typography/Design Tokens, затем реальные SEO/analytics/forms/code/AI profiles/domain сервисы с явными публикационными границами. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста; live OpenRouter acceptance ожидает credentials. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.008. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slice `.008` добавил версионируемые и валидируемые базовые design tokens, UI сохранения цветов/шрифта, применение к editor и AI presets, CSS variables в page roots и restore вместе с revisions; временный Codex Browser подтвердил save/reload в Site Settings и редакторе. Header/Footer/404 показаны с честным неподключённым статусом. Полная typography, SEO/analytics/forms/custom code/AI profiles/domain и publication ещё не готовы; они должны подключаться только вместе с серверной поддержкой и явными границами. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста; live OpenRouter acceptance ожидает credentials. Import API/UI пока не реализованы; versioned migration contract уже описан.
