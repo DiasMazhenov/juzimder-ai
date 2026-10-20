@@ -90,3 +90,21 @@ const login=await dev.call('/login','POST',{email:'admin',password:'admin'});ass
 assert.equal((await dev.call('/projects')).status,200);assert.deepEqual((await dev.call('/projects')).data,[]);
 await secondDev.call('/session');assert.equal((await secondDev.call('/login','POST',{email:'admin',password:'admin'})).status,200,'the seeded local account persists in SQLite');
 });
+
+test('Project pages have stable routes, atomic home selection and versioned mutations',async()=>{
+const owner=new Client(),other=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'pages@example.test',password:'a-long-pages-password'});await other.call('/session');await other.call('/register','POST',{email:'other-pages@example.test',password:'another-pages-password'});
+const createdProject=await owner.call('/projects','POST',{name:'Pages workspace'}),project=createdProject.data;assert.equal(createdProject.status,201);
+let listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.status,200);assert.equal(listing.data.pages.length,1);assert.deepEqual({path:listing.data.pages[0].path,home:listing.data.pages[0].isHome},{path:'/',home:true});
+let result=await owner.call(`/projects/${project.id}/pages`,'POST',{version:0,action:'create',name:'О компании'});assert.equal(result.status,200);assert.equal(result.data.version,1);const pageId=result.data.document.data.pages[1].id;
+listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages[1].slug,'o-kompanii');assert.equal(listing.data.pages.filter(page=>page.isHome).length,1);
+result=await owner.call(`/projects/${project.id}/pages/${pageId}`,'POST',{version:1,action:'rename',name:'О нас'});assert.equal(result.status,200);assert.equal(result.data.version,2);assert.equal(result.data.settings.pages[pageId].slug,'o-kompanii','page name and URL can differ');
+result=await owner.call(`/projects/${project.id}/pages/${pageId}`,'POST',{version:2,action:'slug',slug:'/Контакты'});assert.equal(result.status,200);assert.equal(result.data.settings.pages[pageId].slug,'kontakty');
+result=await owner.call(`/projects/${project.id}/pages/${pageId}`,'POST',{version:3,action:'duplicate'});assert.equal(result.status,200);assert.equal(result.data.document.data.pages.length,3);const duplicateId=result.data.document.data.pages[2].id;
+assert.equal((await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:4,action:'slug',slug:'kontakty'})).status,422,'duplicate routes are rejected');
+assert.equal((await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:4,action:'slug',slug:'api'})).status,422,'system routes are reserved');
+assert.equal((await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:3,action:'home'})).status,409,'stale page changes are rejected');
+result=await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:4,action:'home'});assert.equal(result.status,200);listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages.filter(page=>page.isHome).length,1);assert.equal(listing.data.pages[2].path,'/');
+result=await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:5,action:'delete'});assert.equal(result.status,200);listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages[0].isHome,true,'deleting home chooses the first remaining page');
+assert.equal((await other.call(`/projects/${project.id}/pages`)).status,404,'page metadata follows project ownership');
+const restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:6,targetVersion:4});assert.equal(restored.status,200);assert.equal(restored.data.version,7);assert.equal(restored.data.settings.pages.home.isHome,true,'page routes restore with the matching document revision');
+});

@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { blocks } from '../src/blocks.js';
 import { DEFAULT_DESIGN_TOKENS, designTokensToStyle } from '../src/design-tokens.js';
 
-test('section library has unique ids and complete labels', () => {
+test('section and element library has unique ids and complete labels', () => {
   const ids = blocks.map(block => block.id);
   assert.equal(new Set(ids).size, ids.length, 'block ids must be unique');
-  assert.deepEqual(ids, ['hero', 'features', 'cta', 'text', 'image', 'navigation', 'process', 'testimonial', 'faq', 'footer']);
+  assert.deepEqual(ids, ['hero', 'features', 'cta', 'text', 'image', 'navigation', 'process', 'testimonial', 'faq', 'footer', 'container', 'button']);
   for (const block of blocks) {
     assert.ok(block.label.trim(), `${block.id} has a visible label`);
     assert.ok(block.description.trim(), `${block.id} has a description`);
@@ -30,7 +30,7 @@ test('internal links resolve when the complete section library is composed', () 
   for (const target of targets) assert.ok(ids.has(target), `#${target} should point to a section in the library`);
 });
 
-test('all section presets pass the authoritative PHP Project Data validator', () => {
+test('all block presets pass the authoritative PHP Project Data validator', () => {
   const document = {
     schemaVersion: 1,
     engine: 'grapesjs',

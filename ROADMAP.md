@@ -17,6 +17,9 @@
 - [x] PHP API, SQLite schema v1, session auth, CSRF, owner checks.
 - [x] Loopback-only `admin/admin` test login for `npm run serve`; not enabled for public hosting.
 - [x] Dashboard: создать проект и открыть редактор.
+- [x] Project Pages Dashboard: отдельные URL управления проектом и editor pages.
+- [x] Server-authoritative page create/rename/duplicate/delete, unique route slugs, home selection и revision restore.
+- [x] Отдельный settings navigation shell; незапущенные backend-функции честно обозначены.
 - [x] Явно показывать текущую версию продукта в dashboard и editor из `productVersion`.
 - [x] GrapesJS Core: слои, traits, inspector, секции, pages/devices.
 - [x] Добавить → изменить → сохранить → reload → восстановить.
@@ -33,20 +36,25 @@
 - [x] Inspector: Hug/Fill для ширины и высоты; min/max ограничения с проверкой единиц и сохранением/reload.
 - [x] Shared palette tokens и пять новых секций (Navigation, Process, Testimonial, FAQ, Footer); все presets проходят backend Project Data validator.
 - [x] Редактируемые глобальные design tokens проекта: восемь цветов, шрифт и скругление; сохраняются в Project Data и применяются к готовым секциям.
-- [x] Полная библиотека из десяти структурных секций с редактируемыми примерами.
+- [x] Библиотека десяти структурных секций и базовых элементов (контейнер/кнопка) с поиском и категориями.
 - [ ] Полная keyboard/copy-paste QA.
 - [x] Частичный Codex Browser responsive smoke: девять секций на 375/768 px, FAQ также на desktop; Tab и видимый focus ring.
 - [x] Проверить Image preset с тестовым HTTPS-ресурсом, save и reload.
 - [ ] Подтвердить Cmd/Ctrl+C/V в браузере, который передаёт модификаторы.
 - [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
+- [x] Floating Layers/Sections drawers, icon Flex controls и layout для Page Root/Body; isolated-browser save/reload подтвердил Body Flex.
 - [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
 - [ ] Универсальные component operations, duplicate с безопасным remap ссылок/styles и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
-## Phase 4 — Zero Canvas
+## Phase 4 — Zero Block (P2, только архитектура)
 
-- [ ] Отдельный free-position контейнер, drag/resize/guides/snap/alignment/breakpoints.
+- [ ] Отдельный тип секции `zero-block` внутри обычного GrapesJS page component tree; не глобальный режим canvas.
+- [ ] Собственное дерево элементов и responsive properties внутри full Project Data; расширить validator через версионируемую migration.
+- [ ] Отдельный Zero Block Editor с открытием из секции, возвратом в основной редактор и общим CAS/revision service.
+- [ ] Свободное позиционирование, drag/resize/guides/snap/alignment/breakpoints.
+- [ ] Не начинать реализацию редактора до закрытия P0/P1 и проверки component schema/undo/persistence.
 
 ## Phase 5 — AI
 
@@ -54,6 +62,17 @@
 - [x] Редактор: disclosure о передаче prompt, статус провайдера, предпросмотр плана и отдельное подтверждение перед добавлением preset-секций typed operations с новой revision.
 - [ ] Intent → plan → structured generation → validate → editable output → revision.
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
+- [ ] P1: несколько пользовательских AI profiles и защищённые credentials; сейчас active model/key принадлежат окружению сервера.
+
+## Phase 5.1 — глобальные настройки проекта (P1)
+
+- [ ] Типографические токены и глобальные design tokens в schema-validated project settings service.
+- [ ] Применение глобальных токенов к редактору, AI sections и будущему export без затирания локальных overrides.
+- [ ] SEO metadata and analytics ids; inject only in public renderer.
+- [ ] Forms: validated submission endpoints, rate limiting, safe integrations and spam protections.
+- [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
+- [ ] Domain setup after public routing/DNS/SSL verification exists.
+- [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
 
 ## Phase 6 — MCP
 
@@ -72,4 +91,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.006, с рабочим ручным редактором, десятью presets, редактируемой темой, design-plan endpoint и начальным typed-operation API. AI-план имеет disclosure, preview и отдельное подтверждение; выбранные presets добавляются одной server-validated CAS revision, а palette применяется к новым секциям. В изолированном Codex Browser подтверждены UI и состояние «provider не настроен»; live OpenRouter и mutation flow с реальным ответом остаются NOT RUN, потому что серверные credentials отсутствуют. Image preset подтверждён с HTTPS-ресурсом и save/reload; clipboard Cmd/Ctrl+C/V остаётся NOT RUN, так как браузерный мост не передал сочетание canvas. Полные 15 критериев MVP ещё не закрыты. Ближайшие шаги — принять clipboard и провести live OpenRouter + save/reload после настройки credentials. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.007. P0 project pages/dashboard, версионируемые route/home settings, settings navigation shell и редакторские Layers/Sections/Body/Flex controls реализованы. Временная Codex Browser проверка подтвердила страницы, панели и Body Flex save/reload. Header/Footer/404 показаны отдельно с честным неподключённым статусом. P1-параметры, публикация и интеграции ещё не готовы; следующий этап — сохраняемые и валидируемые Typography/Design Tokens, затем реальные SEO/analytics/forms/code/AI profiles/domain сервисы с явными публикационными границами. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста; live OpenRouter acceptance ожидает credentials. Import API/UI пока не реализованы; versioned migration contract уже описан.

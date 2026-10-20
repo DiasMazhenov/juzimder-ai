@@ -212,6 +212,29 @@ export const blocks = [
         }
       ]
     })
+  },
+  {
+    id: 'container',
+    label: 'Контейнер',
+    description: 'Область для вложенных элементов · Flex',
+    content: () => ({
+      tagName: 'div',
+      name: 'Контейнер',
+      style: { display: 'flex', 'flex-direction': 'column', gap: '12px', 'min-height': '120px', padding: '20px', 'border': '1px dashed ' + palette.line, 'border-radius': palette.radius },
+      components: []
+    })
+  },
+  {
+    id: 'button',
+    label: 'Кнопка',
+    description: 'Редактируемая кнопка-ссылка',
+    content: () => ({
+      tagName: 'button',
+      name: 'Кнопка',
+      attributes: { type: 'button' },
+      content: 'Нажмите здесь',
+      style: { padding: '12px 18px', 'background-color': palette.forest, color: '#fff', 'border': '0', 'border-radius': palette.radius, 'font-family': palette.font, 'font-size': '14px', cursor: 'pointer' }
+    })
   }
 ];
 

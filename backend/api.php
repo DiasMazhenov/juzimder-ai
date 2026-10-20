@@ -80,6 +80,20 @@ try {
         $updatedDocument = Juzimder\ProjectOperations::apply($project['document'], $body['operations'] ?? null);
         result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/pages(?:/([A-Za-z0-9_-]{1,128}))?$~D',$path,$pageMatch)) {
+        $projectId = $pageMatch[1];
+        $pageId = $pageMatch[2] ?? null;
+        if ($method === 'GET' && $pageId === null) result(['pages'=>$store->pages($projectId,$user),'project'=>$store->owned($projectId,$user)]);
+        if ($method === 'POST') {
+            $allowed = $pageId === null ? ['version','action','name'] : ['version','action','name','slug'];
+            if (array_diff(array_keys($body),$allowed) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['action'] ?? null)) throw new Problem(422,'Укажите действие и текущую версию проекта.');
+            if (isset($body['name']) && !is_string($body['name'])) throw new Problem(422,'Название страницы должно быть текстом.');
+            if (isset($body['slug']) && !is_string($body['slug'])) throw new Problem(422,'URL страницы должен быть текстом.');
+            if ($pageId === null && $body['action'] !== 'create') throw new Problem(422,'Для этого действия укажите страницу.');
+            $value = $body['action'] === 'slug' ? ($body['slug'] ?? null) : ($body['name'] ?? null);
+            result($store->mutatePage($projectId,$user,$body['version'],$pageId,$body['action'],$value));
+        }
+    }
     if ($path === '/api/logout' && $method === 'POST') { $_SESSION=[]; session_destroy(); result(['ok'=>true]); }
     if ($path === '/api/projects') {
         if ($method === 'GET') result($store->query('SELECT p.id,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC',[$user])->fetchAll());
