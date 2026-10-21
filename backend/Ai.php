@@ -55,6 +55,9 @@ final class AiProviderFailure extends \RuntimeException {
             'unavailable' => 'OpenRouter временно недоступен. Попробуйте позже или настройте резервную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'credentials' => 'OpenRouter отклонил доступ. Проверьте API-ключ и выбранную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'invalid_response' => 'Модель не вернула структурированный дизайн. Проверьте поддержку JSON Schema для выбранной модели или настройте резервную модель. Проект не изменён.',
+            'invalid_schema' => 'Ответ модели не соответствует формату генерации. Попробуйте ещё раз. Проект не изменён.',
+            'invalid_markup' => 'Ответ модели нарушил правила допустимой HTML-разметки. Попробуйте ещё раз. Проект не изменён.',
+            'invalid_css' => 'Стили модели не прошли безопасную проверку. Упростите описание визуального стиля и попробуйте ещё раз. Проект не изменён.',
             'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание сайта и попробуйте ещё раз. Проект не изменён.',
             default => 'AI-провайдер отклонил запрос. Проверьте выбранную модель и её настройки в «Настройки сайта → AI Engine». Проект не изменён.',
         };
@@ -329,7 +332,15 @@ final class AiGeneratedWebsite {
         'border-radius','aspect-ratio','object-fit','opacity','cursor',
     ];
 
-    private const SYSTEM_PROMPT = 'Create a polished, responsive, visually distinctive one-page website design and original copy from the user brief. Return only the requested JSON fields. Treat the style description as a concrete art direction and create a deliberate palette with high contrast, not a generic wireframe. Use a memorable hero composition, varied but consistent section backgrounds, clear typographic hierarchy, compact purposeful spacing, refined cards with borders and shadows, and prominent CTA buttons. Avoid oversized empty sections and repeated plain text blocks. The html field must contain a fragment with 3 to 9 <section> elements and exactly one hero section having class ai-hero. Do not generate image elements, image placeholders, image URLs, filenames, or image descriptions. After validating the markup, the application inserts one local hero image slot for the owner to fill from managed project media. Use only these tags: main, header, nav, section, footer, div, article, aside, h1-h4, p, span, a, button, ul, ol, li, strong, em, b, i, br, hr. Use no img elements, forms, scripts, SVG, iframe, embedded content, inline style, or comments. Allowed attributes are class, id, href, type, title, role, aria-label, and aria-hidden; type is allowed only on button and must be button. Do not add custom data attributes. Every class token must begin with ai- and contain only letters, digits, underscore, or hyphen. Every id must be unique and use only letters, digits, underscore, or hyphen; IDs are scoped by the application. Use href only for #fragment, https, mailto, or tel links. The css field may use selectors made only from existing ai- class names and safe HTML tag names including img, separated by descendant spaces; do not use pseudo selectors, IDs, attributes, universal selectors, or other combinators. Explicitly style navigation lists, links, and buttons so the browser does not show default bullets or blue underlined links. Style only with these properties: display, flex-direction, justify-content, align-items, flex-wrap, align-self, grid-template-columns, gap, width, height, min-width, max-width, min-height, max-height, padding, margin, color, background-color, background, box-shadow, font-family, font-size, font-weight, font-style, line-height, letter-spacing, text-align, text-decoration, text-transform, list-style-type, overflow, position, border, border-top, border-bottom, border-radius, aspect-ratio, object-fit, opacity, cursor. Use safe values: hex colors, linear gradients with hex stops, shadows with hex colors, responsive grid repeat(auto-fit, minmax(...)), flex/grid, spacing in px/rem/%/vw, and system fonts. Keep content containers within a readable max-width, provide responsive behavior with flex-wrap/auto-fit grids and at most two @media (max-width: Npx) blocks. Never return JavaScript or external asset URLs.';
+    private const SYSTEM_PROMPT = 'Create a polished, responsive, visually distinctive one-page website design and original copy from the user brief. Return only the requested JSON fields. Treat the style description as a concrete art direction and create a deliberate palette with high contrast, not a generic wireframe. Use a memorable hero composition, varied but consistent section backgrounds, clear typographic hierarchy, compact purposeful spacing, refined cards with borders and shadows, and prominent CTA buttons. Avoid oversized empty sections and repeated plain text blocks. The html field must contain a fragment with 3 to 9 <section> elements and exactly one hero section having class ai-hero. Do not generate image elements, image URLs, filenames, or image descriptions. Image slots use only empty div markers with class ai-image-slot and the data-image-slot value hero or section-1 through section-8. Include exactly one hero marker inside ai-hero and optionally up to three unique section markers; the application inserts a missing hero marker after validation. Never place files, URLs, or descriptions in a slot marker. Use only these tags: main, header, nav, section, footer, div, article, aside, h1-h4, p, span, a, button, ul, ol, li, strong, em, b, i, br, hr. Use no img elements, forms, scripts, SVG, iframe, embedded content, inline style, or comments. Allowed attributes are class, id, href, type, title, role, aria-label, aria-hidden, and data-image-slot only on an empty div.ai-image-slot marker; type is allowed only on button and must be button. Do not add other custom data attributes. Every class token must begin with ai- and contain only letters, digits, underscore, or hyphen. Every id must be unique and use only letters, digits, underscore, or hyphen; IDs are scoped by the application. Use href only for #fragment, https, mailto, or tel links. The css field may use selectors made only from existing ai- class names and safe HTML tag names including img, separated by descendant spaces; do not use pseudo selectors, IDs, attributes, universal selectors, or other combinators. Explicitly style navigation lists, links, and buttons so the browser does not show default bullets or blue underlined links. Style only with these properties: display, flex-direction, justify-content, align-items, flex-wrap, align-self, grid-template-columns, gap, width, height, min-width, max-width, min-height, max-height, padding, margin, color, background-color, background, box-shadow, font-family, font-size, font-weight, font-style, line-height, letter-spacing, text-align, text-decoration, text-transform, list-style-type, overflow, position, border, border-top, border-bottom, border-radius, aspect-ratio, object-fit, opacity, cursor. Use safe values: hex colors, linear gradients with hex stops, shadows with hex colors, responsive grid repeat(auto-fit, minmax(...)), flex/grid, spacing in px/rem/%/vw, and system fonts. Keep content containers within a readable max-width, provide responsive behavior with flex-wrap/auto-fit grids and at most two @media (max-width: Npx) blocks. Never return JavaScript or external asset URLs.';
+
+    private const CSS_OUTPUT_RULES = 'CSS must be plain, comment-free rule blocks: no code fences, CSS variables, @import, @supports, or nested selector rules. Use flat selectors only; at most two simple @media (max-width: Npx) blocks may contain flat rules. Use only selectors and properties present in the HTML and allowed above. Example of accepted responsive syntax: .ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;color:#1A2824}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr}}.';
+
+    private const VALIDATION_RETRY_GUIDANCE = [
+        'invalid_schema' => 'The previous response did not match the required JSON schema. Regenerate the complete object from the same user brief, with exactly the required fields and no surrounding prose or code fences.',
+        'invalid_markup' => 'The previous response failed the strict HTML allowlist. Regenerate the complete design from the same user brief using only the allowed HTML tags and attributes. Image slots are permitted only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8; never add img elements, URLs, filenames, comments, styles, scripts, or unsupported attributes.',
+        'invalid_css' => 'The previous response failed the strict CSS allowlist. Regenerate the complete design from the same user brief using plain comment-free CSS rules, only existing ai- classes and allowed properties/values, and no variables, code fences, or nested/unsupported at-rules.',
+    ];
 
     public static function schema(): array {
         $textField = static fn(string $description): array => ['type'=>'string','description'=>$description];
@@ -340,8 +351,8 @@ final class AiGeneratedWebsite {
                 'audience'=>$textField('Target audience, up to 240 characters.'),
                 'goal'=>$textField('Primary website goal, up to 200 characters.'),
                 'style'=>$textField('Visual art direction, up to 200 characters.'),
-                'html'=>['type'=>'string','description'=>'Safe HTML fragment using only the tags and attributes from the system instructions, including one local hero image slot. Maximum 24000 characters.'],
-                'css'=>['type'=>'string','description'=>'Responsive CSS using only the safe class selectors and properties from the system instructions. Maximum 24000 characters.'],
+                'html'=>['type'=>'string','description'=>'Safe HTML fragment using only the tags and attributes from the system instructions. Use image slots only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8. Include one hero marker inside ai-hero and optionally up to three unique section markers. Never add img elements, URLs, filenames, or image descriptions. Maximum 24000 characters.'],
+                'css'=>['type'=>'string','description'=>'Plain, comment-free responsive CSS rule blocks using only selectors and properties present in the HTML. No code fences, variables, nested selector rules, or unsupported at-rules; simple max-width media blocks may contain flat rules. Maximum 24000 characters.'],
             ],
             'required'=>['siteType','audience','goal','style','html','css'],
             'additionalProperties'=>false,
@@ -352,7 +363,7 @@ final class AiGeneratedWebsite {
         $json = trim($json);
         if (preg_match('/\A```(?:json)?\s*(.*?)\s*```\z/is', $json, $fenced)) $json = trim($fenced[1]);
         try { $design = json_decode($json, true, 32, JSON_THROW_ON_ERROR); }
-        catch (\JsonException $failure) { error_log('Juzimder AI: generated design returned malformed JSON (' . $failure->getMessage() . ', ' . strlen($json) . ' bytes).'); throw new AiProviderFailure('AI provider returned an invalid design.'); }
+        catch (\JsonException $failure) { error_log('Juzimder AI: generated design returned malformed JSON (' . $failure->getMessage() . ', ' . strlen($json) . ' bytes).'); throw new AiProviderFailure('AI provider returned an invalid design.', false, 'invalid_schema'); }
         $fields = ['siteType','audience','goal','style','html','css'];
         try {
             if (!is_array($design) || array_is_list($design) || count($design) !== count($fields) || array_diff(array_keys($design), $fields)) throw new AiProviderFailure('AI provider returned an invalid design.');
@@ -365,19 +376,19 @@ final class AiGeneratedWebsite {
             $design['html'] = self::repairUtf8Mojibake($design['html']);
         } catch (AiProviderFailure $failure) {
             error_log('Juzimder AI: generated design rejected by output schema validation.');
-            throw $failure;
+            throw new AiProviderFailure($failure->getMessage(), false, 'invalid_schema');
         }
 
         $scope = 'ai-scope-' . bin2hex(random_bytes(8));
         try { $markup = self::sanitizeMarkup($design['html'], $scope); }
-        catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by markup sanitizer.'); throw $failure; }
+        catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by markup sanitizer.'); throw new AiProviderFailure($failure->getMessage(), false, 'invalid_markup'); }
         if (!isset($markup['imageSlots']['hero'])) {
             $markup['html'] = self::appendHeroImageSlot($markup['html']);
             $markup['classes']['ai-image-slot'] = true;
             $markup['imageSlots'] = ['hero'=>true] + $markup['imageSlots'];
         }
         try { $stylesheet = self::sanitizeStylesheet($design['css'], $scope, $markup['classes']); }
-        catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by CSS sanitizer.'); throw $failure; }
+        catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by CSS sanitizer.'); throw new AiProviderFailure($failure->getMessage(), false, 'invalid_css'); }
         if ($markup['imageSlots']) $stylesheet .= "\n." . $scope . " .ai-image-slot{display:block;overflow:hidden;min-height:220px;aspect-ratio:4/3;background:#2B332E}\n." . $scope . " .ai-image-slot img{display:block;width:100%;height:100%;min-height:220px;object-fit:cover}\n";
         return [
             'siteType'=>$design['siteType'], 'audience'=>$design['audience'], 'goal'=>$design['goal'], 'style'=>$design['style'],
@@ -389,17 +400,45 @@ final class AiGeneratedWebsite {
     }
 
     public static function create(string $prompt, StructuredAiProvider $provider): array {
-        $completion = $provider->completeJson(self::SYSTEM_PROMPT, $prompt, self::schema(), 'juzimder_generated_site', 9000);
-        try { $design = self::parseProviderOutput($completion['content'] ?? ''); }
-        catch (AiProviderFailure $failure) { throw new AiProviderFailure($failure->getMessage(), false, 'invalid_output'); }
+        $systemPrompt = self::SYSTEM_PROMPT . "\n\n" . self::CSS_OUTPUT_RULES;
+        $completion = $provider->completeJson($systemPrompt, $prompt, self::schema(), 'juzimder_generated_site', 9000);
+        try {
+            $design = self::parseProviderOutput($completion['content'] ?? '');
+            $repairAttempted = false;
+        } catch (AiProviderFailure $failure) {
+            $category = self::validationCategory($failure);
+            if (!isset(self::VALIDATION_RETRY_GUIDANCE[$category])) throw new AiProviderFailure($failure->getMessage(), false, $category);
+            $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . self::VALIDATION_RETRY_GUIDANCE[$category], $prompt, self::schema(), 'juzimder_generated_site', 9000);
+            try { $design = self::parseProviderOutput($repairCompletion['content'] ?? ''); }
+            catch (AiProviderFailure $repairFailure) { throw new AiProviderFailure($repairFailure->getMessage(), false, self::validationCategory($repairFailure)); }
+            $completion['model'] = $repairCompletion['model'] ?? $completion['model'] ?? null;
+            $completion['usage'] = self::combinedUsage($completion['usage'] ?? [], $repairCompletion['usage'] ?? []);
+            $repairAttempted = true;
+        }
         return [
             'design'=>$design,
             'metadata'=>[
                 'provider'=>'openrouter',
                 'resolvedModel'=>$completion['model'] ?? null,
                 'usage'=>$completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
+                'repairAttempted'=>$repairAttempted,
             ],
         ];
+    }
+
+    private static function validationCategory(AiProviderFailure $failure): string {
+        return in_array($failure->category, ['invalid_schema','invalid_markup','invalid_css'], true) ? $failure->category : 'invalid_output';
+    }
+
+    private static function combinedUsage(array $first, array $second): array {
+        $combined = [];
+        foreach (['promptTokens','completionTokens','totalTokens'] as $key) {
+            $combined[$key] = is_int($first[$key] ?? null) && is_int($second[$key] ?? null) ? $first[$key] + $second[$key] : null;
+        }
+        $combined['costUsd'] = is_numeric($first['costUsd'] ?? null) && is_numeric($second['costUsd'] ?? null)
+            ? (float)$first['costUsd'] + (float)$second['costUsd']
+            : null;
+        return $combined;
     }
 
     private static function sanitizeMarkup(string $source, string $scope): array {

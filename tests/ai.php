@@ -100,6 +100,11 @@ try {
     $generatedRequest=json_decode($generatedTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);
     $generatedOutput=$generated['design'];
     preg_match('/class="(ai-scope-[a-f0-9]+)"/',$generatedOutput['html'],$scopeMatch);
+    $htmlSchemaDescription=AiGeneratedWebsite::schema()['properties']['html']['description'];
+    aiCheck(str_contains($htmlSchemaDescription,'empty div.ai-image-slot markers')&&str_contains($htmlSchemaDescription,'one hero marker inside ai-hero')&&str_contains($generatedRequest['messages'][0]['content'],'Do not generate image elements, image URLs')&&str_contains($generatedRequest['messages'][0]['content'],'data-image-slot only on an empty div.ai-image-slot marker'),'AI schema and system prompt agree on safe model-generated image slot markers');
+    $cssSchemaDescription=AiGeneratedWebsite::schema()['properties']['css']['description'];
+    $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
+    aiCheck(str_contains($cssSchemaDescription,'comment-free')&&str_contains($cssSchemaDescription,'nested selector rules')&&str_contains($generatedSystemPrompt,'no code fences, CSS variables')&&str_contains($generatedSystemPrompt,'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),'AI CSS instructions match the strict parser syntax');
     aiCheck($generatedRequest['max_tokens']===9000&&$generatedRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','html','css'],'Full-page generation reserves enough output tokens for a strict structured response');
     aiCheck($generatedOutput['sectionCount']===3&&isset($scopeMatch[1])&&str_contains($generatedOutput['html'],'href="#'.$scopeMatch[1].'-contact"')&&str_contains($generatedOutput['html'],'id="'.$scopeMatch[1].'-contact"'),'Generated page keeps its section structure and scopes in-page links');
     aiCheck($generatedOutput['imageSlots']===[['id'=>'hero','label'=>'Главное изображение']]&&str_contains($generatedOutput['html'],'data-image-slot="hero"')&&str_contains($generatedOutput['css'],'object-fit:cover'),'AI output contains a validated local image slot styled for selected project media');
@@ -108,10 +113,25 @@ try {
     aiCheck($repairedDesign['siteType']===$mojibakeTitle&&str_contains($repairedDesign['html'],'Клиника показывает: '.$mojibakeTitle.' — помощь рядом.'),'Mojibake Cyrillic is repaired inside mixed text without changing valid Cyrillic in the same node');
     $unsafeSite=$generatedDesign;$unsafeSite['html']=str_replace('<header','<script>alert(1)</script><header',$unsafeSite['html']);
     $unsafeSiteContent=json_encode($unsafeSite,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
-    $unsafeSiteBody=json_encode(['choices'=>[['message'=>['content'=>$unsafeSiteContent]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
-    $unsafeSiteTransport=new FakeAiTransport([new AiHttpResponse(200,$unsafeSiteBody)]);
-    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$unsafeSiteTransport)); throw new RuntimeException('Expected unsafe generated design.'); }
-    catch (AiProviderFailure $failure) { aiCheck($failure->category==='invalid_output'&&str_contains($failure->userMessage(),'безопасную проверку'),'Unsafe model output is reported separately from provider failures'); }
+    $unsafeSiteBody=json_encode(['model'=>'openai/unsafe-model','choices'=>[['message'=>['content'=>$unsafeSiteContent]]],'usage'=>['prompt_tokens'=>120,'completion_tokens'=>50,'total_tokens'=>170,'cost'=>0.0001]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $repairTransport=new FakeAiTransport([new AiHttpResponse(200,$unsafeSiteBody),new AiHttpResponse(200,$generatedBody)]);
+    $repairResult=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$repairTransport));
+    $repairRequest=json_decode($repairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+    aiCheck(count($repairTransport->calls)===2&&$repairResult['metadata']['repairAttempted']===true&&$repairRequest['messages'][1]['content']==='Сайт клиники в современном стиле'&&str_contains($repairRequest['messages'][0]['content'],'previous response failed the strict HTML allowlist')&&!str_contains($repairRequest['messages'][0]['content'],'alert(1)'),'AI makes one safe repair attempt without echoing rejected model output');
+    aiCheck($repairResult['metadata']['usage']===['promptTokens'=>540,'completionTokens'=>1850,'totalTokens'=>2390,'costUsd'=>0.0021],'AI repair attempt aggregates usage and cost from both model responses');
+    $failedMarkupTransport=new FakeAiTransport([new AiHttpResponse(200,$unsafeSiteBody),new AiHttpResponse(200,$unsafeSiteBody)]);
+    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$failedMarkupTransport)); throw new RuntimeException('Expected unsafe generated design.'); }
+    catch (AiProviderFailure $failure) { aiCheck(count($failedMarkupTransport->calls)===2&&$failure->category==='invalid_markup'&&str_contains($failure->userMessage(),'HTML-разметки')&&!str_contains($failure->userMessage(),'alert(1)'),'Repeated unsafe markup gives safe HTML-specific guidance and stops after one repair'); }
+    $invalidSchemaDesign=$generatedDesign;unset($invalidSchemaDesign['goal']);
+    $invalidSchemaBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($invalidSchemaDesign,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $invalidSchemaResponse=new AiHttpResponse(200,$invalidSchemaBody);$invalidSchemaTransport=new FakeAiTransport([$invalidSchemaResponse,$invalidSchemaResponse]);
+    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$invalidSchemaTransport)); throw new RuntimeException('Expected invalid generated schema.'); }
+    catch (AiProviderFailure $failure) { aiCheck(count($invalidSchemaTransport->calls)===2&&$failure->category==='invalid_schema'&&str_contains($failure->userMessage(),'формату генерации'),'Generated output schema failures get safe format guidance after one repair'); }
+    $invalidCssDesign=$generatedDesign;$invalidCssDesign['css']='';
+    $invalidCssBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($invalidCssDesign,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $invalidCssResponse=new AiHttpResponse(200,$invalidCssBody);$invalidCssTransport=new FakeAiTransport([$invalidCssResponse,$invalidCssResponse]);
+    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$invalidCssTransport)); throw new RuntimeException('Expected invalid generated CSS.'); }
+    catch (AiProviderFailure $failure) { aiCheck(count($invalidCssTransport->calls)===2&&$failure->category==='invalid_css'&&str_contains($failure->userMessage(),'Стили')&&!str_contains($failure->userMessage(),'https://'),'Generated CSS failures get safe style-specific guidance'); }
     aiCheck(str_contains($generatedOutput['css'],'.'.$scopeMatch[1].' .ai-hero')&&str_contains($generatedOutput['css'],'@media (max-width: 768px)')&&$generated['metadata']['usage']['completionTokens']===1800,'Generated responsive CSS is scoped and provider usage remains available for preview');
     $plainActions=$generatedDesign;$plainActions['html']=str_replace('<a class="ai-link" href="#contact">Записаться</a>','<a href="#contact">Записаться</a><button type="button">Записаться</button>', $plainActions['html']);
     $plainActionOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($plainActions,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));

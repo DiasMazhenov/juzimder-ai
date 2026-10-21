@@ -188,7 +188,7 @@ async function openEditor(id,pageId=null) {
   $('#ai-plan-title').textContent='Дизайн страницы';
   $('#ai-plan-dialog .eyebrow').textContent='AI-ГЕНЕРАЦИЯ';
   $('#ai-generate').textContent='Создать дизайн';
-  $('.ai-disclosure').textContent='В OpenRouter отправится только описание сайта из этого поля. Содержимое проекта не передаётся. Модель создаёт HTML и безопасные CSS-правила без JavaScript; перед импортом вы увидите изолированный предпросмотр.';
+  $('.ai-disclosure').textContent='В OpenRouter отправится только описание сайта из этого поля. Содержимое проекта не передаётся. Если ответ нарушит формат или правила безопасности, система выполнит одну исправляющую попытку с тем же описанием. Каждая попытка проходит одинаковую серверную проверку; если повтор понадобится, расход токенов суммируется. Перед импортом вы увидите изолированный предпросмотр.';
   editor.Components.addType('image',{model:{defaults:{traits:['alt','src']}}});
   registerBlocks(editor);
   const libraryFilter=document.createElement('div');libraryFilter.className='library-filter';libraryFilter.innerHTML=`<label><span class="visually-hidden">Поиск секций и элементов</span><input id="block-search" type="search" placeholder="Поиск секций и элементов" autocomplete="off"></label><div class="library-categories" role="group" aria-label="Категории библиотеки">${[['all','Все'],['Секции','Секции'],['Элементы','Элементы'],['Компоновка','Компоновка'],['Медиа','Медиа'],['Навигация','Навигация']].map(([id,label],index)=>`<button type="button" data-library-category="${id}" aria-pressed="${index===0}">${label}</button>`).join('')}</div>`;
