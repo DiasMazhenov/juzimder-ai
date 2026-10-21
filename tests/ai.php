@@ -91,8 +91,8 @@ try {
 
     $generatedDesign=[
         'siteType'=>'Клиника', 'audience'=>'Семьи и взрослые', 'goal'=>'Запись на приём', 'style'=>'Светлый современный стиль',
-        'html'=>'<header class="ai-nav"><nav><a class="ai-link" href="#contact">Записаться</a></nav></header><section class="ai-hero"><div><h1 class="ai-title">Забота о здоровье</h1><p class="ai-copy">Современная клиника рядом с вами.</p></div></section><section class="ai-features"><article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article></section><section class="ai-contact" id="contact"><h2>Мы рядом</h2><p>Запишитесь на консультацию.</p></section>',
-        'css'=>'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;padding:64px 32px;background-color:#f4f8f6;color:#1a2824}.ai-title{font-size:clamp(32px,5vw,64px);line-height:1.1}.ai-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}.ai-contact{padding:48px 24px}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr;padding:40px 20px}}',
+        'html'=>'<header class="ai-nav"><nav><a class="ai-link" href="#contact">Записаться</a></nav></header><section class="ai-hero"><div><h1 class="ai-title">Забота о здоровье</h1><p class="ai-copy">Современная клиника рядом с вами.</p></div><div class="ai-image-slot" data-image-slot="hero"></div></section><section class="ai-features"><article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article></section><section class="ai-contact" id="contact"><h2>Мы рядом</h2><p>Запишитесь на консультацию.</p></section>',
+        'css'=>'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;padding:64px 32px;background-color:#f4f8f6;color:#1a2824}.ai-title{font-size:clamp(32px,5vw,64px);line-height:1.1}.ai-image-slot{overflow:hidden;aspect-ratio:4/3}.ai-image-slot img{width:100%;height:100%;object-fit:cover}.ai-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}.ai-contact{padding:48px 24px}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr;padding:40px 20px}}',
     ];
     $generatedBody=json_encode(['model'=>'openai/resolved-model','choices'=>[['message'=>['content'=>json_encode($generatedDesign,JSON_UNESCAPED_UNICODE)]]],'usage'=>['prompt_tokens'=>420,'completion_tokens'=>1800,'total_tokens'=>2220,'cost'=>0.002]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $generatedTransport=new FakeAiTransport([new AiHttpResponse(200,$generatedBody)]);
@@ -102,6 +102,10 @@ try {
     preg_match('/class="(ai-scope-[a-f0-9]+)"/',$generatedOutput['html'],$scopeMatch);
     aiCheck($generatedRequest['max_tokens']===9000&&$generatedRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','html','css'],'Full-page generation reserves enough output tokens for a strict structured response');
     aiCheck($generatedOutput['sectionCount']===3&&isset($scopeMatch[1])&&str_contains($generatedOutput['html'],'href="#'.$scopeMatch[1].'-contact"')&&str_contains($generatedOutput['html'],'id="'.$scopeMatch[1].'-contact"'),'Generated page keeps its section structure and scopes in-page links');
+    aiCheck($generatedOutput['imageSlots']===[['id'=>'hero','label'=>'Главное изображение']]&&str_contains($generatedOutput['html'],'data-image-slot="hero"')&&str_contains($generatedOutput['css'],'object-fit:cover'),'AI output contains a validated local image slot styled for selected project media');
+    $mojibakeDesign=$generatedDesign;$mojibakeTitle='Керамика с характером';$mojibakeText=mb_convert_encoding($mojibakeTitle,'UTF-8','ISO-8859-1');$mojibakeDesign['siteType']=$mojibakeText;$mojibakeDesign['html']=str_replace('Забота о здоровье',$mojibakeText,$mojibakeDesign['html']);$mojibakeDesign['html']=str_replace('Современная клиника рядом с вами.','Клиника показывает: '.$mojibakeText.' — помощь рядом.',$mojibakeDesign['html']);
+    $repairedDesign=AiGeneratedWebsite::parseProviderOutput(json_encode($mojibakeDesign,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    aiCheck($repairedDesign['siteType']===$mojibakeTitle&&str_contains($repairedDesign['html'],'Клиника показывает: '.$mojibakeTitle.' — помощь рядом.'),'Mojibake Cyrillic is repaired inside mixed text without changing valid Cyrillic in the same node');
     aiCheck(str_contains($generatedOutput['css'],'.'.$scopeMatch[1].' .ai-hero')&&str_contains($generatedOutput['css'],'@media (max-width: 768px)')&&$generated['metadata']['usage']['completionTokens']===1800,'Generated responsive CSS is scoped and provider usage remains available for preview');
     $plainActions=$generatedDesign;$plainActions['html']=str_replace('<a class="ai-link" href="#contact">Записаться</a>','<a href="#contact">Записаться</a><button type="button">Записаться</button>', $plainActions['html']);
     $plainActionOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($plainActions,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
@@ -121,6 +125,12 @@ try {
     aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated markup rejects executable tags');
     $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('class="ai-link"','class="ai-link" onclick="alert(1)"',$badGenerated['html']);
     aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated markup rejects event-handler attributes');
+    $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('data-image-slot="hero"','data-image-slot="https://example.test/image.jpg"',$badGenerated['html']);
+    $strippedImageMarker=AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    aiCheck(($strippedImageMarker['imageSlots'][0]['id']??null)==='hero'&&!str_contains($strippedImageMarker['html'],'example.test'),'Server strips provider-supplied image URLs and inserts only its own managed hero slot');
+    $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('<div class="ai-image-slot" data-image-slot="hero"></div>','',$badGenerated['html']);
+    $fallbackHeroSlot=AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    aiCheck(($fallbackHeroSlot['imageSlots'][0]['id']??null)==='hero'&&str_contains($fallbackHeroSlot['html'],'data-image-slot="hero"'),'Server adds a safe hero image slot when the model omits it');
     $badGenerated=$generatedDesign;$badGenerated['css'].='.ai-title:hover{color:#000000}';
     $sanitizedPseudo=AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
     aiCheck(!str_contains($sanitizedPseudo['css'],':hover')&&str_contains($sanitizedPseudo['css'],'.ai-title{font-size:'),'Generated CSS drops unsupported selectors while preserving valid styles');

@@ -1,6 +1,6 @@
 # План Juzimder AI
 
-Обновлено 21.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
+Обновлено 22.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
 
 ## Phase 0 — аудит и архитектура
 
@@ -69,9 +69,12 @@
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
 - [x] Необязательная резервная модель профиля; используется после повторной попытки основной модели при временной сетевой ошибке или HTTP 408/429/5xx.
 - [x] Полностраничная генерация HTML/CSS: strict JSON output, серверная проверка и namespace для разрешённых тегов, атрибутов, классов, ссылок и стилей.
+- [x] Исправление распространённой Latin-1/UTF-8 mojibake в AI metadata и фрагментах текста с сохранением корректной кириллицы рядом.
 - [x] Изолированный sandbox preview без скриптов/сети; отдельное подтверждение импорта через GrapesJS Core в редактируемые components/CSS rules и сохранение обычным Project Data/CAS/revision pipeline.
 - [x] Live OpenRouter acceptance для полной генерации: preview → confirm/apply → save → reload на отдельной тестовой странице; результат и URL подтверждены в 00.00.024.
 - [x] Визуальная приёмка результата реальной модели в 00.00.025: scoped tag/descendant CSS исправил браузерные ссылки/списки; editor snapshot проверен на desktop и 375px mobile, revision 6 сохранена на отдельной QA-странице.
+- [x] Локальные image slots в full-page AI generation: обязательное изображение hero, до трёх дополнительных; выбор/загрузка из приватной project library после генерации; file bytes, filenames, IDs and URLs are excluded from OpenRouter request; import produces editable managed GrapesJS image components.
+- [ ] Live browser acceptance новых image slots: выбрать файл из библиотеки, проверить blob preview и импорт/сохранение в изолированном QA-проекте.
 - [ ] Продолжить live acceptance до восстановления ревизии и публикации отдельного безопасного снимка.
 - [ ] Targeted AI edits по stable component ID.
 
@@ -112,4 +115,4 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.025.
+**Текущее состояние:** foundation, версия продукта 00.00.026.
