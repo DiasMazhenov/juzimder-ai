@@ -210,8 +210,8 @@ try {
         set_time_limit(120);
         try {
             result(Juzimder\AiDesignPlanner::create($prompt, new Juzimder\OpenRouterProvider($settings)));
-        } catch (Juzimder\AiProviderFailure) {
-            throw new Problem(502,'AI-провайдер временно недоступен. Проект не изменён.');
+        } catch (Juzimder\AiProviderFailure $failure) {
+            throw new Problem(502,$failure->userMessage());
         }
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/generate-page$~D', $path, $aiDesignMatch) && $method === 'POST') {
@@ -231,8 +231,8 @@ try {
         set_time_limit(120);
         try {
             result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings)));
-        } catch (Juzimder\AiProviderFailure) {
-            throw new Problem(502,'AI не смог подготовить безопасный дизайн. Уточните описание и попробуйте ещё раз.');
+        } catch (Juzimder\AiProviderFailure $failure) {
+            throw new Problem(502,$failure->userMessage());
         }
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/operations$~D', $path, $operationMatch) && $method === 'POST') {

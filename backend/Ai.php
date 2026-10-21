@@ -48,7 +48,17 @@ final class StreamAiHttpTransport implements AiHttpTransport {
 }
 
 final class AiProviderFailure extends \RuntimeException {
-    public function __construct(string $message, public readonly bool $retryable = false) { parent::__construct($message); }
+    public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider') { parent::__construct($message); }
+
+    public function userMessage(): string {
+        return match ($this->category) {
+            'unavailable' => 'OpenRouter временно недоступен. Попробуйте позже или настройте резервную модель в «Настройки сайта → AI Engine». Проект не изменён.',
+            'credentials' => 'OpenRouter отклонил доступ. Проверьте API-ключ и выбранную модель в «Настройки сайта → AI Engine». Проект не изменён.',
+            'invalid_response' => 'Модель не вернула структурированный дизайн. Проверьте поддержку JSON Schema для выбранной модели или настройте резервную модель. Проект не изменён.',
+            'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание сайта и попробуйте ещё раз. Проект не изменён.',
+            default => 'AI-провайдер отклонил запрос. Проверьте выбранную модель и её настройки в «Настройки сайта → AI Engine». Проект не изменён.',
+        };
+    }
 }
 
 final class OpenRouterSettings {
@@ -152,7 +162,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
                     usleep(150000);
                     continue;
                 }
-                throw new AiProviderFailure('AI provider is unavailable.', true);
+                throw new AiProviderFailure('AI provider is unavailable.', true, 'unavailable');
             }
             $retryableStatus = $response->status === 408 || $response->status === 429 || ($response->status >= 500 && $response->status <= 599);
             if ($attempt === 0 && $retryableStatus) {
@@ -165,19 +175,21 @@ final class OpenRouterProvider implements StructuredAiProvider {
         if (!$response || $response->status < 200 || $response->status >= 300) {
             $status = $response?->status ?? 0;
             error_log('Juzimder AI: OpenRouter returned HTTP ' . $status . '.');
-            throw new AiProviderFailure('AI provider returned an error.', $status === 0 || $status === 408 || $status === 429 || ($status >= 500 && $status <= 599));
+            $retryable = $status === 0 || $status === 408 || $status === 429 || ($status >= 500 && $status <= 599);
+            $category = in_array($status, [401,403], true) ? 'credentials' : ($retryable ? 'unavailable' : 'provider');
+            throw new AiProviderFailure('AI provider returned an error.', $retryable, $category);
         }
 
         try {
             $decoded = json_decode($response->body, true, 32, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             error_log('Juzimder AI: OpenRouter returned invalid JSON.');
-            throw new AiProviderFailure('AI provider returned an invalid response.');
+            throw new AiProviderFailure('AI provider returned an invalid response.', false, 'invalid_response');
         }
         $content = $decoded['choices'][0]['message']['content'] ?? null;
         if (!is_string($content) || trim($content) === '' || strlen($content) > 100000) {
             error_log('Juzimder AI: OpenRouter returned no structured content.');
-            throw new AiProviderFailure('AI provider returned an invalid response.');
+            throw new AiProviderFailure('AI provider returned an invalid response.', false, 'invalid_response');
         }
 
         $usage = is_array($decoded['usage'] ?? null) ? $decoded['usage'] : [];
@@ -293,8 +305,10 @@ final class AiDesignPlanner {
 
     public static function create(string $prompt, StructuredAiProvider $provider): array {
         $completion = $provider->completeJson(self::SYSTEM_PROMPT, $prompt, AiDesignPlan::schema(), 'juzimder_design_plan');
+        try { $plan = AiDesignPlan::parseProviderOutput($completion['content'] ?? ''); }
+        catch (AiProviderFailure $failure) { throw new AiProviderFailure($failure->getMessage(), false, 'invalid_output'); }
         return [
-            'plan' => AiDesignPlan::parseProviderOutput($completion['content'] ?? ''),
+            'plan' => $plan,
             'metadata' => [
                 'provider' => 'openrouter',
                 'resolvedModel' => $completion['model'] ?? null,
@@ -376,8 +390,10 @@ final class AiGeneratedWebsite {
 
     public static function create(string $prompt, StructuredAiProvider $provider): array {
         $completion = $provider->completeJson(self::SYSTEM_PROMPT, $prompt, self::schema(), 'juzimder_generated_site', 9000);
+        try { $design = self::parseProviderOutput($completion['content'] ?? ''); }
+        catch (AiProviderFailure $failure) { throw new AiProviderFailure($failure->getMessage(), false, 'invalid_output'); }
         return [
-            'design'=>self::parseProviderOutput($completion['content'] ?? ''),
+            'design'=>$design,
             'metadata'=>[
                 'provider'=>'openrouter',
                 'resolvedModel'=>$completion['model'] ?? null,

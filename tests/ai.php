@@ -106,6 +106,12 @@ try {
     $mojibakeDesign=$generatedDesign;$mojibakeTitle='Керамика с характером';$mojibakeText=mb_convert_encoding($mojibakeTitle,'UTF-8','ISO-8859-1');$mojibakeDesign['siteType']=$mojibakeText;$mojibakeDesign['html']=str_replace('Забота о здоровье',$mojibakeText,$mojibakeDesign['html']);$mojibakeDesign['html']=str_replace('Современная клиника рядом с вами.','Клиника показывает: '.$mojibakeText.' — помощь рядом.',$mojibakeDesign['html']);
     $repairedDesign=AiGeneratedWebsite::parseProviderOutput(json_encode($mojibakeDesign,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
     aiCheck($repairedDesign['siteType']===$mojibakeTitle&&str_contains($repairedDesign['html'],'Клиника показывает: '.$mojibakeTitle.' — помощь рядом.'),'Mojibake Cyrillic is repaired inside mixed text without changing valid Cyrillic in the same node');
+    $unsafeSite=$generatedDesign;$unsafeSite['html']=str_replace('<header','<script>alert(1)</script><header',$unsafeSite['html']);
+    $unsafeSiteContent=json_encode($unsafeSite,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $unsafeSiteBody=json_encode(['choices'=>[['message'=>['content'=>$unsafeSiteContent]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $unsafeSiteTransport=new FakeAiTransport([new AiHttpResponse(200,$unsafeSiteBody)]);
+    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$unsafeSiteTransport)); throw new RuntimeException('Expected unsafe generated design.'); }
+    catch (AiProviderFailure $failure) { aiCheck($failure->category==='invalid_output'&&str_contains($failure->userMessage(),'безопасную проверку'),'Unsafe model output is reported separately from provider failures'); }
     aiCheck(str_contains($generatedOutput['css'],'.'.$scopeMatch[1].' .ai-hero')&&str_contains($generatedOutput['css'],'@media (max-width: 768px)')&&$generated['metadata']['usage']['completionTokens']===1800,'Generated responsive CSS is scoped and provider usage remains available for preview');
     $plainActions=$generatedDesign;$plainActions['html']=str_replace('<a class="ai-link" href="#contact">Записаться</a>','<a href="#contact">Записаться</a><button type="button">Записаться</button>', $plainActions['html']);
     $plainActionOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($plainActions,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
@@ -162,7 +168,13 @@ try {
 
     $failedTransport = new FakeAiTransport([new AiHttpResponse(401,'sk-secret-must-not-leak')]);
     try { (new OpenRouterProvider($fallbackSettings,$failedTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected upstream failure.'); }
-    catch (AiProviderFailure $error) { aiCheck(!str_contains($error->getMessage(),'sk-secret') && count($failedTransport->calls)===1, 'Provider errors are redacted and non-retryable authorization failures are not retried'); }
+    catch (AiProviderFailure $error) { aiCheck(!str_contains($error->getMessage(),'sk-secret') && count($failedTransport->calls)===1 && $error->category==='credentials' && str_contains($error->userMessage(),'API-ключ') && !str_contains($error->userMessage(),'sk-secret'), 'Authorization failures show safe profile guidance without exposing provider response content'); }
+    $unavailableTransport=new FakeAiTransport([new AiHttpResponse(429,'{}'),new AiHttpResponse(429,'{}')]);
+    try { (new OpenRouterProvider($settings,$unavailableTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected temporary upstream failure.'); }
+    catch (AiProviderFailure $error) { aiCheck($error->category==='unavailable'&&str_contains($error->userMessage(),'временно недоступен')&&!str_contains($error->userMessage(),'{}'),'Transient provider failures have safe retry guidance'); }
+    $invalidResponseTransport=new FakeAiTransport([new AiHttpResponse(200,'{"choices":[{"message":{"content":""}}]}')]);
+    try { (new OpenRouterProvider($settings,$invalidResponseTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected invalid provider response.'); }
+    catch (AiProviderFailure $error) { aiCheck($error->category==='invalid_response'&&str_contains($error->userMessage(),'структурированный дизайн'),'Malformed provider responses are distinguished from temporary availability failures'); }
 
     $badPlan = $plan; $badPlan['sections'] = ['hero','unknown','faq'];
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects unsupported section types');
