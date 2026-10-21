@@ -198,3 +198,9 @@ API-тест на временной SQLite проверяет preview всех 
 Исправлен request parameter для активной модели при `provider.require_parameters=true`: лимит 3200 отправляется как `max_tokens`. Design-plan endpoint увеличивает PHP execution budget до 120 секунд, чтобы retry и необязательная fallback-модель завершались контролируемым HTTP-ответом вместо прерывания соединения около 30 секунд. Публичный GET к OpenRouter models endpoint вернул HTTP 200.
 
 `npm test`, `npm run build`, PHP syntax checks и `git diff --check`: PASS. В Codex Browser live-запрос `сайт кофейни` с активной моделью `nvidia/nemotron-3.5-super-vl:free` вернул preview с восемью секциями; UI показал 2815 output tokens и $0.000000. Кнопка «Добавить 8 секций» оставлена не нажатой; проект не менялся и остался на ревизии 0. Полный confirm/apply/save/reload/restore/publish — NOT RUN.
+
+## Полностраничная AI-генерация · версия продукта 00.00.023
+
+`npm test`: PASS. `tests/ai.php` прогоняет строгую fixture через OpenRouter fake transport, проверяет `max_tokens=6000`, section count, responsive CSS, случайный namespace для классов и fragment IDs, usage metadata, а также отказ от script, event-handler, pseudo-selector, CSS `url()` и unresolved anchor. `tests/api.test.mjs` проверяет auth, owner, CSRF, prompt bounds, строгую форму запроса и 503 без настроенного профиля. Никаких реальных OpenRouter запросов или изменений проекта эти тесты не выполняют.
+
+`npm run build`, PHP syntax checks для backend/public/tests и `git diff --check`: PASS; Vite показывает прежнее предупреждение о размере GrapesJS chunk (~1.10 MB raw / 291 KB gzip). В отдельной временной вкладке Codex Browser проверены AI-панель, диалог, текст disclosure и актуальная версия 00.00.023. Prompt не отправлялся, пользовательские вкладки с предыдущим AI-планом не перезагружались. Визуальная проверка уже заполненного iframe, live OpenRouter generation и confirm/apply → save/reload/restore/publish — NOT RUN.

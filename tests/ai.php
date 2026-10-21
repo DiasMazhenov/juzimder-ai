@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/../backend/Ai.php';
 require __DIR__.'/../backend/Domain.php';
 require __DIR__.'/../backend/AiCredentials.php';
-use Juzimder\{AiHttpResponse, AiHttpTransport, AiProviderFailure, AiDesignPlan, AiDesignPlanner, AiCredentialVault, OpenRouterProvider, OpenRouterSettings, Store};
+use Juzimder\{AiHttpResponse, AiHttpTransport, AiProviderFailure, AiDesignPlan, AiDesignPlanner, AiGeneratedWebsite, AiCredentialVault, OpenRouterProvider, OpenRouterSettings, Store};
 
 function aiCheck(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); echo "PASS $message\n"; }
 function aiRejects(callable $fn, string $message): void { try { $fn(); } catch (AiProviderFailure) { aiCheck(true, $message); return; } throw new RuntimeException('Expected provider failure: '.$message); }
@@ -82,6 +82,31 @@ try {
     aiCheck(count(AiDesignPlan::parseProviderOutput(json_encode($allSectionsPlan,JSON_THROW_ON_ERROR))['content'])===9,'Server validation supports generated text slots in every built-in section');
     aiCheck($request['timeoutSeconds']===25 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports the fixed timeout, resolved model, token usage and upstream cost');
     aiCheck($result['plan']['sections'][1]==='hero' && $result['plan']['colors']['accent']==='#2A8C7A', 'Design plan is normalized into supported section and color values');
+
+    $generatedDesign=[
+        'siteType'=>'Клиника', 'audience'=>'Семьи и взрослые', 'goal'=>'Запись на приём', 'style'=>'Светлый современный стиль',
+        'html'=>'<header class="ai-nav"><nav><a class="ai-link" href="#contact">Записаться</a></nav></header><section class="ai-hero"><div><h1 class="ai-title">Забота о здоровье</h1><p class="ai-copy">Современная клиника рядом с вами.</p></div></section><section class="ai-features"><article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article></section><section class="ai-contact" id="contact"><h2>Мы рядом</h2><p>Запишитесь на консультацию.</p></section>',
+        'css'=>'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;padding:64px 32px;background-color:#f4f8f6;color:#1a2824}.ai-title{font-size:clamp(32px,5vw,64px);line-height:1.1}.ai-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}.ai-contact{padding:48px 24px}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr;padding:40px 20px}}',
+    ];
+    $generatedBody=json_encode(['model'=>'openai/resolved-model','choices'=>[['message'=>['content'=>json_encode($generatedDesign,JSON_UNESCAPED_UNICODE)]]],'usage'=>['prompt_tokens'=>420,'completion_tokens'=>1800,'total_tokens'=>2220,'cost'=>0.002]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $generatedTransport=new FakeAiTransport([new AiHttpResponse(200,$generatedBody)]);
+    $generated=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$generatedTransport));
+    $generatedRequest=json_decode($generatedTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);
+    $generatedOutput=$generated['design'];
+    preg_match('/class="(ai-scope-[a-f0-9]+)"/',$generatedOutput['html'],$scopeMatch);
+    aiCheck($generatedRequest['max_tokens']===6000&&$generatedRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','html','css'],'Full-page generation requests a larger strict structured response');
+    aiCheck($generatedOutput['sectionCount']===3&&isset($scopeMatch[1])&&str_contains($generatedOutput['html'],'href="#'.$scopeMatch[1].'-contact"')&&str_contains($generatedOutput['html'],'id="'.$scopeMatch[1].'-contact"'),'Generated page keeps its section structure and scopes in-page links');
+    aiCheck(str_contains($generatedOutput['css'],'.'.$scopeMatch[1].' .ai-hero')&&str_contains($generatedOutput['css'],'@media (max-width: 768px)')&&$generated['metadata']['usage']['completionTokens']===1800,'Generated responsive CSS is scoped and provider usage remains available for preview');
+    $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('<header','<script>alert(1)</script><header',$badGenerated['html']);
+    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated markup rejects executable tags');
+    $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('class="ai-link"','class="ai-link" onclick="alert(1)"',$badGenerated['html']);
+    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated markup rejects event-handler attributes');
+    $badGenerated=$generatedDesign;$badGenerated['css'].='.ai-title:hover{color:#000000}';
+    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated CSS rejects pseudo selectors');
+    $badGenerated=$generatedDesign;$badGenerated['css']=str_replace('background-color:#f4f8f6','background-color:url(https://example.test/a.png)',$badGenerated['css']);
+    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated CSS rejects external resource and URL values');
+    $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('href="#contact"','href="#missing"',$badGenerated['html']);
+    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated page rejects unresolved in-page links');
 
     $retryTransport = new FakeAiTransport([new AiHttpResponse(429,'{}'),new AiHttpResponse(200,$successBody)]);
     (new OpenRouterProvider($settings,$retryTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan');

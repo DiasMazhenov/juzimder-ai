@@ -214,6 +214,27 @@ try {
             throw new Problem(502,'AI-провайдер временно недоступен. Проект не изменён.');
         }
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/generate-page$~D', $path, $aiDesignMatch) && $method === 'POST') {
+        $prompt = $body['prompt'] ?? null;
+        if (array_diff(array_keys($body), ['prompt'])) throw new Problem(422,'Передайте только текстовое описание сайта.');
+        if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
+        $credentials = new Juzimder\AiCredentialVault($store);
+        $settings = $credentials->settings($aiDesignMatch[1], $user);
+        if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
+        $now = time();
+        $storedRequests = $_SESSION['ai_requests'] ?? [];
+        if (!is_array($storedRequests)) $storedRequests = [];
+        $requests = array_values(array_filter($storedRequests, static fn($at) => is_int($at) && $at > $now - 60));
+        if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
+        $requests[] = $now;
+        $_SESSION['ai_requests'] = $requests;
+        set_time_limit(120);
+        try {
+            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings)));
+        } catch (Juzimder\AiProviderFailure) {
+            throw new Problem(502,'AI не смог подготовить безопасный дизайн. Уточните описание и попробуйте ещё раз.');
+        }
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/operations$~D', $path, $operationMatch) && $method === 'POST') {
         if (array_diff(array_keys($body), ['version','operations']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Укажите текущую версию и список операций.');
         $projectId = $operationMatch[1];

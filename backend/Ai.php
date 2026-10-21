@@ -79,22 +79,22 @@ final class OpenRouterSettings {
 }
 
 interface StructuredAiProvider {
-    public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName): array;
+    public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens = 3200): array;
 }
 
 final class OpenRouterProvider implements StructuredAiProvider {
     private const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-    private const MAX_COMPLETION_TOKENS = 3200;
 
     public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null) {}
 
-    public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName): array {
+    public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens = 3200): array {
         if (!preg_match('/^[a-z][a-z0-9_]{1,63}$/D', $schemaName)) throw new \InvalidArgumentException('Invalid JSON schema name.');
+        if ($maxTokens < 256 || $maxTokens > 12000) throw new \InvalidArgumentException('Invalid completion token limit.');
         $models = [$this->settings->model];
         if ($this->settings->fallbackModel !== null) $models[] = $this->settings->fallbackModel;
         foreach ($models as $index => $model) {
             try {
-                return $this->completeWithModel($model, $systemPrompt, $userPrompt, $schema, $schemaName);
+                return $this->completeWithModel($model, $systemPrompt, $userPrompt, $schema, $schemaName, $maxTokens);
             } catch (AiProviderFailure $failure) {
                 if ($index === 0 && isset($models[1]) && $failure->retryable) {
                     error_log('Juzimder AI: OpenRouter primary model failed; using configured fallback.');
@@ -106,7 +106,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
         throw new AiProviderFailure('AI provider returned an error.');
     }
 
-    private function completeWithModel(string $model, string $systemPrompt, string $userPrompt, array $schema, string $schemaName): array {
+    private function completeWithModel(string $model, string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens): array {
         try {
             $requestBody = json_encode([
                 'model' => $model,
@@ -117,7 +117,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
                 // OpenRouter model metadata commonly advertises max_tokens. With
                 // require_parameters enabled, use that shared parameter so models
                 // that do not advertise max_completion_tokens remain routable.
-                'max_tokens' => self::MAX_COMPLETION_TOKENS,
+                'max_tokens' => $maxTokens,
                 'temperature' => 0.2,
                 'provider' => ['require_parameters' => true],
                 'usage' => ['include' => true],
@@ -295,5 +295,257 @@ final class AiDesignPlanner {
                 'usage' => $completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
             ],
         ];
+    }
+}
+
+final class AiGeneratedWebsite {
+    private const TAGS = ['main','header','nav','section','footer','div','article','aside','h1','h2','h3','h4','p','span','a','button','ul','ol','li','strong','em','b','i','br','hr'];
+    private const STYLE_PROPERTIES = [
+        'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
+        'width','height','min-width','max-width','min-height','max-height','padding','margin','color','background-color',
+        'font-family','font-size','font-weight','line-height','letter-spacing','text-align','text-decoration',
+        'border','border-top','border-bottom','border-radius','aspect-ratio','opacity','cursor',
+    ];
+
+    private const SYSTEM_PROMPT = 'Create a polished, responsive one-page website design and original copy from the user brief. Return only the requested JSON fields. The html field must contain a fragment with 3 to 9 <section> elements and exactly one hero section having class ai-hero. Use only these tags: main, header, nav, section, footer, div, article, aside, h1-h4, p, span, a, button, ul, ol, li, strong, em, b, i, br, hr. Use no images, forms, scripts, SVG, iframe, embedded content, inline style, or comments. Allowed attributes are class, id, href, title, role, aria-label, aria-hidden. Every class token must begin with ai- and contain only letters, digits, underscore, or hyphen. Every id must be unique and use only letters, digits, underscore, or hyphen; IDs are scoped by the application. Use href only for #fragment, https, mailto, or tel links. The css field must use class selectors only, each selector class must exist in html, and selectors must not use pseudo selectors, IDs, tags, attributes, or global selectors. Style only with these properties: display, flex-direction, justify-content, align-items, flex-wrap, align-self, grid-template-columns, gap, width, height, min-width, max-width, min-height, max-height, padding, margin, color, background-color, font-family, font-size, font-weight, line-height, letter-spacing, text-align, text-decoration, border, border-top, border-bottom, border-radius, aspect-ratio, opacity, cursor. Use safe simple values: hex colors, responsive grid repeat(auto-fit, minmax(...)), flex/grid, spacing in px/rem/%/vw, and system fonts. Responsive behavior should use flex-wrap, auto-fit grids, and at most two @media (max-width: Npx) blocks. Never return JavaScript or external asset URLs. Keep the design visually distinctive, with clear section rhythm, strong typography, and a deliberate palette.';
+
+    public static function schema(): array {
+        $textField = static fn(string $description): array => ['type'=>'string','description'=>$description];
+        return [
+            'type'=>'object',
+            'properties'=>[
+                'siteType'=>$textField('Website type, up to 120 characters.'),
+                'audience'=>$textField('Target audience, up to 240 characters.'),
+                'goal'=>$textField('Primary website goal, up to 200 characters.'),
+                'style'=>$textField('Visual art direction, up to 200 characters.'),
+                'html'=>['type'=>'string','description'=>'Safe HTML fragment using only the tags and attributes from the system instructions. Maximum 24000 characters.'],
+                'css'=>['type'=>'string','description'=>'Responsive CSS using only the safe class selectors and properties from the system instructions. Maximum 24000 characters.'],
+            ],
+            'required'=>['siteType','audience','goal','style','html','css'],
+            'additionalProperties'=>false,
+        ];
+    }
+
+    public static function parseProviderOutput(string $json): array {
+        try { $design = json_decode($json, true, 32, JSON_THROW_ON_ERROR); }
+        catch (\JsonException) { throw new AiProviderFailure('AI provider returned an invalid design.'); }
+        $fields = ['siteType','audience','goal','style','html','css'];
+        if (!is_array($design) || array_is_list($design) || count($design) !== count($fields) || array_diff(array_keys($design), $fields)) throw new AiProviderFailure('AI provider returned an invalid design.');
+        foreach (['siteType'=>120,'audience'=>240,'goal'=>200,'style'=>200] as $field=>$limit) {
+            if (!is_string($design[$field] ?? null) || trim($design[$field]) === '' || mb_strlen(trim($design[$field]), 'UTF-8') > $limit) throw new AiProviderFailure('AI provider returned an invalid design.');
+            $design[$field] = trim($design[$field]);
+        }
+        if (!is_string($design['html'] ?? null) || strlen($design['html']) > 24000 || !is_string($design['css'] ?? null) || strlen($design['css']) > 24000) throw new AiProviderFailure('AI provider returned an invalid design.');
+
+        $scope = 'ai-scope-' . bin2hex(random_bytes(8));
+        $markup = self::sanitizeMarkup($design['html'], $scope);
+        $stylesheet = self::sanitizeStylesheet($design['css'], $scope, $markup['classes']);
+        return [
+            'siteType'=>$design['siteType'], 'audience'=>$design['audience'], 'goal'=>$design['goal'], 'style'=>$design['style'],
+            'html'=>'<div class="' . $scope . '">' . $markup['html'] . '</div>',
+            'css'=>$stylesheet,
+            'sectionCount'=>$markup['sectionCount'],
+        ];
+    }
+
+    public static function create(string $prompt, StructuredAiProvider $provider): array {
+        $completion = $provider->completeJson(self::SYSTEM_PROMPT, $prompt, self::schema(), 'juzimder_generated_site', 6000);
+        return [
+            'design'=>self::parseProviderOutput($completion['content'] ?? ''),
+            'metadata'=>[
+                'provider'=>'openrouter',
+                'resolvedModel'=>$completion['model'] ?? null,
+                'usage'=>$completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
+            ],
+        ];
+    }
+
+    private static function sanitizeMarkup(string $source, string $scope): array {
+        if (trim($source) === '' || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $source)) throw new AiProviderFailure('AI provider returned an invalid design.');
+        $rootId = 'juzimder-safe-root-' . bin2hex(random_bytes(8));
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<!doctype html><html><head><meta charset="UTF-8"></head><body><div id="' . $rootId . '">' . $source . '</div></body></html>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded) throw new AiProviderFailure('AI provider returned an invalid design.');
+        $body = $document->getElementsByTagName('body')->item(0);
+        $root = null;
+        foreach ($document->getElementsByTagName('*') as $element) if ($element->getAttribute('id') === $rootId) { $root = $element; break; }
+        if (!$body || !$root || $root->parentNode !== $body) throw new AiProviderFailure('AI provider returned an invalid design.');
+        foreach ($body->childNodes as $child) {
+            if ($child === $root || ($child instanceof \DOMText && trim($child->textContent) === '')) continue;
+            throw new AiProviderFailure('AI provider returned an invalid design.');
+        }
+
+        $state = ['classes'=>[], 'ids'=>[], 'fragments'=>[], 'sections'=>0, 'heroes'=>0, 'nodes'=>0, 'textLength'=>0];
+        $markup = '';
+        foreach ($root->childNodes as $child) $markup .= self::serializeNode($child, $scope, $state, 0);
+        foreach ($state['fragments'] as $fragment) if (!isset($state['ids'][$fragment])) throw new AiProviderFailure('AI provider returned an invalid design.');
+        if ($state['sections'] < 3 || $state['sections'] > 9 || $state['heroes'] !== 1) throw new AiProviderFailure('AI provider returned an invalid design.');
+        return ['html'=>$markup,'classes'=>$state['classes'],'sectionCount'=>$state['sections']];
+    }
+
+    private static function serializeNode(\DOMNode $node, string $scope, array &$state, int $depth): string {
+        if ($depth > 16) throw new AiProviderFailure('AI provider returned an invalid design.');
+        if ($node instanceof \DOMText) {
+            $text = $node->nodeValue ?? '';
+            $state['textLength'] += mb_strlen($text, 'UTF-8');
+            if ($state['textLength'] > 12000 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $text)) throw new AiProviderFailure('AI provider returned an invalid design.');
+            return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+        }
+        if (!$node instanceof \DOMElement) {
+            if ($node instanceof \DOMComment && trim($node->data) === '') return '';
+            throw new AiProviderFailure('AI provider returned an invalid design.');
+        }
+        $tag = strtolower($node->tagName);
+        if (!in_array($tag, self::TAGS, true) || ++$state['nodes'] > 300) throw new AiProviderFailure('AI provider returned an invalid design.');
+        if ($tag === 'section') $state['sections']++;
+        $attributes = [];
+        foreach ($node->attributes as $attribute) {
+            $name = strtolower($attribute->name);
+            $value = trim($attribute->value);
+            if (preg_match('/[\x00-\x1F\x7F]/', $value) || mb_strlen($value, 'UTF-8') > 256) throw new AiProviderFailure('AI provider returned an invalid design.');
+            if ($name === 'class') {
+                $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if (!$tokens || count($tokens) > 8 || count(array_unique($tokens)) !== count($tokens)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                foreach ($tokens as $token) {
+                    if (!preg_match('/^ai-[A-Za-z0-9_-]{1,56}$/D', $token)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                    $state['classes'][$token] = true;
+                }
+                if ($tag === 'section' && in_array('ai-hero', $tokens, true)) $state['heroes']++;
+                $value = implode(' ', $tokens);
+            } elseif ($name === 'id') {
+                if (!preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/D', $value) || isset($state['ids'][$value])) throw new AiProviderFailure('AI provider returned an invalid design.');
+                $state['ids'][$value] = true;
+                $value = $scope . '-' . $value;
+            } elseif ($name === 'href') {
+                if ($tag !== 'a' || !preg_match('~^(https://[^\s<>"\x00-\x20]+|#[A-Za-z][A-Za-z0-9_-]{0,63}|#|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$~D', $value)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                if (str_starts_with($value, '#') && strlen($value) > 1) {
+                    $state['fragments'][] = substr($value, 1);
+                    $value = '#' . $scope . '-' . substr($value, 1);
+                }
+            } elseif (in_array($name, ['title','role','aria-label','aria-hidden'], true)) {
+                if ($name === 'aria-hidden' && !in_array($value, ['true','false'], true)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                if ($name === 'role' && !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,31}$/D', $value)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                if ($name === 'aria-label' && $value === '') throw new AiProviderFailure('AI provider returned an invalid design.');
+            } else throw new AiProviderFailure('AI provider returned an invalid design.');
+            $attributes[$name] = $value;
+        }
+        if (in_array($tag, ['a','button'], true) && !isset($attributes['class'])) throw new AiProviderFailure('AI provider returned an invalid design.');
+        $attributeText = '';
+        foreach ($attributes as $name=>$value) $attributeText .= ' ' . $name . '="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8') . '"';
+        if (in_array($tag, ['br','hr'], true)) {
+            if ($node->hasChildNodes()) throw new AiProviderFailure('AI provider returned an invalid design.');
+            return '<' . $tag . $attributeText . '>';
+        }
+        $children = '';
+        foreach ($node->childNodes as $child) $children .= self::serializeNode($child, $scope, $state, $depth + 1);
+        return '<' . $tag . $attributeText . '>' . $children . '</' . $tag . '>';
+    }
+
+    private static function sanitizeStylesheet(string $source, string $scope, array $classes): string {
+        if (trim($source) === '' || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F<>\\"\']|\/\*|\*\//', $source)) throw new AiProviderFailure('AI provider returned an invalid design.');
+        $rules = [];
+        self::parseCssRules($source, $scope, $classes, $rules, null, 0);
+        if (!$rules || count($rules) > 120) throw new AiProviderFailure('AI provider returned an invalid design.');
+        $output = '';
+        foreach ($rules as $rule) {
+            $block = $rule['selector'] . '{' . implode(';', array_map(static fn($property,$value)=>$property . ':' . $value, array_keys($rule['style']), array_values($rule['style']))) . '}';
+            $output .= $rule['media'] === null ? $block . "\n" : '@media ' . $rule['media'] . '{' . $block . "}\n";
+        }
+        return $output;
+    }
+
+    private static function parseCssRules(string $css, string $scope, array $classes, array &$rules, ?string $media, int $depth): void {
+        if ($depth > 1) throw new AiProviderFailure('AI provider returned an invalid design.');
+        $length = strlen($css); $offset = 0;
+        while ($offset < $length) {
+            while ($offset < $length && ctype_space($css[$offset])) $offset++;
+            if ($offset >= $length) break;
+            if (preg_match('/\G@media\s*\(\s*max-width:\s*(\d{3,4}(?:\.\d{1,2})?(?:px|em|rem))\s*\)\s*\{/Ai', $css, $match, 0, $offset)) {
+                $open = $offset + strlen($match[0]);
+                $close = self::matchingBrace($css, $open - 1);
+                if ($close === null) throw new AiProviderFailure('AI provider returned an invalid design.');
+                $width = (float)preg_replace('/(?:px|em|rem)$/', '', $match[1]);
+                if ($width < 320 || $width > 1920 || $media !== null) throw new AiProviderFailure('AI provider returned an invalid design.');
+                self::parseCssRules(substr($css, $open, $close - $open), $scope, $classes, $rules, '(max-width: ' . $match[1] . ')', $depth + 1);
+                $offset = $close + 1;
+                continue;
+            }
+            $open = strpos($css, '{', $offset);
+            $close = $open === false ? false : strpos($css, '}', $open + 1);
+            if ($open === false || $close === false || strpos($css, '{', $open + 1) !== false && strpos($css, '{', $open + 1) < $close) throw new AiProviderFailure('AI provider returned an invalid design.');
+            $selectorList = trim(substr($css, $offset, $open - $offset));
+            if ($selectorList === '' || str_contains($selectorList, '@')) throw new AiProviderFailure('AI provider returned an invalid design.');
+            $declarations = self::parseDeclarations(substr($css, $open + 1, $close - $open - 1));
+            foreach (explode(',', $selectorList) as $selector) {
+                $selector = trim($selector);
+                if (!preg_match('/^\.(?:ai-[A-Za-z0-9_-]{1,56})(?:\s+\.(?:ai-[A-Za-z0-9_-]{1,56}))*$/D', $selector)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                preg_match_all('/\.(ai-[A-Za-z0-9_-]{1,56})/', $selector, $matches);
+                foreach ($matches[1] as $class) if (!isset($classes[$class])) throw new AiProviderFailure('AI provider returned an invalid design.');
+                $rules[] = ['selector'=>'.' . $scope . ' ' . $selector,'style'=>$declarations,'media'=>$media];
+                if (count($rules) > 120) throw new AiProviderFailure('AI provider returned an invalid design.');
+            }
+            $offset = $close + 1;
+        }
+    }
+
+    private static function matchingBrace(string $css, int $open): ?int {
+        $level = 0;
+        for ($index = $open, $length = strlen($css); $index < $length; $index++) {
+            if ($css[$index] === '{') $level++;
+            elseif ($css[$index] === '}' && --$level === 0) return $index;
+        }
+        return null;
+    }
+
+    private static function parseDeclarations(string $source): array {
+        $style = [];
+        foreach (explode(';', trim($source)) as $declaration) {
+            if (trim($declaration) === '') continue;
+            $separator = strpos($declaration, ':');
+            if ($separator === false) throw new AiProviderFailure('AI provider returned an invalid design.');
+            $property = strtolower(trim(substr($declaration, 0, $separator)));
+            $value = trim(substr($declaration, $separator + 1));
+            if (!in_array($property, self::STYLE_PROPERTIES, true) || isset($style[$property]) || $value === '' || mb_strlen($value, 'UTF-8') > 160 || !self::validCssValue($property, $value)) throw new AiProviderFailure('AI provider returned an invalid design.');
+            $style[$property] = $value;
+        }
+        if (!$style || count($style) > 24) throw new AiProviderFailure('AI provider returned an invalid design.');
+        return $style;
+    }
+
+    private static function validCssValue(string $property, string $value): bool {
+        if (preg_match('/[\x00-\x1F\x7F{}<>;\\"\']|\/\*|\*\//', $value) || preg_match('/(?:url|expression)\s*\(|@import|javascript\s*:/i', $value)) return false;
+        $length = '(?:0|(?:\d{1,4}(?:\.\d{1,2})?(?:px|rem|em|%|vw|vh)))';
+        $lengthOrClamp = '(?:' . $length . '|clamp\(\s*' . $length . '\s*,\s*' . $length . '\s*,\s*' . $length . '\s*\))';
+        $color = '(?:#[0-9a-fA-F]{6}|transparent|currentColor)';
+        return match ($property) {
+            'color','background-color' => preg_match('/^' . $color . '$/D', $value) === 1,
+            'display' => in_array($value, ['block','flex','grid','inline-block','inline-flex'], true),
+            'flex-direction' => in_array($value, ['row','column','row-reverse','column-reverse'], true),
+            'justify-content' => in_array($value, ['flex-start','center','flex-end','space-between','space-around','space-evenly'], true),
+            'align-items' => in_array($value, ['flex-start','center','flex-end','stretch','baseline'], true),
+            'align-self' => in_array($value, ['auto','flex-start','center','flex-end','stretch'], true),
+            'flex-wrap' => in_array($value, ['nowrap','wrap','wrap-reverse'], true),
+            'grid-template-columns' => preg_match('/^(?:repeat\((?:[1-4]|auto-fit|auto-fill),\s*minmax\(\s*(?:0|\d{1,4}px)\s*,\s*1fr\s*\)\)|(?:1fr|\d{1,4}px)(?:\s+(?:1fr|\d{1,4}px)){0,3})$/D', $value) === 1,
+            'gap' => preg_match('/^' . $lengthOrClamp . '(?:\s+' . $lengthOrClamp . ')?$/D', $value) === 1,
+            'padding' => preg_match('/^' . $lengthOrClamp . '(?:\s+' . $lengthOrClamp . '){0,3}$/D', $value) === 1,
+            'margin' => preg_match('/^(?:' . $lengthOrClamp . '|auto)(?:\s+(?:' . $lengthOrClamp . '|auto)){0,3}$/D', $value) === 1,
+            'width','height','min-width','max-width','min-height','max-height' => preg_match('/^(?:' . $lengthOrClamp . '|auto|fit-content|min-content|max-content)$/D', $value) === 1,
+            'font-family' => preg_match('/^(?:Arial|Georgia|Inter|system-ui|sans-serif|serif)(?:,\s*(?:Arial|Georgia|Inter|system-ui|sans-serif|serif))*$/D', $value) === 1,
+            'font-size' => preg_match('/^' . $lengthOrClamp . '$/D', $value) === 1,
+            'font-weight' => preg_match('/^(?:300|400|500|600|700|800|900|normal|bold)$/D', $value) === 1,
+            'line-height' => preg_match('/^(?:0?\.\d{1,2}|[1-3](?:\.\d{1,2})?|' . $lengthOrClamp . ')$/D', $value) === 1,
+            'letter-spacing' => preg_match('/^(?:normal|' . $lengthOrClamp . ')$/D', $value) === 1,
+            'text-align' => in_array($value, ['left','center','right','justify'], true),
+            'text-decoration' => in_array($value, ['none','underline','line-through'], true),
+            'border','border-top','border-bottom' => $value === 'none' || preg_match('/^(?:0|' . $length . ')\s+solid\s+' . $color . '$/D', $value) === 1,
+            'border-radius' => preg_match('/^' . $lengthOrClamp . '$/D', $value) === 1,
+            'aspect-ratio' => $value === 'auto' || preg_match('/^\d{1,3}(?:\.\d{1,2})?\s*\/\s*\d{1,3}(?:\.\d{1,2})?$/D', $value) === 1,
+            'opacity' => preg_match('/^(?:0|1|0?\.\d{1,2})$/D', $value) === 1,
+            'cursor' => in_array($value, ['default','pointer'], true),
+            default => false,
+        };
     }
 }
