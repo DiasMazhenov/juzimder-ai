@@ -10,9 +10,9 @@ npm run build
 npm run serve
 ```
 
-Открыть http://127.0.0.1:8080 . Создать локальный аккаунт, проект, добавить Hero, изменить текст, сохранить, перезагрузить, открыть проект снова. Demo login/пароля нет. Регистрация реальная локальная. SQLite автоматически создаётся в var/app.sqlite; текущие миграции применяются при первом API запросе.
+Открыть http://juzimder-ai.localhost:8080 . Старые ссылки `127.0.0.1:8080` и `localhost:8080` перенаправляются на канонический hostname. Создать локальный аккаунт, проект, добавить Hero, изменить текст, сохранить, перезагрузить, открыть проект снова. Demo login/пароля нет. Регистрация реальная локальная. SQLite автоматически создаётся в var/app.sqlite; текущие миграции применяются при первом API запросе.
 
-Разработка: в первом терминале `npm run serve`, во втором `npm run dev`; Vite proxy /api → localhost:8080. Production build используется через PHP. Vite dev server не размещать публично.
+Разработка: в первом терминале `npm run serve`, во втором `npm run dev`; Vite proxy `/api` направляет запросы на PHP loopback `127.0.0.1:8080`. Основной стабильный адрес приложения — `http://juzimder-ai.localhost:8080/`. Production build используется через PHP. Vite dev server не размещать публично.
 
 `JUZIMDER_DB` — полный путь SQLite, задаётся окружением PHP (пример в .env.example, автоматического dotenv нет). Каталог writable только PHP service user; DB вне public. Для Apache 2.4 включить mod_rewrite и AllowOverride для public/.htaccess; document root строго public/. Для Nginx разрешить PHP execution только router.php и направить /api/* в него; другие PHP пути запретить. В production использовать PHP-FPM/Apache, не встроенный php -S. Собирать public/assets локально/в CI, отдавать assets как статические файлы с nosniff. HTTPS обязателен для production cookies. Публичное размещение в этой задаче не выполнено.
 

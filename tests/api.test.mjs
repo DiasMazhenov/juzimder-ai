@@ -147,7 +147,7 @@ const restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POS
 
 test('Project design tokens use validated settings, revisions and server-owned route metadata',async()=>{
 const owner=new Client(),other=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'tokens@example.test',password:'a-long-token-password'});await other.call('/session');await other.call('/register','POST',{email:'token-outsider@example.test',password:'another-token-password'});
-const created=await owner.call('/projects','POST',{name:'Token workspace'}),project=created.data;assert.equal(created.status,201);assert.equal(project.settings.schemaVersion,3);assert.equal(project.settings.designTokens.fontFamily,'Arial, sans-serif');
+const created=await owner.call('/projects','POST',{name:'Token workspace'}),project=created.data;assert.equal(created.status,201);assert.equal(project.settings.schemaVersion,4);assert.equal(project.settings.designTokens.fontFamily,'Arial, sans-serif');assert.deepEqual(project.settings.pages.home.seo,{title:'',description:'',robots:'index',socialImage:''});
 const settingsPath=`/projects/${project.id}/settings`,changes={ink:'#112233',fontFamily:'Georgia, serif',radius:'16px'};
 assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:changes},'bad')).status,403,'Project settings require CSRF');
 assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:{...changes,unknown:'#ffffff'}})).status,422,'Unknown design tokens are rejected');
@@ -163,4 +163,12 @@ let restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST'
 const nextTokens={...restored.data.settings.designTokens,accent:'#8899aa'};
 saved=await owner.call(`/projects/${project.id}`,'PUT',{version:4,document:restored.data.document,settings:{designTokens:nextTokens}});assert.equal(saved.status,200);assert.equal(saved.data.settings.designTokens.accent,'#8899aa');assert.equal(Object.keys(saved.data.settings.pages).length,1,'Editor settings cannot replace route metadata');
 assert.equal((await owner.call(`/projects/${project.id}`,'PUT',{version:5,document:saved.data.document,settings:{pages:{}}})).status,422,'Editor settings accept only design tokens');
+const pageId=saved.data.document.data.pages[0].id,seo={title:'Home title',description:'A useful page description',robots:'noindex',socialImage:'https://example.test/social.jpg'};
+assert.equal((await owner.call(settingsPath,'PUT',{version:5,seo:{pageId,robots:'follow'}})).status,422,'SEO robots values are validated');
+assert.equal((await owner.call(settingsPath,'PUT',{version:5,seo:{pageId,socialImage:'http://example.test/social.jpg'}})).status,422,'SEO images require HTTPS');
+assert.equal((await owner.call(settingsPath,'PUT',{version:5,seo:{pageId:'unknown-page',...seo}})).status,422,'SEO metadata can only target a page in this project');
+saved=await owner.call(settingsPath,'PUT',{version:5,seo:{pageId,...seo}});assert.equal(saved.status,200);assert.equal(saved.data.version,6);assert.deepEqual(saved.data.settings.pages[pageId].seo,seo,'Per-page SEO metadata is saved by the backend');
+assert.equal((await other.call(settingsPath,'PUT',{version:6,seo:{pageId,...seo}})).status,404,'SEO settings enforce project ownership');
+saved=await owner.call(settingsPath,'PUT',{version:6,seo:{pageId,title:'Changed title'}});assert.equal(saved.status,200);assert.equal(saved.data.settings.pages[pageId].seo.title,'Changed title');assert.equal(saved.data.settings.pages[pageId].seo.description,seo.description,'Partial SEO updates preserve omitted metadata');
+const seoRestored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:7,targetVersion:6});assert.equal(seoRestored.status,200);assert.equal(seoRestored.data.settings.pages[pageId].seo.title,seo.title);assert.equal(seoRestored.data.settings.pages[pageId].seo.robots,'noindex','SEO metadata restores with its matching revision');
 });

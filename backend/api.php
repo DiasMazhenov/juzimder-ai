@@ -113,13 +113,25 @@ try {
         result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/settings$~D', $path, $settingsMatch) && $method === 'PUT') {
-        if (array_diff(array_keys($body), ['version','designTokens']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !array_key_exists('designTokens', $body)) throw new Problem(422,'Укажите текущую версию и настройки цветов и шрифтов.');
+        if (array_diff(array_keys($body), ['version','designTokens','seo']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
         $projectId = $settingsMatch[1];
         $project = $store->owned($projectId, $user);
-        $tokens = Juzimder\ProjectSettings::validateDesignTokens($body['designTokens'], $project['settings']['designTokens']);
         $settings = $project['settings'];
-        $settings['designTokens'] = $tokens;
-        $document = Juzimder\ProjectSettings::applyDesignTokensToDocument($project['document'], $tokens);
+        $document = $project['document'];
+        if (array_key_exists('designTokens', $body)) {
+            $tokens = Juzimder\ProjectSettings::validateDesignTokens($body['designTokens'], $project['settings']['designTokens']);
+            $settings['designTokens'] = $tokens;
+            $document = Juzimder\ProjectSettings::applyDesignTokensToDocument($document, $tokens);
+        }
+        if (array_key_exists('seo', $body)) {
+            $seoInput = $body['seo'];
+            if ($seoInput instanceof stdClass) $seoInput = get_object_vars($seoInput);
+            if (!is_array($seoInput) || array_diff(array_keys($seoInput), ['pageId','title','description','robots','socialImage']) || !is_string($seoInput['pageId'] ?? null) || $seoInput['pageId'] === '') throw new Problem(422,'Укажите страницу и разрешённые SEO-поля.');
+            $pageId = $seoInput['pageId'];
+            unset($seoInput['pageId']);
+            if (!array_key_exists($pageId, $settings['pages'])) throw new Problem(422,'Указанная страница не принадлежит проекту.');
+            $settings['pages'][$pageId]['seo'] = Juzimder\ProjectSettings::validateSeoMetadata($seoInput, $settings['pages'][$pageId]['seo']);
+        }
         result($store->save($projectId, $user, $body['version'], $document, $settings));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/pages(?:/([A-Za-z0-9_-]{1,128}))?$~D',$path,$pageMatch)) {

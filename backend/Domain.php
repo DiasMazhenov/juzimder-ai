@@ -215,7 +215,7 @@ final class Store {
                 $newId = bin2hex(random_bytes(12));
                 $pages[] = (object)['id'=>$newId,'name'=>$name,'frames'=>[(object)['component'=>(object)['type'=>'wrapper','components'=>[]]]]];
                 $document->data->pages = $pages;
-                $settings['pages'][$newId] = ['slug'=>ProjectSettings::defaultSlug($name),'isHome'=>false];
+                $settings['pages'][$newId] = ['slug'=>ProjectSettings::defaultSlug($name),'isHome'=>false,'seo'=>ProjectSettings::seoDefaults()];
                 break;
             case 'rename':
                 $name = self::pageName($value);
@@ -239,7 +239,7 @@ final class Store {
                 self::remapElementIds($copy);
                 array_splice($pages,$index+1,0,[$copy]);
                 $document->data->pages = $pages;
-                $settings['pages'][(string)$copy->id] = ['slug'=>ProjectSettings::defaultSlug($copy->name),'isHome'=>false];
+                $settings['pages'][(string)$copy->id] = ['slug'=>ProjectSettings::defaultSlug($copy->name),'isHome'=>false,'seo'=>ProjectSettings::seoDefaults()];
                 break;
             case 'delete':
                 if (count($pages) <= 1) throw new Problem(422,'В проекте должна остаться хотя бы одна страница.');

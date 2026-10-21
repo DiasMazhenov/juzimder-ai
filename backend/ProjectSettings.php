@@ -56,6 +56,7 @@ final class ProjectSettings {
         'radius' => '--juzimder-radius',
     ];
     private const FONT_FAMILIES = ['Arial, sans-serif', 'system-ui, sans-serif', 'Georgia, serif'];
+    private const SEO_DEFAULTS = ['title' => '', 'description' => '', 'robots' => 'index', 'socialImage' => ''];
 
     public static function initial(mixed $document): array {
         $pages = self::documentPages($document);
@@ -66,14 +67,14 @@ final class ProjectSettings {
             $base = self::defaultSlug((string)($page->name ?? ''));
             $slug = self::uniqueSlug($base, $used);
             $used[$slug] = true;
-            $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0];
+            $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0, 'seo' => self::SEO_DEFAULTS];
         }
-        return ['schemaVersion' => 3, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
+        return ['schemaVersion' => 4, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -87,16 +88,48 @@ final class ProjectSettings {
             $used[$slug] = true;
             $isHome = is_array($route) && ($route['isHome'] ?? false) === true;
             if ($isHome && $homeId === null) $homeId = $id;
-            $routes[$id] = ['slug' => $slug, 'isHome' => $isHome];
+            try { $seo = self::validateSeoMetadata(is_array($route) ? ($route['seo'] ?? []) : [], self::SEO_DEFAULTS); }
+            catch (Problem) { $seo = self::SEO_DEFAULTS; }
+            $routes[$id] = ['slug' => $slug, 'isHome' => $isHome, 'seo' => $seo];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 3;
+        $settings['schemaVersion'] = 4;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
         return $settings;
     }
 
     public static function designTokenDefaults(): array { return self::DESIGN_TOKEN_DEFAULTS; }
+
+    public static function seoDefaults(): array { return self::SEO_DEFAULTS; }
+
+    public static function validateSeoMetadata(mixed $value, array $fallback = []): array {
+        if ($value instanceof \stdClass) $value = get_object_vars($value);
+        if (!is_array($value) || array_diff(array_keys($value), array_keys(self::SEO_DEFAULTS))) throw new Problem(422, 'SEO-настройки должны содержать только разрешённые поля.');
+        $seo = self::SEO_DEFAULTS;
+        foreach (self::SEO_DEFAULTS as $name => $default) {
+            if (array_key_exists($name, $fallback)) $seo[$name] = $fallback[$name];
+        }
+        foreach ($value as $name => $item) {
+            if (in_array($name, ['title', 'description'], true)) {
+                $limit = $name === 'title' ? 70 : 160;
+                if (!is_string($item) || mb_strlen(trim($item), 'UTF-8') > $limit || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $item)) throw new Problem(422, $name === 'title' ? 'Заголовок SEO: не более 70 символов.' : 'Описание SEO: не более 160 символов.');
+                $seo[$name] = trim($item);
+            } elseif ($name === 'robots') {
+                if (!is_string($item) || !in_array($item, ['index', 'noindex'], true)) throw new Problem(422, 'Выберите index или noindex.');
+                $seo[$name] = $item;
+            } elseif ($name === 'socialImage') {
+                if (!is_string($item) || mb_strlen($item, 'UTF-8') > 2048) throw new Problem(422, 'Ссылка на изображение должна быть HTTPS-адресом длиной до 2048 символов.');
+                $item = trim($item);
+                if ($item !== '') {
+                    $parts = parse_url($item);
+                    if (!filter_var($item, FILTER_VALIDATE_URL) || !is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])) throw new Problem(422, 'Изображение для соцсетей должно иметь корректный HTTPS-адрес.');
+                }
+                $seo[$name] = $item;
+            }
+        }
+        return $seo;
+    }
 
     public static function validateDesignTokens(mixed $value, array $fallback = []): array {
         if ($value instanceof \stdClass) $value = get_object_vars($value);

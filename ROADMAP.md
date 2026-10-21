@@ -16,7 +16,7 @@
 
 - [x] PHP API, SQLite schema v1, session auth, CSRF, owner checks.
 - [x] Loopback-only `admin/admin` test login for `npm run serve`; not enabled for public hosting.
-- [x] Fixed local URL `http://127.0.0.1:8080/`, idempotent local launcher, DB-scoped session cookies and safe recovery from stale local sessions.
+- [x] Unique local URL `http://juzimder-ai.localhost:8080/`, idempotent local launcher, redirects from legacy loopback URLs, DB-scoped session cookies and safe recovery from stale local sessions.
 - [x] Dashboard: создать проект и открыть редактор.
 - [x] Project Pages Dashboard: отдельные URL управления проектом и editor pages.
 - [x] Server-authoritative page create/rename/duplicate/delete, unique route slugs, home selection и revision restore.
@@ -73,7 +73,9 @@
 - [x] Editor и AI presets используют общую тему; изменения синхронизируют page roots и сохраняют локальные overrides.
 - [ ] Полная typography: раздельные heading/body fonts, weights, base size, H1–H6, line height, letter spacing и responsive шкала.
 - [ ] Подключить tokens к будущему renderer/export; пока public output не существует.
-- [ ] SEO metadata and analytics ids; inject only in public renderer.
+- [x] Per-page SEO title, description, robots directive and HTTPS social image metadata; validated and stored in project settings/revisions.
+- [ ] Inject SEO metadata into the public renderer when publication exists; settings do not affect external pages yet.
+- [ ] Analytics ids; accept only when a public renderer can consume them.
 - [ ] Forms: validated submission endpoints, rate limiting, safe integrations and spam protections.
 - [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
@@ -96,4 +98,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.011. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials; `.011` исправляет stale local sessions, делает launcher идемпотентным и фиксирует URL `127.0.0.1:8080`. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Следующий плановый UI/UX slice — SEO settings с backend validation и persistence; до публикационного потребителя не называть SEO подключённым. Analytics/forms/custom code/multiple AI profiles/domain/publication ещё в очереди. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.012. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials; `.011` исправляет stale local sessions и закрепляет уникальный адрес `juzimder-ai.localhost:8080`; `.012` добавляет сохраняемые и проверяемые SEO-настройки каждой страницы в settings schema v4. SEO пока не влияет на внешний сайт: публикационного потребителя ещё нет. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Далее: связать SEO с будущей публикацией, затем analytics/forms/custom code/multiple AI profiles/domain/publication. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.

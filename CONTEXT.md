@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.011 (npm SemVer 0.1.11). Постоянный локальный адрес: http://127.0.0.1:8080/ (`npm run serve`, loopback only); повторный запуск безопасно обнаруживает уже работающий Juzimder.
+Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.012 (npm SemVer 0.1.12). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. Публичного renderer пока нет, поэтому эти поля ещё не публикуются.
 
 ## Принятые решения
 
@@ -58,7 +60,7 @@ AI UI для design-plan, preview/confirmation и typed preset operations реа
 
 ## Следующие задачи
 
-1. Следующий этап UI/UX: SEO metadata с backend schema, сохранением и валидацией; затем публикация должна потреблять её до показа SEO как подключённой. После этого — analytics, forms, custom code, AI-профили и domain. Не показывать статус подключённым, пока соответствующая серверная и публикационная интеграция отсутствует.
+1. Следующий этап — static renderer/export на отдельном public origin, который использует сохранённые per-page SEO metadata и design tokens. SEO-настройки уже проходят backend validation и сохраняются в revisions, но до renderer не влияют на внешний сайт. Затем — analytics, forms, custom code, AI-профили и domain; не показывать интеграцию подключённой до работающего потребителя.
 2. Реализованы Hug/Fill и min/max, десять секций, редактируемые global design tokens, HTTPS Image acceptance и typed operations. Далее — подтвердить Cmd/Ctrl+C/V в браузере с рабочими modifier keys и дополнить responsive-визуальную матрицу.
 3. AI-план подключён к preview/confirmation и typed preset operations; OpenRouter credentials теперь задаются в Site Settings. Следующий шаг — live OpenRouter acceptance после того, как владелец введёт свой ключ, затем проверка save/reload и генерация собственного текста через структурированные операции.
 4. Static export/publication на отдельном origin и managed assets; затем scoped MCP transport с закрытым редактором. Подробный порядок в ROADMAP.md.
