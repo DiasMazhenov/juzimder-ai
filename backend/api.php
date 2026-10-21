@@ -205,6 +205,9 @@ try {
         if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
         $requests[] = $now;
         $_SESSION['ai_requests'] = $requests;
+        // Each provider attempt may wait up to 25 seconds; primary retry and an
+        // optional fallback can together exceed PHP's usual 30-second limit.
+        set_time_limit(120);
         try {
             result(Juzimder\AiDesignPlanner::create($prompt, new Juzimder\OpenRouterProvider($settings)));
         } catch (Juzimder\AiProviderFailure) {

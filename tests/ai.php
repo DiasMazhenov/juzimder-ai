@@ -73,7 +73,7 @@ try {
     $result = AiDesignPlanner::create('Создай сайт клиники', $provider);
     $request = $transport->calls[0]; $payload = json_decode($request['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck($request['url']==='https://openrouter.ai/api/v1/chat/completions' && in_array('Authorization: Bearer sk-test-only',$request['headers'],true), 'Provider sends the server-only bearer key to the fixed OpenRouter endpoint');
-    aiCheck($payload['max_completion_tokens']===3200 && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true, 'Provider caps output, requests usage metadata and strict structured output');
+    aiCheck($payload['max_tokens']===3200 && !array_key_exists('max_completion_tokens',$payload) && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true, 'Provider uses broadly supported token cap with strict structured output and parameter-aware routing');
     aiCheck($payload['response_format']['json_schema']['schema']['properties']['colors']['required']===['ink','forest','canvas','paper','body','muted','line','accent'], 'Structured schema covers all eight project design tokens');
     aiCheck(in_array('content',$payload['response_format']['json_schema']['schema']['required'],true)&&$result['plan']['content'][1]['texts'][1]==='hero copy 2','Structured schema returns validated text for every planned section');
     $allSectionsPlan=$plan;

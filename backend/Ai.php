@@ -114,7 +114,10 @@ final class OpenRouterProvider implements StructuredAiProvider {
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => $userPrompt],
                 ],
-                'max_completion_tokens' => self::MAX_COMPLETION_TOKENS,
+                // OpenRouter model metadata commonly advertises max_tokens. With
+                // require_parameters enabled, use that shared parameter so models
+                // that do not advertise max_completion_tokens remain routable.
+                'max_tokens' => self::MAX_COMPLETION_TOKENS,
                 'temperature' => 0.2,
                 'provider' => ['require_parameters' => true],
                 'usage' => ['include' => true],

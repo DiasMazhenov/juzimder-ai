@@ -192,3 +192,9 @@ API-тест на временной SQLite проверяет preview всех 
 `npm test`: PASS. `tests/ai.php` проверяет обязательный набор текста по всем девяти секциям, точные количества полей, запрет HTML/URL и лимит ответа 3200 токенов. `tests/ai-plan.test.mjs` проверяет заполнение только известных редактируемых text/link nodes для каждого preset. API flow `tests/api.test.mjs` подтверждает запись текста в обычный `h1`, новую ревизию, ручное редактирование, restore, сохранённый preview, ZIP export и immutable publication на временной SQLite. Live OpenRouter не вызывался.
 
 `npm run build` и PHP syntax checks: PASS. Vite сохраняет прежнее предупреждение GrapesJS chunk около 1.10 МБ raw / 291 КБ gzip. Browser visual acceptance AI-preview не запускалась: открытая пользовательская вкладка редактора уже содержала текст prompt и показывала процесс AI; вкладку оставили без изменений. Этот flow не отправлял prompt повторно и не изменял пользовательскую ревизию.
+
+## AI transport recovery · версия продукта 00.00.022
+
+Исправлен request parameter для активной модели при `provider.require_parameters=true`: лимит 3200 отправляется как `max_tokens`. Design-plan endpoint увеличивает PHP execution budget до 120 секунд, чтобы retry и необязательная fallback-модель завершались контролируемым HTTP-ответом вместо прерывания соединения около 30 секунд. Публичный GET к OpenRouter models endpoint вернул HTTP 200.
+
+`npm test`, `npm run build`, PHP syntax checks и `git diff --check`: PASS. В Codex Browser live-запрос `сайт кофейни` с активной моделью `nvidia/nemotron-3.5-super-vl:free` вернул preview с восемью секциями; UI показал 2815 output tokens и $0.000000. Кнопка «Добавить 8 секций» оставлена не нажатой; проект не менялся и остался на ревизии 0. Полный confirm/apply/save/reload/restore/publish — NOT RUN.
