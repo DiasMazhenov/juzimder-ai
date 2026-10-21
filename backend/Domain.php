@@ -112,6 +112,8 @@ final class Store {
         if ($schemaVersion === 1) $this->migrateProjectSettings();
         $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
         if ($schemaVersion === 2) $this->db->exec(file_get_contents(__DIR__ . '/migrations/003_ai_credentials.sql'));
+        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+        if ($schemaVersion === 3) $this->db->exec(file_get_contents(__DIR__ . '/migrations/004_publications.sql'));
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();
@@ -141,6 +143,59 @@ final class Store {
         $settings = json_decode($row['settings_payload'] ?: '{}', true, 64, JSON_THROW_ON_ERROR);
         $row['settings'] = ProjectSettings::reconcile($settings, $row['document']);
         unset($row['payload'], $row['settings_payload']); return $row;
+    }
+    public function publication(string $id, string $user): ?array {
+        $this->owned($id, $user);
+        $row = $this->query('SELECT v.id,v.version,v.source_project_version,v.created_at FROM project_publications p JOIN publication_versions v ON v.project_id=p.project_id AND v.id=p.publication_id WHERE p.project_id=?', [$id])->fetch();
+        if (!$row) return null;
+        return ['id'=>$row['id'],'version'=>(int)$row['version'],'sourceProjectVersion'=>(int)$row['source_project_version'],'createdAt'=>$row['created_at']];
+    }
+    public function publish(string $id, string $user, int $expectedVersion, array $files): array {
+        $validatedFiles = [];
+        foreach ($files as $path => $contents) {
+            if (!is_string($path) || !preg_match('~^(?:index\.html|assets/site\.css|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) || !is_string($contents)) {
+                throw new Problem(422, 'Статический снимок содержит недопустимый файл.');
+            }
+            $validatedFiles[$path] = $contents;
+        }
+        if (!isset($validatedFiles['index.html'], $validatedFiles['assets/site.css'])) throw new Problem(422, 'Статический снимок неполон.');
+        $filesJson = json_encode($validatedFiles, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (strlen($filesJson) > 8000000) throw new Problem(413, 'Публикация превышает 8 МБ.');
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $project = $this->owned($id, $user);
+            if ($project['version'] !== $expectedVersion) throw new Problem(409, 'Проект изменился. Обновите дашборд и повторите публикацию.');
+            $version = (int)$this->query('SELECT COALESCE(MAX(version),0)+1 FROM publication_versions WHERE project_id=?', [$id])->fetchColumn();
+            $publicationId = bin2hex(random_bytes(12));
+            $this->query('INSERT INTO publication_versions(id,project_id,version,source_project_version,files_json) VALUES(?,?,?,?,?)', [$publicationId,$id,$version,$expectedVersion,$filesJson]);
+            $this->query('INSERT INTO project_publications(project_id,publication_id) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET publication_id=excluded.publication_id', [$id,$publicationId]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+        return $this->publication($id, $user) ?? throw new Problem(500, 'Не удалось сохранить публикацию.');
+    }
+    public function unpublish(string $id, string $user, int $expectedVersion): ?array {
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $project = $this->owned($id, $user);
+            if ($project['version'] !== $expectedVersion) throw new Problem(409, 'Проект изменился. Обновите дашборд и повторите действие.');
+            $this->query('DELETE FROM project_publications WHERE project_id=?', [$id]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+        return $this->publication($id, $user);
+    }
+    public function publicFile(string $id, string $path): ?array {
+        if (!preg_match('/^[a-f0-9]{24}$/D', $id)) return null;
+        $row = $this->query('SELECT v.files_json,v.version FROM project_publications p JOIN publication_versions v ON v.project_id=p.project_id AND v.id=p.publication_id WHERE p.project_id=?', [$id])->fetch();
+        if (!$row) return null;
+        try { $files = json_decode($row['files_json'], true, 32, JSON_THROW_ON_ERROR); } catch (\Throwable) { return null; }
+        if (!is_array($files) || !isset($files[$path]) || !is_string($files[$path])) return null;
+        return ['content'=>$files[$path],'version'=>(int)$row['version']];
     }
     public function create(string $user, string $name): array {
         $name = trim($name); if ($name === '' || mb_strlen($name) > 100) throw new Problem(422,'Название: от 1 до 100 символов.');

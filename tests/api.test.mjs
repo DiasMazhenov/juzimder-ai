@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,8 +14,17 @@ class Client {
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
   async download(path){const r=await fetch(this.url+'/api'+path,{headers:{Cookie:this.cookie}});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,type:r.headers.get('content-type'),body:Buffer.from(await r.arrayBuffer())};}
 }
+async function publicCall(projectId,path='/',method='GET'){
+  const endpoint=new URL(base);
+  return new Promise((resolve,reject)=>{
+    const request=httpRequest({hostname:endpoint.hostname,port:endpoint.port,path,method,headers:{Host:`${projectId}.juzimder-ai.localhost:18081`}},response=>{
+      const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks).toString('utf8')}));
+    });
+    request.on('error',reject);request.end();
+  });
+}
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
+before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath,JUZIMDER_PUBLIC_HOST_SUFFIX:'juzimder-ai.localhost:18081',JUZIMDER_PUBLIC_SCHEME:'http'};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();
@@ -174,4 +184,41 @@ saved=await owner.call(settingsPath,'PUT',{version:5,seo:{pageId,...seo}});asser
 assert.equal((await other.call(settingsPath,'PUT',{version:6,seo:{pageId,...seo}})).status,404,'SEO settings enforce project ownership');
 saved=await owner.call(settingsPath,'PUT',{version:6,seo:{pageId,title:'Changed title'}});assert.equal(saved.status,200);assert.equal(saved.data.settings.pages[pageId].seo.title,'Changed title');assert.equal(saved.data.settings.pages[pageId].seo.description,seo.description,'Partial SEO updates preserve omitted metadata');
 const seoRestored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:7,targetVersion:6});assert.equal(seoRestored.status,200);assert.equal(seoRestored.data.settings.pages[pageId].seo.title,seo.title);assert.equal(seoRestored.data.settings.pages[pageId].seo.robots,'noindex','SEO metadata restores with its matching revision');
+});
+
+
+test('Publications use owner-checked immutable snapshots and a session-free public origin',async()=>{
+const owner=new Client(),other=new Client(),anonymous=new Client();
+await owner.call('/session');await owner.call('/register','POST',{email:'publisher@example.test',password:'a-long-publisher-password'});
+await other.call('/session');await other.call('/register','POST',{email:'publication-outsider@example.test',password:'another-publication-password'});
+const project=(await owner.call('/projects','POST',{name:'Publication lifecycle'})).data,publicationPath=`/projects/${project.id}/publication`;
+assert.equal((await anonymous.call(publicationPath)).status,401,'Publication management requires an authenticated session');
+assert.equal((await owner.call(publicationPath)).status,200);assert.equal((await owner.call(publicationPath)).data.publication,null);
+assert.equal((await other.call(publicationPath)).status,404,'Publication metadata follows project ownership');
+assert.equal((await owner.call(`/projects/${project.id}/publish`,'POST',{version:0},'bad')).status,403,'Publishing requires CSRF');
+assert.equal((await owner.call(`/projects/${project.id}/publish`,'POST',{version:1})).status,409,'Publishing rejects a stale source revision');
+let page=await owner.call(`/projects/${project.id}/pages`,'POST',{version:0,action:'create',name:'О нас'});assert.equal(page.status,200);
+page.data.document.data.pages[0].frames[0].component.components=[{type:'text',tagName:'h1',content:'Published revision one'}];
+page.data.document.data.pages[1].frames[0].component.components=[{type:'text',tagName:'h1',content:'About revision one'}];
+let saved=await owner.call(`/projects/${project.id}`,'PUT',{version:1,document:page.data.document,settings:{designTokens:page.data.settings.designTokens}});assert.equal(saved.status,200);assert.equal(saved.data.version,2);
+let result=await owner.call(`/projects/${project.id}/publish`,'POST',{version:2});assert.equal(result.status,200);assert.equal(result.data.publication.version,1);assert.equal(result.data.publication.sourceProjectVersion,2);
+assert.equal(result.data.publicUrl,`http://${project.id}.juzimder-ai.localhost:18081/`,'The returned public URL uses the configured separate host');
+let publicResponse=await publicCall(project.id);assert.equal(publicResponse.status,200);assert.match(publicResponse.body,/Published revision one/);assert.match(publicResponse.headers['content-security-policy'],/script-src 'none'/);assert.equal(publicResponse.headers['x-frame-options'],'DENY');assert.equal(publicResponse.headers['set-cookie'],undefined,'Public requests do not create an admin session');
+let about=await publicCall(project.id,'/o-nas/');assert.equal(about.status,200);assert.match(about.body,/About revision one/);
+let stylesheet=await publicCall(project.id,'/assets/site.css');assert.equal(stylesheet.status,200);assert.match(stylesheet.headers['content-type'],/text\/css/);
+let redirect=await publicCall(project.id,'/o-nas');assert.equal(redirect.status,308);assert.equal(redirect.headers.location,`${result.data.publicUrl}o-nas/`);
+assert.equal((await publicCall(project.id,'/README.txt')).status,404,'Only rendered site routes and shared CSS are public');
+assert.equal((await publicCall(project.id,'/api/session')).status,404,'The public origin does not expose the editor API');
+assert.equal((await publicCall(project.id,'/','POST')).status,405,'The public origin is read-only');
+assert.equal((await other.call(`/projects/${project.id}/publish`,'POST',{version:2})).status,404,'Only the project owner can publish');
+assert.equal((await owner.call(`/projects/${project.id}/unpublish`,'POST',{version:1})).status,409,'Unpublishing also requires the current source revision');
+saved=await owner.call(`/projects/${project.id}`,'PUT',{version:2,document:saved.data.document,settings:{designTokens:saved.data.settings.designTokens}});assert.equal(saved.status,200);assert.equal(saved.data.version,3);
+saved.data.document.data.pages[0].frames[0].component.components[0].content='Published revision two';
+saved=await owner.call(`/projects/${project.id}`,'PUT',{version:3,document:saved.data.document,settings:{designTokens:saved.data.settings.designTokens}});assert.equal(saved.status,200);assert.equal(saved.data.version,4);
+assert.match((await publicCall(project.id)).body,/Published revision one/,'Editing the source does not mutate an immutable public snapshot');
+result=await owner.call(`/projects/${project.id}/publish`,'POST',{version:4});assert.equal(result.data.publication.version,2);assert.equal(result.data.publication.sourceProjectVersion,4);
+assert.match((await publicCall(project.id)).body,/Published revision two/,'Republishing activates a new immutable snapshot');
+result=await owner.call(`/projects/${project.id}/unpublish`,'POST',{version:4});assert.equal(result.status,200);assert.equal(result.data.publication,null);
+assert.equal((await publicCall(project.id)).status,404,'Unpublishing immediately removes the public route');
+assert.equal((await owner.call(publicationPath)).data.publicUrl,null);
 });

@@ -1,9 +1,44 @@
 <?php
 declare(strict_types=1);
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+require_once __DIR__ . '/../backend/PublicOrigin.php';
+$publicProjectId = Juzimder\PublicOrigin::projectIdForHost((string)($_SERVER['HTTP_HOST'] ?? ''));
+if ($publicProjectId !== null) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: no-referrer');
+    header("Content-Security-Policy: default-src 'none'; script-src 'none'; connect-src 'none'; style-src 'self' 'unsafe-inline'; img-src https: data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    header('Cache-Control: no-store');
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if (!in_array($method, ['GET','HEAD'], true)) {
+        http_response_code(405); header('Allow: GET, HEAD'); echo 'Method not allowed'; return true;
+    }
+    $path = is_string($path) ? $path : '';
+    if ($path === '/') $filePath = 'index.html';
+    elseif ($path === '/assets/site.css') $filePath = 'assets/site.css';
+    elseif (preg_match('~^/([a-z0-9]+(?:-[a-z0-9]+)*)$~D', $path, $routeMatch)) {
+        header('Location: ' . Juzimder\PublicOrigin::url($publicProjectId) . $routeMatch[1] . '/', true, 308);
+        return true;
+    } elseif (preg_match('~^/([a-z0-9]+(?:-[a-z0-9]+)*)/$~D', $path, $routeMatch)) $filePath = $routeMatch[1] . '/index.html';
+    else { http_response_code(404); echo 'Not found'; return true; }
+    try {
+        require_once __DIR__ . '/../backend/Domain.php';
+        $databasePath = getenv('JUZIMDER_DB') ?: __DIR__ . '/../var/app.sqlite';
+        $store = new Juzimder\Store($databasePath);
+        $publishedFile = $store->publicFile($publicProjectId, $filePath);
+    } catch (Throwable) {
+        http_response_code(503); echo 'Publication unavailable'; return true;
+    }
+    if ($publishedFile === null) { http_response_code(404); echo 'Not found'; return true; }
+    header('Content-Type: ' . ($filePath === 'assets/site.css' ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8'));
+    header('Content-Length: ' . strlen($publishedFile['content']));
+    header('ETag: "pub-' . $publishedFile['version'] . '-' . hash('sha256', $publishedFile['content']) . '"');
+    if ($method !== 'HEAD') echo $publishedFile['content'];
+    return true;
+}
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 if (in_array(strtolower((string)($_SERVER['HTTP_HOST'] ?? '')), ['127.0.0.1:8080', 'localhost:8080'], true) && !str_starts_with($path, '/api/')) {
     header('Location: http://juzimder-ai.localhost:8080' . ($_SERVER['REQUEST_URI'] ?? '/'), true, 308);
     return true;

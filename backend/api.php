@@ -5,6 +5,7 @@ require_once __DIR__ . '/Ai.php';
 require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
+require_once __DIR__ . '/PublicOrigin.php';
 use Juzimder\{Store, Problem};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -81,6 +82,23 @@ try {
         header('Content-Length: ' . strlen($archive));
         echo $archive;
         exit;
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/publication$~D', $path, $publicationMatch) && $method === 'GET') {
+        $publication = $store->publication($publicationMatch[1], $user);
+        result(['publication'=>$publication,'publicUrl'=>$publication ? Juzimder\PublicOrigin::url($publicationMatch[1]) : null]);
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/(publish|unpublish)$~D', $path, $publicationActionMatch) && $method === 'POST') {
+        if (array_diff(array_keys($body), ['version']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую ревизию проекта.');
+        $projectId = $publicationActionMatch[1];
+        if ($publicationActionMatch[2] === 'publish') {
+            $project = $store->owned($projectId, $user);
+            if ($project['version'] !== $body['version']) throw new Problem(409, 'Проект изменился. Обновите дашборд и повторите публикацию.');
+            $files = Juzimder\StaticSiteExporter::files($project);
+            $publication = $store->publish($projectId, $user, $body['version'], $files);
+            result(['publication'=>$publication,'publicUrl'=>Juzimder\PublicOrigin::url($projectId)]);
+        }
+        $publication = $store->unpublish($projectId, $user, $body['version']);
+        result(['publication'=>$publication,'publicUrl'=>null]);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/settings$~D', $path, $aiSettingsMatch)) {
         $projectId = $aiSettingsMatch[1];

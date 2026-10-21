@@ -149,3 +149,8 @@ In Codex Browser, an isolated QA database/project saved heading font Georgia, bo
 `npm test` прошёл полностью, включая API проверки owner/CSRF/CAS, границ полей SEO, HTTPS social image, сохранения, частичного обновления и восстановления metadata из revision. `npm run build`, PHP/JS syntax, shell syntax и `git diff --check` прошли. Build сохраняет прежнее предупреждение о GrapesJS chunk (~1.10 МБ raw / 291 КБ gzip).
 
 В Codex Browser на временной SQLite создан проект `SEO smoke test`: title, description, `noindex` и HTTPS social image сохранились как revision 1 и остались в форме после reload. Временный сервер и база удалены. Основная вкладка открыта по `http://juzimder-ai.localhost:8080/`; hostname отвечает 200, а старый `127.0.0.1:8080` перенаправляется кодом 308. Интерфейс показывает версию `00.00.012` и SEO-форму. Настройки SEO пока не потребляет внешний renderer, публикация не реализована.
+
+
+## Публикация статического снимка · версия продукта 00.00.014
+
+`npm test` включает API сценарий публикации на временной SQLite: owner/CSRF/stale-version проверки, отдельный public host без admin cookies, маршруты страниц и CSS, редирект на canonical slug, отказ в выдаче API/произвольных файлов, CSP/read-only методы, immutable snapshot после изменения проекта, новая версия при повторной публикации и 404 после unpublish. `tests/domain.php` проверяет сохранение двух исторических версий после снятия с публикации. Browser UI acceptance и production DNS/TLS не считаются выполненными только на основании этих API-тестов.

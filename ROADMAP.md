@@ -90,8 +90,9 @@
 
 - [x] Экспорт переносимого JSON (не static site export).
 - [x] Server-side static HTML/CSS renderer and ZIP export for all saved pages, consuming per-page SEO metadata and validated design tokens.
-- [ ] Separate public origin, publication preview/publish lifecycle, immutable publication versions and managed assets.
-- [ ] Domains после настройки и проверки public origin.
+- [x] Separate per-project public origin, explicit publish/unpublish, immutable static publication versions, owner/CSRF/CAS checks.
+- [ ] Preview of an unpublished candidate and managed asset storage/delivery.
+- [ ] Wildcard DNS/TLS deployment and custom domains after public-origin production validation.
 
 ## Phase 8 — стабилизация MVP
 
@@ -99,4 +100,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.013. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials; `.011` исправляет stale local sessions и закрепляет уникальный адрес `juzimder-ai.localhost:8080`; `.012` добавляет SEO-настройки каждой страницы в settings schema v4; `.013` добавляет server-side статический HTML/CSS renderer и ZIP download, использующие SEO и design tokens. ZIP можно разместить на статическом хостинге, но само приложение пока не публикует его на отдельном origin. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Далее: отдельный public origin, явные preview/publish состояния, immutable publication versions и managed assets; затем domains, forms/analytics/custom code. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.014. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials; `.011` исправляет stale local sessions и закрепляет уникальный адрес `juzimder-ai.localhost:8080`; `.012` добавляет SEO-настройки каждой страницы в settings schema v4; `.013` добавляет server-side статический HTML/CSS renderer и ZIP download, использующие SEO и design tokens. ZIP можно разместить на статическом хостинге; отдельная публикация на per-project origin реализована в `.014`. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Далее: preview кандидата до публикации, managed assets, проверка production wildcard DNS/TLS, затем custom domains, forms/analytics/custom code. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.
