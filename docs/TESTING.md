@@ -112,6 +112,10 @@ Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.
 
 В ходе этого продолжения повторно оценён clipboard: Codex Browser не выполнил сочетание в GrapesJS iframe и вернул timeout для selector/press, поэтому результат остаётся NOT RUN, не дефектом приложения. Системный clipboard не читался и не менялся.
 
+## Статический ZIP export · версия продукта 00.00.013
+
+`tests/static-export.php` проверяет home/subpage paths, relative CSS paths, per-page SEO (включая `noindex` и social image), применение design tokens и responsive CSS, отсутствие executable markup, фильтрацию небезопасных CSS declarations и отказ на неподдерживаемом media query. ZIP открывается `ZipArchive` и содержит ожидаемые пути. API integration проверяет ZIP MIME/signature, обязательную сессию и project owner isolation. Online publication/public-origin serving не проверялись и не реализованы.
+
 ## Управление страницами и редактор · версия продукта 00.00.007
 
 `tests/project-settings.php` и API integration scenario проверяют migration 001→002 с сохранением полных документов/revisions, home по умолчанию, русско-казахскую slug-нормализацию, запрет системных/дублирующихся URL, CRUD страниц, rename отдельно от slug, дублирование, atomic home selection, delete-home fallback, tenant isolation, stale-version rejection и restore маршрутов вместе с Project Data. `npm run build`, полный `npm test`, PHP syntax lint и `git diff --check` завершились успешно.

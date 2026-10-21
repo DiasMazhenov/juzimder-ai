@@ -4,6 +4,7 @@ require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
 require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/Operations.php';
+require_once __DIR__ . '/StaticSiteExporter.php';
 use Juzimder\{Store, Problem};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -71,6 +72,15 @@ try {
     if ($store->query('SELECT 1 FROM users WHERE id=?', [$user])->fetchColumn() === false) {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/export/static$~D', $path, $exportMatch) && $method === 'GET') {
+        $project = $store->owned($exportMatch[1], $user);
+        $archive = Juzimder\StaticSiteExporter::zip($project);
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="juzimder-site-' . $exportMatch[1] . '.zip"');
+        header('Content-Length: ' . strlen($archive));
+        echo $archive;
+        exit;
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/settings$~D', $path, $aiSettingsMatch)) {
         $projectId = $aiSettingsMatch[1];

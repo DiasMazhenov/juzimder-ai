@@ -11,6 +11,7 @@ class Client {
   constructor(url=base){this.url=url;}
   cookie=''; csrf='';
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
+  async download(path){const r=await fetch(this.url+'/api'+path,{headers:{Cookie:this.cookie}});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,type:r.headers.get('content-type'),body:Buffer.from(await r.arrayBuffer())};}
 }
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
 before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
@@ -76,8 +77,10 @@ assert.equal(operationState.document.data.pages[0].frames[0].component.component
 assert.equal((await a.call(`/projects/${operationProject.id}/operations`,'POST',{version:2,operations:[{operation:'delete_component',componentId:generatedHeading.attributes.id,confirm:true}]})).status,200,'Confirmed typed delete creates a new saved revision');
 assert.equal((await a.call(`/projects/${operationProject.id}/revisions`)).data.length,3);
 const created=await a.call('/projects','POST',{name:'API workspace'});assert.equal(created.status,201);const p=created.data;
+assert.equal((await anon.download(`/projects/${p.id}/export/static`)).status,401,'Static exports require an authenticated session');
+const archive=await a.download(`/projects/${p.id}/export/static`);assert.equal(archive.status,200);assert.equal(archive.type,'application/zip');assert.equal(archive.body.subarray(0,2).toString(),'PK','Authenticated owner receives a ZIP archive');
 await b.call('/session');await b.call('/register','POST',{email:'two@example.test',password:'another-test-password'});
-assert.deepEqual((await b.call('/projects')).data,[]);assert.equal((await b.call('/projects/'+p.id)).status,404);
+assert.deepEqual((await b.call('/projects')).data,[]);assert.equal((await b.call('/projects/'+p.id)).status,404);assert.equal((await b.download(`/projects/${p.id}/export/static`)).status,404,'Static export enforces project ownership');
 assert.equal((await b.call(`/projects/${operationProject.id}/operations`,'POST',{version:3,operations:[{operation:'update_content',componentId:generatedHeading.attributes.id,content:'foreign'}]})).status,404,'Typed operations enforce project ownership');
 assert.equal((await b.call('/projects/'+p.id,'PUT',{version:0,document:p.document})).status,404);
 p.document.data.pages[0].frames[0].component.components.push({type:'text',tagName:'h1',content:'API saved heading',attributes:{id:'stable-heading'},style:{}});
