@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.018 (npm SemVer 0.1.18). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.019 (npm SemVer 0.1.19). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -72,3 +72,9 @@ AI UI для design-plan, preview/confirmation и typed preset operations реа
 `npm run build`, полный `npm test`, PHP syntax и `git diff --check` прошли. Интеграционный API-сценарий на временной SQLite проверил PNG upload, MIME/signature validation, CSRF, owner isolation, private retrieval, rejection of cross-project Project Data refs, data-URL preview, ZIP extraction of exact bytes, immutable public snapshot delivery и public project-path isolation. `project_assets` хранит BLOB в SQLite; каждый файл ограничен 4 МБ, проект — 20 МБ/200 изображений, форматы — PNG/JPEG/GIF/WebP. SQLite migration v5→v6 добавлена; Project Data envelope остаётся schemaVersion 1.
 
 В существующем Codex Browser на текущем проекте без файлов открыта библиотека изображений и проверены подписи, ограничения и пустое состояние. Это только осмотр UI: файл не загружался, контент не менялся, ревизия проекта осталась 0. Desktop dialog выглядит целостно; mobile viewport и реальное устройство не проверялись. Следующий roadmap пункт — production wildcard DNS/TLS acceptance для public origin, требующая адреса домена и инфраструктуры владельца.
+
+## Сквозной plan lifecycle · версия продукта 00.00.019
+
+`npm test`, `npm run build`, PHP syntax checks и `git diff --check` прошли. В изолированном HTTP API сценарии валидированная структурированная фикстура преобразуется в typed operations, сохраняется, редактируется по стабильному component ID, восстанавливается в новую ревизию, проходит candidate preview и ZIP export, затем становится immutable publication snapshot. Проверка использует временную SQLite и loopback PHP-сервер.
+
+Реальный запрос OpenRouter и browser UI flow `prompt → preview/confirm → save/reload/restore` не запускались: это требует ключа владельца и визуальной приёмки. Текущий проект не изменялся.

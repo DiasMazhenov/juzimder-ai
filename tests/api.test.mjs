@@ -5,6 +5,8 @@ import { request as httpRequest } from 'node:http';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { blocks } from '../src/blocks.js';
+import { buildDesignPlanOperations } from '../src/ai-plan.js';
 let server, devServer, dir, devDir, testDbPath;
 const base='http://127.0.0.1:18081';
 const devBase='http://127.0.0.1:18082';
@@ -284,4 +286,47 @@ assert.match((await publicCall(project.id)).body,/Published revision two/,'Repub
 result=await owner.call(`/projects/${project.id}/unpublish`,'POST',{version:4});assert.equal(result.status,200);assert.equal(result.data.publication,null);
 assert.equal((await publicCall(project.id)).status,404,'Unpublishing immediately removes the public route');
 assert.equal((await owner.call(publicationPath)).data.publicUrl,null);
+await structuredPlanLifecycle(owner);
 });
+
+async function structuredPlanLifecycle(owner){
+const created=await owner.call('/projects','POST',{name:'Structured plan lifecycle'});
+assert.equal(created.status,201,JSON.stringify(created.data));
+const project=created.data;
+const plan={
+siteType:'Сайт студии',audience:'Малый бизнес',goal:'Получать заявки',style:'Спокойный современный стиль',
+colors:{ink:'#112233',forest:'#224466',canvas:'#eaf0f5',paper:'#ffffff',body:'#334455',muted:'#556677',line:'#ccddee',accent:'#88bb99'},
+sections:['navigation','hero','features','footer'],responsiveNotes:'Карточки складываются в одну колонку на узком экране.'
+};
+const operations=buildDesignPlanOperations(plan,blocks,'home');
+const applied=await owner.call(`/projects/${project.id}/operations`,'POST',{version:0,operations});
+assert.equal(applied.status,200,`The validated structured plan becomes server-authoritative typed operations: ${JSON.stringify(applied.data)}`);
+let state=(await owner.call(`/projects/${project.id}`)).data;
+assert.equal(state.version,1);assert.equal(state.document.data.pages[0].frames[0].component.components.length,4);
+const findHeading=node=>{
+if(node?.tagName==='h1')return node;
+for(const child of node?.components||[]){const match=findHeading(child);if(match)return match;}
+return null;
+};
+const heading=findHeading(state.document.data.pages[0].frames[0].component);
+assert.ok(heading?.attributes?.id,'Typed operations assign stable IDs used by later edits');
+const originalDocument=structuredClone(state.document);
+const edited=await owner.call(`/projects/${project.id}/operations`,'POST',{version:1,operations:[{operation:'update_content',componentId:heading.attributes.id,content:'Ручная правка до восстановления'}]});
+assert.equal(edited.status,200);assert.equal(edited.data.version,2,'A local text edit creates its own revision');
+const restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:2,targetVersion:1});
+assert.equal(restored.status,200);assert.equal(restored.data.version,3);assert.deepEqual(restored.data.document,originalDocument,'Restore creates a new revision with the earlier complete document');
+const revisions=(await owner.call(`/projects/${project.id}/revisions`)).data;
+assert.deepEqual(revisions.map(item=>item.version),[3,2,1],'Restore preserves both the edited and original history entries');
+const preview=await owner.call(`/projects/${project.id}/preview/static`);
+assert.equal(preview.status,200);assert.equal(preview.data.version,3);assert.match(preview.data.pages[0].html,/Место для/);assert.doesNotMatch(preview.data.pages[0].html,/Ручная правка до восстановления/);
+const archive=await owner.download(`/projects/${project.id}/export/static`);
+assert.equal(archive.status,200);assert.equal(archive.body.subarray(0,2).toString(),'PK','The restored candidate exports as a static ZIP');
+const archivePath=join(dir,'structured-plan.zip');await writeFile(archivePath,archive.body);
+const exportedIndex=execFileSync('php',['-r','$zip=new ZipArchive();if($zip->open($argv[1])!==true)exit(2);$contents=$zip->getFromName("index.html");$zip->close();echo $contents;',archivePath]).toString('utf8');
+assert.match(exportedIndex,/Место для/);assert.doesNotMatch(exportedIndex,/Ручная правка до восстановления/,'ZIP contains the restored source revision');
+const published=await owner.call(`/projects/${project.id}/publish`,'POST',{version:3});
+assert.equal(published.status,200);assert.equal(published.data.publication.sourceProjectVersion,3);
+const publicPage=await publicCall(project.id);
+assert.equal(publicPage.status,200);assert.match(publicPage.body,/Место для/);assert.doesNotMatch(publicPage.body,/Ручная правка до восстановления/);
+assert.equal((await owner.call(`/projects/${project.id}`)).data.version,3,'Preview, export and publish do not mutate Project Data');
+}

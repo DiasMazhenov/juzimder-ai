@@ -174,3 +174,9 @@ API-тест на временной SQLite проверяет preview всех 
 Полный `npm test` и `npm run build` прошли. Изолированный API тест валидирует raster uploads, per-project quotas, owner/CSRF, MIME и размер, приватную выдачу, соответствие ссылок проекту, sandboxed candidate preview, ZIP image contents и immutable public image snapshots. PHP syntax для `Domain.php`, `api.php`, `StaticSiteExporter.php` и `public/router.php` и `git diff --check` прошли. Ограничения Vite для большого GrapesJS chunk (~1.10 MB raw / 291 KB gzip) не изменились.
 
 В существующей пользовательской вкладке Codex Browser открыли Image block и увидели загрузку/HTTPS URL, allowlist PNG/JPEG/GIF/WebP, предел 4 МБ на файл и пустую библиотеку. Проект остался на ревизии 0; файл не загружали, ссылку не вставляли и страницу не публиковали. Mobile viewport и реальное устройство — NOT RUN.
+
+## Сквозной plan lifecycle · версия продукта 00.00.019
+
+`tests/api.test.mjs` связывает проверенную структурированную фикстуру с `buildDesignPlanOperations` и owner-authenticated API: typed batch сохраняет страницу, локальная правка создаёт следующую ревизию, restore создаёт новую ревизию из раннего полного Project Data, candidate preview и ZIP читают восстановленное состояние, публикация отдаёт его на отдельном public origin. Сценарий использует временную SQLite и PHP-сервер на loopback; user project не затрагивается.
+
+Этот сценарий не вызывает OpenRouter и не заменяет визуальную browser-приёмку prompt/preview/confirm/save/reload. Live provider acceptance остаётся NOT RUN до ввода ключа владельцем.

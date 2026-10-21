@@ -100,7 +100,8 @@
 ## Phase 8 — стабилизация MVP
 
 - [x] Первый ручной end-to-end сценарий с сохранением и PNG.
-- [ ] AI/local edit/revision restore/static publish end-to-end.
+- [x] Структурированный AI-plan fixture → typed operations → локальная правка → восстановление ревизии → preview/ZIP/publish на изолированной SQLite.
+- [ ] Live OpenRouter → browser preview/confirm → save/reload/restore/publish; нужен введённый владельцем ключ и отдельная visual acceptance.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.018.
+**Текущее состояние:** foundation, версия продукта 00.00.019.
