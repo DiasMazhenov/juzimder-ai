@@ -70,7 +70,8 @@
 - [x] Необязательная резервная модель профиля; используется после повторной попытки основной модели при временной сетевой ошибке или HTTP 408/429/5xx.
 - [x] Полностраничная генерация HTML/CSS: strict JSON output, серверная проверка и namespace для разрешённых тегов, атрибутов, классов, ссылок и стилей.
 - [x] Изолированный sandbox preview без скриптов/сети; отдельное подтверждение импорта через GrapesJS Core в редактируемые components/CSS rules и сохранение обычным Project Data/CAS/revision pipeline.
-- [ ] Live acceptance с OpenRouter: preview → confirm/apply → save → reload → restore/publish. Реальный запрос может тарифицироваться; fixture/API tests сетевой вызов не выполняют.
+- [x] Live OpenRouter acceptance для полной генерации: preview → confirm/apply → save → reload на отдельной тестовой странице; результат и URL подтверждены в 00.00.024.
+- [ ] Продолжить live acceptance до восстановления ревизии и публикации отдельного безопасного снимка.
 - [ ] Targeted AI edits по stable component ID.
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
@@ -105,7 +106,8 @@
 
 - [x] Первый ручной end-to-end сценарий с сохранением и PNG.
 - [x] Структурированный AI-plan fixture → typed operations → локальная правка → восстановление ревизии → preview/ZIP/publish на изолированной SQLite.
-- [ ] Live OpenRouter preview пройден в 00.00.022. В 00.00.023 реализованы генерация HTML/CSS и подтверждённый импорт; полный live confirm/apply → save/reload/restore/publish flow остаётся непроверенным.
+- [x] Live OpenRouter full-page preview/apply/save/reload пройдено в 00.00.024 на отдельной странице проекта.
+- [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.023.
+**Текущее состояние:** foundation, версия продукта 00.00.024.

@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.023 (npm SemVer 0.1.23). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 21.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.024 (npm SemVer 0.1.24). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -100,3 +100,9 @@ AI UI для design-plan, preview/confirmation и typed preset operations реа
 Добавлен authenticated `POST /api/projects/{id}/ai/generate-page`: OpenRouter получает только prompt, выдаёт strict JSON с HTML/CSS и краткими метаданными. Server sanitizer ограничивает теги, атрибуты, классы, IDs, ссылки, CSS properties/values/selectors, секции, depth, node count и правила; scoped class prefix и ID fragments предотвращают конфликты со страницей. Скрипты, event handlers, формы, SVG, images, iframe, external URLs и CSS resources не принимаются. Предпросмотр создаётся в opaque sandbox iframe с CSP без исполнения кода, сети и внешних ресурсов.
 
 После отдельного подтверждения HTML импортируется в выбранную страницу обычными GrapesJS models, CSS добавляется через Core API; существующий Project Data envelope `schemaVersion:1` и backend owner/CSRF/CAS/revision save не менялись. Не выполнялись live-вызов OpenRouter и тестовый импорт в проект, чтобы не расходовать профильный кредит и не менять открытую пользовательскую страницу. Fixture tests проверяют valid responsive design и опасные cases; HTTP tests проверяют CSRF, auth, ownership, prompt bounds, strict request body и отсутствие генерации без настроенного профиля. Осталось browser visual acceptance и live apply/save/reload/restore flow на отдельном изолированном проекте.
+
+## Реальная генерация и reasoning-бюджет · версия продукта 00.00.024
+
+Первый live-запрос на отдельной странице проекта дошёл до OpenRouter, но профиль `nvidia/nemotron-3.5-super-vl:free` вернул пустой `message.content`. Журнал сервера подтвердил отсутствие structured output. OpenRouter указывает, что у Nemotron reasoning включён по умолчанию и его токены расходуют общий `max_tokens`, поэтому для этой модели structured-запросы отправляют `reasoning.enabled=false`; остальные модели сохраняют прежние параметры. При повторной генерации sanitizer также отбросил неподдерживаемые CSS-декларации и селекторы, сохранив безопасные правила из allowlist.
+
+Fixture проверяет параметры запроса и обычные модели остаются без дополнительного поля. Реальная генерация создала семь секций кофейни на странице `AI генерация QA`; preview, импорт в GrapesJS, ревизия 2 и повторная загрузка подтверждены. Скриншот и локальная ссылка переданы пользователю; тестовая страница не затрагивает прежнюю главную.

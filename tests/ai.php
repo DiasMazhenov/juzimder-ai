@@ -73,7 +73,7 @@ try {
     $result = AiDesignPlanner::create('Создай сайт клиники', $provider);
     $request = $transport->calls[0]; $payload = json_decode($request['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck($request['url']==='https://openrouter.ai/api/v1/chat/completions' && in_array('Authorization: Bearer sk-test-only',$request['headers'],true), 'Provider sends the server-only bearer key to the fixed OpenRouter endpoint');
-    aiCheck($payload['max_tokens']===3200 && !array_key_exists('max_completion_tokens',$payload) && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true, 'Provider uses broadly supported token cap with strict structured output and parameter-aware routing');
+    aiCheck($payload['max_tokens']===3200 && !array_key_exists('max_completion_tokens',$payload) && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true && !array_key_exists('reasoning',$payload), 'Provider uses broadly supported token cap with strict structured output and parameter-aware routing');
     aiCheck($payload['response_format']['json_schema']['schema']['properties']['colors']['required']===['ink','forest','canvas','paper','body','muted','line','accent'], 'Structured schema covers all eight project design tokens');
     aiCheck(in_array('content',$payload['response_format']['json_schema']['schema']['required'],true)&&$result['plan']['content'][1]['texts'][1]==='hero copy 2','Structured schema returns validated text for every planned section');
     $allSectionsPlan=$plan;
@@ -82,6 +82,12 @@ try {
     aiCheck(count(AiDesignPlan::parseProviderOutput(json_encode($allSectionsPlan,JSON_THROW_ON_ERROR))['content'])===9,'Server validation supports generated text slots in every built-in section');
     aiCheck($request['timeoutSeconds']===25 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports the fixed timeout, resolved model, token usage and upstream cost');
     aiCheck($result['plan']['sections'][1]==='hero' && $result['plan']['colors']['accent']==='#2A8C7A', 'Design plan is normalized into supported section and color values');
+
+    $nemotronSettings=OpenRouterSettings::fromCredentials('sk-test-only','nvidia/nemotron-3.5-super-vl:free');
+    $nemotronTransport=new FakeAiTransport([new AiHttpResponse(200,$successBody)]);
+    (new OpenRouterProvider($nemotronSettings,$nemotronTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan');
+    $nemotronRequest=json_decode($nemotronTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);
+    aiCheck($nemotronRequest['reasoning']===['enabled'=>false], 'Nemotron structured requests disable default reasoning so visible JSON retains its completion-token budget');
 
     $generatedDesign=[
         'siteType'=>'Клиника', 'audience'=>'Семьи и взрослые', 'goal'=>'Запись на приём', 'style'=>'Светлый современный стиль',
@@ -102,9 +108,14 @@ try {
     $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('class="ai-link"','class="ai-link" onclick="alert(1)"',$badGenerated['html']);
     aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated markup rejects event-handler attributes');
     $badGenerated=$generatedDesign;$badGenerated['css'].='.ai-title:hover{color:#000000}';
-    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated CSS rejects pseudo selectors');
+    $sanitizedPseudo=AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    aiCheck(!str_contains($sanitizedPseudo['css'],':hover')&&str_contains($sanitizedPseudo['css'],'.ai-title{font-size:'),'Generated CSS drops unsupported selectors while preserving valid styles');
+    $badGenerated=$generatedDesign;$badGenerated['css'].='.ai-title{box-shadow:0 4px 20px #000000;font-family:"Playfair Display",serif;font-size:40px}';
+    $sanitizedDeclarations=AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    aiCheck(!str_contains($sanitizedDeclarations['css'],'box-shadow')&&!str_contains($sanitizedDeclarations['css'],'Playfair Display')&&str_contains($sanitizedDeclarations['css'],'font-size:40px'),'Generated CSS drops unsupported declarations but keeps allowlisted declarations');
     $badGenerated=$generatedDesign;$badGenerated['css']=str_replace('background-color:#f4f8f6','background-color:url(https://example.test/a.png)',$badGenerated['css']);
-    aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated CSS rejects external resource and URL values');
+    $sanitizedUrl=AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    aiCheck(!str_contains($sanitizedUrl['css'],'url(')&&!str_contains($sanitizedUrl['css'],'example.test'),'Generated CSS strips external-resource declarations');
     $badGenerated=$generatedDesign;$badGenerated['html']=str_replace('href="#contact"','href="#missing"',$badGenerated['html']);
     aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated page rejects unresolved in-page links');
 

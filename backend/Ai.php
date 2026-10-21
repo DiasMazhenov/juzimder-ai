@@ -108,7 +108,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
 
     private function completeWithModel(string $model, string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens): array {
         try {
-            $requestBody = json_encode([
+            $request = [
                 'model' => $model,
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
@@ -125,7 +125,13 @@ final class OpenRouterProvider implements StructuredAiProvider {
                     'type' => 'json_schema',
                     'json_schema' => ['name' => $schemaName, 'strict' => true, 'schema' => $schema],
                 ],
-            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+            ];
+            if (str_starts_with(strtolower($model), 'nvidia/nemotron-3.5-super-vl')) {
+                // This model enables reasoning by default; its reasoning tokens share
+                // max_tokens with the visible structured response and can leave content empty.
+                $request['reasoning'] = ['enabled' => false];
+            }
+            $requestBody = json_encode($request, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         } catch (\JsonException) {
             throw new \InvalidArgumentException('The structured AI request is invalid.');
         }
@@ -445,7 +451,7 @@ final class AiGeneratedWebsite {
     }
 
     private static function sanitizeStylesheet(string $source, string $scope, array $classes): string {
-        if (trim($source) === '' || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F<>\\"\']|\/\*|\*\//', $source)) throw new AiProviderFailure('AI provider returned an invalid design.');
+        if (trim($source) === '' || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F<>]|\/\*|\*\//', $source)) throw new AiProviderFailure('AI provider returned an invalid design.');
         $rules = [];
         self::parseCssRules($source, $scope, $classes, $rules, null, 0);
         if (!$rules || count($rules) > 120) throw new AiProviderFailure('AI provider returned an invalid design.');
@@ -479,11 +485,17 @@ final class AiGeneratedWebsite {
             $selectorList = trim(substr($css, $offset, $open - $offset));
             if ($selectorList === '' || str_contains($selectorList, '@')) throw new AiProviderFailure('AI provider returned an invalid design.');
             $declarations = self::parseDeclarations(substr($css, $open + 1, $close - $open - 1));
+            if (!$declarations) {
+                $offset = $close + 1;
+                continue;
+            }
             foreach (explode(',', $selectorList) as $selector) {
                 $selector = trim($selector);
-                if (!preg_match('/^\.(?:ai-[A-Za-z0-9_-]{1,56})(?:\s+\.(?:ai-[A-Za-z0-9_-]{1,56}))*$/D', $selector)) throw new AiProviderFailure('AI provider returned an invalid design.');
+                if (!preg_match('/^\.(?:ai-[A-Za-z0-9_-]{1,56})(?:\s+\.(?:ai-[A-Za-z0-9_-]{1,56}))*$/D', $selector)) continue;
                 preg_match_all('/\.(ai-[A-Za-z0-9_-]{1,56})/', $selector, $matches);
-                foreach ($matches[1] as $class) if (!isset($classes[$class])) throw new AiProviderFailure('AI provider returned an invalid design.');
+                $allClassesExist = true;
+                foreach ($matches[1] as $class) if (!isset($classes[$class])) { $allClassesExist = false; break; }
+                if (!$allClassesExist) continue;
                 $rules[] = ['selector'=>'.' . $scope . ' ' . $selector,'style'=>$declarations,'media'=>$media];
                 if (count($rules) > 120) throw new AiProviderFailure('AI provider returned an invalid design.');
             }
@@ -505,13 +517,13 @@ final class AiGeneratedWebsite {
         foreach (explode(';', trim($source)) as $declaration) {
             if (trim($declaration) === '') continue;
             $separator = strpos($declaration, ':');
-            if ($separator === false) throw new AiProviderFailure('AI provider returned an invalid design.');
+            if ($separator === false) continue;
             $property = strtolower(trim(substr($declaration, 0, $separator)));
             $value = trim(substr($declaration, $separator + 1));
-            if (!in_array($property, self::STYLE_PROPERTIES, true) || isset($style[$property]) || $value === '' || mb_strlen($value, 'UTF-8') > 160 || !self::validCssValue($property, $value)) throw new AiProviderFailure('AI provider returned an invalid design.');
+            if (!in_array($property, self::STYLE_PROPERTIES, true) || isset($style[$property]) || $value === '' || mb_strlen($value, 'UTF-8') > 160 || !self::validCssValue($property, $value)) continue;
             $style[$property] = $value;
         }
-        if (!$style || count($style) > 24) throw new AiProviderFailure('AI provider returned an invalid design.');
+        if (count($style) > 24) throw new AiProviderFailure('AI provider returned an invalid design.');
         return $style;
     }
 
