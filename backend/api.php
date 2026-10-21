@@ -83,6 +83,30 @@ try {
         echo $archive;
         exit;
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/preview/static$~D', $path, $previewMatch) && $method === 'GET') {
+        $project = $store->owned($previewMatch[1], $user);
+        $files = Juzimder\StaticSiteExporter::files($project);
+        $documentPages = $project['document']->data->pages;
+        $homeId = null;
+        foreach ($documentPages as $page) {
+            $pageId = (string)$page->id;
+            if (($project['settings']['pages'][$pageId]['isHome'] ?? false) === true) { $homeId = $pageId; break; }
+        }
+        $homeId ??= isset($documentPages[0]) ? (string)$documentPages[0]->id : null;
+        $previewPages = [];
+        foreach ($documentPages as $page) {
+            $pageId = (string)$page->id;
+            $route = $project['settings']['pages'][$pageId] ?? null;
+            if (!is_array($route)) throw new Problem(422, 'Для страницы не найдены настройки маршрута.');
+            $isHome = $pageId === $homeId;
+            $htmlPath = $isHome ? 'index.html' : (string)$route['slug'] . '/index.html';
+            if (!isset($files[$htmlPath])) throw new Problem(422, 'Не удалось подготовить предпросмотр страницы.');
+            $previewPages[] = ['name'=>(string)($page->name ?? 'Страница'),'path'=>$isHome ? '/' : '/' . (string)$route['slug'] . '/', 'html'=>$files[$htmlPath]];
+        }
+        $preview = ['version'=>(int)$project['version'],'pages'=>$previewPages,'css'=>$files['assets/site.css'] ?? ''];
+        if (strlen(json_encode($preview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)) > 8000000) throw new Problem(413, 'Предпросмотр превышает 8 МБ.');
+        result($preview);
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/publication$~D', $path, $publicationMatch) && $method === 'GET') {
         $publication = $store->publication($publicationMatch[1], $user);
         result(['publication'=>$publication,'publicUrl'=>$publication ? Juzimder\PublicOrigin::url($publicationMatch[1]) : null]);
