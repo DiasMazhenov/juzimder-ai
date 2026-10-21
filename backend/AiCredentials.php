@@ -9,21 +9,24 @@ final class AiCredentialVault {
         $this->store->owned($projectId, $userId);
         $state = $this->state($projectId);
         $profiles = $this->store->query(
-            'SELECT id,name,model,created_at,updated_at FROM project_ai_profiles WHERE project_id=? ORDER BY created_at,id',
+            'SELECT id,name,model,fallback_model,created_at,updated_at FROM project_ai_profiles WHERE project_id=? ORDER BY created_at,id',
             [$projectId]
         )->fetchAll();
         $activeId = is_string($state['active_profile_id'] ?? null) ? $state['active_profile_id'] : null;
         $active = null;
         foreach ($profiles as &$profile) {
             $profile['active'] = $profile['id'] === $activeId;
-            if ($profile['active']) $active = $profile;
+            $profile['fallbackModel'] = $profile['fallback_model'];
+            unset($profile['fallback_model']);
             unset($profile['created_at'], $profile['updated_at']);
+            if ($profile['active']) $active = $profile;
         }
         unset($profile);
         return [
             'provider' => 'openrouter',
             'configured' => $active !== null,
             'model' => $active['model'] ?? null,
+            'fallbackModel' => $active['fallbackModel'] ?? null,
             'activeProfileId' => $activeId,
             'profiles' => $profiles,
             'version' => $state === null ? 0 : (int)$state['version'],
@@ -36,47 +39,51 @@ final class AiCredentialVault {
         $profileId = $state['active_profile_id'] ?? null;
         if (!is_string($profileId) || $profileId === '') return null;
         $row = $this->store->query(
-            'SELECT api_key_ciphertext,model FROM project_ai_profiles WHERE project_id=? AND id=?',
+            'SELECT api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=? AND id=?',
             [$projectId, $profileId]
         )->fetch();
         if (!$row || !is_string($row['api_key_ciphertext']) || $row['api_key_ciphertext'] === '' || !is_string($row['model'])) {
             throw new Problem(503, 'Активный профиль AI повреждён. Выберите или сохраните профиль заново.');
         }
-        $settings = OpenRouterSettings::fromCredentials($this->decrypt($row['api_key_ciphertext']), $row['model']);
+        $settings = OpenRouterSettings::fromCredentials($this->decrypt($row['api_key_ciphertext']), $row['model'], $row['fallback_model']);
         if ($settings === null) throw new Problem(503, 'Активный профиль AI повреждён. Проверьте ключ и модель.');
         return $settings;
     }
 
-    public function createProfile(string $projectId, string $userId, int $expectedVersion, string $name, ?string $apiKey, string $model): array {
+    public function createProfile(string $projectId, string $userId, int $expectedVersion, string $name, ?string $apiKey, string $model, ?string $fallbackModel = null): array {
         $this->store->owned($projectId, $userId);
         $name = self::validateName($name);
         $model = self::validateModel($model);
+        $fallbackModel = self::validateFallbackModel($fallbackModel, $model);
         $apiKey = self::validateApiKey($apiKey, true);
-        return $this->mutate($projectId, $userId, $expectedVersion, function () use ($projectId, $name, $apiKey, $model): ?string {
+        return $this->mutate($projectId, $userId, $expectedVersion, function () use ($projectId, $name, $apiKey, $model, $fallbackModel): ?string {
             $profileId = bin2hex(random_bytes(12));
             $this->store->query(
-                'INSERT INTO project_ai_profiles(id,project_id,name,api_key_ciphertext,model) VALUES(?,?,?,?,?)',
-                [$profileId, $projectId, $name, $this->encrypt($apiKey), $model]
+                'INSERT INTO project_ai_profiles(id,project_id,name,api_key_ciphertext,model,fallback_model) VALUES(?,?,?,?,?,?)',
+                [$profileId, $projectId, $name, $this->encrypt($apiKey), $model, $fallbackModel]
             );
             return $profileId;
         });
     }
 
-    public function updateProfile(string $projectId, string $userId, int $expectedVersion, string $profileId, string $name, ?string $apiKey, string $model): array {
+    public function updateProfile(string $projectId, string $userId, int $expectedVersion, string $profileId, string $name, ?string $apiKey, string $model, ?string $fallbackModel = null): array {
         $this->store->owned($projectId, $userId);
         $name = self::validateName($name);
         $model = self::validateModel($model);
         $apiKey = self::validateApiKey($apiKey, false);
-        return $this->mutate($projectId, $userId, $expectedVersion, function (?array $state) use ($projectId, $profileId, $name, $apiKey, $model): ?string {
+        if ($fallbackModel !== null) $fallbackModel = self::validateFallbackModel($fallbackModel, $model);
+        return $this->mutate($projectId, $userId, $expectedVersion, function (?array $state) use ($projectId, $profileId, $name, $apiKey, $model, $fallbackModel): ?string {
             $profile = $this->store->query(
-                'SELECT id,api_key_ciphertext FROM project_ai_profiles WHERE project_id=? AND id=?',
+                'SELECT id,api_key_ciphertext,fallback_model FROM project_ai_profiles WHERE project_id=? AND id=?',
                 [$projectId, $profileId]
             )->fetch();
             if (!$profile) throw new Problem(404, 'Профиль AI не найден.');
             $key = $apiKey === '' ? $profile['api_key_ciphertext'] : $this->encrypt($apiKey);
+            $effectiveFallbackModel = $fallbackModel === null ? $profile['fallback_model'] : $fallbackModel;
+            if ($effectiveFallbackModel !== null) $effectiveFallbackModel = self::validateFallbackModel($effectiveFallbackModel, $model);
             $this->store->query(
-                'UPDATE project_ai_profiles SET name=?,api_key_ciphertext=?,model=?,updated_at=CURRENT_TIMESTAMP WHERE project_id=? AND id=?',
-                [$name, $key, $model, $projectId, $profileId]
+                'UPDATE project_ai_profiles SET name=?,api_key_ciphertext=?,model=?,fallback_model=?,updated_at=CURRENT_TIMESTAMP WHERE project_id=? AND id=?',
+                [$name, $key, $model, $effectiveFallbackModel, $projectId, $profileId]
             );
             return $state['active_profile_id'] ?? null;
         });
@@ -106,15 +113,15 @@ final class AiCredentialVault {
     }
 
     /** Compatibility for clients using the original single-profile settings endpoint. */
-    public function save(string $projectId, string $userId, int $expectedVersion, ?string $apiKey, string $model): array {
+    public function save(string $projectId, string $userId, int $expectedVersion, ?string $apiKey, string $model, ?string $fallbackModel = null): array {
         $status = $this->status($projectId, $userId);
         if (is_string($status['activeProfileId'])) {
             $active = null;
             foreach ($status['profiles'] as $profile) if ($profile['id'] === $status['activeProfileId']) { $active = $profile; break; }
             if ($active === null) throw new Problem(503, 'Активный профиль AI недоступен.');
-            return $this->updateProfile($projectId, $userId, $expectedVersion, $active['id'], $active['name'], $apiKey, $model);
+            return $this->updateProfile($projectId, $userId, $expectedVersion, $active['id'], $active['name'], $apiKey, $model, $fallbackModel);
         }
-        return $this->createProfile($projectId, $userId, $expectedVersion, 'Основной профиль', $apiKey, $model);
+        return $this->createProfile($projectId, $userId, $expectedVersion, 'Основной профиль', $apiKey, $model, $fallbackModel);
     }
 
     /** Compatibility for the original single-profile delete action: remove all project profiles. */
@@ -180,6 +187,15 @@ final class AiCredentialVault {
         $model = trim($model);
         if (!OpenRouterSettings::isValidModel($model)) throw new Problem(422, 'Укажите корректный ID модели OpenRouter.');
         return $model;
+    }
+
+    private static function validateFallbackModel(?string $fallbackModel, string $model): ?string {
+        $fallbackModel = trim((string)$fallbackModel);
+        if ($fallbackModel === '') return null;
+        if (!OpenRouterSettings::isValidModel($fallbackModel) || $fallbackModel === $model) {
+            throw new Problem(422, 'Укажите корректную резервную модель, отличную от основной, или оставьте поле пустым.');
+        }
+        return $fallbackModel;
     }
 
     private static function validateApiKey(?string $apiKey, bool $required): string {

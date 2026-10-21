@@ -180,3 +180,9 @@ API-тест на временной SQLite проверяет preview всех 
 `tests/api.test.mjs` связывает проверенную структурированную фикстуру с `buildDesignPlanOperations` и owner-authenticated API: typed batch сохраняет страницу, локальная правка создаёт следующую ревизию, restore создаёт новую ревизию из раннего полного Project Data, candidate preview и ZIP читают восстановленное состояние, публикация отдаёт его на отдельном public origin. Сценарий использует временную SQLite и PHP-сервер на loopback; user project не затрагивается.
 
 Этот сценарий не вызывает OpenRouter и не заменяет визуальную browser-приёмку prompt/preview/confirm/save/reload. Live provider acceptance остаётся NOT RUN до ввода ключа владельцем.
+
+## Резервная модель AI · версия продукта 00.00.020
+
+`tests/ai.php` использует fake HTTP transport: после двух временных ответов 503 подтверждает одну повторную попытку основной модели и переход к резервной; HTTP 401 остаётся без fallback. Vault и API tests проверяют добавление/редактирование, version/CSRF/owner, backward-compatible сохранение ключа и моделей, валидацию одинаковой основной и резервной модели и сохранение старых профилей без fallback после SQLite migration v6→v7. API responses не содержат API-ключ.
+
+В Codex Browser открыт активный проект и проверен AI Engine. Профиль настроен на `openrouter/free`. Был отправлен нейтральный synthetic prompt без содержимого Project Data; UI вернул «AI-провайдер временно недоступен», поэтому preview и последующие save/reload шаги не выполнялись. Применение и публикация не выполнялись.

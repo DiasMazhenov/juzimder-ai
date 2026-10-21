@@ -28,16 +28,16 @@ try {
     $restoredSettings = $vault->settings($vaultProject['id'],'vault-owner');
     aiCheck($savedStatus['configured'] && $savedStatus['version']===1 && count($savedStatus['profiles'])===1 && $restoredSettings?->apiKey==='sk-vault-round-trip-test', 'Encrypted project AI credential decrypts for backend provider use');
     $primaryProfileId=$savedStatus['profiles'][0]['id'];
-    $secondStatus=$vault->createProfile($vaultProject['id'],'vault-owner',1,'Рабочий','sk-vault-second-test','anthropic/test-model');
+    $secondStatus=$vault->createProfile($vaultProject['id'],'vault-owner',1,'Рабочий','sk-vault-second-test','anthropic/test-model','openai/fallback-model');
     $secondProfileId=$secondStatus['activeProfileId'];
     $secondPublicProfile=array_values(array_filter($secondStatus['profiles'],static fn($profile)=>$profile['id']===$secondProfileId))[0]??null;
-    aiCheck(count($secondStatus['profiles'])===2&&$secondStatus['version']===2&&$secondPublicProfile!==null,'Project can store and activate multiple independent AI profiles');
+    aiCheck(count($secondStatus['profiles'])===2&&$secondStatus['version']===2&&$secondPublicProfile!==null&&$secondPublicProfile['fallbackModel']==='openai/fallback-model'&&$secondStatus['fallbackModel']==='openai/fallback-model','Project stores the optional fallback model with its profile');
     $secondStatus=$vault->updateProfile($vaultProject['id'],'vault-owner',2,$secondProfileId,'Рабочая модель','', 'anthropic/updated-model');
     $secondPublicProfile=array_values(array_filter($secondStatus['profiles'],static fn($profile)=>$profile['id']===$secondProfileId))[0]??null;
-    aiCheck($secondPublicProfile['name']==='Рабочая модель'&&$secondPublicProfile['model']==='anthropic/updated-model'&&$secondStatus['version']===3,'Profile metadata and model can be edited while keeping its encrypted key');
-    $secondStatus=$vault->updateProfile($vaultProject['id'],'vault-owner',3,$secondProfileId,'Рабочая модель','sk-vault-second-replacement','anthropic/updated-model');
+    aiCheck($secondPublicProfile['name']==='Рабочая модель'&&$secondPublicProfile['model']==='anthropic/updated-model'&&$secondPublicProfile['fallbackModel']==='openai/fallback-model'&&$secondStatus['version']===3,'Profile edits preserve an existing fallback model when older clients omit it');
+    $secondStatus=$vault->updateProfile($vaultProject['id'],'vault-owner',3,$secondProfileId,'Рабочая модель','sk-vault-second-replacement','anthropic/updated-model','openai/alternate-fallback');
     $secondSettings=$vault->settings($vaultProject['id'],'vault-owner');
-    aiCheck($secondSettings?->apiKey==='sk-vault-second-replacement'&&$secondStatus['version']===4,'Editing a profile can replace its API key');
+    aiCheck($secondSettings?->apiKey==='sk-vault-second-replacement'&&$secondSettings?->fallbackModel==='openai/alternate-fallback'&&$secondStatus['version']===4,'Editing a profile can replace its API key and fallback model');
     $activeStatus=$vault->activateProfile($vaultProject['id'],'vault-owner',4,$primaryProfileId);
     $activeSettings=$vault->settings($vaultProject['id'],'vault-owner');
     aiCheck($activeStatus['activeProfileId']===$primaryProfileId&&$activeSettings?->apiKey==='sk-vault-round-trip-test','AI provider uses the selected active profile');
@@ -57,7 +57,8 @@ try {
 
     aiCheck(OpenRouterSettings::fromCredentials('', 'openai/test-model') === null, 'Provider stays unavailable until project credentials are configured');
     $settings = OpenRouterSettings::fromCredentials('sk-test-only', 'openai/test-model');
-    aiCheck($settings !== null && $settings->publicStatus() === ['provider'=>'openrouter','configured'=>true,'model'=>'openai/test-model'], 'Public provider status never contains the API key');
+    aiCheck($settings !== null && $settings->publicStatus() === ['provider'=>'openrouter','configured'=>true,'model'=>'openai/test-model','fallbackModel'=>null], 'Public provider status never contains the API key');
+    aiCheck(OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','bad fallback model')===null&&OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','openai/test-model')===null,'Provider configuration rejects invalid or duplicate fallback model IDs');
 
     $plan = [
         'siteType'=>'Клиника', 'audience'=>'Семьи и взрослые', 'goal'=>'Запись на приём', 'style'=>'Светлый современный стиль',
@@ -79,8 +80,18 @@ try {
     (new OpenRouterProvider($settings,$retryTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan');
     aiCheck(count($retryTransport->calls)===2, 'Provider retries one explicit transient rate-limit response');
 
+    $fallbackSettings=OpenRouterSettings::fromCredentials('sk-test-only','openai/primary-model','openai/fallback-model');
+    $fallbackTransport=new FakeAiTransport([new AiHttpResponse(503,'{}'),new AiHttpResponse(503,'{}'),new AiHttpResponse(200,$successBody)]);
+    $fallbackResult=AiDesignPlanner::create('Создай сайт клиники',new OpenRouterProvider($fallbackSettings,$fallbackTransport));
+    $fallbackModels=array_map(static fn($call)=>json_decode($call['body'],true,32,JSON_THROW_ON_ERROR)['model'],$fallbackTransport->calls);
+    aiCheck($fallbackModels===['openai/primary-model','openai/primary-model','openai/fallback-model']&&$fallbackResult['metadata']['resolvedModel']==='openai/resolved-model','Configured fallback runs after the primary model exhausts its transient retry');
+    $networkFallbackTransport=new FakeAiTransport([new RuntimeException('network interruption'),new RuntimeException('network interruption'),new AiHttpResponse(200,$successBody)]);
+    (new OpenRouterProvider($fallbackSettings,$networkFallbackTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan');
+    $networkModels=array_map(static fn($call)=>json_decode($call['body'],true,32,JSON_THROW_ON_ERROR)['model'],$networkFallbackTransport->calls);
+    aiCheck($networkModels===['openai/primary-model','openai/primary-model','openai/fallback-model'],'Transport failures get one primary retry before switching to fallback');
+
     $failedTransport = new FakeAiTransport([new AiHttpResponse(401,'sk-secret-must-not-leak')]);
-    try { (new OpenRouterProvider($settings,$failedTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected upstream failure.'); }
+    try { (new OpenRouterProvider($fallbackSettings,$failedTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected upstream failure.'); }
     catch (AiProviderFailure $error) { aiCheck(!str_contains($error->getMessage(),'sk-secret') && count($failedTransport->calls)===1, 'Provider errors are redacted and non-retryable authorization failures are not retried'); }
 
     $badPlan = $plan; $badPlan['sections'] = ['hero','unknown','faq'];

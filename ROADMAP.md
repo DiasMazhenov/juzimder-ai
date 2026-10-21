@@ -67,7 +67,8 @@
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
-- [ ] Fallback-модель и live provider acceptance после настройки владельцем ключа.
+- [x] Необязательная резервная модель профиля; используется после повторной попытки основной модели при временной сетевой ошибке или HTTP 408/429/5xx.
+- [ ] Успешная live provider acceptance и полный browser flow после устранения недоступности OpenRouter.
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
 
@@ -104,4 +105,4 @@
 - [ ] Live OpenRouter → browser preview/confirm → save/reload/restore/publish; нужен введённый владельцем ключ и отдельная visual acceptance.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.019.
+**Текущее состояние:** foundation, версия продукта 00.00.020.

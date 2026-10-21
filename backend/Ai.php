@@ -47,20 +47,26 @@ final class StreamAiHttpTransport implements AiHttpTransport {
     }
 }
 
-final class AiProviderFailure extends \RuntimeException {}
+final class AiProviderFailure extends \RuntimeException {
+    public function __construct(string $message, public readonly bool $retryable = false) { parent::__construct($message); }
+}
 
 final class OpenRouterSettings {
     private function __construct(
         public readonly string $apiKey,
         public readonly string $model,
+        public readonly ?string $fallbackModel,
         public readonly int $timeoutSeconds,
     ) {}
 
-    public static function fromCredentials(string $apiKey, string $model): ?self {
+    public static function fromCredentials(string $apiKey, string $model, ?string $fallbackModel = null): ?self {
         $apiKey = trim($apiKey);
         $model = trim($model);
+        $fallbackModel = trim((string)$fallbackModel);
+        if ($fallbackModel === '') $fallbackModel = null;
         if ($apiKey === '' || strlen($apiKey) > 512 || preg_match('/[\x00-\x20\x7F]/', $apiKey) || !self::isValidModel($model)) return null;
-        return new self($apiKey, $model, 25);
+        if ($fallbackModel !== null && (!self::isValidModel($fallbackModel) || $fallbackModel === $model)) return null;
+        return new self($apiKey, $model, $fallbackModel, 25);
     }
 
     public static function isValidModel(string $model): bool {
@@ -68,7 +74,7 @@ final class OpenRouterSettings {
     }
 
     public function publicStatus(): array {
-        return ['provider' => 'openrouter', 'configured' => true, 'model' => $this->model];
+        return ['provider' => 'openrouter', 'configured' => true, 'model' => $this->model, 'fallbackModel' => $this->fallbackModel];
     }
 }
 
@@ -84,9 +90,26 @@ final class OpenRouterProvider implements StructuredAiProvider {
 
     public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName): array {
         if (!preg_match('/^[a-z][a-z0-9_]{1,63}$/D', $schemaName)) throw new \InvalidArgumentException('Invalid JSON schema name.');
+        $models = [$this->settings->model];
+        if ($this->settings->fallbackModel !== null) $models[] = $this->settings->fallbackModel;
+        foreach ($models as $index => $model) {
+            try {
+                return $this->completeWithModel($model, $systemPrompt, $userPrompt, $schema, $schemaName);
+            } catch (AiProviderFailure $failure) {
+                if ($index === 0 && isset($models[1]) && $failure->retryable) {
+                    error_log('Juzimder AI: OpenRouter primary model failed; using configured fallback.');
+                    continue;
+                }
+                throw $failure;
+            }
+        }
+        throw new AiProviderFailure('AI provider returned an error.');
+    }
+
+    private function completeWithModel(string $model, string $systemPrompt, string $userPrompt, array $schema, string $schemaName): array {
         try {
             $requestBody = json_encode([
-                'model' => $this->settings->model,
+                'model' => $model,
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => $userPrompt],
@@ -116,9 +139,14 @@ final class OpenRouterProvider implements StructuredAiProvider {
                 $response = $transport->post(self::ENDPOINT, $headers, $requestBody, $this->settings->timeoutSeconds);
             } catch (\Throwable) {
                 error_log('Juzimder AI: OpenRouter transport failure.');
-                throw new AiProviderFailure('AI provider is unavailable.');
+                if ($attempt === 0) {
+                    usleep(150000);
+                    continue;
+                }
+                throw new AiProviderFailure('AI provider is unavailable.', true);
             }
-            if ($attempt === 0 && in_array($response->status, [429, 502, 503, 504], true)) {
+            $retryableStatus = $response->status === 408 || $response->status === 429 || ($response->status >= 500 && $response->status <= 599);
+            if ($attempt === 0 && $retryableStatus) {
                 usleep(150000);
                 continue;
             }
@@ -128,7 +156,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
         if (!$response || $response->status < 200 || $response->status >= 300) {
             $status = $response?->status ?? 0;
             error_log('Juzimder AI: OpenRouter returned HTTP ' . $status . '.');
-            throw new AiProviderFailure('AI provider returned an error.');
+            throw new AiProviderFailure('AI provider returned an error.', $status === 0 || $status === 408 || $status === 429 || ($status >= 500 && $status <= 599));
         }
 
         try {
@@ -145,7 +173,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
 
         $usage = is_array($decoded['usage'] ?? null) ? $decoded['usage'] : [];
         $resolvedModel = $decoded['model'] ?? null;
-        if (!is_string($resolvedModel) || !preg_match('~^[A-Za-z0-9._:/-]{1,128}$~D', $resolvedModel)) $resolvedModel = $this->settings->model;
+        if (!is_string($resolvedModel) || !preg_match('~^[A-Za-z0-9._:/-]{1,128}$~D', $resolvedModel)) $resolvedModel = $model;
         return [
             'content' => trim($content),
             'model' => $resolvedModel,
