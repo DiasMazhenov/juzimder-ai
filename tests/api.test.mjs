@@ -1,10 +1,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-let server, devServer, dir, devDir;
+let server, devServer, dir, devDir, testDbPath;
 const base='http://127.0.0.1:18081';
 const devBase='http://127.0.0.1:18082';
 class Client {
@@ -13,13 +13,14 @@ class Client {
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
 }
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:join(dir,'test.sqlite')};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
+before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();
 assert.equal((await anon.call('/projects')).status,401);
 await anon.call('/session');
 await a.call('/session');assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'} ,'bad')).status,403);
+const isolatedDatabaseClient=new Client(devBase);await isolatedDatabaseClient.call('/session');assert.notEqual(a.cookie.split('=')[0],isolatedDatabaseClient.cookie.split('=')[0],'separate SQLite databases use separate browser session cookie names');
 assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
 const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`;
 assert.equal((await a.call('/ai/status')).status,404,'The former global environment-configured AI endpoint is removed');
@@ -106,6 +107,15 @@ assert.equal((await a.call('/logout','POST',{})).status,200);assert.equal((await
 await a.call('/session');assert.equal((await a.call('/login','POST',{email:'one@example.test',password:'wrong-test-password'})).status,401);
 assert.equal((await a.call('/login','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
 assert.equal((await a.call('/projects/'+p.id)).data.version,3);
+});
+
+test('stale sessions from a different local database are reset instead of causing project creation errors',async()=>{
+const staleDirect=new Client();await staleDirect.call('/session');const directUser=await staleDirect.call('/register','POST',{email:'stale-direct@example.test',password:'a-long-stale-password'});assert.equal(directUser.status,200);
+execFileSync('php',['-r',"$db=new PDO('sqlite:'.$argv[1]);$db->prepare('DELETE FROM users WHERE id=?')->execute([$argv[2]]);",testDbPath,directUser.data.user.id]);
+const rejected=await staleDirect.call('/projects','POST',{name:'Must not be created'});assert.equal(rejected.status,401);assert.equal(rejected.data.error,'Локальная сессия устарела. Войдите снова.');
+const staleBootstrap=new Client();await staleBootstrap.call('/session');const bootstrapUser=await staleBootstrap.call('/register','POST',{email:'stale-bootstrap@example.test',password:'another-stale-password'});assert.equal(bootstrapUser.status,200);
+execFileSync('php',['-r',"$db=new PDO('sqlite:'.$argv[1]);$db->prepare('DELETE FROM users WHERE id=?')->execute([$argv[2]]);",testDbPath,bootstrapUser.data.user.id]);
+const session=await staleBootstrap.call('/session');assert.equal(session.status,200);assert.equal(session.data.user,null);assert.equal(session.data.sessionExpired,true,'bootstrap reports that the current database invalidated the old login');
 });
 
 test('admin/admin is available only with loopback development auth enabled',async()=>{

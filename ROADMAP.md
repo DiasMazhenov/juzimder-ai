@@ -16,6 +16,7 @@
 
 - [x] PHP API, SQLite schema v1, session auth, CSRF, owner checks.
 - [x] Loopback-only `admin/admin` test login for `npm run serve`; not enabled for public hosting.
+- [x] Fixed local URL `http://127.0.0.1:8080/`, idempotent local launcher, DB-scoped session cookies and safe recovery from stale local sessions.
 - [x] Dashboard: создать проект и открыть редактор.
 - [x] Project Pages Dashboard: отдельные URL управления проектом и editor pages.
 - [x] Server-authoritative page create/rename/duplicate/delete, unique route slugs, home selection и revision restore.
@@ -25,7 +26,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Migration runner, account recovery, session expiry, production hardening.
+- [ ] Migration runner, account recovery, production session expiry and hardening.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout
@@ -95,4 +96,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.010. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Следующий плановый UI/UX slice — SEO settings с backend validation и persistence; до публикационного потребителя не называть SEO подключённым. Analytics/forms/custom code/multiple AI profiles/domain/publication ещё в очереди. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.011. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials; `.011` исправляет stale local sessions, делает launcher идемпотентным и фиксирует URL `127.0.0.1:8080`. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Следующий плановый UI/UX slice — SEO settings с backend validation и persistence; до публикационного потребителя не называть SEO подключённым. Analytics/forms/custom code/multiple AI profiles/domain/publication ещё в очереди. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.

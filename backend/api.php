@@ -7,12 +7,20 @@ require_once __DIR__ . '/Operations.php';
 use Juzimder\{Store, Problem};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
-session_name('juzimder_session'); session_set_cookie_params(['httponly'=>true,'samesite'=>'Strict','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off','path'=>'/']); session_start();
+$databasePath = getenv('JUZIMDER_DB') ?: __DIR__.'/../var/app.sqlite';
+$databaseIdentity = realpath($databasePath) ?: $databasePath;
+$defaultDatabasePath = __DIR__.'/../var/app.sqlite';
+$defaultDatabaseIdentity = realpath($defaultDatabasePath) ?: $defaultDatabasePath;
+$sessionName = $databaseIdentity === $defaultDatabaseIdentity
+    ? 'juzimder_session'
+    : 'juzimder_' . substr(hash('sha256', $databaseIdentity), 0, 16);
+session_name($sessionName); session_set_cookie_params(['httponly'=>true,'samesite'=>'Strict','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off','path'=>'/']); session_start();
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $devAuth = getenv('JUZIMDER_DEV_AUTH') === '1' && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1'], true);
 function result(mixed $data,int $status=200): never { http_response_code($status); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR); exit; }
+function expireLocalSession(): void { $_SESSION=[]; session_regenerate_id(true); $_SESSION['csrf']=bin2hex(random_bytes(32)); }
 try {
-    $store = new Store(getenv('JUZIMDER_DB') ?: __DIR__.'/../var/app.sqlite');
+    $store = new Store($databasePath);
     $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);
     $body = [];
     if ($method !== 'GET') {
@@ -23,7 +31,16 @@ try {
         if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
         $body = get_object_vars($decodedBody);
     }
-    if ($path === '/api/session' && $method === 'GET') result(['user'=>$_SESSION['user'] ?? null,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth]);
+    if ($path === '/api/session' && $method === 'GET') {
+        $sessionUser = $_SESSION['user'] ?? null;
+        $sessionExpired = false;
+        if (is_array($sessionUser) && is_string($sessionUser['id'] ?? null) && $store->query('SELECT 1 FROM users WHERE id=?', [$sessionUser['id']])->fetchColumn() === false) {
+            expireLocalSession();
+            $sessionUser = null;
+            $sessionExpired = true;
+        }
+        result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired]);
+    }
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {
         $identity = strtolower(trim(is_string($body['email'] ?? null) ? $body['email'] : ''));
         $devAdminLogin = $devAuth && $path === '/api/login' && $identity === 'admin';
@@ -51,6 +68,10 @@ try {
         session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
     }
     $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,'Войдите в аккаунт.');
+    if ($store->query('SELECT 1 FROM users WHERE id=?', [$user])->fetchColumn() === false) {
+        expireLocalSession();
+        throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/settings$~D', $path, $aiSettingsMatch)) {
         $projectId = $aiSettingsMatch[1];
         $credentials = new Juzimder\AiCredentialVault($store);
