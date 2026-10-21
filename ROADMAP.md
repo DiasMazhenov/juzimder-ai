@@ -71,6 +71,7 @@
 - [x] Полностраничная генерация HTML/CSS: strict JSON output, серверная проверка и namespace для разрешённых тегов, атрибутов, классов, ссылок и стилей.
 - [x] Изолированный sandbox preview без скриптов/сети; отдельное подтверждение импорта через GrapesJS Core в редактируемые components/CSS rules и сохранение обычным Project Data/CAS/revision pipeline.
 - [x] Live OpenRouter acceptance для полной генерации: preview → confirm/apply → save → reload на отдельной тестовой странице; результат и URL подтверждены в 00.00.024.
+- [x] Визуальная приёмка результата реальной модели в 00.00.025: scoped tag/descendant CSS исправил браузерные ссылки/списки; editor snapshot проверен на desktop и 375px mobile, revision 6 сохранена на отдельной QA-странице.
 - [ ] Продолжить live acceptance до восстановления ревизии и публикации отдельного безопасного снимка.
 - [ ] Targeted AI edits по stable component ID.
 
@@ -107,7 +108,8 @@
 - [x] Первый ручной end-to-end сценарий с сохранением и PNG.
 - [x] Структурированный AI-plan fixture → typed operations → локальная правка → восстановление ревизии → preview/ZIP/publish на изолированной SQLite.
 - [x] Live OpenRouter full-page preview/apply/save/reload пройдено в 00.00.024 на отдельной странице проекта.
+- [x] Live OpenRouter preview/import/save и desktop/mobile визуальная проверка после улучшений CSS завершены в 00.00.025.
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.024.
+**Текущее состояние:** foundation, версия продукта 00.00.025.
