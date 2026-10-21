@@ -18,7 +18,7 @@ try {
     unset($legacy);
 
     $store=new Store($path);
-    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===4,'Upgrade existing database through schema 4');
+    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===5,'Upgrade existing database through schema 5');
     $project=$store->owned('0123456789abcdef01234567','legacy');
     settingsCheck($project['settings']['schemaVersion']===4,'Project settings migrate to schema version 4');
     settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');
@@ -77,3 +77,23 @@ try {
     settingsCheck($root->style->{'font-weight'}==='var(--juzimder-font-weight-body, 400)'&&$root->components[1]->style->{'font-size'}==='var(--juzimder-font-size-base)'&&$root->components[1]->style->{'line-height'}==='var(--juzimder-line-height-body)','Known preset body styles and inherited weight use shared typography tokens');
     settingsCheck($root->components[2]->style->{'font-size'}==='30px'&&$root->components[2]->style->{'font-weight'}==='800','Custom local heading styles remain overrides');
 } finally { unset($store); @unlink($path); }
+
+$profileMigrationPath=sys_get_temp_dir().'/juzimder-ai-profile-migration-'.bin2hex(random_bytes(6)).'.sqlite';
+try {
+    $legacyAi=new PDO('sqlite:'.$profileMigrationPath,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    foreach (['001_initial.sql','002_project_settings.sql','003_ai_credentials.sql','004_publications.sql'] as $migration) {
+        $legacyAi->exec(file_get_contents(__DIR__.'/../backend/migrations/'.$migration));
+    }
+    $legacyAi->exec("INSERT INTO users(id,email,password_hash) VALUES('ai-legacy','ai-legacy@example.test','hash')");
+    $legacyAi->exec("INSERT INTO projects(id,owner_id,name) VALUES('abcdef0123456789abcdef01','ai-legacy','Legacy AI')");
+    $legacyAi->exec("INSERT INTO project_ai_credentials(project_id,api_key_ciphertext,model,version) VALUES('abcdef0123456789abcdef01','encrypted-legacy-fixture','openai/legacy-model',7)");
+    unset($legacyAi);
+
+    $migratedAi=new Store($profileMigrationPath);
+    $profile=$migratedAi->query('SELECT id,name,api_key_ciphertext,model FROM project_ai_profiles WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
+    $profileState=$migratedAi->query('SELECT active_profile_id,version FROM project_ai_profile_state WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
+    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===5,'Upgrade schema 4 AI credentials to profile storage');
+    settingsCheck($profile!==false&&$profile['name']==='Основной профиль'&&$profile['api_key_ciphertext']==='encrypted-legacy-fixture'&&$profile['model']==='openai/legacy-model','Migration preserves the existing encrypted key and model as a default profile');
+    settingsCheck($profileState!==false&&$profileState['active_profile_id']===$profile['id']&&(int)$profileState['version']===7,'Migration preserves active selection and optimistic version');
+    settingsCheck($migratedAi->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='project_ai_credentials'")->fetchColumn()===false,'Migration removes the obsolete single-profile credential table');
+} finally { unset($migratedAi); @unlink($profileMigrationPath); @unlink($profileMigrationPath.'-journal'); }

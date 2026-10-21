@@ -137,6 +137,32 @@ try {
             result($credentials->clear($projectId, $user, $body['version']));
         }
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/profiles(?:/([a-f0-9]{24})(?:/(activate))?)?$~D', $path, $aiProfileMatch)) {
+        $projectId = $aiProfileMatch[1];
+        $profileId = $aiProfileMatch[2] ?? '';
+        $action = $aiProfileMatch[3] ?? '';
+        $credentials = new Juzimder\AiCredentialVault($store);
+        if ($profileId === '' && $method === 'POST') {
+            if (array_diff(array_keys($body), ['version','name','apiKey','model']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['name'] ?? null) || !is_string($body['apiKey'] ?? null) || !is_string($body['model'] ?? null)) {
+                throw new Problem(422, 'Укажите версию списка, название профиля, API-ключ и модель.');
+            }
+            result($credentials->createProfile($projectId, $user, $body['version'], $body['name'], $body['apiKey'], $body['model']));
+        }
+        if ($profileId !== '' && $action === '' && $method === 'PUT') {
+            if (array_diff(array_keys($body), ['version','name','apiKey','model']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['name'] ?? null) || !is_string($body['model'] ?? null) || (array_key_exists('apiKey', $body) && !is_string($body['apiKey']))) {
+                throw new Problem(422, 'Укажите версию списка, название профиля и модель; ключ можно оставить пустым, чтобы не менять его.');
+            }
+            result($credentials->updateProfile($projectId, $user, $body['version'], $profileId, $body['name'], $body['apiKey'] ?? null, $body['model']));
+        }
+        if ($profileId !== '' && $action === 'activate' && $method === 'POST') {
+            if (array_diff(array_keys($body), ['version']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию списка профилей AI.');
+            result($credentials->activateProfile($projectId, $user, $body['version'], $profileId));
+        }
+        if ($profileId !== '' && $action === '' && $method === 'DELETE') {
+            if (array_diff(array_keys($body), ['version']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию списка профилей AI.');
+            result($credentials->deleteProfile($projectId, $user, $body['version'], $profileId));
+        }
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/design-plan$~D', $path, $aiPlanMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');

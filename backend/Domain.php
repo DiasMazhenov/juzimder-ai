@@ -114,6 +114,18 @@ final class Store {
         if ($schemaVersion === 2) $this->db->exec(file_get_contents(__DIR__ . '/migrations/003_ai_credentials.sql'));
         $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
         if ($schemaVersion === 3) $this->db->exec(file_get_contents(__DIR__ . '/migrations/004_publications.sql'));
+        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+        if ($schemaVersion === 4) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+                if ($schemaVersion === 4) $this->db->exec(file_get_contents(__DIR__ . '/migrations/005_ai_profiles.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();

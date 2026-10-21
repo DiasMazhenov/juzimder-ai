@@ -66,7 +66,8 @@
 - [ ] Intent → plan → structured generation → validate → editable output → revision.
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
-- [ ] Несколько AI profiles и выбор default/fallback модели; live provider acceptance после настройки владельцем ключа.
+- [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
+- [ ] Fallback-модель и live provider acceptance после настройки владельцем ключа.
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
 
@@ -102,4 +103,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.016. P0 project pages/dashboard, versioned routes/home, settings navigation в левой панели проекта и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials; `.011` исправляет stale local sessions и закрепляет уникальный адрес `juzimder-ai.localhost:8080`; `.012` добавляет SEO-настройки каждой страницы в settings schema v4; `.013` добавляет server-side статический HTML/CSS renderer и ZIP download, использующие SEO и design tokens; `.014` добавляет immutable публикацию по per-project origin; `.015` — owner-authenticated preview сохранённой ревизии в sandboxed iframe без изменения публикации или версии проекта; `.016` переносит настройки проекта в основную боковую навигацию с горизонтальным scroll на узких экранах. ZIP можно разместить на статическом хостинге. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Далее: managed asset storage/delivery, проверка production wildcard DNS/TLS, затем custom domains, forms/analytics/custom code. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.017.
