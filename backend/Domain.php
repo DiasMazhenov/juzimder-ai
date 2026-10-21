@@ -98,7 +98,9 @@ final class Document {
 }
 final class Store {
     public \PDO $db;
+    public readonly string $path;
     public function __construct(string $path) {
+        $this->path = $path;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0700, true);
         $this->db = new \PDO('sqlite:' . $path, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC]);
         $this->db->exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
@@ -108,6 +110,8 @@ final class Store {
             $schemaVersion = 1;
         }
         if ($schemaVersion === 1) $this->migrateProjectSettings();
+        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+        if ($schemaVersion === 2) $this->db->exec(file_get_contents(__DIR__ . '/migrations/003_ai_credentials.sql'));
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();

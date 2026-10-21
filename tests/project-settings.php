@@ -18,7 +18,7 @@ try {
     unset($legacy);
 
     $store=new Store($path);
-    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===2,'Upgrade existing database to schema 2');
+    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===3,'Upgrade existing database through schema 3');
     $project=$store->owned('0123456789abcdef01234567','legacy');
     settingsCheck($project['settings']['schemaVersion']===3,'Project settings migrate to schema version 3');
     settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');

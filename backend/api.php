@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
+require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/Operations.php';
 use Juzimder\{Store, Problem};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
@@ -50,14 +51,24 @@ try {
         session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
     }
     $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,'Войдите в аккаунт.');
-    if ($path === '/api/ai/status' && $method === 'GET') {
-        $settings = Juzimder\OpenRouterSettings::fromEnvironment();
-        result($settings?->publicStatus() ?? ['provider'=>'openrouter','configured'=>false,'model'=>null]);
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/settings$~D', $path, $aiSettingsMatch)) {
+        $projectId = $aiSettingsMatch[1];
+        $credentials = new Juzimder\AiCredentialVault($store);
+        if ($method === 'GET') result($credentials->status($projectId, $user));
+        if ($method === 'PUT') {
+            if (array_diff(array_keys($body), ['version','apiKey','model']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['model'] ?? null) || (array_key_exists('apiKey', $body) && !is_string($body['apiKey']))) throw new Problem(422, 'Укажите версию настроек, модель и API-ключ (ключ можно оставить пустым, если он уже сохранён).');
+            result($credentials->save($projectId, $user, $body['version'], $body['apiKey'] ?? null, $body['model']));
+        }
+        if ($method === 'DELETE') {
+            if (array_diff(array_keys($body), ['version']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию настроек AI.');
+            result($credentials->clear($projectId, $user, $body['version']));
+        }
     }
-    if ($path === '/api/ai/design-plan' && $method === 'POST') {
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/design-plan$~D', $path, $aiPlanMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
-        $settings = Juzimder\OpenRouterSettings::fromEnvironment();
+        $credentials = new Juzimder\AiCredentialVault($store);
+        $settings = $credentials->settings($aiPlanMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $now = time();
         $storedRequests = $_SESSION['ai_requests'] ?? [];

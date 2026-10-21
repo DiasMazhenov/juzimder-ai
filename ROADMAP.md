@@ -63,7 +63,8 @@
 - [x] Редактор: disclosure о передаче prompt, статус провайдера, предпросмотр плана и отдельное подтверждение перед добавлением preset-секций typed operations с новой revision.
 - [ ] Intent → plan → structured generation → validate → editable output → revision.
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
-- [ ] P1: несколько пользовательских AI profiles и защищённые credentials; сейчас active model/key принадлежат окружению сервера.
+- [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
+- [ ] Несколько AI profiles и выбор default/fallback модели; live provider acceptance после настройки владельцем ключа.
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
 
@@ -94,4 +95,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.009. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008` и `.009` добавили валидируемые цвета, typography tokens, сохранение/revisions/restore, редактор и AI presets; Codex Browser подтвердил сохранение, reload и рендер в редакторе. Header/Footer/404 остаются неподключёнными. Следующий slice — SEO settings с backend validation и persistence; до публикационного потребителя не называть их подключёнными. Analytics/forms/custom code/AI profiles/domain/publication ещё в очереди. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста; live OpenRouter acceptance ожидает credentials. Import API/UI пока не реализованы; versioned migration contract уже описан.
+**Текущее состояние:** foundation, версия продукта 00.00.010. P0 project pages/dashboard, versioned routes/home, settings navigation shell и editor Layers/Sections/Body/Flex controls реализованы. P1 slices `.008`–`.010` включили design tokens, typography и per-project encrypted OpenRouter credentials. AI key/model вводятся в «Настройки сайта → AI Engine»; real provider acceptance ждёт, когда владелец введёт свой ключ. Header/Footer/404 остаются неподключёнными. Следующий плановый UI/UX slice — SEO settings с backend validation и persistence; до публикационного потребителя не называть SEO подключённым. Analytics/forms/custom code/multiple AI profiles/domain/publication ещё в очереди. Clipboard Cmd/Ctrl+C/V остаётся NOT RUN из-за ограничений браузерного моста. Import API/UI пока не реализованы; versioned migration contract уже описан.

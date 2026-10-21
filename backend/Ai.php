@@ -56,15 +56,15 @@ final class OpenRouterSettings {
         public readonly int $timeoutSeconds,
     ) {}
 
-    public static function fromEnvironment(): ?self {
-        $apiKey = trim((string)(getenv('OPENROUTER_API_KEY') ?: ''));
-        $model = trim((string)(getenv('OPENROUTER_MODEL') ?: ''));
-        if ($apiKey === '' || strlen($apiKey) > 512 || preg_match('/[\x00-\x20\x7F]/', $apiKey) || $model === '' || !preg_match('~^[A-Za-z0-9._:/-]{1,128}$~D', $model)) return null;
+    public static function fromCredentials(string $apiKey, string $model): ?self {
+        $apiKey = trim($apiKey);
+        $model = trim($model);
+        if ($apiKey === '' || strlen($apiKey) > 512 || preg_match('/[\x00-\x20\x7F]/', $apiKey) || !self::isValidModel($model)) return null;
+        return new self($apiKey, $model, 25);
+    }
 
-        $timeout = filter_var(getenv('OPENROUTER_TIMEOUT_SECONDS'), FILTER_VALIDATE_INT);
-        if ($timeout === false || $timeout === null) $timeout = 25;
-        $timeout = max(5, min(60, $timeout));
-        return new self($apiKey, $model, $timeout);
+    public static function isValidModel(string $model): bool {
+        return $model !== '' && strlen($model) <= 128 && preg_match('~^[A-Za-z0-9._:/-]+$~D', $model) === 1;
     }
 
     public function publicStatus(): array {

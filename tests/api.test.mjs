@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 let server, devServer, dir, devDir;
@@ -13,21 +13,47 @@ class Client {
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
 }
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));const testEnv={...process.env,JUZIMDER_DB:join(dir,'test.sqlite'),OPENROUTER_API_KEY:'',OPENROUTER_MODEL:''};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
+before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:join(dir,'test.sqlite')};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();
 assert.equal((await anon.call('/projects')).status,401);
-await anon.call('/session');assert.equal((await anon.call('/ai/status')).status,401,'AI status requires an authenticated user');
+await anon.call('/session');
 await a.call('/session');assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'} ,'bad')).status,403);
 assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
-assert.deepEqual((await a.call('/ai/status')).data,{provider:'openrouter',configured:false,model:null});
-assert.equal((await a.call('/ai/design-plan','POST',{prompt:'Создай сайт клиники'},'bad')).status,403,'AI planning requires a valid CSRF token');
-assert.equal((await anon.call('/ai/design-plan','POST',{prompt:'Создай сайт клиники'})).status,401,'AI planning requires an authenticated user');
-assert.equal((await a.call('/ai/design-plan','POST',{prompt:'   '})).status,422,'AI planning rejects empty prompts');
-assert.equal((await a.call('/ai/design-plan','POST',{prompt:'x'.repeat(4001)})).status,422,'AI planning enforces its prompt limit');
-assert.equal((await a.call('/ai/design-plan','POST',{prompt:'Создай сайт клиники'})).status,503,'AI planning stays disabled without server credentials');
-assert.deepEqual((await a.call('/projects')).data,[],'AI planning does not create or mutate projects');
+const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`;
+assert.equal((await a.call('/ai/status')).status,404,'The former global environment-configured AI endpoint is removed');
+assert.equal((await anon.call(aiSettingsPath)).status,401,'AI settings require an authenticated user');
+assert.deepEqual((await a.call(aiSettingsPath)).data,{provider:'openrouter',configured:false,model:null,version:0});
+assert.equal((await a.call(aiSettingsPath,'PUT',{version:0,apiKey:'sk-test-only',model:'openai/test-model'},'bad')).status,403,'Saving an AI key requires CSRF');
+assert.equal((await a.call(aiSettingsPath,'PUT',{version:0,apiKey:'sk-test-only',model:'bad model'})).status,422,'AI model ids are validated');
+assert.equal((await a.call(aiSettingsPath,'PUT',{version:0,apiKey:'',model:'openai/test-model'})).status,422,'Initial AI configuration requires an API key');
+assert.equal((await a.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'},'bad')).status,403,'AI planning requires a valid CSRF token');
+assert.equal((await anon.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'})).status,401,'AI planning requires an authenticated user');
+assert.equal((await a.call(aiPlanPath,'POST',{prompt:'   '})).status,422,'AI planning rejects empty prompts');
+assert.equal((await a.call(aiPlanPath,'POST',{prompt:'x'.repeat(4001)})).status,422,'AI planning enforces its prompt limit');
+assert.equal((await a.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'})).status,503,'AI planning stays disabled until a project key is configured');
+const testApiKey='sk-or-v1-this-is-a-test-secret-only';
+let aiSaved=await a.call(aiSettingsPath,'PUT',{version:0,apiKey:testApiKey,model:'openai/test-model'});
+assert.equal(aiSaved.status,200);assert.deepEqual(aiSaved.data,{provider:'openrouter',configured:true,model:'openai/test-model',version:1});
+assert.equal(JSON.stringify(aiSaved.data).includes(testApiKey),false,'AI settings never return the API key');
+const projectResponse=await a.call(`/projects/${aiProject.id}`);
+assert.equal(JSON.stringify(projectResponse.data).includes(testApiKey),false,'AI key is not part of Project Data/settings');
+assert.equal((await a.call(`/projects/${aiProject.id}/revisions`)).data.length,0,'AI credentials are not stored in document revisions');
+const dbContents=(await readFile(join(dir,'test.sqlite'))).toString('latin1');
+assert.equal(dbContents.includes(testApiKey),false,'SQLite stores encrypted API key ciphertext, not plaintext');
+const keyFile=await stat(join(dir,'test.sqlite.ai-key'));
+assert.equal(keyFile.mode & 0o077,0,'Application encryption key file is private to the service user');
+assert.equal((await a.call(aiSettingsPath,'PUT',{version:0,apiKey:'sk-stale',model:'openai/test-model'})).status,409,'AI credential settings enforce version preconditions');
+aiSaved=await a.call(aiSettingsPath,'PUT',{version:1,apiKey:'',model:'openai/second-test-model'});
+assert.equal(aiSaved.status,200);assert.equal(aiSaved.data.configured,true);assert.equal(aiSaved.data.model,'openai/second-test-model');assert.equal(aiSaved.data.version,2,'Model changes preserve the saved key and advance credential version');
+const otherAiClient=new Client();await otherAiClient.call('/session');await otherAiClient.call('/register','POST',{email:'ai-outsider@example.test',password:'another-ai-password'});
+assert.equal((await otherAiClient.call(aiSettingsPath,'GET')).status,404,'AI credentials enforce project ownership');
+assert.equal((await otherAiClient.call(aiSettingsPath,'PUT',{version:2,apiKey:'sk-foreign',model:'openai/test-model'})).status,404,'AI credential writes enforce project ownership');
+aiSaved=await a.call(aiSettingsPath,'DELETE',{version:2});assert.deepEqual(aiSaved.data,{provider:'openrouter',configured:false,model:null,version:3});
+assert.equal((await a.call(aiSettingsPath,'PUT',{version:2,apiKey:testApiKey,model:'openai/test-model'})).status,409,'Clearing credentials does not reset the config version');
+assert.equal((await a.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'})).status,503,'AI planning stays disabled after the project key is removed');
+assert.equal((await a.call('/projects')).data.length,1,'AI planning does not create additional projects');
 const operationProject=(await a.call('/projects','POST',{name:'Typed operations'})).data;
 assert.equal(operationProject.version,0);
 assert.equal((await a.call(`/projects/${operationProject.id}/operations`,'POST',{version:0,operations:[{operation:'create_component',parentId:'page:home',component:{tagName:'section',name:'Generated section',components:[{type:'text',tagName:'h2',content:'Original heading'}]}}]})).status,200,'Typed create operation saves through the authenticated project API');

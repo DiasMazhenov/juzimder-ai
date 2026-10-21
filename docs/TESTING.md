@@ -12,7 +12,7 @@ HTTP scenario: anonymous 401, bad CSRF 403, register/session, create, чужой
 
 `npm install` сообщил 0 vulnerabilities для установленного дерева. Это не полный vulnerability/SBOM review и не аудит bundled PHP-GrapesJS.
 
-AI API integration tests проверяют авторизацию `GET /ai/status`, CSRF и authentication для plan request, пустой/слишком длинный prompt, отключённый endpoint без серверных credentials и отсутствие создания/изменения проектов. Typed-operation integration проверяет owner, CSRF, expected version, создание component IDs, сохранение revisions и отсутствие записи при невалидных операциях. В test server OpenRouter variables принудительно пустые; provider не вызывается.
+AI integration tests версии 00.00.010 проверяют project-scoped GET/PUT/DELETE настроек и `POST /projects/{id}/ai/design-plan`: аутентификацию, owner, CSRF, model/key validation, optimistic version, сохранение/замену/удаление, очистку секрета в ответах и Project Data, ciphertext в SQLite и отсутствие AI-credential revisions. Provider не вызывается в HTTP tests. Typed-operation integration проверяет owner, CSRF, expected version, создание component IDs, сохранение revisions и отсутствие записи при невалидных операциях.
 
 ## Codex Browser: выполнено через UI
 
@@ -78,9 +78,9 @@ Codex Browser, отдельная копия приложения с време�
 
 ## AI design-plan API · версия продукта 00.00.003
 
-Проверены PHP unit tests с поддельным HTTP transport и API integration tests на отдельной временной SQLite. Покрыты JSON Schema request, fixed OpenRouter endpoint, server-only bearer header, `max_completion_tokens=1200`, structured outputs, usage request, timeout clamp, resolved model/cost parsing, однократный retry на 429 и отсутствие retry на 401. Ошибка не содержит upstream response/key. Недопустимые JSON планы, неизвестные секции и отсутствие Hero отклоняются. API возвращает 401 без сессии, 403 без CSRF, 422 для пустого/длинного prompt и 503 без env credentials; проект не меняется.
+Проверены PHP unit tests с поддельным HTTP transport и API integration tests на отдельной временной SQLite. Покрыты JSON Schema request, fixed OpenRouter endpoint, server-only bearer header, `max_completion_tokens=1200`, structured outputs, usage request, timeout, resolved model/cost parsing, однократный retry на 429 и отсутствие retry на 401. Ошибка не содержит upstream response/key. Недопустимые JSON планы, неизвестные секции и отсутствие Hero отклоняются. В версии 00.00.003 provider требовал серверные credentials из окружения; эта историческая схема удалена в 00.00.010, где конфигурация задаётся в AI Engine конкретного проекта.
 
-Реального OpenRouter вызова не было: `OPENROUTER_API_KEY` и `OPENROUTER_MODEL` в процессе не настроены. Браузерный интерфейс, согласие на передачу prompt, реальная стоимость и AI-операции над Project Data пока не существуют.
+В версии 00.00.003 реального OpenRouter вызова не было. Тогда браузерный интерфейс и согласие на передачу prompt ещё не существовали; AI-панель добавлена позднее в 00.00.006, а поле ключа в Site Settings — в 00.00.010.
 
 ## Typed operations · версия продукта 00.00.004
 
@@ -108,7 +108,7 @@ Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.
 
 `node --test tests/ai-plan.test.mjs` проверяет разбор плана, ограничения списка секций и палитры, использование только известных библиотечных presets, разрешение цветов плана при сохранении текущего font/radius, устранение ссылок на отсутствующие секции и переназначение конфликтующих preset-якорей. `npm test` прошёл целиком после разрешённого запуска HTTP integration на loopback с временной SQLite. `npm run build`, PHP syntax и `git diff --check` прошли; Vite сохранил известное предупреждение о большом GrapesJS chunk (~1.10 МБ raw / 291 КБ gzip).
 
-В отдельной Codex Browser вкладке на `juzimder-ai.localhost:18083`, с временной SQLite и dev login, создан тестовый проект. Проверены AI-панель, диалог, disclosure о передаче только prompt и disabled-состояние кнопки, когда `/api/ai/status` сообщает `configured: false`. Prompt не отправлялся; тестовый проект не менялся. Live OpenRouter запрос и UI save/reload после реального ответа остаются NOT RUN, потому что серверные credentials не настроены. Unit/API тесты helper и typed operations этот live acceptance не заменяют.
+В версии 00.00.006 проверялись AI-панель, disclosure и disabled-состояние старого global status endpoint. Этот API заменён project-scoped endpoint в версии 00.00.010; реальный OpenRouter запрос и save/reload после реального ответа остаются отдельной live-проверкой.
 
 В ходе этого продолжения повторно оценён clipboard: Codex Browser не выполнил сочетание в GrapesJS iframe и вернул timeout для selector/press, поэтому результат остаётся NOT RUN, не дефектом приложения. Системный clipboard не читался и не менялся.
 
@@ -129,3 +129,9 @@ Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.
 `npm test` прошёл полностью: JS and PHP validation, API owner/CSRF/CAS/revision coverage, legacy schema v2 font migration, strict typography bounds, responsive H1–H3 CSS variables, AI preset resolution, and preservation of custom local heading styles. `npm run build`, PHP syntax checks for `ProjectSettings.php`, `Domain.php`, `api.php`, `router.php`, and `git diff --check` passed. The existing Vite warning for the GrapesJS chunk (~1.10 MB raw / 291 KB gzip) remains.
 
 In Codex Browser, an isolated QA database/project saved heading font Georgia, body font system-ui, heading/body weights 700/300, base text 18px, H1 72px, H2 42px, H3 30px, H4–H6 values, line heights 1.3/1.8, and letter spacing 0.5px as revision 1. After full reload all selections remained. Adding Hero rendered the heading in Georgia and body in system-ui; autosave created revision 2. The editor quick-theme dialog showed the two separate families; changing only the heading family to Arial preserved system-ui for body text, saved revision 3, and both values survived reload. Public rendering and static HTML/CSS export remain unimplemented and were not accepted by this test.
+
+## OpenRouter credentials in Site Settings · версия продукта 00.00.010
+
+`npm test` прошёл полностью. Unit/API coverage подтвердила round-trip расшифровку на backend, ciphertext вместо plaintext в SQLite, sidecar с правами `0600`, отсутствие ключа в status/project/revisions, owner/CSRF/version checks, model validation, обновление модели без повторного ввода ключа, замену/удаление и восстановление после удаления. `npm run build`, PHP syntax lint и `git diff --check` прошли; Vite сохранил прежнее предупреждение о размере GrapesJS chunk.
+
+В отдельном Codex Browser на `juzimder-ai.localhost:18084` с временной SQLite создан QA-проект. AI Engine показал password input для API key и поле model; сохранение фиктивного тестового ключа дало configured status. После полной перезагрузки ключ не отображается и поле пустое, модель и status сохранились. Удаление ключа вернуло форму в disabled/unconfigured состояние. Ни один prompt не отправлялся; фиктивный ключ очищен, тестовая база удалена после QA. Реальный OpenRouter call не выполнялся, поскольку владелец не вводил рабочий ключ.

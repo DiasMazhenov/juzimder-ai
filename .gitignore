@@ -2,6 +2,7 @@ node_modules/
 public/assets/
 public/index.html
 var/
+*.ai-key
 .env
 *.log
 .DS_Store

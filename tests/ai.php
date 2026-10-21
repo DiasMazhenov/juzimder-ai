@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../backend/Ai.php';
-use Juzimder\{AiHttpResponse, AiHttpTransport, AiProviderFailure, AiDesignPlan, AiDesignPlanner, OpenRouterProvider, OpenRouterSettings};
+require __DIR__.'/../backend/Domain.php';
+require __DIR__.'/../backend/AiCredentials.php';
+use Juzimder\{AiHttpResponse, AiHttpTransport, AiProviderFailure, AiDesignPlan, AiDesignPlanner, AiCredentialVault, OpenRouterProvider, OpenRouterSettings, Store};
 
 function aiCheck(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); echo "PASS $message\n"; }
 function aiRejects(callable $fn, string $message): void { try { $fn(); } catch (AiProviderFailure) { aiCheck(true, $message); return; } throw new RuntimeException('Expected provider failure: '.$message); }
@@ -16,15 +18,29 @@ final class FakeAiTransport implements AiHttpTransport {
     }
 }
 
-$oldKey = getenv('OPENROUTER_API_KEY');
-$oldModel = getenv('OPENROUTER_MODEL');
-$oldTimeout = getenv('OPENROUTER_TIMEOUT_SECONDS');
+$vaultDb = sys_get_temp_dir().'/juzimder-ai-vault-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
-    putenv('OPENROUTER_API_KEY='); putenv('OPENROUTER_MODEL=');
-    aiCheck(OpenRouterSettings::fromEnvironment() === null, 'Provider stays unavailable until server credentials and model are configured');
+    $vaultStore = new Store($vaultDb);
+    $vaultStore->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['vault-owner','vault@example.test','hash']);
+    $vaultProject = $vaultStore->create('vault-owner','AI vault test');
+    $vault = new AiCredentialVault($vaultStore);
+    $savedStatus = $vault->save($vaultProject['id'],'vault-owner',0,'sk-vault-round-trip-test','openai/test-model');
+    $restoredSettings = $vault->settings($vaultProject['id'],'vault-owner');
+    aiCheck($savedStatus['configured'] && $savedStatus['version']===1 && $restoredSettings?->apiKey==='sk-vault-round-trip-test', 'Encrypted project AI credential decrypts for backend provider use');
+    $ciphertext = $vaultStore->query('SELECT api_key_ciphertext FROM project_ai_credentials WHERE project_id=?',[$vaultProject['id']])->fetchColumn();
+    aiCheck(is_string($ciphertext) && !str_contains($ciphertext,'sk-vault-round-trip-test'), 'Project AI key is encrypted in its dedicated credential row');
+    $keyMode = fileperms($vaultDb.'.ai-key') & 0777;
+    aiCheck($keyMode===0600, 'AI encryption key sidecar uses owner-only file permissions');
+    $cleared = $vault->clear($vaultProject['id'],'vault-owner',1);
+    aiCheck(!$cleared['configured'] && $cleared['version']===2, 'AI credential clear advances its version without resetting stale-write protection');
+} finally {
+    @unlink($vaultDb);
+    @unlink($vaultDb.'.ai-key');
+    @unlink($vaultDb.'-journal');
+}
 
-    putenv('OPENROUTER_API_KEY=sk-test-only'); putenv('OPENROUTER_MODEL=openai/test-model'); putenv('OPENROUTER_TIMEOUT_SECONDS=999');
-    $settings = OpenRouterSettings::fromEnvironment();
+    aiCheck(OpenRouterSettings::fromCredentials('', 'openai/test-model') === null, 'Provider stays unavailable until project credentials are configured');
+    $settings = OpenRouterSettings::fromCredentials('sk-test-only', 'openai/test-model');
     aiCheck($settings !== null && $settings->publicStatus() === ['provider'=>'openrouter','configured'=>true,'model'=>'openai/test-model'], 'Public provider status never contains the API key');
 
     $plan = [
@@ -40,7 +56,7 @@ try {
     aiCheck($request['url']==='https://openrouter.ai/api/v1/chat/completions' && in_array('Authorization: Bearer sk-test-only',$request['headers'],true), 'Provider sends the server-only bearer key to the fixed OpenRouter endpoint');
     aiCheck($payload['max_completion_tokens']===1200 && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true, 'Provider caps output, requests usage metadata and strict structured output');
     aiCheck($payload['response_format']['json_schema']['schema']['properties']['colors']['required']===['ink','forest','canvas','paper','body','muted','line','accent'], 'Structured schema covers all eight project design tokens');
-    aiCheck($request['timeoutSeconds']===60 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports bounded timeout, resolved model, token usage and upstream cost');
+    aiCheck($request['timeoutSeconds']===25 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports the fixed timeout, resolved model, token usage and upstream cost');
     aiCheck($result['plan']['sections'][1]==='hero' && $result['plan']['colors']['accent']==='#2A8C7A', 'Design plan is normalized into supported section and color values');
 
     $retryTransport = new FakeAiTransport([new AiHttpResponse(429,'{}'),new AiHttpResponse(200,$successBody)]);
@@ -60,8 +76,3 @@ try {
     $badPlan = $plan; $badPlan['sections'] = ['hero','features','hero'];
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects duplicate sections');
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput('{"siteType":"unclosed"'), 'Provider output rejects malformed JSON');
-} finally {
-    $oldKey === false ? putenv('OPENROUTER_API_KEY') : putenv('OPENROUTER_API_KEY='.$oldKey);
-    $oldModel === false ? putenv('OPENROUTER_MODEL') : putenv('OPENROUTER_MODEL='.$oldModel);
-    $oldTimeout === false ? putenv('OPENROUTER_TIMEOUT_SECONDS') : putenv('OPENROUTER_TIMEOUT_SECONDS='.$oldTimeout);
-}
