@@ -18,11 +18,25 @@ final class StaticSiteExporter {
     ];
     private const RICH_TEXT_TAGS = ['p','span','br','strong','em','b','i','u','s'];
 
-    /** @return array<string,string> Paths and UTF-8 file contents for a deployable static ZIP. */
-    public static function files(array $project): array {
+    /** @return array<string,string> Paths and file contents for a deployable static ZIP. */
+    public static function files(array $project, array $assets = []): array {
         $document = $project['document'] ?? null;
         Document::validate($document);
         if (!$document instanceof \stdClass) throw new Problem(422, 'Некорректный документ проекта.');
+        $projectId = is_string($project['id'] ?? null) ? $project['id'] : '';
+        $assetPaths = [];
+        if ($assets || Document::assetReferences($document)) {
+            if (!preg_match('/^[a-f0-9]{24}$/D', $projectId)) throw new Problem(422, 'Не указан проект для экспорта изображений.');
+            foreach (Document::assetReferences($document) as $reference) {
+                if ($reference['projectId'] !== $projectId || !isset($assets[$reference['assetId']])) throw new Problem(422, 'Изображение не найдено в текущем проекте.');
+            }
+            foreach ($assets as $assetId=>$asset) {
+                if (!is_array($asset) || !preg_match('/^[a-f0-9]{24}$/D', (string)$assetId) || !is_string($asset['mime'] ?? null) || !is_string($asset['content'] ?? null)) throw new Problem(422, 'Некорректное изображение для экспорта.');
+                $extension = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$asset['mime']] ?? null;
+                if ($extension === null || strlen($asset['content']) > 4194304) throw new Problem(422, 'Формат или размер изображения для экспорта недопустим.');
+                $assetPaths[$assetId] = 'media/' . $projectId . '/' . $assetId . '.' . $extension;
+            }
+        }
         $settings = ProjectSettings::reconcile($project['settings'] ?? null, $document);
         $document = ProjectSettings::applyDesignTokensToDocument($document, $settings['designTokens']);
         Document::validate($document);
@@ -33,6 +47,7 @@ final class StaticSiteExporter {
         if ($home === null && isset($pages[0])) $home = (string)$pages[0]->id;
 
         $files = ['assets/site.css' => $css];
+        foreach ($assets as $assetId=>$asset) $files[$assetPaths[$assetId]] = $asset['content'];
         foreach ($pages as $page) {
             $pageId = (string)$page->id;
             $route = $settings['pages'][$pageId] ?? null;
@@ -43,16 +58,28 @@ final class StaticSiteExporter {
             $path = $isHome ? 'index.html' : $slug . '/index.html';
             $root = $page->frames[0]->component ?? null;
             if (!$root instanceof \stdClass) throw new Problem(422, 'У страницы отсутствует корневой компонент.');
-            $html = self::pageHtml($page, $root, $route['seo'] ?? [], $isHome ? 'assets/site.css' : '../assets/site.css');
+            $relativeAssetPaths = [];
+            foreach ($assetPaths as $assetId=>$assetPath) $relativeAssetPaths['/api/projects/' . $projectId . '/assets/' . $assetId . '/file'] = ($isHome ? '' : '../') . $assetPath;
+            $html = self::pageHtml($page, $root, $route['seo'] ?? [], $isHome ? 'assets/site.css' : '../assets/site.css', $relativeAssetPaths);
             $files[$path] = $html;
         }
-        $files['README.txt'] = "Juzimder AI static site export\n\nOpen index.html locally or upload the extracted files to a static web host.\nSubpages are stored in their configured route folders; shared styles are in assets/site.css.\n\nThis archive contains only static HTML and CSS. Forms, AI, analytics, custom code, domains and online publication are not included. No public deployment was performed.\n";
+        $files['README.txt'] = "Juzimder AI static site export\n\nOpen index.html locally or upload the extracted files to a static web host.\nSubpages are stored in their configured route folders; shared styles are in assets/site.css.\nReferenced project images are copied into media/.\n\nThis archive contains only static HTML, CSS and referenced images. Forms, AI, analytics, custom code, domains and online publication are not included. No public deployment was performed.\n";
         return $files;
     }
 
-    public static function zip(array $project): string {
+    public static function inlineAssets(string $html, array $assets, string $projectId, bool $isHome): string {
+        foreach ($assets as $assetId=>$asset) {
+            $extension = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$asset['mime'] ?? ''] ?? null;
+            if ($extension === null || !is_string($asset['content'] ?? null)) continue;
+            $path = ($isHome ? '' : '../') . 'media/' . $projectId . '/' . $assetId . '.' . $extension;
+            $html = str_replace('src="' . self::escape($path) . '"', 'src="data:' . $asset['mime'] . ';base64,' . base64_encode($asset['content']) . '"', $html);
+        }
+        return $html;
+    }
+
+    public static function zip(array $project, array $assets = []): string {
         if (!class_exists(\ZipArchive::class)) throw new Problem(503, 'Для ZIP-экспорта нужна PHP Zip extension.');
-        $files = self::files($project);
+        $files = self::files($project, $assets);
         $temporaryPath = tempnam(sys_get_temp_dir(), 'juzimder-static-');
         if (!is_string($temporaryPath)) throw new Problem(503, 'Не удалось подготовить архив экспорта.');
         try {
@@ -73,7 +100,7 @@ final class StaticSiteExporter {
         }
     }
 
-    private static function pageHtml(\stdClass $page, \stdClass $root, array $seo, string $stylesheetPath): string {
+    private static function pageHtml(\stdClass $page, \stdClass $root, array $seo, string $stylesheetPath, array $assetPaths = []): string {
         $title = trim((string)($seo['title'] ?? '')) ?: trim((string)($page->name ?? '')) ?: 'Страница';
         $description = trim((string)($seo['description'] ?? ''));
         $robots = ($seo['robots'] ?? 'index') === 'noindex' ? 'noindex,follow' : 'index,follow';
@@ -84,15 +111,15 @@ final class StaticSiteExporter {
             ($socialImage !== '' ? '<meta property="og:image" content="' . self::escape($socialImage) . '">' : '') .
             '<meta property="og:title" content="' . self::escape($title) . '">' .
             ($description !== '' ? '<meta property="og:description" content="' . self::escape($description) . '">' : '');
-        $contentSecurityPolicy = '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;none&#39;; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src https: data:; font-src &#39;self&#39; data:; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
-        $bodyAttributes = self::renderAttributes($root->attributes ?? null, $root->style ?? null);
+        $contentSecurityPolicy = '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;none&#39;; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
+        $bodyAttributes = self::renderAttributes($root->attributes ?? null, $root->style ?? null, $assetPaths);
         $content = '';
-        foreach (($root->components ?? []) as $component) $content .= self::renderComponent($component, 0);
+        foreach (($root->components ?? []) as $component) $content .= self::renderComponent($component, 0, $assetPaths);
         return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' . $contentSecurityPolicy . $metadata .
             '<link rel="stylesheet" href="' . $stylesheetPath . '"></head><body' . $bodyAttributes . '>' . $content . '</body></html>';
     }
 
-    private static function renderComponent(mixed $component, int $depth): string {
+    private static function renderComponent(mixed $component, int $depth, array $assetPaths = []): string {
         if (!$component instanceof \stdClass || $depth > 35) throw new Problem(422, 'Невозможно экспортировать дерево компонентов.');
         $type = is_string($component->type ?? null) ? $component->type : '';
         if (in_array($type, ['head'], true)) return '';
@@ -101,16 +128,16 @@ final class StaticSiteExporter {
             'image' => 'img', 'link', 'link-block' => 'a', 'wrapper' => 'div', default => 'div'
         };
         if (!in_array($tag, self::TAGS, true)) throw new Problem(422, 'Статический экспорт встретил неподдерживаемый HTML-тег.');
-        $attributes = self::renderAttributes($component->attributes ?? null, $component->style ?? null);
+        $attributes = self::renderAttributes($component->attributes ?? null, $component->style ?? null, $assetPaths);
         if (in_array($tag, self::VOID_TAGS, true)) return '<' . $tag . $attributes . '>';
         $content = is_string($component->content ?? null) && $component->content !== ''
             ? self::renderRichText($component->content)
             : '';
-        if ($content === '') foreach (($component->components ?? []) as $child) $content .= self::renderComponent($child, $depth + 1);
+        if ($content === '') foreach (($component->components ?? []) as $child) $content .= self::renderComponent($child, $depth + 1, $assetPaths);
         return '<' . $tag . $attributes . '>' . $content . '</' . $tag . '>';
     }
 
-    private static function renderAttributes(mixed $attributes, mixed $styles): string {
+    private static function renderAttributes(mixed $attributes, mixed $styles, array $assetPaths = []): string {
         $output = '';
         $targetBlank = $attributes instanceof \stdClass && ($attributes->target ?? null) === '_blank';
         $hasRel = false;
@@ -124,7 +151,8 @@ final class StaticSiteExporter {
                 if ($targetBlank) $value = trim($value . ' noopener noreferrer');
                 $hasRel = true;
             }
-            if (($name === 'href' || $name === 'src') && !preg_match('~^(?:https://[^\s<>"\x00-\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$~D', $value)) continue;
+            if (($name === 'href' || $name === 'src') && $name === 'src' && isset($assetPaths[$value])) $value = $assetPaths[$value];
+            elseif (($name === 'href' || $name === 'src') && !preg_match('~^(?:https://[^\s<>"\x00-\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$~D', $value)) continue;
             if (str_starts_with($name, 'aria-') && mb_strlen($value, 'UTF-8') > 256) continue;
             $output .= ' ' . $name . '="' . self::escape($value) . '"';
         }

@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 let server, devServer, dir, devDir, testDbPath;
@@ -13,12 +13,22 @@ class Client {
   cookie=''; csrf='';
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
   async download(path){const r=await fetch(this.url+'/api'+path,{headers:{Cookie:this.cookie}});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,type:r.headers.get('content-type'),body:Buffer.from(await r.arrayBuffer())};}
+  async upload(path,bytes,name,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method:'POST',headers:{Cookie:this.cookie,'Content-Type':'application/octet-stream','X-CSRF-Token':token,'X-Asset-Name':encodeURIComponent(name)},body:bytes});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,data:await r.json()};}
 }
 async function publicCall(projectId,path='/',method='GET'){
   const endpoint=new URL(base);
   return new Promise((resolve,reject)=>{
     const request=httpRequest({hostname:endpoint.hostname,port:endpoint.port,path,method,headers:{Host:`${projectId}.juzimder-ai.localhost:18081`}},response=>{
       const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks).toString('utf8')}));
+    });
+    request.on('error',reject);request.end();
+  });
+}
+async function publicBinaryCall(projectId,path,method='GET'){
+  const endpoint=new URL(base);
+  return new Promise((resolve,reject)=>{
+    const request=httpRequest({hostname:endpoint.hostname,port:endpoint.port,path,method,headers:{Host:`${projectId}.juzimder-ai.localhost:18081`}},response=>{
+      const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks)}));
     });
     request.on('error',reject);request.end();
   });
@@ -213,6 +223,26 @@ saved=await owner.call(settingsPath,'PUT',{version:6,seo:{pageId,title:'Changed 
 const seoRestored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:7,targetVersion:6});assert.equal(seoRestored.status,200);assert.equal(seoRestored.data.settings.pages[pageId].seo.title,seo.title);assert.equal(seoRestored.data.settings.pages[pageId].seo.robots,'noindex','SEO metadata restores with its matching revision');
 });
 
+
+test('Managed project images are private, validated and included in export and immutable publication',async()=>{
+const owner=new Client(),outsider=new Client(),anonymous=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'asset-owner@example.test',password:'a-long-asset-password'});await outsider.call('/session');await outsider.call('/register','POST',{email:'asset-outsider@example.test',password:'another-asset-password'});
+const project=(await owner.call('/projects','POST',{name:'Asset workspace'})).data,assetsPath=`/projects/${project.id}/assets`,png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6J8AAAAASUVORK5CYII=','base64');
+assert.equal((await anonymous.call(assetsPath)).status,401,'Asset listing requires an authenticated session');assert.equal((await outsider.call(assetsPath)).status,404,'Asset listing enforces project ownership');
+assert.equal((await owner.upload(assetsPath,Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),'unsafe.svg','bad')).status,403,'Asset upload requires CSRF');
+assert.equal((await owner.upload(assetsPath,Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),'unsafe.svg')).status,422,'SVG and non-raster payloads are rejected');
+const uploaded=await owner.upload(assetsPath,png,'микро.png');assert.equal(uploaded.status,201);assert.equal(uploaded.data.mime,'image/png');assert.equal(uploaded.data.width,1);assert.equal(uploaded.data.height,1);assert.match(uploaded.data.url,new RegExp(`^/api/projects/${project.id}/assets/[a-f0-9]{24}/file$`));
+const listed=await owner.call(assetsPath);assert.equal(listed.status,200);assert.equal(listed.data.length,1);assert.equal(listed.data[0].name,'микро.png');
+const file=await owner.download(`/projects/${project.id}/assets/${uploaded.data.id}/file`);assert.equal(file.status,200);assert.match(file.type,/image\/png/);assert.deepEqual(file.body,png,'Authorized media delivery preserves the exact uploaded bytes');
+assert.equal((await outsider.download(`/projects/${project.id}/assets/${uploaded.data.id}/file`)).status,404,'Asset byte delivery enforces project ownership');
+const state=(await owner.call(`/projects/${project.id}`)).data;state.document.data.pages[0].frames[0].component.components=[{type:'image',tagName:'img',attributes:{src:uploaded.data.url,alt:'Тестовое изображение'}}];
+const saved=await owner.call(`/projects/${project.id}`,'PUT',{version:0,document:state.document});assert.equal(saved.status,200);assert.equal(saved.data.document.data.pages[0].frames[0].component.components[0].attributes.src,uploaded.data.url,'Project Data stores the scoped managed-asset reference');
+const foreignDoc=structuredClone(saved.data.document);foreignDoc.data.pages[0].frames[0].component.components[0].attributes.src=`/api/projects/${'a'.repeat(24)}/assets/${uploaded.data.id}/file`;assert.equal((await owner.call(`/projects/${project.id}`,'PUT',{version:1,document:foreignDoc})).status,422,'Project Data cannot reference an asset from another project');
+const preview=await owner.call(`/projects/${project.id}/preview/static`);assert.equal(preview.status,200);assert.match(preview.data.pages[0].html,/src="data:image\/png;base64,/,'Saved candidate preview embeds private asset bytes without exposing an unauthenticated path');
+const archive=await owner.download(`/projects/${project.id}/export/static`);assert.equal(archive.status,200);const archivePath=join(dir,'asset-site.zip');await writeFile(archivePath,archive.body);const exportedImage=execFileSync('php',['-r','$zip=new ZipArchive();if($zip->open($argv[1])!==true)exit(2);$contents=$zip->getFromName($argv[2]);$zip->close();echo $contents;',archivePath,`media/${project.id}/${uploaded.data.id}.png`]);assert.deepEqual(exportedImage,png,'Static ZIP includes the referenced image bytes at its managed media path');
+const published=await owner.call(`/projects/${project.id}/publish`,'POST',{version:1});assert.equal(published.status,200);assert.match((await publicCall(project.id)).body,new RegExp(`media/${project.id}/${uploaded.data.id}\.png`));
+const publicImage=await publicBinaryCall(project.id,`/media/${project.id}/${uploaded.data.id}.png`);assert.equal(publicImage.status,200);assert.match(publicImage.headers['content-type'],/image\/png/);assert.deepEqual(publicImage.body,png,'Public origin serves only the image bytes captured in the active publication snapshot');
+assert.equal((await publicBinaryCall(project.id,`/media/${'a'.repeat(24)}/${uploaded.data.id}.png`)).status,404,'Public origin cannot cross project asset namespaces');
+});
 
 test('Publications use owner-checked immutable snapshots and a session-free public origin',async()=>{
 const owner=new Client(),other=new Client(),anonymous=new Client();

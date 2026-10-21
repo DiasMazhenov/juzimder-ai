@@ -53,7 +53,13 @@
         "tagName": {
           "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label"]
         },
-        "attributes": { "type": "object" },
+        "attributes": {
+          "type": "object",
+          "properties": {
+            "src": { "type": "string", "pattern": "^(?:https:\\/\\/[^\\s<>\\x22\\x00-\\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+|\\/api\\/projects\\/[a-f0-9]{24}\\/assets\\/[a-f0-9]{24}\\/file)$" },
+            "href": { "type": "string", "pattern": "^(?:https:\\/\\/[^\\s<>\\x22\\x00-\\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$" }
+          }
+        },
         "style": { "type": "object" },
         "content": { "type": "string" },
         "components": {

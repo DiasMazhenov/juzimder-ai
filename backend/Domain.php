@@ -58,7 +58,11 @@ final class Document {
             foreach (self::objectFields($value) ?? $value as $key => $item) {
                 if (is_string($key) && (preg_match('/^on/i', $key) || in_array(strtolower($key), ['script', 'script-export', 'srcdoc', 'srcset', 'formaction', 'action'], true))) throw new Problem(422, 'Исполняемый код запрещён.');
                 if ($key === 'tagName' && (!is_string($item) || !in_array($item, self::TAG_NAMES, true))) throw new Problem(422, 'Недопустимый HTML-тег.');
-                if (in_array($key, ['href','src'], true) && (!is_string($item) || !preg_match('~^(https://[^\s<>"\x00-\x20]+|\#[a-zA-Z0-9_-]*|mailto:[a-zA-Z0-9@._+-]+|tel:[+0-9 -]+)$~D', $item))) throw new Problem(422, 'Недопустимый адрес ресурса.');
+                if (in_array($key, ['href','src'], true)) {
+                    $validUri = is_string($item) && preg_match('~^(https://[^\s<>"\x00-\x20]+|\#[a-zA-Z0-9_-]*|mailto:[a-zA-Z0-9@._+-]+|tel:[+0-9 -]+)$~D', $item);
+                    $validAsset = $key === 'src' && is_string($item) && preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D', $item);
+                    if (!$validUri && !$validAsset) throw new Problem(422, 'Недопустимый адрес ресурса.');
+                }
                 self::walk($item, $depth + 1, $count);
             }
         } elseif (is_string($value)) {
@@ -81,6 +85,24 @@ final class Document {
         if ($value instanceof \stdClass) return get_object_vars($value);
         if (is_array($value) && !array_is_list($value)) return $value;
         return null;
+    }
+    /** @return list<array{projectId:string,assetId:string}> */
+    public static function assetReferences(mixed $document): array {
+        $references = [];
+        $walk = static function (mixed $value) use (&$walk, &$references): void {
+            if ($value instanceof \stdClass) $fields = get_object_vars($value);
+            elseif (is_array($value)) $fields = $value;
+            else return;
+            foreach ($fields as $key => $item) {
+                if ($key === 'src' && is_string($item) && preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $item, $match)) {
+                    $references[$match[1] . ':' . $match[2]] = ['projectId'=>$match[1], 'assetId'=>$match[2]];
+                    if (count($references) > 200) throw new Problem(422, 'В одном проекте можно использовать не более 200 изображений.');
+                }
+                $walk($item);
+            }
+        };
+        $walk($document);
+        return array_values($references);
     }
     private static function html(string $html): void {
         $dom = new \DOMDocument();
@@ -126,6 +148,18 @@ final class Store {
                 throw $error;
             }
         }
+        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+        if ($schemaVersion === 5) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+                if ($schemaVersion === 5) $this->db->exec(file_get_contents(__DIR__ . '/migrations/006_project_assets.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();
@@ -165,14 +199,20 @@ final class Store {
     public function publish(string $id, string $user, int $expectedVersion, array $files): array {
         $validatedFiles = [];
         foreach ($files as $path => $contents) {
-            if (!is_string($path) || !preg_match('~^(?:index\.html|assets/site\.css|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) || !is_string($contents)) {
+            $isMedia = is_string($path) && preg_match('~^media/([a-f0-9]{24})/([a-f0-9]{24})\.(jpg|png|gif|webp)$~D', $path, $mediaMatch);
+            if (!is_string($path) || (!preg_match('~^(?:index\.html|assets/site\.css|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) && !$isMedia) || !is_string($contents)) {
                 throw new Problem(422, 'Статический снимок содержит недопустимый файл.');
             }
-            $validatedFiles[$path] = $contents;
+            if ($isMedia) {
+                if ($mediaMatch[1] !== $id) throw new Problem(422, 'Публикация не может включать изображения другого проекта.');
+                $mime = ['jpg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp'][$mediaMatch[3]];
+                if (strlen($contents) > 4194304) throw new Problem(413, 'Изображение в публикации превышает 4 МБ.');
+                $validatedFiles[$path] = ['encoding'=>'base64','mime'=>$mime,'content'=>base64_encode($contents)];
+            } else $validatedFiles[$path] = $contents;
         }
         if (!isset($validatedFiles['index.html'], $validatedFiles['assets/site.css'])) throw new Problem(422, 'Статический снимок неполон.');
         $filesJson = json_encode($validatedFiles, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (strlen($filesJson) > 8000000) throw new Problem(413, 'Публикация превышает 8 МБ.');
+        if (strlen($filesJson) > 32000000) throw new Problem(413, 'Публикация превышает 32 МБ.');
         $this->db->exec('BEGIN IMMEDIATE');
         try {
             $project = $this->owned($id, $user);
@@ -206,8 +246,80 @@ final class Store {
         $row = $this->query('SELECT v.files_json,v.version FROM project_publications p JOIN publication_versions v ON v.project_id=p.project_id AND v.id=p.publication_id WHERE p.project_id=?', [$id])->fetch();
         if (!$row) return null;
         try { $files = json_decode($row['files_json'], true, 32, JSON_THROW_ON_ERROR); } catch (\Throwable) { return null; }
-        if (!is_array($files) || !isset($files[$path]) || !is_string($files[$path])) return null;
-        return ['content'=>$files[$path],'version'=>(int)$row['version']];
+        if (!is_array($files) || !array_key_exists($path, $files)) return null;
+        if (preg_match('~^media/([a-f0-9]{24})/([a-f0-9]{24})\.(jpg|png|gif|webp)$~D', $path, $match)) {
+            if ($match[1] !== $id) return null;
+            $entry = $files[$path];
+            if (!is_array($entry) || ($entry['encoding'] ?? null) !== 'base64' || !is_string($entry['content'] ?? null)) return null;
+            $content = base64_decode($entry['content'], true);
+            $mime = ['jpg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp'][$match[3]];
+            if (!is_string($content) || strlen($content) > 4194304 || ($entry['mime'] ?? null) !== $mime) return null;
+            return ['content'=>$content,'mime'=>$mime,'version'=>(int)$row['version']];
+        }
+        if (!is_string($files[$path])) return null;
+        return ['content'=>$files[$path],'mime'=>$path === 'assets/site.css' ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8','version'=>(int)$row['version']];
+    }
+    public function listAssets(string $id, string $user): array {
+        $this->owned($id, $user);
+        $rows = $this->query('SELECT id,name,mime,byte_length,width,height,created_at FROM project_assets WHERE project_id=? ORDER BY created_at DESC,id DESC', [$id])->fetchAll();
+        return array_map(static fn(array $row): array => ['id'=>$row['id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>(int)$row['byte_length'],'width'=>(int)$row['width'],'height'=>(int)$row['height'],'createdAt'=>$row['created_at'],'url'=>'/api/projects/' . $id . '/assets/' . $row['id'] . '/file'], $rows);
+    }
+    public function uploadAsset(string $id, string $user, string $name, string $content): array {
+        $this->owned($id, $user);
+        if ($content === '' || strlen($content) > 4194304) throw new Problem(413, 'Изображение должно занимать не более 4 МБ.');
+        $name = basename(str_replace('\\', '/', trim($name)));
+        $name = preg_replace('/[\x00-\x1F\x7F]/u', '', $name) ?? '';
+        if ($name === '' || !mb_check_encoding($name, 'UTF-8') || mb_strlen($name, 'UTF-8') > 160) throw new Problem(422, 'Укажите корректное название файла длиной до 160 символов.');
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($content);
+        $image = @getimagesizefromstring($content);
+        $supported = ['image/jpeg'=>IMAGETYPE_JPEG,'image/png'=>IMAGETYPE_PNG,'image/gif'=>IMAGETYPE_GIF,'image/webp'=>IMAGETYPE_WEBP];
+        if (!is_string($mime) || !isset($supported[$mime]) || !is_array($image) || ($image[2] ?? null) !== $supported[$mime]) throw new Problem(422, 'Поддерживаются только корректные PNG, JPEG, GIF и WebP изображения.');
+        $width = (int)$image[0]; $height = (int)$image[1];
+        if ($width < 1 || $height < 1 || $width > 8192 || $height > 8192 || $width * $height > 40000000) throw new Problem(422, 'Размер изображения должен быть не больше 8192×8192 пикселей и 40 Мп.');
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $this->owned($id, $user);
+            $usage = $this->query('SELECT COALESCE(SUM(byte_length),0) AS bytes,COUNT(*) AS count FROM project_assets WHERE project_id=?', [$id])->fetch();
+            if ((int)$usage['count'] >= 200) throw new Problem(413, 'В проекте уже сохранено максимальное число изображений (200).');
+            if ((int)$usage['bytes'] + strlen($content) > 20000000) throw new Problem(413, 'Хранилище проекта заполнено (лимит 20 МБ).');
+            $assetId = bin2hex(random_bytes(12));
+            $stmt = $this->db->prepare('INSERT INTO project_assets(id,project_id,name,mime,byte_length,width,height,sha256,content) VALUES(?,?,?,?,?,?,?,?,?)');
+            foreach ([$assetId,$id,$name,$mime,strlen($content),$width,$height,hash('sha256',$content),$content] as $index=>$value) $stmt->bindValue($index+1,$value,$index===8 ? \PDO::PARAM_LOB : (is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR));
+            $stmt->execute();
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+        return $this->assetSummary($id,$assetId);
+    }
+    private function assetSummary(string $projectId, string $assetId): array {
+        $row = $this->query('SELECT id,name,mime,byte_length,width,height,created_at FROM project_assets WHERE project_id=? AND id=?', [$projectId,$assetId])->fetch();
+        if (!$row) throw new Problem(404, 'Изображение не найдено.');
+        return ['id'=>$row['id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>(int)$row['byte_length'],'width'=>(int)$row['width'],'height'=>(int)$row['height'],'createdAt'=>$row['created_at'],'url'=>'/api/projects/' . $projectId . '/assets/' . $row['id'] . '/file'];
+    }
+    public function assetFile(string $id, string $user, string $assetId): array {
+        $this->owned($id, $user);
+        $row = $this->query('SELECT name,mime,byte_length,content,sha256 FROM project_assets WHERE project_id=? AND id=?', [$id,$assetId])->fetch();
+        if (!$row) throw new Problem(404, 'Изображение не найдено.');
+        if (!is_string($row['content']) || strlen($row['content']) !== (int)$row['byte_length'] || !hash_equals($row['sha256'], hash('sha256',$row['content']))) throw new Problem(500, 'Не удалось прочитать изображение.');
+        return ['name'=>$row['name'],'mime'=>$row['mime'],'content'=>$row['content']];
+    }
+    /** @return array<string,array{id:string,name:string,mime:string,size:int,width:int,height:int,content:string}> */
+    public function referencedAssets(string $id, string $user, mixed $document): array {
+        $this->owned($id, $user);
+        $assets = [];
+        foreach (Document::assetReferences($document) as $reference) {
+            if ($reference['projectId'] !== $id) throw new Problem(422, 'Изображение должно принадлежать текущему проекту.');
+            $asset = $this->assetFile($id, $user, $reference['assetId']);
+            $assets[$reference['assetId']] = $this->assetSummary($id, $reference['assetId']) + ['content'=>$asset['content']];
+        }
+        return $assets;
+    }
+    private function assertDocumentAssets(string $id, mixed $document): void {
+        foreach (Document::assetReferences($document) as $reference) {
+            if ($reference['projectId'] !== $id || !$this->query('SELECT 1 FROM project_assets WHERE project_id=? AND id=?', [$id,$reference['assetId']])->fetchColumn()) throw new Problem(422, 'Изображение не найдено в текущем проекте.');
+        }
     }
     public function create(string $user, string $name): array {
         $name = trim($name); if ($name === '' || mb_strlen($name) > 100) throw new Problem(422,'Название: от 1 до 100 символов.');
@@ -218,7 +330,7 @@ final class Store {
         return $this->owned($id,$user);
     }
     public function save(string $id,string $user,int $version,mixed $doc,?array $settingsOverride=null): array {
-        $current = $this->owned($id,$user); Document::validate($doc);
+        $current = $this->owned($id,$user); Document::validate($doc); $this->assertDocumentAssets($id,$doc);
         if ($current['version'] !== $version) throw new Problem(409,'На сервере есть новая версия. Экспортируйте свои изменения и откройте проект заново.');
         $settings = ProjectSettings::reconcile($settingsOverride ?? $current['settings'], $doc);
         $doc = ProjectSettings::applyDesignTokensToDocument($doc, $settings['designTokens']);
@@ -244,6 +356,7 @@ final class Store {
         $payload = $revision['payload'];
         $document = json_decode($payload,false,64,JSON_THROW_ON_ERROR);
         Document::validate($document);
+        $this->assertDocumentAssets($id,$document);
         $settings = ProjectSettings::reconcile(json_decode($revision['settings_payload'] ?: '{}',true,64,JSON_THROW_ON_ERROR),$document);
         $settingsPayload = json_encode($settings,JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();

@@ -44,6 +44,21 @@ exportCheck(str_contains($files['o-nas/index.html'], '<span style="color:#123456
 exportCheck(str_contains($files['assets/site.css'], '@media (max-width: 576px)') && str_contains($files['assets/site.css'], '#ij4p{color:#123456'), 'Responsive Project Data styles and design tokens reach static CSS');
 exportCheck(str_contains($files['index.html'], 'http-equiv="Content-Security-Policy"') && !preg_match('/<script\b|onerror\s*=|javascript:/i', implode("\n", $files)), 'Static output applies a restrictive CSP and contains no executable markup');
 
+$assetProject = $project;
+$assetProject['id'] = str_repeat('a', 24);
+$assetId = str_repeat('b', 24);
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6J8AAAAASUVORK5CYII=', true);
+if (!is_string($png)) throw new RuntimeException('Could not prepare PNG fixture.');
+$assetProject['document'] = json_decode(json_encode($assetProject['document'], JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+$assetProject['document']->data->pages[0]->frames[0]->component->components[] = (object)['type'=>'image','tagName'=>'img','attributes'=>(object)['src'=>'/api/projects/' . $assetProject['id'] . '/assets/' . $assetId . '/file','alt'=>'Managed PNG']];
+$assetFiles = StaticSiteExporter::files($assetProject, [$assetId=>['id'=>$assetId,'mime'=>'image/png','content'=>$png]]);
+exportCheck($assetFiles['media/' . $assetProject['id'] . '/' . $assetId . '.png'] === $png && str_contains($assetFiles['index.html'], 'src="media/' . $assetProject['id'] . '/' . $assetId . '.png"'), 'Static export copies referenced raster assets and rewrites their scoped source');
+$previewHtml = StaticSiteExporter::inlineAssets($assetFiles['index.html'], [$assetId=>['mime'=>'image/png','content'=>$png]], $assetProject['id'], true);
+exportCheck(str_contains($previewHtml, 'src="data:image/png;base64,' . base64_encode($png) . '"'), 'Sandboxed saved-candidate preview embeds private managed assets');
+$foreignReference = json_decode(json_encode($assetProject, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+$foreignReference->document->data->pages[0]->frames[0]->component->components[0]->attributes->src = '/api/projects/' . str_repeat('c', 24) . '/assets/' . $assetId . '/file';
+exportRejects(fn() => StaticSiteExporter::files((array)$foreignReference, [$assetId=>['id'=>$assetId,'mime'=>'image/png','content'=>$png]]), 422, 'Static renderer refuses cross-project managed asset references');
+
 $unsafeStyle = json_decode(json_encode($project, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
 $unsafeStyle->document->data->styles[] = (object)['selectors' => ['#ij4p'], 'style' => (object)['color' => 'red } body{display:block']];
 $unsafeFiles = StaticSiteExporter::files((array)$unsafeStyle);

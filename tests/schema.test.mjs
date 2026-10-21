@@ -9,7 +9,6 @@ const invalidFixtures = JSON.parse(await readFile(new URL('./fixtures/invalid-do
 const schemaOnlyAccepted = new Set([
   'script field',
   'event handler',
-  'javascript URI',
   'unsafe rich text',
   'CSS URL',
   'CSS escaped URL token',
@@ -20,6 +19,15 @@ const schemaOnlyAccepted = new Set([
 test('Project Data v1 JSON Schema matches the fixture corpus', () => {
   const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
   assert.equal(validate(realProject), true, `GrapesJS fixture should validate: ${JSON.stringify(validate.errors)}`);
+
+  const managedImage = structuredClone(realProject);
+  managedImage.data.pages[0].frames[0].component.components[0].attributes = {
+    src: `/api/projects/${'a'.repeat(24)}/assets/${'b'.repeat(24)}/file`,
+    alt: 'Managed image',
+  };
+  assert.equal(validate(managedImage), true, `Scoped managed image reference should validate: ${JSON.stringify(validate.errors)}`);
+  managedImage.data.pages[0].frames[0].component.components[0].attributes.src = 'data:image/svg+xml,<svg/>';
+  assert.equal(validate(managedImage), false, 'Project Data schema rejects arbitrary data URLs');
 
   for (const fixture of invalidFixtures) {
     const expected = schemaOnlyAccepted.has(fixture.case);

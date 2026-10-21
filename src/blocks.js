@@ -91,7 +91,7 @@ export const blocks = [
   {
     id: 'image',
     label: 'Изображение',
-    description: 'Укажите HTTPS-адрес',
+    description: 'Загрузите файл или укажите URL',
     content: () => ({ type: 'image', style: { width: '100%', 'max-width': '640px', 'min-height': '160px' } })
   },
   {

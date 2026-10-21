@@ -24,14 +24,22 @@ function expireLocalSession(): void { $_SESSION=[]; session_regenerate_id(true);
 try {
     $store = new Store($databasePath);
     $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);
+    $assetUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/assets$~D', $path) === 1;
     $body = [];
     if ($method !== 'GET') {
         if (!hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
-        if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 2100000) throw new Problem(413,'Запрос слишком большой.');
-        $raw = file_get_contents('php://input',false,null,0,2100001); if (strlen($raw)>2100000) throw new Problem(413,'Запрос слишком большой.');
-        try { $decodedBody = json_decode($raw,false,64,JSON_THROW_ON_ERROR); } catch (JsonException) { throw new Problem(422,'Некорректный JSON.'); }
-        if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
-        $body = get_object_vars($decodedBody);
+        $bodyLimit = $assetUpload ? 4194304 : 2100000;
+        if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $bodyLimit) throw new Problem(413,'Запрос слишком большой.');
+        $raw = file_get_contents('php://input',false,null,0,$bodyLimit+1);
+        if (!is_string($raw) || strlen($raw)>$bodyLimit) throw new Problem(413,'Запрос слишком большой.');
+        if ($assetUpload) {
+            if (!str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'application/octet-stream')) throw new Problem(415,'Передайте файл изображения как двоичные данные.');
+            $body['_assetBinary'] = $raw;
+        } else {
+            try { $decodedBody = json_decode($raw,false,64,JSON_THROW_ON_ERROR); } catch (JsonException) { throw new Problem(422,'Некорректный JSON.'); }
+            if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
+            $body = get_object_vars($decodedBody);
+        }
     }
     if ($path === '/api/session' && $method === 'GET') {
         $sessionUser = $_SESSION['user'] ?? null;
@@ -74,9 +82,27 @@ try {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/assets(?:/([a-f0-9]{24})/file)?$~D', $path, $assetMatch)) {
+        $projectId = $assetMatch[1]; $assetId = $assetMatch[2] ?? '';
+        if ($method === 'GET' && $assetId === '') result($store->listAssets($projectId, $user));
+        if ($method === 'GET' && $assetId !== '') {
+            $asset = $store->assetFile($projectId, $user, $assetId);
+            $extension = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$asset['mime']] ?? 'bin';
+            header('Content-Type: ' . $asset['mime']); header('Content-Length: ' . strlen($asset['content']));
+            header('Content-Disposition: inline; filename="image.' . $extension . '"'); header('Cache-Control: private, no-store');
+            header('ETag: "asset-' . hash('sha256', $asset['content']) . '"'); echo $asset['content']; exit;
+        }
+        if ($method === 'POST' && $assetId === '') {
+            if (array_diff(array_keys($body), ['_assetBinary']) || !is_string($body['_assetBinary'] ?? null)) throw new Problem(422, 'Не удалось прочитать загруженное изображение.');
+            $nameHeader = $_SERVER['HTTP_X_ASSET_NAME'] ?? '';
+            $name = is_string($nameHeader) ? rawurldecode($nameHeader) : '';
+            result($store->uploadAsset($projectId, $user, $name, $body['_assetBinary']), 201);
+        }
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/export/static$~D', $path, $exportMatch) && $method === 'GET') {
         $project = $store->owned($exportMatch[1], $user);
-        $archive = Juzimder\StaticSiteExporter::zip($project);
+        $assets = $store->referencedAssets($exportMatch[1], $user, $project['document']);
+        $archive = Juzimder\StaticSiteExporter::zip($project, $assets);
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="juzimder-site-' . $exportMatch[1] . '.zip"');
         header('Content-Length: ' . strlen($archive));
@@ -85,7 +111,8 @@ try {
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/preview/static$~D', $path, $previewMatch) && $method === 'GET') {
         $project = $store->owned($previewMatch[1], $user);
-        $files = Juzimder\StaticSiteExporter::files($project);
+        $assets = $store->referencedAssets($previewMatch[1], $user, $project['document']);
+        $files = Juzimder\StaticSiteExporter::files($project, $assets);
         $documentPages = $project['document']->data->pages;
         $homeId = null;
         foreach ($documentPages as $page) {
@@ -101,10 +128,11 @@ try {
             $isHome = $pageId === $homeId;
             $htmlPath = $isHome ? 'index.html' : (string)$route['slug'] . '/index.html';
             if (!isset($files[$htmlPath])) throw new Problem(422, 'Не удалось подготовить предпросмотр страницы.');
-            $previewPages[] = ['name'=>(string)($page->name ?? 'Страница'),'path'=>$isHome ? '/' : '/' . (string)$route['slug'] . '/', 'html'=>$files[$htmlPath]];
+            $html = Juzimder\StaticSiteExporter::inlineAssets($files[$htmlPath], $assets, $previewMatch[1], $isHome);
+            $previewPages[] = ['name'=>(string)($page->name ?? 'Страница'),'path'=>$isHome ? '/' : '/' . (string)$route['slug'] . '/', 'html'=>$html];
         }
         $preview = ['version'=>(int)$project['version'],'pages'=>$previewPages,'css'=>$files['assets/site.css'] ?? ''];
-        if (strlen(json_encode($preview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)) > 8000000) throw new Problem(413, 'Предпросмотр превышает 8 МБ.');
+        if (strlen(json_encode($preview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)) > 30000000) throw new Problem(413, 'Предпросмотр превышает 30 МБ.');
         result($preview);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/publication$~D', $path, $publicationMatch) && $method === 'GET') {
@@ -117,7 +145,8 @@ try {
         if ($publicationActionMatch[2] === 'publish') {
             $project = $store->owned($projectId, $user);
             if ($project['version'] !== $body['version']) throw new Problem(409, 'Проект изменился. Обновите дашборд и повторите публикацию.');
-            $files = Juzimder\StaticSiteExporter::files($project);
+            $assets = $store->referencedAssets($projectId, $user, $project['document']);
+            $files = Juzimder\StaticSiteExporter::files($project, $assets);
             $publication = $store->publish($projectId, $user, $body['version'], $files);
             result(['publication'=>$publication,'publicUrl'=>Juzimder\PublicOrigin::url($projectId)]);
         }

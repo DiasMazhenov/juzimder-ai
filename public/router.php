@@ -7,7 +7,7 @@ if ($publicProjectId !== null) {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: no-referrer');
-    header("Content-Security-Policy: default-src 'none'; script-src 'none'; connect-src 'none'; style-src 'self' 'unsafe-inline'; img-src https: data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    header("Content-Security-Policy: default-src 'none'; script-src 'none'; connect-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
     header('Cache-Control: no-store');
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     if (!in_array($method, ['GET','HEAD'], true)) {
@@ -16,6 +16,7 @@ if ($publicProjectId !== null) {
     $path = is_string($path) ? $path : '';
     if ($path === '/') $filePath = 'index.html';
     elseif ($path === '/assets/site.css') $filePath = 'assets/site.css';
+    elseif (preg_match('~^/media/([a-f0-9]{24})/([a-f0-9]{24}\.(?:jpg|png|gif|webp))$~D', $path, $mediaMatch) && hash_equals($publicProjectId, $mediaMatch[1])) $filePath = 'media/' . $mediaMatch[1] . '/' . $mediaMatch[2];
     elseif (preg_match('~^/([a-z0-9]+(?:-[a-z0-9]+)*)$~D', $path, $routeMatch)) {
         header('Location: ' . Juzimder\PublicOrigin::url($publicProjectId) . $routeMatch[1] . '/', true, 308);
         return true;
@@ -30,7 +31,7 @@ if ($publicProjectId !== null) {
         http_response_code(503); echo 'Publication unavailable'; return true;
     }
     if ($publishedFile === null) { http_response_code(404); echo 'Not found'; return true; }
-    header('Content-Type: ' . ($filePath === 'assets/site.css' ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8'));
+    header('Content-Type: ' . ($publishedFile['mime'] ?? 'text/html; charset=utf-8'));
     header('Content-Length: ' . strlen($publishedFile['content']));
     header('ETag: "pub-' . $publishedFile['version'] . '-' . hash('sha256', $publishedFile['content']) . '"');
     if ($method !== 'HEAD') echo $publishedFile['content'];

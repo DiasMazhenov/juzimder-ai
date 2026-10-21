@@ -94,7 +94,7 @@
 - [x] Server-side static HTML/CSS renderer and ZIP export for all saved pages, consuming per-page SEO metadata and validated design tokens.
 - [x] Separate per-project public origin, explicit publish/unpublish, immutable static publication versions, owner/CSRF/CAS checks.
 - [x] Owner-authenticated preview of the latest saved candidate across all pages in a sandboxed frame; no publish or revision mutation.
-- [ ] Managed asset storage/delivery.
+- [x] Managed raster image library: authenticated project-scoped upload/list/delivery, Project Data references, isolated preview, ZIP export and immutable public snapshots.
 - [ ] Wildcard DNS/TLS deployment and custom domains after public-origin production validation.
 
 ## Phase 8 — стабилизация MVP
@@ -103,4 +103,4 @@
 - [ ] AI/local edit/revision restore/static publish end-to-end.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.017.
+**Текущее состояние:** foundation, версия продукта 00.00.018.

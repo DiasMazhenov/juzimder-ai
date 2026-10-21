@@ -22,5 +22,6 @@ schemaCheck($page->properties->frames->minItems === Document::FRAMES_PER_PAGE &&
 schemaCheck($componentProperties->type->enum === Document::COMPONENT_TYPES, 'Schema component types match runtime policy');
 schemaCheck($componentProperties->tagName->enum === Document::TAG_NAMES, 'Schema tag allowlist matches runtime policy');
 schemaCheck($componentProperties->attributes->type === 'object' && $componentProperties->style->type === 'object' && $componentProperties->content->type === 'string', 'Schema component field types are explicit');
+schemaCheck(isset($componentProperties->attributes->properties->src, $componentProperties->attributes->properties->href), 'Schema explicitly describes href and scoped managed-image references');
 schemaCheck(isset($componentProperties->components, $componentProperties->head, $componentProperties->docEl), 'Schema covers recursive Core component fields');
 schemaCheck(!isset($schema->additionalProperties, $data->additionalProperties, $page->additionalProperties, $component->additionalProperties), 'Schema preserves forward-compatible Core metadata');

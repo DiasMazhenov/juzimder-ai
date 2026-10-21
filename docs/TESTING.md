@@ -90,7 +90,7 @@ Codex Browser на UI build версии 00.00.003 (Image UI в 00.00.004 не �
 
 ## Не проверено / не реализовано
 
-Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, реальный upload, live OpenRouter call с save/reload, AI-генерация собственного текста/компонентов и targeted edits, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix Image и соседних блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
+Публичный deployment, Apache/Nginx live config, production TLS/session policy, multi-user simultaneous browser tabs, ручная загрузка через пользовательский браузер, live OpenRouter call с save/reload, AI-генерация собственного текста/компонентов и targeted edits, MCP/Zero Canvas/static publication/ZIP, реальное мобильное устройство, полная responsive matrix Image и соседних блоков, clipboard и полная keyboard/a11y матрица, performance/load testing, upstream exploit/CVE verification. Не присваивать PASS этим пунктам.
 
 Evidence: docs/evidence/dashboard.png, editor-desktop.png, editor-mobile-canvas.png; итоговый снимок после финальной сборки — editor-final.png. Снимки показывают локальный редактор, не опубликованный сайт.
 
@@ -168,3 +168,9 @@ API-тест на временной SQLite проверяет preview всех 
 Полный npm test прошёл: проверены миграция schema 4 в schema 5, перенос прежнего ciphertext/model/version в профиль «Основной профиль», несколько профилей, редактирование имени/модели, замена или сохранение ключа, выбор активного, удаление с автоматическим выбором оставшегося профиля, удаление последнего профиля, ownership/CSRF/CAS и отсутствие ключей в ответах. PHP syntax checks для API, хранилища профилей и миграции прошли. npm run build прошёл; остаётся прежнее предупреждение Vite о GrapesJS chunk (~1.10 MB raw / 291 KB gzip). git diff --check прошёл.
 
 В открытой Codex Browser вкладке существующий профиль локального проекта был автоматически перенесён как «Основной профиль»: название, модель и активное состояние видны, поле сохранённого API-ключа остаётся пустым. Кнопка «Новый профиль» открывает форму создания с обязательным ключом; повторный выбор сохранённого профиля возвращает его настройки. Проверка не меняла ключ или модель, не отправляла prompt и не создавала новую ревизию проекта. Реальный OpenRouter вызов — NOT RUN.
+
+## Managed images · версия продукта 00.00.018
+
+Полный `npm test` и `npm run build` прошли. Изолированный API тест валидирует raster uploads, per-project quotas, owner/CSRF, MIME и размер, приватную выдачу, соответствие ссылок проекту, sandboxed candidate preview, ZIP image contents и immutable public image snapshots. PHP syntax для `Domain.php`, `api.php`, `StaticSiteExporter.php` и `public/router.php` и `git diff --check` прошли. Ограничения Vite для большого GrapesJS chunk (~1.10 MB raw / 291 KB gzip) не изменились.
+
+В существующей пользовательской вкладке Codex Browser открыли Image block и увидели загрузку/HTTPS URL, allowlist PNG/JPEG/GIF/WebP, предел 4 МБ на файл и пустую библиотеку. Проект остался на ревизии 0; файл не загружали, ссылку не вставляли и страницу не публиковали. Mobile viewport и реальное устройство — NOT RUN.
