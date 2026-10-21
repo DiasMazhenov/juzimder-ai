@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { blocks } from '../src/blocks.js';
-import { buildDesignPlanOperations } from '../src/ai-plan.js';
+import { AI_SECTION_TEXT_FIELDS, buildDesignPlanOperations } from '../src/ai-plan.js';
 let server, devServer, dir, devDir, testDbPath;
 const base='http://127.0.0.1:18081';
 const devBase='http://127.0.0.1:18082';
@@ -297,7 +297,8 @@ const project=created.data;
 const plan={
 siteType:'Сайт студии',audience:'Малый бизнес',goal:'Получать заявки',style:'Спокойный современный стиль',
 colors:{ink:'#112233',forest:'#224466',canvas:'#eaf0f5',paper:'#ffffff',body:'#334455',muted:'#556677',line:'#ccddee',accent:'#88bb99'},
-sections:['navigation','hero','features','footer'],responsiveNotes:'Карточки складываются в одну колонку на узком экране.'
+sections:['navigation','hero','features','footer'],responsiveNotes:'Карточки складываются в одну колонку на узком экране.',
+content:['navigation','hero','features','footer'].map(section=>({section,texts:AI_SECTION_TEXT_FIELDS[section].map((_,index)=>`${section} copy ${index+1}`)}))
 };
 const operations=buildDesignPlanOperations(plan,blocks,'home');
 const applied=await owner.call(`/projects/${project.id}/operations`,'POST',{version:0,operations});
@@ -311,6 +312,7 @@ return null;
 };
 const heading=findHeading(state.document.data.pages[0].frames[0].component);
 assert.ok(heading?.attributes?.id,'Typed operations assign stable IDs used by later edits');
+assert.equal(heading.content,'hero copy 2','AI-generated plain text is saved in an editable heading component');
 const originalDocument=structuredClone(state.document);
 const edited=await owner.call(`/projects/${project.id}/operations`,'POST',{version:1,operations:[{operation:'update_content',componentId:heading.attributes.id,content:'Ручная правка до восстановления'}]});
 assert.equal(edited.status,200);assert.equal(edited.data.version,2,'A local text edit creates its own revision');
@@ -319,15 +321,15 @@ assert.equal(restored.status,200);assert.equal(restored.data.version,3);assert.d
 const revisions=(await owner.call(`/projects/${project.id}/revisions`)).data;
 assert.deepEqual(revisions.map(item=>item.version),[3,2,1],'Restore preserves both the edited and original history entries');
 const preview=await owner.call(`/projects/${project.id}/preview/static`);
-assert.equal(preview.status,200);assert.equal(preview.data.version,3);assert.match(preview.data.pages[0].html,/Место для/);assert.doesNotMatch(preview.data.pages[0].html,/Ручная правка до восстановления/);
+assert.equal(preview.status,200);assert.equal(preview.data.version,3);assert.match(preview.data.pages[0].html,/hero copy 2/);assert.doesNotMatch(preview.data.pages[0].html,/Ручная правка до восстановления/);
 const archive=await owner.download(`/projects/${project.id}/export/static`);
 assert.equal(archive.status,200);assert.equal(archive.body.subarray(0,2).toString(),'PK','The restored candidate exports as a static ZIP');
 const archivePath=join(dir,'structured-plan.zip');await writeFile(archivePath,archive.body);
 const exportedIndex=execFileSync('php',['-r','$zip=new ZipArchive();if($zip->open($argv[1])!==true)exit(2);$contents=$zip->getFromName("index.html");$zip->close();echo $contents;',archivePath]).toString('utf8');
-assert.match(exportedIndex,/Место для/);assert.doesNotMatch(exportedIndex,/Ручная правка до восстановления/,'ZIP contains the restored source revision');
+assert.match(exportedIndex,/hero copy 2/);assert.doesNotMatch(exportedIndex,/Ручная правка до восстановления/,'ZIP contains the restored source revision');
 const published=await owner.call(`/projects/${project.id}/publish`,'POST',{version:3});
 assert.equal(published.status,200);assert.equal(published.data.publication.sourceProjectVersion,3);
 const publicPage=await publicCall(project.id);
-assert.equal(publicPage.status,200);assert.match(publicPage.body,/Место для/);assert.doesNotMatch(publicPage.body,/Ручная правка до восстановления/);
+assert.equal(publicPage.status,200);assert.match(publicPage.body,/hero copy 2/);assert.doesNotMatch(publicPage.body,/Ручная правка до восстановления/);
 assert.equal((await owner.call(`/projects/${project.id}`)).data.version,3,'Preview, export and publish do not mutate Project Data');
 }

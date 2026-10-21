@@ -63,7 +63,7 @@
 
 - [x] Server OpenRouter abstraction and authenticated non-mutating design-plan endpoint with strict JSON Schema, token cap, timeout/retry, redacted errors and usage metadata.
 - [x] Редактор: disclosure о передаче prompt, статус провайдера, предпросмотр плана и отдельное подтверждение перед добавлением preset-секций typed operations с новой revision.
-- [ ] Intent → plan → structured generation → validate → editable output → revision.
+- [x] Intent → plan → structured text generation for supported section presets → server/client validation → editable GrapesJS output → revision.
 - [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
@@ -105,4 +105,4 @@
 - [ ] Live OpenRouter → browser preview/confirm → save/reload/restore/publish; нужен введённый владельцем ключ и отдельная visual acceptance.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.020.
+**Текущее состояние:** foundation, версия продукта 00.00.021.

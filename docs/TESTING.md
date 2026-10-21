@@ -186,3 +186,9 @@ API-тест на временной SQLite проверяет preview всех 
 `tests/ai.php` использует fake HTTP transport: после двух временных ответов 503 подтверждает одну повторную попытку основной модели и переход к резервной; HTTP 401 остаётся без fallback. Vault и API tests проверяют добавление/редактирование, version/CSRF/owner, backward-compatible сохранение ключа и моделей, валидацию одинаковой основной и резервной модели и сохранение старых профилей без fallback после SQLite migration v6→v7. API responses не содержат API-ключ.
 
 В Codex Browser открыт активный проект и проверен AI Engine. Профиль настроен на `openrouter/free`. Был отправлен нейтральный synthetic prompt без содержимого Project Data; UI вернул «AI-провайдер временно недоступен», поэтому preview и последующие save/reload шаги не выполнялись. Применение и публикация не выполнялись.
+
+## Собственный текст AI-плана · версия продукта 00.00.021
+
+`npm test`: PASS. `tests/ai.php` проверяет обязательный набор текста по всем девяти секциям, точные количества полей, запрет HTML/URL и лимит ответа 3200 токенов. `tests/ai-plan.test.mjs` проверяет заполнение только известных редактируемых text/link nodes для каждого preset. API flow `tests/api.test.mjs` подтверждает запись текста в обычный `h1`, новую ревизию, ручное редактирование, restore, сохранённый preview, ZIP export и immutable publication на временной SQLite. Live OpenRouter не вызывался.
+
+`npm run build` и PHP syntax checks: PASS. Vite сохраняет прежнее предупреждение GrapesJS chunk около 1.10 МБ raw / 291 КБ gzip. Browser visual acceptance AI-preview не запускалась: открытая пользовательская вкладка редактора уже содержала текст prompt и показывала процесс AI; вкладку оставили без изменений. Этот flow не отправлял prompt повторно и не изменял пользовательскую ревизию.

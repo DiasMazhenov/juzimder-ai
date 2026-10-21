@@ -65,14 +65,21 @@ try {
         'colors'=>['ink'=>'#1A2824','forest'=>'#1F5D4B','canvas'=>'#F4F8F6','paper'=>'#FFFFFF','body'=>'#34433E','muted'=>'#70817A','line'=>'#DDE5E0','accent'=>'#2A8C7A'],
         'sections'=>['navigation','hero','features','testimonial','faq','cta','footer'], 'responsiveNotes'=>'На телефоне карточки идут в один столбец.',
     ];
+    $textCounts=['navigation'=>5,'hero'=>4,'features'=>9,'process'=>11,'testimonial'=>4,'faq'=>8,'cta'=>3,'text'=>1,'footer'=>3];
+    $plan['content']=array_map(static fn(string $section): array=>['section'=>$section,'texts'=>array_map(static fn(int $index): string=>$section.' copy '.($index+1),range(0,$textCounts[$section]-1))],$plan['sections']);
     $successBody = json_encode(['model'=>'openai/resolved-model','choices'=>[['message'=>['content'=>json_encode($plan,JSON_UNESCAPED_UNICODE)]]],'usage'=>['prompt_tokens'=>82,'completion_tokens'=>166,'total_tokens'=>248,'cost'=>0.00125]], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     $transport = new FakeAiTransport([new AiHttpResponse(200,$successBody)]);
     $provider = new OpenRouterProvider($settings, $transport);
     $result = AiDesignPlanner::create('Создай сайт клиники', $provider);
     $request = $transport->calls[0]; $payload = json_decode($request['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck($request['url']==='https://openrouter.ai/api/v1/chat/completions' && in_array('Authorization: Bearer sk-test-only',$request['headers'],true), 'Provider sends the server-only bearer key to the fixed OpenRouter endpoint');
-    aiCheck($payload['max_completion_tokens']===1200 && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true, 'Provider caps output, requests usage metadata and strict structured output');
+    aiCheck($payload['max_completion_tokens']===3200 && $payload['usage']['include']===true && $payload['provider']['require_parameters']===true && $payload['response_format']['json_schema']['strict']===true, 'Provider caps output, requests usage metadata and strict structured output');
     aiCheck($payload['response_format']['json_schema']['schema']['properties']['colors']['required']===['ink','forest','canvas','paper','body','muted','line','accent'], 'Structured schema covers all eight project design tokens');
+    aiCheck(in_array('content',$payload['response_format']['json_schema']['schema']['required'],true)&&$result['plan']['content'][1]['texts'][1]==='hero copy 2','Structured schema returns validated text for every planned section');
+    $allSectionsPlan=$plan;
+    $allSectionsPlan['sections']=array_keys($textCounts);
+    $allSectionsPlan['content']=array_map(static fn(string $section): array=>['section'=>$section,'texts'=>array_map(static fn(int $index): string=>$section.' copy '.($index+1),range(0,$textCounts[$section]-1))],$allSectionsPlan['sections']);
+    aiCheck(count(AiDesignPlan::parseProviderOutput(json_encode($allSectionsPlan,JSON_THROW_ON_ERROR))['content'])===9,'Server validation supports generated text slots in every built-in section');
     aiCheck($request['timeoutSeconds']===25 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports the fixed timeout, resolved model, token usage and upstream cost');
     aiCheck($result['plan']['sections'][1]==='hero' && $result['plan']['colors']['accent']==='#2A8C7A', 'Design plan is normalized into supported section and color values');
 
@@ -102,4 +109,12 @@ try {
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects invalid token colors');
     $badPlan = $plan; $badPlan['sections'] = ['hero','features','hero'];
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects duplicate sections');
+    $badPlan = $plan; $badPlan['content'][1]['texts'] = array_slice($badPlan['content'][1]['texts'],1);
+    aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects missing section text fields');
+    $badPlan = $plan; $badPlan['content'][1]['texts'][1] = '<h1>Markup</h1>';
+    aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects HTML in generated text');
+    $badPlan = $plan; $badPlan['content'][1]['texts'][1] = 'https://example.test';
+    aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects generated URL strings');
+    $badPlan = $plan; $badPlan['content'][0]['section'] = 'faq';
+    aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects duplicate or unselected section copy');
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput('{"siteType":"unclosed"'), 'Provider output rejects malformed JSON');

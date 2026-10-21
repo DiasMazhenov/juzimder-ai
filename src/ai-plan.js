@@ -2,6 +2,17 @@ import { designTokensToStyle, normalizeDesignTokens } from './design-tokens.js';
 
 const COLOR_NAMES = ['ink', 'forest', 'canvas', 'paper', 'body', 'muted', 'line', 'accent'];
 const SECTION_IDS = ['navigation', 'hero', 'features', 'process', 'testimonial', 'faq', 'cta', 'text', 'footer'];
+export const AI_SECTION_TEXT_FIELDS = Object.freeze({
+  navigation: ['Название проекта', 'Подпись ссылки «О проекте»', 'Подпись ссылки «Услуги»', 'Подпись ссылки «Контакты»', 'Текст кнопки в шапке'],
+  hero: ['Надзаголовок', 'Заголовок', 'Описание', 'Текст кнопки'],
+  features: ['Номер карточки 1', 'Заголовок карточки 1', 'Описание карточки 1', 'Номер карточки 2', 'Заголовок карточки 2', 'Описание карточки 2', 'Номер карточки 3', 'Заголовок карточки 3', 'Описание карточки 3'],
+  process: ['Надзаголовок', 'Заголовок', 'Номер шага 1', 'Название шага 1', 'Описание шага 1', 'Номер шага 2', 'Название шага 2', 'Описание шага 2', 'Номер шага 3', 'Название шага 3', 'Описание шага 3'],
+  testimonial: ['Надзаголовок', 'Цитата', 'Автор', 'Роль автора'],
+  faq: ['Надзаголовок', 'Заголовок', 'Вопрос 1', 'Ответ 1', 'Вопрос 2', 'Ответ 2', 'Вопрос 3', 'Ответ 3'],
+  cta: ['Заголовок', 'Описание', 'Текст ссылки'],
+  text: ['Абзац'],
+  footer: ['Название проекта и год', 'Подпись ссылки «О проекте»', 'Подпись ссылки «Контакты»']
+});
 const PROJECT_STYLE_TOKENS = new Set([
   '--juzimder-font-family', '--juzimder-font-heading', '--juzimder-font-body',
   '--juzimder-font-weight-body', '--juzimder-font-weight-heading', '--juzimder-font-size-base',
@@ -31,11 +42,25 @@ export function normalizeDesignPlan(plan) {
       || plan.sections.some(id => !SECTION_IDS.includes(id))) {
     throw new TypeError('AI вернул некорректный список секций.');
   }
+  if (!Array.isArray(plan.content) || plan.content.length !== plan.sections.length) throw new TypeError('AI вернул некорректный текст секций.');
+  const contentBySection = new Map();
+  for (const entry of plan.content) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+        || Object.keys(entry).length !== 2 || !Object.hasOwn(entry, 'section') || !Object.hasOwn(entry, 'texts')
+        || !plan.sections.includes(entry.section) || contentBySection.has(entry.section)
+        || !Array.isArray(entry.texts) || entry.texts.length !== AI_SECTION_TEXT_FIELDS[entry.section]?.length
+        || entry.texts.some(value => typeof value !== 'string' || !value.trim() || value.trim().length > 220 || /[<>\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]|https?:\/\/|www\./iu.test(value))) {
+      throw new TypeError('AI вернул некорректный текст секций.');
+    }
+    contentBySection.set(entry.section, { section: entry.section, texts: entry.texts.map(value => value.trim()) });
+  }
+  if (contentBySection.size !== plan.sections.length) throw new TypeError('AI вернул неполный текст секций.');
   return {
     siteType: plan.siteType.trim(), audience: plan.audience.trim(), goal: plan.goal.trim(), style: plan.style.trim(),
     responsiveNotes: plan.responsiveNotes.trim(),
     colors: Object.fromEntries(COLOR_NAMES.map(name => [name, plan.colors[name].toLowerCase()])),
-    sections: [...plan.sections]
+    sections: [...plan.sections],
+    content: plan.sections.map(section => contentBySection.get(section))
   };
 }
 
@@ -115,6 +140,18 @@ function prepareComponent(component, colors, sectionIds, anchorIds, theme) {
   return prepared;
 }
 
+function applyGeneratedText(component, texts, sectionId) {
+  const targets = [];
+  const walk = node => {
+    if (!node || typeof node !== 'object') return;
+    if ((node.type === 'text' || node.type === 'link') && typeof node.content === 'string') targets.push(node);
+    if (Array.isArray(node.components)) node.components.forEach(walk);
+  };
+  walk(component);
+  if (targets.length !== texts.length) throw new TypeError(`Текстовые поля секции «${sectionId}» не совпадают со схемой.`);
+  targets.forEach((node, index) => { node.content = texts[index]; });
+}
+
 export function buildDesignPlanOperations(planInput, blocks, pageId, existingData = {}, themeInput = {}) {
   const plan = normalizeDesignPlan(planInput);
   const theme = normalizeDesignTokens(themeInput);
@@ -137,13 +174,16 @@ export function buildDesignPlanOperations(planInput, blocks, pageId, existingDat
     anchorIds[anchor] = candidate;
     reservedIds.add(candidate);
   }
+  const copyBySection = new Map(plan.content.map(entry => [entry.section, entry.texts]));
   return plan.sections.map(id => {
     const block = byId.get(id);
     if (!block || typeof block.content !== 'function') throw new TypeError(`Секция «${id}» отсутствует в библиотеке.`);
+    const component = prepareComponent(block.content(), plan.colors, sectionIds, anchorIds, theme);
+    applyGeneratedText(component, copyBySection.get(id), id);
     return {
       operation: 'create_component',
       parentId: `page:${pageId}`,
-      component: prepareComponent(block.content(), plan.colors, sectionIds, anchorIds, theme)
+      component
     };
   });
 }

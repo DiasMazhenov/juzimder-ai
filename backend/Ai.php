@@ -84,7 +84,7 @@ interface StructuredAiProvider {
 
 final class OpenRouterProvider implements StructuredAiProvider {
     private const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-    private const MAX_COMPLETION_TOKENS = 1200;
+    private const MAX_COMPLETION_TOKENS = 3200;
 
     public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null) {}
 
@@ -195,6 +195,17 @@ final class OpenRouterProvider implements StructuredAiProvider {
 final class AiDesignPlan {
     private const COLORS = ['ink', 'forest', 'canvas', 'paper', 'body', 'muted', 'line', 'accent'];
     private const SECTIONS = ['navigation', 'hero', 'features', 'process', 'testimonial', 'faq', 'cta', 'text', 'footer'];
+    private const TEXT_FIELDS = [
+        'navigation' => ['project name', 'About link label', 'Services link label', 'Contact link label', 'header action label'],
+        'hero' => ['eyebrow', 'heading', 'description', 'action label'],
+        'features' => ['card 1 number', 'card 1 title', 'card 1 description', 'card 2 number', 'card 2 title', 'card 2 description', 'card 3 number', 'card 3 title', 'card 3 description'],
+        'process' => ['eyebrow', 'heading', 'step 1 number', 'step 1 title', 'step 1 description', 'step 2 number', 'step 2 title', 'step 2 description', 'step 3 number', 'step 3 title', 'step 3 description'],
+        'testimonial' => ['eyebrow', 'quote', 'author', 'author role'],
+        'faq' => ['eyebrow', 'heading', 'question 1', 'answer 1', 'question 2', 'answer 2', 'question 3', 'answer 3'],
+        'cta' => ['heading', 'description', 'action label'],
+        'text' => ['paragraph'],
+        'footer' => ['project name and year', 'About link label', 'Contact link label'],
+    ];
 
     public static function schema(): array {
         $colorProperties = [];
@@ -208,9 +219,22 @@ final class AiDesignPlan {
                 'style' => ['type' => 'string', 'description' => 'Visual style, up to 200 characters.'],
                 'colors' => ['type' => 'object', 'properties' => $colorProperties, 'required' => self::COLORS, 'additionalProperties' => false],
                 'sections' => ['type' => 'array', 'description' => 'Three to nine unique supported section ids, including hero.', 'items' => ['type' => 'string', 'enum' => self::SECTIONS]],
+                'content' => [
+                    'type' => 'array',
+                    'description' => 'One object per selected section, using the same section ids. Each texts array must contain plain text strings in the documented order for that section.',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'section' => ['type' => 'string', 'enum' => self::SECTIONS],
+                            'texts' => ['type' => 'array', 'description' => 'Plain text only; no HTML, CSS, JavaScript or URL strings.', 'items' => ['type' => 'string']],
+                        ],
+                        'required' => ['section', 'texts'],
+                        'additionalProperties' => false,
+                    ],
+                ],
                 'responsiveNotes' => ['type' => 'string', 'description' => 'Mobile and tablet layout notes, up to 400 characters.'],
             ],
-            'required' => ['siteType', 'audience', 'goal', 'style', 'colors', 'sections', 'responsiveNotes'],
+            'required' => ['siteType', 'audience', 'goal', 'style', 'colors', 'sections', 'content', 'responsiveNotes'],
             'additionalProperties' => false,
         ];
     }
@@ -221,7 +245,7 @@ final class AiDesignPlan {
         } catch (\JsonException) {
             throw new AiProviderFailure('AI provider returned an invalid plan.');
         }
-        if (!is_array($plan) || array_is_list($plan) || array_diff(array_keys($plan), ['siteType','audience','goal','style','colors','sections','responsiveNotes'])) throw new AiProviderFailure('AI provider returned an invalid plan.');
+        if (!is_array($plan) || array_is_list($plan) || array_diff(array_keys($plan), ['siteType','audience','goal','style','colors','sections','content','responsiveNotes'])) throw new AiProviderFailure('AI provider returned an invalid plan.');
         foreach (['siteType'=>120,'audience'=>240,'goal'=>200,'style'=>200,'responsiveNotes'=>400] as $field => $maxLength) {
             if (!is_string($plan[$field] ?? null) || trim($plan[$field]) === '' || mb_strlen(trim($plan[$field])) > $maxLength) throw new AiProviderFailure('AI provider returned an invalid plan.');
             $plan[$field] = trim($plan[$field]);
@@ -234,12 +258,29 @@ final class AiDesignPlan {
         foreach ($sections as $section) if (!is_string($section) || !in_array($section, self::SECTIONS, true)) throw new AiProviderFailure('AI provider returned an invalid plan.');
         if (count(array_unique($sections)) !== count($sections)) throw new AiProviderFailure('AI provider returned an invalid plan.');
         if (count($colors) !== count(self::COLORS)) throw new AiProviderFailure('AI provider returned an invalid plan.');
+        $content = $plan['content'] ?? null;
+        if (!is_array($content) || !array_is_list($content) || count($content) !== count($sections)) throw new AiProviderFailure('AI provider returned an invalid plan.');
+        $contentBySection = [];
+        foreach ($content as $entry) {
+            if (!is_array($entry) || array_is_list($entry) || array_diff(array_keys($entry), ['section','texts']) || count($entry) !== 2) throw new AiProviderFailure('AI provider returned an invalid plan.');
+            $section = $entry['section'] ?? null;
+            $texts = $entry['texts'] ?? null;
+            if (!is_string($section) || !in_array($section, $sections, true) || isset($contentBySection[$section]) || !is_array($texts) || !array_is_list($texts) || count($texts) !== count(self::TEXT_FIELDS[$section])) throw new AiProviderFailure('AI provider returned an invalid plan.');
+            foreach ($texts as &$text) {
+                if (!is_string($text) || trim($text) === '' || mb_strlen(trim($text)) > 220 || preg_match('/[<>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|https?:\/\/|www\./iu', $text)) throw new AiProviderFailure('AI provider returned an invalid plan.');
+                $text = trim($text);
+            }
+            unset($text);
+            $contentBySection[$section] = ['section' => $section, 'texts' => $texts];
+        }
+        if (count($contentBySection) !== count($sections)) throw new AiProviderFailure('AI provider returned an invalid plan.');
+        $plan['content'] = array_map(static fn(string $section): array => $contentBySection[$section], $sections);
         return $plan;
     }
 }
 
 final class AiDesignPlanner {
-    private const SYSTEM_PROMPT = 'Create a concise responsive website design plan. Answer in the same language as the user. Use only the supported section ids in the schema. Do not return HTML, CSS, JavaScript, URLs, or instructions that execute code.';
+    private const SYSTEM_PROMPT = 'Create a concise responsive website design plan and original website copy. Answer in the same language as the user. Use only supported section ids. For content, return one object for each selected section and plain text values in this exact order: navigation [project name, About link label, Services link label, Contact link label, header action label]; hero [eyebrow, heading, description, action label]; features [for each of 3 cards: number, title, description]; process [eyebrow, heading, then for each of 3 steps: number, title, description]; testimonial [eyebrow, quote, author, role]; faq [eyebrow, heading, then 3 question and answer pairs]; cta [heading, description, action label]; text [paragraph]; footer [project name and year, About link label, Contact link label]. Keep text strings at most 220 characters. Do not return HTML, CSS, JavaScript, URLs, markup, or instructions that execute code.';
 
     public static function create(string $prompt, StructuredAiProvider $provider): array {
         $completion = $provider->completeJson(self::SYSTEM_PROMPT, $prompt, AiDesignPlan::schema(), 'juzimder_design_plan');
