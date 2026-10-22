@@ -58,6 +58,7 @@ final class AiProviderFailure extends \RuntimeException {
             'invalid_schema' => 'Ответ модели не соответствует формату генерации. Попробуйте ещё раз. Проект не изменён.',
             'invalid_markup' => 'Ответ модели нарушил правила допустимой HTML-разметки. Попробуйте ещё раз. Проект не изменён.',
             'invalid_css' => 'Стили модели не прошли безопасную проверку. Упростите описание визуального стиля и попробуйте ещё раз. Проект не изменён.',
+            'skill_requirements' => 'Дизайн не прошёл обязательные проверки выбранного профиля. Уточните описание и попробуйте ещё раз. Проект не изменён.',
             'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание сайта и попробуйте ещё раз. Проект не изменён.',
             'invalid_component_edit' => 'Предложение AI не прошло проверку изменений выбранного элемента. Проект не изменён.',
             default => 'AI-провайдер отклонил запрос. Проверьте выбранную модель и её настройки в «Настройки сайта → AI Engine». Проект не изменён.',
@@ -489,44 +490,59 @@ final class AiGeneratedWebsite {
 
     private const CSS_OUTPUT_RULES = 'CSS must be plain, comment-free rule blocks: no code fences, CSS variables, @import, @supports, or nested selector rules. Use flat selectors only; at most two simple @media (max-width: Npx) blocks may contain flat rules. Use only selectors and properties present in the HTML and allowed above. Example of accepted responsive syntax: .ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;color:#1A2824}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr}}.';
 
+    private const TASTE_PROFILE_PROMPT = 'Use the built-in Taste profile as an art-direction contract. Find a visual idea that comes from a concrete detail in this subject and explain it in the concept field; generic claims such as modern, premium, or trustworthy are not a concept. Write for the named audience and action, with a clear argument across the requested sections and useful, complete copy rather than filler. Give the hero one clear h1 and one direct action. Give every section its own heading and enough real copy to carry its purpose. Let neighboring sections use visibly different compositions while keeping shared color and type roles. Do not invent reviews, client logos, awards, statistics, or other proof. Do not pretend a generic image is the client’s product or team; use only the managed empty image-slot markers and let the owner choose project assets. Build a responsive layout with readable text, deliberate outer margins, a strong first screen, and no large accidental empty areas. Do not claim visual quality is verified by markup checks; the owner must inspect the preview at desktop, tablet, and phone widths before applying it.';
+
     private const VALIDATION_RETRY_GUIDANCE = [
         'invalid_schema' => 'The previous response did not match the required JSON schema. Regenerate the complete object from the same user brief, with exactly the required fields and no surrounding prose or code fences.',
         'invalid_markup' => 'The previous response failed the strict HTML allowlist. Regenerate the complete design from the same user brief using only the allowed HTML tags and attributes. Image slots are permitted only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8; never add img elements, URLs, filenames, comments, styles, scripts, or unsupported attributes.',
         'invalid_css' => 'The previous response failed the strict CSS allowlist. Regenerate the complete design from the same user brief using plain comment-free CSS rules, only existing ai- classes and allowed properties/values, and no variables, code fences, or nested/unsupported at-rules.',
+        'skill_requirements' => 'The previous response missed one or more built-in Taste structural requirements. Regenerate the complete design from the same user brief. Include exactly one h1 inside the ai-hero, a direct link or button in the hero, a heading and at least 32 characters of useful visible copy in every section, and at least one simple max-width media rule. Keep the concept specific to a real subject detail and do not invent proof.',
     ];
 
-    public static function schema(): array {
+    public static function schema(string $skillProfile = 'standard'): array {
+        if (!in_array($skillProfile, ['standard','taste'], true)) throw new \InvalidArgumentException('Unknown AI skill profile.');
         $textField = static fn(string $description): array => ['type'=>'string','description'=>$description];
-        return [
-            'type'=>'object',
-            'properties'=>[
+        $properties = [
                 'siteType'=>$textField('Website type, up to 120 characters.'),
                 'audience'=>$textField('Target audience, up to 240 characters.'),
                 'goal'=>$textField('Primary website goal, up to 200 characters.'),
                 'style'=>$textField('Visual art direction, up to 200 characters.'),
                 'html'=>['type'=>'string','description'=>'Safe HTML fragment using only the tags and attributes from the system instructions. Use image slots only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8. Include one hero marker inside ai-hero and optionally up to three unique section markers. Never add img elements, URLs, filenames, or image descriptions. Maximum 24000 characters.'],
                 'css'=>['type'=>'string','description'=>'Plain, comment-free responsive CSS rule blocks using only selectors and properties present in the HTML. No code fences, variables, nested selector rules, or unsupported at-rules; simple max-width media blocks may contain flat rules. Maximum 24000 characters.'],
-            ],
-            'required'=>['siteType','audience','goal','style','html','css'],
+            ];
+        $required = ['siteType','audience','goal','style','html','css'];
+        if ($skillProfile === 'taste') {
+            $properties['concept'] = $textField('A concrete subject-specific visual idea, 40 to 360 characters. Explain which real detail from this brief drives the page composition; avoid generic style adjectives.');
+            $properties = ['siteType'=>$properties['siteType'],'audience'=>$properties['audience'],'goal'=>$properties['goal'],'style'=>$properties['style'],'concept'=>$properties['concept'],'html'=>$properties['html'],'css'=>$properties['css']];
+            $required = ['siteType','audience','goal','style','concept','html','css'];
+        }
+        return [
+            'type'=>'object',
+            'properties'=>$properties,
+            'required'=>$required,
             'additionalProperties'=>false,
         ];
     }
 
-    public static function parseProviderOutput(string $json): array {
+    public static function parseProviderOutput(string $json, string $skillProfile = 'standard'): array {
+        if (!in_array($skillProfile, ['standard','taste'], true)) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'invalid_schema');
         $json = trim($json);
         if (preg_match('/\A```(?:json)?\s*(.*?)\s*```\z/is', $json, $fenced)) $json = trim($fenced[1]);
         try { $design = json_decode($json, true, 32, JSON_THROW_ON_ERROR); }
         catch (\JsonException $failure) { error_log('Juzimder AI: generated design returned malformed JSON (' . $failure->getMessage() . ', ' . strlen($json) . ' bytes).'); throw new AiProviderFailure('AI provider returned an invalid design.', false, 'invalid_schema'); }
-        $fields = ['siteType','audience','goal','style','html','css'];
+        $fields = $skillProfile === 'taste' ? ['siteType','audience','goal','style','concept','html','css'] : ['siteType','audience','goal','style','html','css'];
         try {
             if (!is_array($design) || array_is_list($design) || count($design) !== count($fields) || array_diff(array_keys($design), $fields)) throw new AiProviderFailure('AI provider returned an invalid design.');
-            foreach (['siteType'=>120,'audience'=>240,'goal'=>200,'style'=>200] as $field=>$limit) {
+            $limits = ['siteType'=>120,'audience'=>240,'goal'=>200,'style'=>200];
+            if ($skillProfile === 'taste') $limits['concept'] = 360;
+            foreach ($limits as $field=>$limit) {
                 if (!is_string($design[$field] ?? null)) throw new AiProviderFailure('AI provider returned an invalid design.');
                 $design[$field] = trim(self::repairUtf8Mojibake($design[$field]));
                 if ($design[$field] === '' || mb_strlen($design[$field], 'UTF-8') > $limit) throw new AiProviderFailure('AI provider returned an invalid design.');
             }
             if (!is_string($design['html'] ?? null) || strlen($design['html']) > 24000 || !is_string($design['css'] ?? null) || strlen($design['css']) > 24000) throw new AiProviderFailure('AI provider returned an invalid design.');
             $design['html'] = self::repairUtf8Mojibake($design['html']);
+            if ($skillProfile === 'taste' && mb_strlen($design['concept'], 'UTF-8') < 40) throw new AiProviderFailure('AI provider returned an invalid design.');
         } catch (AiProviderFailure $failure) {
             error_log('Juzimder AI: generated design rejected by output schema validation.');
             throw new AiProviderFailure($failure->getMessage(), false, 'invalid_schema');
@@ -543,26 +559,33 @@ final class AiGeneratedWebsite {
         try { $stylesheet = self::sanitizeStylesheet($design['css'], $scope, $markup['classes']); }
         catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by CSS sanitizer.'); throw new AiProviderFailure($failure->getMessage(), false, 'invalid_css'); }
         if ($markup['imageSlots']) $stylesheet .= "\n." . $scope . " .ai-image-slot{display:block;overflow:hidden;min-height:220px;aspect-ratio:4/3;background:#2B332E}\n." . $scope . " .ai-image-slot img{display:block;width:100%;height:100%;min-height:220px;object-fit:cover}\n";
-        return [
+        $output = [
             'siteType'=>$design['siteType'], 'audience'=>$design['audience'], 'goal'=>$design['goal'], 'style'=>$design['style'],
             'html'=>'<div class="' . $scope . '">' . $markup['html'] . '</div>',
             'css'=>$stylesheet,
             'sectionCount'=>$markup['sectionCount'],
             'imageSlots'=>array_map(static fn(string $id): array => ['id'=>$id,'label'=>$id === 'hero' ? 'Главное изображение' : 'Изображение секции ' . substr($id, 8)], array_keys($markup['imageSlots'])),
         ];
+        if ($skillProfile === 'taste') {
+            $output['concept'] = $design['concept'];
+            $output['skillAudit'] = self::auditTasteRequirements($output['html'], $output['css']);
+        }
+        return $output;
     }
 
-    public static function create(string $prompt, StructuredAiProvider $provider): array {
-        $systemPrompt = self::SYSTEM_PROMPT . "\n\n" . self::CSS_OUTPUT_RULES;
-        $completion = $provider->completeJson($systemPrompt, $prompt, self::schema(), 'juzimder_generated_site', 9000);
+    public static function create(string $prompt, StructuredAiProvider $provider, string $skillProfile = 'standard'): array {
+        if (!in_array($skillProfile, ['standard','taste'], true)) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'invalid_schema');
+        $systemPrompt = self::SYSTEM_PROMPT . "\n\n" . self::CSS_OUTPUT_RULES . ($skillProfile === 'taste' ? "\n\n" . self::TASTE_PROFILE_PROMPT : '');
+        $schema = self::schema($skillProfile);
+        $completion = $provider->completeJson($systemPrompt, $prompt, $schema, 'juzimder_generated_site', 9000);
         try {
-            $design = self::parseProviderOutput($completion['content'] ?? '');
+            $design = self::parseProviderOutput($completion['content'] ?? '', $skillProfile);
             $repairAttempted = false;
         } catch (AiProviderFailure $failure) {
             $category = self::validationCategory($failure);
             if (!isset(self::VALIDATION_RETRY_GUIDANCE[$category])) throw new AiProviderFailure($failure->getMessage(), false, $category);
-            $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . self::VALIDATION_RETRY_GUIDANCE[$category], $prompt, self::schema(), 'juzimder_generated_site', 9000);
-            try { $design = self::parseProviderOutput($repairCompletion['content'] ?? ''); }
+            $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . self::VALIDATION_RETRY_GUIDANCE[$category], $prompt, $schema, 'juzimder_generated_site', 9000);
+            try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile); }
             catch (AiProviderFailure $repairFailure) { throw new AiProviderFailure($repairFailure->getMessage(), false, self::validationCategory($repairFailure)); }
             $completion['model'] = $repairCompletion['model'] ?? $completion['model'] ?? null;
             $completion['usage'] = self::combinedUsage($completion['usage'] ?? [], $repairCompletion['usage'] ?? []);
@@ -575,12 +598,58 @@ final class AiGeneratedWebsite {
                 'resolvedModel'=>$completion['model'] ?? null,
                 'usage'=>$completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
                 'repairAttempted'=>$repairAttempted,
+                'skillProfile'=>$skillProfile,
+                'skillVersion'=>$skillProfile === 'taste' ? 'taste-v1' : null,
+                'manualReviewRequired'=>$skillProfile === 'taste',
             ],
         ];
     }
 
     private static function validationCategory(AiProviderFailure $failure): string {
-        return in_array($failure->category, ['invalid_schema','invalid_markup','invalid_css'], true) ? $failure->category : 'invalid_output';
+        return in_array($failure->category, ['invalid_schema','invalid_markup','invalid_css','skill_requirements'], true) ? $failure->category : 'invalid_output';
+    }
+
+    private static function auditTasteRequirements(string $html, string $css): array {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<!doctype html><html><head><meta charset="UTF-8"></head><body>' . $html . '</body></html>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded) throw new AiProviderFailure('AI design missed required Taste checks.', false, 'skill_requirements');
+
+        $sections = $document->getElementsByTagName('section');
+        $headings = $document->getElementsByTagName('h1');
+        $h1Count = $headings->length;
+        $hero = null;
+        foreach ($sections as $section) {
+            $classes = preg_split('/\s+/', trim($section->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (in_array('ai-hero', $classes, true)) { $hero = $section; break; }
+        }
+        $heroH1Count = 0;
+        $heroAction = false;
+        if ($hero) {
+            foreach ($hero->getElementsByTagName('h1') as $heading) $heroH1Count++;
+            $heroAction = $hero->getElementsByTagName('a')->length > 0 || $hero->getElementsByTagName('button')->length > 0;
+        }
+        $allSectionsHaveHeading = $sections->length >= 3;
+        $sectionCopyIsPresent = $sections->length >= 3;
+        foreach ($sections as $section) {
+            $sectionHeadings = 0;
+            foreach (['h1','h2','h3','h4'] as $tag) $sectionHeadings += $section->getElementsByTagName($tag)->length;
+            if ($sectionHeadings === 0) $allSectionsHaveHeading = false;
+            $copy = preg_replace('/\s+/u', ' ', trim($section->textContent)) ?? '';
+            if (mb_strlen($copy, 'UTF-8') < 32) $sectionCopyIsPresent = false;
+        }
+        $responsiveRule = preg_match('/@media\s*\(max-width\s*:/', $css) === 1;
+        $checks = [
+            ['id'=>'hero_heading','status'=>$h1Count === 1 && $heroH1Count === 1 ? 'passed' : 'failed','label'=>'На странице ровно один H1, он находится в hero.'],
+            ['id'=>'section_headings','status'=>$allSectionsHaveHeading ? 'passed' : 'failed','label'=>'У каждой секции есть заголовок.'],
+            ['id'=>'section_copy','status'=>$sectionCopyIsPresent ? 'passed' : 'failed','label'=>'В каждой секции не менее 32 видимых символов текста.'],
+            ['id'=>'hero_action','status'=>$heroAction ? 'passed' : 'failed','label'=>'В hero есть ссылка или кнопка действия.'],
+            ['id'=>'responsive_css','status'=>$responsiveRule ? 'passed' : 'failed','label'=>'CSS содержит адаптивное правило для узкого экрана.'],
+        ];
+        foreach ($checks as $check) if ($check['status'] !== 'passed') throw new AiProviderFailure('AI design missed required Taste checks.', false, 'skill_requirements');
+        return ['profile'=>'taste','version'=>'taste-v1','checks'=>$checks,'humanReviewRequired'=>['Проверьте, что концепция основана на деталях именно этого проекта.','Осмотрите предпросмотр на ширине 1440, 768 и 390 px: композицию, читаемость, изображения и пустые области.']];
     }
 
     private static function combinedUsage(array $first, array $second): array {

@@ -192,7 +192,11 @@ async function openEditor(id,pageId=null) {
   $('#ai-plan-title').textContent='Дизайн страницы';
   $('#ai-plan-dialog .eyebrow').textContent='AI-ГЕНЕРАЦИЯ';
   $('#ai-generate').textContent='Создать дизайн';
-  $('.ai-disclosure').textContent='В OpenRouter отправится только описание сайта из этого поля. Содержимое проекта не передаётся. Если ответ нарушит формат или правила безопасности, система выполнит одну исправляющую попытку с тем же описанием. Каждая попытка проходит одинаковую серверную проверку; если повтор понадобится, расход токенов суммируется. Перед импортом вы увидите изолированный предпросмотр.';
+  $('.ai-disclosure').textContent='В OpenRouter отправятся описание из этого поля и инструкции выбранного встроенного профиля. Project Data и содержимое страницы не передаются. Если ответ нарушит формат или проверки профиля, система выполнит одну исправляющую попытку с тем же описанием; повторный провал остановит генерацию. Перед применением Taste нужно осмотреть изолированный предпросмотр на трёх ширинах и подтвердить идею и текст.';
+  const skillProfileLabel=document.createElement('label');skillProfileLabel.className='ai-skill-profile-field';skillProfileLabel.textContent='Профиль генерации';
+  const skillProfileSelect=document.createElement('select');skillProfileSelect.id='ai-skill-profile';skillProfileSelect.setAttribute('aria-label','Профиль генерации');
+  for(const [value,label] of [['taste','Taste · выразительный дизайн'],['standard','Стандартный дизайн']]){const option=document.createElement('option');option.value=value;option.textContent=label;skillProfileSelect.append(option);}
+  skillProfileLabel.append(skillProfileSelect);$('#ai-prompt').closest('label').before(skillProfileLabel);
   editor.Components.addType('image',{model:{defaults:{traits:['alt','src']}}});
   registerBlocks(editor);
   const libraryFilter=document.createElement('div');libraryFilter.className='library-filter';libraryFilter.innerHTML=`<label><span class="visually-hidden">Поиск секций и элементов</span><input id="block-search" type="search" placeholder="Поиск секций и элементов" autocomplete="off"></label><div class="library-categories" role="group" aria-label="Категории библиотеки">${[['all','Все'],['Секции','Секции'],['Элементы','Элементы'],['Компоновка','Компоновка'],['Медиа','Медиа'],['Навигация','Навигация']].map(([id,label],index)=>`<button type="button" data-library-category="${id}" aria-pressed="${index===0}">${label}</button>`).join('')}</div>`;
@@ -252,11 +256,39 @@ async function openEditor(id,pageId=null) {
     for(const [label,value] of [['Аудитория',design.audience],['Цель',design.goal],['Стиль',design.style]]){
       const row=document.createElement('p'),caption=document.createElement('span');caption.textContent=label;row.append(caption,document.createTextNode(value));facts.append(row);
     }
+    const isTaste=metadata?.skillProfile==='taste';
+    if(isTaste&&design.concept){const row=document.createElement('p'),caption=document.createElement('span');caption.textContent='Идея';row.append(caption,document.createTextNode(design.concept));facts.append(row);}
     preview.append(facts);
+    const audit=design.skillAudit;
+    if(isTaste&&audit?.profile==='taste'){
+      const checks=document.createElement('section');checks.className='ai-taste-audit';checks.setAttribute('aria-label','Автоматические проверки Taste');
+      const heading=document.createElement('h3');heading.textContent='Проверки структуры';checks.append(heading);
+      const list=document.createElement('ul');
+      for(const item of audit.checks||[]){const row=document.createElement('li');row.dataset.status=item.status==='passed'?'passed':'failed';row.textContent=(item.status==='passed'?'✓ ':'! ')+item.label;list.append(row);}
+      checks.append(list);
+      const note=document.createElement('p');note.className='muted small';note.textContent='Сервер проверил структуру и адаптивное CSS-правило. Он не может подтвердить оригинальность идеи и визуальное качество по коду — их нужно проверить вручную.';checks.append(note);preview.append(checks);
+    }
     const frame=document.createElement('iframe');frame.id='ai-design-preview-frame';frame.className='ai-design-preview-frame';frame.title='Предпросмотр AI-дизайна';frame.setAttribute('sandbox','');
-    preview.append(frame);
+    const frameViewport=document.createElement('div');frameViewport.className='ai-skill-preview-scroll';frameViewport.append(frame);preview.append(frameViewport);
+    if(isTaste){
+      const viewNote=document.createElement('p');viewNote.className='muted small ai-taste-view-note';viewNote.textContent='На каждой ширине проверьте композицию, читаемость, пустые области и изображения, включая незаполненные слоты.';preview.append(viewNote);
+      const viewportControls=document.createElement('div');viewportControls.className='ai-taste-viewport-controls';viewportControls.setAttribute('role','group');viewportControls.setAttribute('aria-label','Размер предпросмотра');
+      const viewportWidths={desktop:1440,tablet:768,mobile:390};
+      for(const [name,width] of Object.entries(viewportWidths)){const button=document.createElement('button');button.type='button';button.dataset.viewport=name;button.textContent=(name==='desktop'?'Desktop':name==='tablet'?'Tablet':'Mobile')+' · '+width+' px';button.setAttribute('aria-pressed','false');button.onclick=()=>{frame.style.width=width+'px';frame.style.maxWidth='none';for(const item of viewportControls.querySelectorAll('button'))item.setAttribute('aria-pressed',String(item===button));const reviewInput=preview.querySelector(`[data-review="${name}"]`);if(reviewInput){reviewInput.disabled=false;if(aiDesignState?.skillReview)aiDesignState.skillReview.visited[name]=true;}};viewportControls.append(button);}
+      preview.append(viewportControls);
+    }
     renderAIImageSlots();updateAIDesignFrame().catch(error=>{$('#ai-plan-status').textContent=error.message;});
     const note=document.createElement('p');note.className='muted small';note.textContent='Секций: '+design.sectionCount+'. Выбранные изображения загружаются только из библиотеки этого проекта и не передаются OpenRouter. После импорта их можно редактировать в GrapesJS.';preview.append(note);
+    if(isTaste){
+      const review=document.createElement('fieldset');review.className='ai-taste-review';
+      const legend=document.createElement('legend');legend.textContent='Проверьте перед добавлением';review.append(legend);
+      const addReviewCheck=(key,label,disabled=false)=>{const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.review=key;input.disabled=disabled;row.append(input,document.createTextNode(label));review.append(row);};
+      addReviewCheck('concept','Идея опирается на детали этого проекта, а не только на нишу или стиль.');
+      addReviewCheck('content','Я проверил текст и факты: в нём нет выдуманных отзывов, статистики или доказательств.');
+      addReviewCheck('desktop','Я осмотрел предпросмотр на 1440 px.',true);addReviewCheck('tablet','Я осмотрел предпросмотр на 768 px.',true);addReviewCheck('mobile','Я осмотрел предпросмотр на 390 px.',true);
+      review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;for(const input of review.querySelectorAll('[data-review]')){const key=input.dataset.review;if(key==='concept'||key==='content')aiDesignState.skillReview[key]=input.checked;else aiDesignState.skillReview.viewports[key]=input.checked;}const applyButton=$('#ai-plan-apply');if(applyButton)applyButton.disabled=!aiDesignState.skillReview.concept||!aiDesignState.skillReview.content||Object.values(aiDesignState.skillReview.viewports).some(value=>!value);});
+      preview.append(review);
+    }
     const usage=metadata?.usage||{},usageParts=[];
     for(const [key,label] of [['promptTokens','входные токены'],['completionTokens','выходные токены'],['totalTokens','всего токенов']])if(Number.isInteger(usage[key])&&usage[key]>=0)usageParts.push(label+': '+usage[key]);
     if(typeof usage.costUsd==='number'&&Number.isFinite(usage.costUsd)&&usage.costUsd>=0)usageParts.push('стоимость: $'+usage.costUsd.toFixed(6));
@@ -264,6 +296,7 @@ async function openEditor(id,pageId=null) {
     const meta=document.createElement('p');meta.className='muted small ai-plan-metadata';meta.textContent=model+(usageParts.length?' · '+usageParts.join(' · '):'');preview.append(meta);
     const actions=document.createElement('div');actions.className='dialog-actions';
     const apply=document.createElement('button');apply.type='button';apply.id='ai-plan-apply';apply.className='primary';apply.textContent='Добавить дизайн · '+design.sectionCount+' секций';apply.onclick=applyAIDesign;
+    if(isTaste)apply.disabled=true;
     actions.append(apply);preview.append(actions);preview.hidden=false;
   };
   const buildAIDesignHtml=()=>{
@@ -295,6 +328,7 @@ async function openEditor(id,pageId=null) {
   };
   const applyAIDesign=async()=>{
     if(!aiDesignState)return;
+    if(aiDesignState.metadata?.skillProfile==='taste'&&(!aiDesignState.skillReview?.concept||!aiDesignState.skillReview?.content||Object.values(aiDesignState.skillReview?.viewports||{}).some(value=>!value)||Object.values(aiDesignState.skillReview?.visited||{}).some(value=>!value))){$('#ai-plan-status').textContent='Сначала подтвердите проверку идеи и текста, затем осмотрите все три размера предпросмотра.';return;}
     const page=editor.Pages.getAll().find(item=>item.get('id')===aiDesignState.pageId);
     if(!page){notify('Страница предпросмотра больше не существует.',true);return;}
     if(editor.Pages.getSelected()?.get('id')!==aiDesignState.pageId){$('#ai-plan-status').textContent='Выбрана другая страница. Составьте дизайн заново для текущей страницы.';return;}
@@ -481,11 +515,13 @@ async function openEditor(id,pageId=null) {
     try{
       const page=editor.Pages.getSelected();
       if(!page)throw new Error('Выберите страницу проекта.');
-      const response=await api(`/projects/${id}/ai/generate-page`,'POST',{prompt});
+      const skillProfile=$('#ai-skill-profile').value;
+      const response=await api(`/projects/${id}/ai/generate-page`,'POST',{prompt,skillProfile});
       if(!response.design||typeof response.design.html!=='string'||typeof response.design.css!=='string')throw new Error('AI вернул неполный дизайн. Попробуйте уточнить описание.');
+      if(skillProfile==='taste'&&(response.metadata?.skillProfile!=='taste'||response.design.skillAudit?.profile!=='taste'||!Array.isArray(response.design.skillAudit.checks)||response.design.skillAudit.checks.some(item=>item.status!=='passed')))throw new Error('Ответ не подтвердил обязательные проверки Taste. Дизайн не применён.');
       let assets=[],assetWarning='';try{assets=await api(`/projects/${id}/assets`);}catch(error){assetWarning=' Не удалось загрузить библиотеку изображений: '+error.message;}
       const slots=response.design.imageSlots||[];
-      aiDesignState={design:response.design,metadata:response.metadata,pageId:page.get('id'),assets,imageAssignments:Object.fromEntries(slots.map(slot=>[slot.id,''])),imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label]))};
+      aiDesignState={design:response.design,metadata:response.metadata,pageId:page.get('id'),assets,imageAssignments:Object.fromEntries(slots.map(slot=>[slot.id,''])),imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label])),skillReview:{concept:false,content:false,visited:{desktop:false,tablet:false,mobile:false},viewports:{desktop:false,tablet:false,mobile:false}}};
       renderAIDesign(response.design,response.metadata);$('#ai-plan-status').textContent='Проверьте предпросмотр. Страница изменится только после отдельного подтверждения.';
       if(assetWarning)$('#ai-plan-status').textContent+=assetWarning;
     }catch(error){$('#ai-plan-status').textContent=error.message;notify(error.message,true);}

@@ -68,8 +68,8 @@
 - [x] Intent → plan → structured text generation for supported section presets → server/client validation → editable GrapesJS output → revision.
 - [x] Address-scoped AI edits: selected component, stable ID/path checks, typed operations, diff confirmation and Project Data/CAS save; browser normal-editor save/reload verified in 00.00.030.
 - [ ] Live AI edit acceptance: real provider proposal → confirm → save → reload; the configured free model returned a temporary unavailable response.
-- [ ] Skill-driven agent: convert an uploaded skill into a traceable requirements checklist, enforce tool/result validators, collect acceptance evidence and fail closed on conflicts or unverifiable requirements.
-- [ ] Встроить адаптированную методику Taste Skill как источник проверяемых требований; исходные browser/Node scripts не запускать на сервере, требования проверять валидаторами и отдельной визуальной приёмкой. Источник MIT: https://github.com/Leonxlnx/taste-skill.
+- [ ] Skill-driven agent for uploaded skills: convert requirements into a traceable checklist, enforce tool/result validators, collect acceptance evidence, and fail closed on conflicts or unverifiable requirements. The built-in Taste profile is the first bounded adapter; user-supplied skill loading remains open.
+- [x] Встроенный профиль Taste для полной AI-генерации: subject-specific concept, единый H1 в hero, CTA, заголовок и минимальный объём текста в каждой секции, адаптивное CSS-правило; одна исправляющая попытка и отказ при повторном нарушении. Перед применением пользователь обязан осмотреть 1440/768/390 px и подтвердить уместность идеи. Upstream browser/Node scripts на сервере не запускаются; источник MIT: https://github.com/Leonxlnx/taste-skill.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
 - [x] Необязательная резервная модель профиля; используется после повторной попытки основной модели при временной сетевой ошибке или HTTP 408/429/5xx.
@@ -123,4 +123,4 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.032.
+**Текущее состояние:** foundation, версия продукта 00.00.033.

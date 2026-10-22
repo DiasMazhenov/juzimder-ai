@@ -249,8 +249,10 @@ try {
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/generate-page$~D', $path, $aiDesignMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
-        if (array_diff(array_keys($body), ['prompt'])) throw new Problem(422,'Передайте только текстовое описание сайта.');
+        $skillProfile = array_key_exists('skillProfile', $body) ? $body['skillProfile'] : 'taste';
+        if (array_diff(array_keys($body), ['prompt','skillProfile'])) throw new Problem(422,'Передайте описание сайта и поддерживаемый профиль генерации.');
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
+        if (!is_string($skillProfile) || !in_array($skillProfile, ['standard','taste'], true)) throw new Problem(422,'Выберите поддерживаемый профиль генерации.');
         $credentials = new Juzimder\AiCredentialVault($store);
         $settings = $credentials->settings($aiDesignMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
@@ -263,7 +265,7 @@ try {
         $_SESSION['ai_requests'] = $requests;
         set_time_limit(120);
         try {
-            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings)));
+            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings), $skillProfile));
         } catch (Juzimder\AiProviderFailure $failure) {
             throw new Problem(502,$failure->userMessage());
         }

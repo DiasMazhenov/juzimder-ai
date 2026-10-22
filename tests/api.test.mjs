@@ -66,7 +66,9 @@ assert.equal((await anon.call(aiGeneratePath,'POST',{prompt:'Сайт клини
 assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники'},'bad')).status,403,'Full-page AI generation requires CSRF');
 assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'   '})).status,422,'Full-page AI generation rejects empty prompts');
 assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'x'.repeat(4001)})).status,422,'Full-page AI generation enforces its prompt limit');
-assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники',projectData:{secret:'must not be accepted'}})).status,422,'Full-page AI generation accepts only the user prompt');
+assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники',projectData:{secret:'must not be accepted'}})).status,422,'Full-page AI generation accepts only the user prompt and profile');
+assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники',skillProfile:'untrusted-profile'})).status,422,'Full-page AI generation accepts only allowlisted skill profiles');
+assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники',skillProfile:null})).status,422,'Full-page AI generation rejects an explicitly null skill profile');
 assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники'})).status,503,'Full-page AI generation stays disabled until a project profile is configured');
 const testApiKey='sk-or-v1-this-is-a-test-secret-only';
 let aiSaved=await a.call(aiSettingsPath,'PUT',{version:0,apiKey:testApiKey,model:'openai/test-model',fallbackModel:'openai/fallback-model'});
