@@ -330,6 +330,15 @@ foreach([429,502,401] as $failedStatus){
  $failover->completeJson('system','prompt',['type'=>'object'],'profile_repair');
  aiCheck(in_array('Authorization: Bearer sk-backup-test',$failoverTransport->calls[0]['headers'],true),'Repair reuses the successful profile');
 }
+foreach(['not-json','{}',json_encode(['choices'=>[['message'=>['content'=>'']]]])] as $brokenBody){
+ $transport=new FakeAiTransport([new AiHttpResponse(200,$brokenBody),new AiHttpResponse(200,$successBody)]);
+ $provider=new Juzimder\ProfileFailoverProvider($profileEntries,$transport);
+ $result=$provider->completeJson('system','prompt',['type'=>'object'],'broken_response');
+ aiCheck($result['profileName']==='Backup'&&count($transport->calls)===2,'Malformed or empty provider response rotates to the next saved profile once');
+ aiCheck(array_column($provider->diagnostics(),'outcome')===['invalid_response','response_received'],'Malformed response failover preserves safe diagnostics');
+}
+$brokenProfiles=new FakeAiTransport([new AiHttpResponse(200,'{}'),new AiHttpResponse(200,'{}')]);
+try{(new Juzimder\ProfileFailoverProvider($profileEntries,$brokenProfiles))->completeJson('system','prompt',['type'=>'object'],'broken_all');throw new RuntimeException('Expected failure');}catch(AiProviderFailure $failure){aiCheck($failure->category==='invalid_response'&&count($brokenProfiles->calls)===2,'All malformed profiles fail closed without cycling');}
 $strictTransport=new FakeAiTransport([new AiHttpResponse(400,'{}')]);
 aiRejects(fn()=>(new Juzimder\ProfileFailoverProvider($profileEntries,$strictTransport))->completeJson('system','prompt',['type'=>'object'],'profile_test'),'Non-transient request errors do not rotate profiles');
 aiCheck(count($strictTransport->calls)===1,'No extra billable calls for a non-transient request error');

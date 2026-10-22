@@ -150,7 +150,7 @@ final class ProfileFailoverProvider implements StructuredAiProvider {
                 return [...$result,'profileId'=>$profile['id'],'profileName'=>$profile['name']];
             }catch(AiProviderFailure $failure){
                 $record(AiProviderFailure::publicCategory($failure->category));
-                if(!$failure->retryable&&$failure->category!=='credentials')throw $failure;
+                if(!$failure->retryable&&!in_array($failure->category,['credentials','invalid_response'],true))throw $failure;
                 $last=$failure;
                 error_log('Juzimder AI: profile attempt failed ('.$failure->category.'); trying the next saved profile within budget.');
             }
