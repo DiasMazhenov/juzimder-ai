@@ -31,6 +31,7 @@ try {
     skillReject(fn()=>$skills->create($id,'owner',4,'Invalid','', ['Check it.']),422,'Empty Skill text is rejected');
     skillReject(fn()=>$skills->create($id,'owner',4,'Invalid','Text', []),422,'A Skill requires at least one human acceptance check');
     skillReject(fn()=>$skills->create($id,'owner',4,'Invalid',str_repeat('x',ProjectAiSkills::MAX_CONTENT_CHARS+1), ['Check it.']),422,'Skill text has a fixed storage bound');
+    skillReject(fn()=>$skills->update($id,'owner',4,$skillId,'Invalid rules',"```juzimder-rules\n{bad}\n```",['Review it.']),422,'Malformed automatic rules are rejected before saving a Skill');
     $deleted=$skills->delete($id,'owner',4,$skillId);
     skillCheck($deleted['version']===5&&$deleted['activeSkillId']===null&&count($deleted['skills'])===1,'Deleting the active Skill clears activation and preserves other Skills');
 } finally { unset($store);@unlink($path);@unlink($path.'-journal'); }

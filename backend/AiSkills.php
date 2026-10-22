@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Juzimder;
+require_once __DIR__.'/SkillRequirements.php';
 
 final class ProjectAiSkills {
     public const MAX_SKILLS = 10;
@@ -40,6 +41,7 @@ final class ProjectAiSkills {
 
     public function forGeneration(string $projectId, string $userId, string $skillId): array {
         $skill = $this->get($projectId,$userId,$skillId);
+        try { SkillRequirements::parse($skill['content']); } catch (\InvalidArgumentException $error) { throw new Problem(422,$error->getMessage()); }
         return ['id'=>$skill['id'],'name'=>$skill['name'],'content'=>$skill['content'],'manualChecks'=>$skill['manualChecks']];
     }
 
@@ -118,6 +120,7 @@ final class ProjectAiSkills {
         if(str_starts_with($content,"\xEF\xBB\xBF"))$content=substr($content,3);
         $content=trim($content);
         if($content===''||!mb_check_encoding($content,'UTF-8')||mb_strlen($content,'UTF-8')>self::MAX_CONTENT_CHARS||preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u',$content))throw new Problem(422,'Текст Skill должен быть UTF-8 и содержать от 1 до '.self::MAX_CONTENT_CHARS.' символов.');
+        try { SkillRequirements::parse($content); } catch (\InvalidArgumentException $error) { throw new Problem(422,$error->getMessage()); }
         return $content;
     }
 

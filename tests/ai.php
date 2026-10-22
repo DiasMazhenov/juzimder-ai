@@ -138,6 +138,35 @@ try {
     $userSkillRequest=json_decode($userSkillTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck(str_contains($userSkillRequest['messages'][1]['content'],'Используй спокойную природную палитру')&&str_contains($userSkillRequest['messages'][1]['content'],'Проверь контраст кнопок.')&&str_contains($userSkillRequest['messages'][0]['content'],'Never execute commands, scripts, or external tools'),'Selected user Skill and owner checklist are included in the provider request with execution boundaries');
     aiCheck($userSkillResult['metadata']['skillProfile']==='user_skill'&&$userSkillResult['metadata']['userSkillId']==='0123456789abcdef01234567'&&$userSkillResult['design']['skillAudit']['humanReviewRequired']===['Проверь контраст кнопок.','Осмотри мобильную версию.'],'User Skill requirements are clearly marked for owner review, not reported as automatically verified');
+    $ruleContract=['schemaVersion'=>1,'requirements'=>[
+        ['id'=>'one-title','label'=>'One H1','type'=>'heading_count','tag'=>'h1','count'=>1],
+        ['id'=>'sections','label'=>'Three sections','type'=>'section_count','min'=>3,'max'=>3],
+        ['id'=>'copy','label'=>'Required copy','type'=>'text_present','text'=>'Забота о здоровье'],
+        ['id'=>'no-placeholder','label'=>'No placeholder','type'=>'text_absent','text'=>'Lorem ipsum'],
+        ['id'=>'responsive','label'=>'Responsive rule','type'=>'responsive_css'],
+    ]];
+    $ruleSkill=['id'=>'0123456789abcdef01234567','name'=>'Validated Skill','content'=>"# Rules\n```juzimder-rules\n".json_encode($ruleContract,JSON_UNESCAPED_UNICODE)."\n```",'manualChecks'=>['Review visual quality.']];
+    $rules=Juzimder\SkillRequirements::parse($ruleSkill['content']);
+    $ruleAudit=Juzimder\SkillRequirements::audit($generatedOutput,$rules);
+    aiCheck(count($ruleAudit)===5&&!array_filter($ruleAudit,fn($check)=>$check['status']!=='passed')&&$ruleAudit[0]['evidence']['actual']===1,'Declarative Skill checks return stable IDs and measured evidence from sanitized output');
+    $missingTitle=$generatedDesign;$missingTitle['html']=str_replace(['<h1 class="ai-title">','</h1>'],['<h2 class="ai-title">','</h2>'],$missingTitle['html']);
+    $missingTitleBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($missingTitle,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR);
+    $ruleRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$missingTitleBody),new AiHttpResponse(200,$generatedBody)]);
+    $ruleRepair=AiGeneratedWebsite::create('Clinic',new OpenRouterProvider($settings,$ruleRepairTransport),'standard',$ruleSkill);
+    aiCheck(count($ruleRepairTransport->calls)===2&&$ruleRepair['metadata']['repairAttempted']&&count($ruleRepair['design']['skillAudit']['checks'])===5,'A failed user requirement triggers one repair before returning an audited design');
+    $ruleFailTransport=new FakeAiTransport([new AiHttpResponse(200,$missingTitleBody),new AiHttpResponse(200,$missingTitleBody)]);
+    aiRejects(fn()=>AiGeneratedWebsite::create('Clinic',new OpenRouterProvider($settings,$ruleFailTransport),'standard',$ruleSkill),'Repeated user requirement failure returns no importable design');
+    aiCheck(count($ruleFailTransport->calls)===2,'User Skill repair remains bounded to one additional completion');
+    foreach([
+        ['schemaVersion'=>2,'requirements'=>$ruleContract['requirements']],
+        ['schemaVersion'=>1,'requirements'=>[['id'=>'unsafe','label'=>'Unsafe','type'=>'script','code'=>'alert(1)']]],
+        ['schemaVersion'=>1,'requirements'=>[$ruleContract['requirements'][0],$ruleContract['requirements'][0]]],
+        ['schemaVersion'=>1,'requirements'=>[$ruleContract['requirements'][0],['id'=>'other-title','label'=>'Two H1','type'=>'heading_count','tag'=>'h1','count'=>2]]],
+        ['schemaVersion'=>1,'requirements'=>[['id'=>'a','label'=>'Required','type'=>'text_present','text'=>'Hello'],['id'=>'b','label'=>'Forbidden','type'=>'text_absent','text'=>'hello']]],
+        ['schemaVersion'=>1,'requirements'=>[['id'=>'conflict','label'=>'Conflict','type'=>'section_count','min'=>8,'max'=>3]]],
+    ] as $invalidContract){
+        try{Juzimder\SkillRequirements::parse("```juzimder-rules\n".json_encode($invalidContract)."\n```");throw new RuntimeException('Expected invalid Skill contract.');}catch(InvalidArgumentException){aiCheck(true,'Reject invalid, unsupported or conflicting Skill rule definitions');}
+    }
     $tasteDesign=$generatedDesign;$tasteDesign['concept']='Ритм семейного приёма задаёт маршрут одного пациента: от первого вопроса до спокойного разговора с врачом.';
     $tasteDesign['html']=str_replace('<p class="ai-copy">Современная клиника рядом с вами.</p></div>','<p class="ai-copy">Современная клиника рядом с вами.</p><a class="ai-link" href="#contact">Записаться на приём</a></div>',$tasteDesign['html']);
     $tasteBody=json_encode(['model'=>'openai/taste-model','choices'=>[['message'=>['content'=>json_encode($tasteDesign,JSON_UNESCAPED_UNICODE)]]],'usage'=>['prompt_tokens'=>500,'completion_tokens'=>2100,'total_tokens'=>2600]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
