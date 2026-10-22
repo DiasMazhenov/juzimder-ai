@@ -135,6 +135,12 @@ assert.equal((await otherAiClient.call(aiSettingsPath,'PUT',{version:6,apiKey:'s
 assert.equal((await otherAiClient.call(aiGeneratePath,'POST',{prompt:'Сайт клиники'})).status,404,'Full-page AI generation enforces project ownership');
 assert.equal((await otherAiClient.call(aiProfilesPath,'POST',{version:6,name:'Foreign',apiKey:'sk-foreign',model:'openai/test-model'})).status,404,'AI profile creation enforces project ownership');
 assert.equal((await otherAiClient.call(aiProfilesPath+'/'+secondProfile.id,'PUT',{version:6,name:'Foreign',apiKey:'sk-foreign',model:'openai/test-model'})).status,404,'AI profile edits enforce project ownership');
+const profileTestPath=aiProfilesPath+'/'+secondProfile.id+'/test';
+assert.equal((await otherAiClient.call(profileTestPath,'POST',{version:6})).status,404,'Profile tests enforce ownership before a provider request');
+assert.equal((await a.call(profileTestPath,'POST',{version:6},'invalid')).status,403,'Profile tests enforce CSRF');
+assert.equal((await a.call(profileTestPath,'POST',{version:5})).status,409,'Profile tests enforce current settings version');
+assert.equal((await a.call(profileTestPath,'POST',{version:6,prompt:'untrusted'})).status,422,'Profile tests reject custom prompt injection');
+assert.equal((await a.call(aiProfilesPath+'/000000000000000000000000/test','POST',{version:6})).status,404,'Profile tests reject unknown profiles before networking');
 profilesSaved=await a.call(aiProfilesPath+'/'+primaryProfile.id,'DELETE',{version:6});
 assert.equal(profilesSaved.status,200);assert.equal(profilesSaved.data.activeProfileId,secondProfile.id);assert.equal(profilesSaved.data.configured,true);assert.equal(profilesSaved.data.version,7,'Deleting the active profile selects another saved profile');
 assert.equal((await a.call(aiProfilesPath+'/'+secondProfile.id,'DELETE',{version:6})).status,409,'Profile deletion rejects a stale version');

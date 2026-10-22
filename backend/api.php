@@ -168,6 +168,21 @@ try {
             result($credentials->clear($projectId, $user, $body['version']));
         }
     }
+    if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/profiles/([a-f0-9]{24})/test$~D',$path,$probeMatch)&&$method==='POST'){
+        if(array_diff(array_keys($body),['version'])||!is_int($body['version']??null))throw new Problem(422,'Укажите текущую версию профилей.');
+        $vault=new Juzimder\AiCredentialVault($store);
+        $status=$vault->status($probeMatch[1],$user);
+        if($body['version']!==$status['version'])throw new Problem(409,'Профили изменились. Обновите страницу.');
+        if(!in_array($probeMatch[2],array_column($status['profiles'],'id'),true))throw new Problem(404,'Профиль AI не найден.');
+        $settings=$vault->settings($probeMatch[1],$user,$probeMatch[2]);
+        $stored=$_SESSION['ai_requests']??[];$now=time();
+        $requests=array_values(array_filter(is_array($stored)?$stored:[],static fn($at)=>is_int($at)&&$at>$now-60));
+        if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
+        $requests[]=$now;$_SESSION['ai_requests']=$requests;set_time_limit(30);
+        $probeSettings=Juzimder\OpenRouterSettings::fromCredentials($settings->apiKey,$settings->model);
+        try{result(Juzimder\AiProfileProbe::check(new Juzimder\OpenRouterProvider($probeSettings,null,microtime(true)+20,false)));}
+        catch(Juzimder\AiProviderFailure $failure){throw new Problem(502,$failure->userMessage());}
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/profiles(?:/([a-f0-9]{24})(?:/(activate))?)?$~D', $path, $aiProfileMatch)) {
         $projectId = $aiProfileMatch[1];
         $profileId = $aiProfileMatch[2] ?? '';

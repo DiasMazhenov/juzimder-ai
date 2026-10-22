@@ -333,3 +333,11 @@ aiCheck($networkResult['profileName']==='Backup'&&count($networkTransport->calls
 $failedProfiles=new FakeAiTransport([new AiHttpResponse(503,'{}'),new AiHttpResponse(503,'{}')]);
 aiRejects(fn()=>(new Juzimder\ProfileFailoverProvider($profileEntries,$failedProfiles))->completeJson('system','prompt',['type'=>'object'],'all_failed'),'All unavailable profiles fail closed');
 aiCheck(count($failedProfiles->calls)===2,'Unavailable profiles are attempted once without a retry storm');
+
+$probeTransport=new FakeAiTransport([new AiHttpResponse(200,json_encode(['model'=>'test/probe','choices'=>[['message'=>['content'=>'{"ok":true}']]]]))]);
+$probeResult=Juzimder\AiProfileProbe::check(new OpenRouterProvider($settings,$probeTransport,microtime(true)+20,false));
+$probePayload=json_decode($probeTransport->calls[0]['body'],true);
+aiCheck($probeResult['ok']&&$probeResult['resolvedModel']==='test/probe'&&$probePayload['max_tokens']===256&&$probeTransport->calls[0]['timeoutSeconds']<=20,'Profile probe uses bounded synthetic content and returns safe evidence');
+aiCheck(!str_contains(json_encode($probeResult),$settings->apiKey),'Profile probe never returns credentials');
+$badProbe=new FakeAiTransport([new AiHttpResponse(200,json_encode(['choices'=>[['message'=>['content'=>'{"ok":false}']]]]))]);
+aiRejects(fn()=>Juzimder\AiProfileProbe::check(new OpenRouterProvider($settings,$badProbe)),'Profile probe rejects an invalid structured acknowledgement');

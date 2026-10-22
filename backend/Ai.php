@@ -46,7 +46,7 @@ final class StreamAiHttpTransport implements AiHttpTransport {
         ]);
         $completed = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        if ($completed === false) throw new \RuntimeException('AI transport failed or exceeded its limit.');
+        if ($completed === false) { error_log('Juzimder AI: transport error code '.curl_errno($handle).'.'); throw new \RuntimeException('AI transport failed or exceeded its limit.'); }
 
         return new AiHttpResponse($status, $responseBody, $responseHeaders);
     }
@@ -100,6 +100,16 @@ final class OpenRouterSettings {
 
 interface StructuredAiProvider {
     public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens = 3200): array;
+}
+
+final class AiProfileProbe {
+    public static function check(StructuredAiProvider $provider): array {
+        $started=microtime(true);
+        $result=$provider->completeJson('Return the requested JSON object with ok set to true.','Connection test.', ['type'=>'object','properties'=>['ok'=>['type'=>'boolean','enum'=>[true]]],'required'=>['ok'],'additionalProperties'=>false], 'juzimder_profile_probe',256);
+        try{$content=json_decode($result['content']??'',true,8,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Profile probe returned invalid JSON.',false,'invalid_response');}
+        if($content!==['ok'=>true])throw new AiProviderFailure('Profile probe returned invalid content.',false,'invalid_response');
+        return ['ok'=>true,'resolvedModel'=>$result['model']??null,'elapsedMs'=>(int)round((microtime(true)-$started)*1000),'usage'=>$result['usage']??[]];
+    }
 }
 
 /** Request-scoped failover; persisted active profile is never changed. */

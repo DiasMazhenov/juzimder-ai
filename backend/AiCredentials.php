@@ -33,10 +33,10 @@ final class AiCredentialVault {
         ];
     }
 
-    public function settings(string $projectId, string $userId): ?OpenRouterSettings {
+    public function settings(string $projectId, string $userId, ?string $requestedProfileId = null): ?OpenRouterSettings {
         $this->store->owned($projectId, $userId);
         $state = $this->state($projectId);
-        $profileId = $state['active_profile_id'] ?? null;
+        $profileId = $requestedProfileId ?? ($state['active_profile_id'] ?? null);
         if (!is_string($profileId) || $profileId === '') return null;
         $row = $this->store->query(
             'SELECT api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=? AND id=?',
