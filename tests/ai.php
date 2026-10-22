@@ -288,3 +288,10 @@ try {
     $badPlan = $plan; $badPlan['content'][0]['section'] = 'faq';
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects duplicate or unselected section copy');
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput('{"siteType":"unclosed"'), 'Provider output rejects malformed JSON');
+
+$expiredTransport=new FakeAiTransport([]);
+$expiredProvider=new OpenRouterProvider($settings,$expiredTransport);
+$deadlineProperty=new ReflectionProperty(OpenRouterProvider::class,'deadline');
+$deadlineProperty->setValue($expiredProvider,microtime(true)-1);
+aiRejects(fn()=>$expiredProvider->completeJson('system','prompt',['type'=>'object'],'deadline_test'),'An exhausted request budget fails closed before another transfer');
+aiCheck($expiredTransport->calls===[],'Expired request budget never sends another provider request');

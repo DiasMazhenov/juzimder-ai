@@ -19,31 +19,35 @@ final class StreamAiHttpTransport implements AiHttpTransport {
     private const MAX_RESPONSE_BYTES = 1000000;
 
     public function post(string $url, array $headers, string $body, int $timeoutSeconds): AiHttpResponse {
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'POST',
-                'header' => implode("\r\n", $headers),
-                'content' => $body,
-                'timeout' => $timeoutSeconds,
-                'ignore_errors' => true,
-                'follow_location' => 0,
-                'max_redirects' => 0,
-                'protocol_version' => 1.1,
-            ],
-            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+        // Stream read timeouts reset as bytes arrive; cURL bounds the entire transfer.
+        if (!function_exists('curl_init')) throw new \RuntimeException('AI transport requires PHP cURL.');
+        $handle = curl_init($url);
+        $responseBody = '';
+        $responseHeaders = [];
+        curl_setopt_array($handle, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_CONNECTTIMEOUT => min(10, $timeoutSeconds),
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_MAXREDIRS => 0,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_HEADERFUNCTION => static function ($handle, string $header) use (&$responseHeaders): int {
+                $responseHeaders[] = trim($header);
+                return strlen($header);
+            },
+            CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$responseBody): int {
+                if (strlen($responseBody) + strlen($chunk) > self::MAX_RESPONSE_BYTES) return 0;
+                $responseBody .= $chunk;
+                return strlen($chunk);
+            },
         ]);
-        $responseBody = @file_get_contents($url, false, $context, 0, self::MAX_RESPONSE_BYTES + 1);
-        if ($responseBody === false) throw new \RuntimeException('AI transport failed.');
-        if (strlen($responseBody) > self::MAX_RESPONSE_BYTES) throw new \RuntimeException('AI response exceeded its size limit.');
+        $completed = curl_exec($handle);
+        $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+        if ($completed === false) throw new \RuntimeException('AI transport failed or exceeded its limit.');
 
-        $responseHeaders = $http_response_header ?? [];
-        $status = 0;
-        foreach ($responseHeaders as $header) {
-            if (preg_match('~^HTTP/\S+\s+(\d{3})~i', $header, $matches)) {
-                $status = (int)$matches[1];
-                break;
-            }
-        }
         return new AiHttpResponse($status, $responseBody, $responseHeaders);
     }
 }
@@ -103,7 +107,10 @@ final class OpenRouterProvider implements StructuredAiProvider {
 
     public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null) {}
 
+    private ?float $deadline = null;
+
     public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens = 3200): array {
+        $this->deadline ??= microtime(true) + 100;
         if (!preg_match('/^[a-z][a-z0-9_]{1,63}$/D', $schemaName)) throw new \InvalidArgumentException('Invalid JSON schema name.');
         if ($maxTokens < 256 || $maxTokens > 12000) throw new \InvalidArgumentException('Invalid completion token limit.');
         $models = [$this->settings->model];
@@ -161,7 +168,9 @@ final class OpenRouterProvider implements StructuredAiProvider {
         $response = null;
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
-                $response = $transport->post(self::ENDPOINT, $headers, $requestBody, $this->settings->timeoutSeconds);
+                $remaining = (int) floor(($this->deadline ?? 0) - microtime(true));
+                if ($remaining < 1) throw new AiProviderFailure('AI request deadline exceeded.', false, 'unavailable');
+                $response = $transport->post(self::ENDPOINT, $headers, $requestBody, min($this->settings->timeoutSeconds, $remaining));
             } catch (\Throwable) {
                 error_log('Juzimder AI: OpenRouter transport failure.');
                 if ($attempt === 0) {

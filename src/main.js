@@ -26,7 +26,7 @@ const blockCategory=id=>({text:'Элементы',image:'Медиа',button:'Э�
 let session, editor, current, dirty=false, loading=false, saving=false, saveAgain=false, conflicted=false, saveTimer, savePromise;
 async function api(path, method='GET',body) {
   const response = await fetch(`/api${path}`,{method,headers:{'Content-Type':'application/json',...(session?{'X-CSRF-Token':session.csrf}:{})},...(body?{body:JSON.stringify(body)}:{})});
-  const data = await response.json(); if (!response.ok) { const error=new Error(data.error || `HTTP ${response.status}`);error.status=response.status;if(response.status===401&&session?.user&&path==='/projects'&&method==='POST'){session=null;location.assign('/?session=expired');}throw error; } return data;
+  let data;try{data=await response.json();}catch{const error=new Error('Сервер вернул некорректный ответ. Обновите страницу и повторите запрос.');error.status=response.status>=400?response.status:502;throw error;} if (!response.ok) { const error=new Error(data.error || `HTTP ${response.status}`);error.status=response.status;if(response.status===401&&session?.user&&path==='/projects'&&method==='POST'){session=null;location.assign('/?session=expired');}throw error; } return data;
 }
 function notify(message,error=false) { const el=$('#notice'); if(el){el.textContent=message;el.classList.toggle('error',error);} }
 function setEditorPanel(panel) {
