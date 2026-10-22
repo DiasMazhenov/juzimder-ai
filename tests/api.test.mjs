@@ -48,6 +48,13 @@ assert.equal((await a.call('/register','POST',{email:'one@example.test',password
 const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`,aiGeneratePath=`/projects/${aiProject.id}/ai/generate-page`,aiSkillsPath=`/projects/${aiProject.id}/ai/skills`;
 assert.equal((await anon.call(aiSkillsPath)).status,401,'User Skills require an authenticated session');
 assert.deepEqual((await a.call(aiSkillsPath)).data,{version:0,activeSkillId:null,skills:[],limit:10},'Projects start with a bounded and empty Skill library');
+const analyzePath=aiSkillsPath+'/analyze';
+assert.equal((await anon.call(analyzePath,'POST',{version:0,content:'Use one H1.'})).status,401,'Skill analysis requires authentication');
+assert.equal((await a.call(analyzePath,'POST',{version:0,content:'Use one H1.'},'bad')).status,403,'Skill analysis requires CSRF');
+assert.equal((await a.call(analyzePath,'POST',{version:99,content:'Use one H1.'})).status,409,'Skill analysis enforces the library version');
+assert.equal((await a.call(analyzePath,'POST',{version:0,content:''})).status,422,'Skill analysis rejects empty source');
+assert.equal((await a.call(analyzePath,'POST',{version:0,content:'Use one H1.'})).status,503,'Skill analysis remains unavailable without project provider credentials');
+
 assert.equal((await a.call(aiSkillsPath,'POST',{version:0,name:'Brand',content:'# Voice',manualChecks:['Review copy']},'bad')).status,403,'Saving a Skill requires CSRF');
 assert.equal((await a.call(aiSkillsPath,'POST',{version:0,name:'Brand',content:'# Voice',manualChecks:[]})).status,422,'A Skill must include an owner review checklist');
 let aiSkills=await a.call(aiSkillsPath,'POST',{version:0,name:'Brand voice',content:'# Voice\nUse direct, warm language.',manualChecks:['Check the brand colors.','Review the mobile layout.']});
@@ -121,6 +128,7 @@ assert.equal(JSON.stringify(profilesSaved.data).includes('sk-or-v1-updated-secon
 assert.equal((await a.call(aiProfilesPath+'/'+primaryProfile.id+'/activate','POST',{version:5})).data.model,'openai/second-test-model','The owner can select which profile the AI endpoint uses');
 const otherAiClient=new Client();await otherAiClient.call('/session');await otherAiClient.call('/register','POST',{email:'ai-outsider@example.test',password:'another-ai-password'});
 assert.equal((await otherAiClient.call(aiSkillsPath)).status,404,'Skill libraries enforce project ownership');
+assert.equal((await otherAiClient.call(analyzePath,'POST',{version:6,content:'Use one H1.'})).status,404,'Skill analysis enforces project ownership before contacting a provider');
 assert.equal((await otherAiClient.call(aiSkillsPath+'/'+firstSkillId)).status,404,'Skill content cannot be read by another project owner');
 assert.equal((await otherAiClient.call(aiSettingsPath,'GET')).status,404,'AI credentials enforce project ownership');
 assert.equal((await otherAiClient.call(aiSettingsPath,'PUT',{version:6,apiKey:'sk-foreign',model:'openai/test-model'})).status,404,'AI credential writes enforce project ownership');

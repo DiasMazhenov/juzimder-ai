@@ -4,6 +4,7 @@ require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
 require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/AiSkills.php';
+require_once __DIR__ . '/SkillAnalyzer.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
@@ -192,6 +193,20 @@ try {
             if (array_diff(array_keys($body), ['version']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию списка профилей AI.');
             result($credentials->deleteProfile($projectId, $user, $body['version'], $profileId));
         }
+    }
+    if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/skills/analyze$~D',$path,$skillAnalysisMatch)&&$method==='POST'){
+        if(array_diff(array_keys($body),['version','content'])||!is_int($body['version']??null)||$body['version']<0||!is_string($body['content']??null))throw new Problem(422,'Передайте текущую версию библиотеки и текст Skill.');
+        $library=(new Juzimder\ProjectAiSkills($store))->list($skillAnalysisMatch[1],$user);
+        if($library['version']!==$body['version'])throw new Problem(409,'Библиотека Skills изменилась. Обновите страницу перед разбором.');
+        try{$content=Juzimder\SkillAnalyzer::validateSource($body['content']);}catch(InvalidArgumentException $error){throw new Problem(422,$error->getMessage());}
+        $settings=(new Juzimder\AiCredentialVault($store))->settings($skillAnalysisMatch[1],$user);
+        if(!$settings)throw new Problem(503,'Настройте профиль OpenRouter в AI Engine.');
+        $now=time();$stored=$_SESSION['ai_requests']??[];
+        $requests=array_values(array_filter(is_array($stored)?$stored:[],static fn($at)=>is_int($at)&&$at>$now-60));
+        if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
+        $requests[]=$now;$_SESSION['ai_requests']=$requests;set_time_limit(120);
+        try{result(Juzimder\SkillAnalyzer::create($content,new Juzimder\OpenRouterProvider($settings)));}
+        catch(Juzimder\AiProviderFailure $error){throw new Problem(502,'Не удалось получить проверяемый разбор Skill. Попробуйте уточнить текст или модель. Ничего не сохранено.');}
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/skills(?:/([a-f0-9]{24})(?:/(activate))?)?$~D', $path, $aiSkillMatch)) {
         $projectId=$aiSkillMatch[1];$skillId=$aiSkillMatch[2]??'';$action=$aiSkillMatch[3]??'';$skills=new Juzimder\ProjectAiSkills($store);
