@@ -117,9 +117,9 @@ final class AiProfileProbe {
 final class ProfileFailoverProvider implements StructuredAiProvider {
     private ?float $deadline = null;
     private ?string $preferredId = null;
-    public function __construct(private array $profiles, private readonly ?AiHttpTransport $transport = null) {}
+    public function __construct(private array $profiles, private readonly ?AiHttpTransport $transport = null, private readonly int $budgetSeconds=100, private readonly ?int $transferTimeout=null) {}
     public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200): array {
-        $this->deadline ??= microtime(true)+100;
+        $this->deadline ??= microtime(true)+$this->budgetSeconds;
         $profiles=$this->profiles;
         if($this->preferredId!==null)usort($profiles,fn($a,$b)=>(int)($b['id']===$this->preferredId)<=>(int)($a['id']===$this->preferredId));
         $last=null;
@@ -128,7 +128,7 @@ final class ProfileFailoverProvider implements StructuredAiProvider {
             if($remaining<1)break;
             // Reserve time for each remaining profile instead of exhausting it on the first key.
             $profileDeadline=microtime(true)+$remaining/(count($profiles)-$index);
-            $provider=new OpenRouterProvider($profile['settings'],$this->transport,$profileDeadline,count($profiles)===1);
+            $provider=new OpenRouterProvider($profile['settings'],$this->transport,$profileDeadline,count($profiles)===1,$this->transferTimeout);
             try{
                 $result=$provider->completeJson($systemPrompt,$userPrompt,$schema,$schemaName,$maxTokens);
                 $this->preferredId=$profile['id'];
@@ -146,7 +146,7 @@ final class ProfileFailoverProvider implements StructuredAiProvider {
 final class OpenRouterProvider implements StructuredAiProvider {
     private const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
-    public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null, ?float $deadline = null, private readonly bool $retryTransient = true) { $this->deadline=$deadline; }
+    public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null, ?float $deadline = null, private readonly bool $retryTransient = true, private readonly ?int $transferTimeout=null) { $this->deadline=$deadline; }
 
     private ?float $deadline = null;
 
@@ -211,7 +211,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
             try {
                 $remaining = (int) floor(($this->deadline ?? 0) - microtime(true));
                 if ($remaining < 1) throw new AiProviderFailure('AI request deadline exceeded.', false, 'unavailable');
-                $response = $transport->post(self::ENDPOINT, $headers, $requestBody, min($this->settings->timeoutSeconds, $remaining));
+                $response = $transport->post(self::ENDPOINT, $headers, $requestBody, min($this->transferTimeout??$this->settings->timeoutSeconds, $remaining));
             } catch (\Throwable $transportError) {
                 error_log('Juzimder AI: OpenRouter transport failure.');
                 if ($attempt === 0 && $this->retryTransient) {

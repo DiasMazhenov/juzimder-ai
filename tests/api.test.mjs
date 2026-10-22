@@ -13,7 +13,7 @@ const devBase='http://127.0.0.1:18082';
 class Client {
   constructor(url=base){this.url=url;}
   cookie=''; csrf='';
-  async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data.csrf)this.csrf=data.csrf;return {status:r.status,data};}
+  async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data?.csrf)this.csrf=data.csrf;return {status:r.status,data};}
   async download(path){const r=await fetch(this.url+'/api'+path,{headers:{Cookie:this.cookie}});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,type:r.headers.get('content-type'),body:Buffer.from(await r.arrayBuffer())};}
   async upload(path,bytes,name,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method:'POST',headers:{Cookie:this.cookie,'Content-Type':'application/octet-stream','X-CSRF-Token':token,'X-Asset-Name':encodeURIComponent(name)},body:bytes});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,data:await r.json()};}
 }
@@ -100,6 +100,12 @@ const testApiKey='sk-or-v1-this-is-a-test-secret-only';
 let aiSaved=await a.call(aiSettingsPath,'PUT',{version:0,apiKey:testApiKey,model:'openai/test-model',fallbackModel:'openai/fallback-model'});
 assert.equal(aiSaved.status,200);assert.equal(aiSaved.data.configured,true);assert.equal(aiSaved.data.model,'openai/test-model');assert.equal(aiSaved.data.fallbackModel,'openai/fallback-model');assert.equal(aiSaved.data.profiles[0].fallbackModel,'openai/fallback-model');assert.equal(aiSaved.data.version,1);
 assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники',skillId:deletedSkillId,skillProfile:'standard'})).status,404,'Full-page generation rejects a deleted project Skill before contacting OpenRouter');
+const aiJobsPath=`/projects/${aiProject.id}/ai/generation-jobs`;
+assert.equal((await a.call(aiJobsPath+'?pageId=home')).data,null,'No generation job initially');
+assert.equal((await a.call(aiJobsPath+'/000000000000000000000000')).status,404,'Unknown jobs stay private');
+assert.equal((await a.call(aiJobsPath,'POST',{prompt:'Workshop',pageId:'home',version:999},'invalid')).status,403,'Job creation enforces CSRF before launching');
+assert.equal((await a.call(aiJobsPath,'POST',{prompt:'Workshop',pageId:'home',version:999})).status,409,'Job creation enforces current version before launching');
+assert.equal((await a.call(aiJobsPath,'POST',{prompt:'Workshop',pageId:'missing',version:0})).status,404,'Job creation validates page identity before launching');
 const primaryProfile=aiSaved.data.profiles.find(profile=>profile.active);
 assert.ok(primaryProfile);assert.equal(primaryProfile.name,'Основной профиль');
 assert.equal(JSON.stringify(aiSaved.data).includes(testApiKey),false,'AI settings never return the API key');
@@ -127,6 +133,7 @@ assert.equal(profilesSaved.status,200);assert.equal(profilesSaved.data.version,5
 assert.equal(JSON.stringify(profilesSaved.data).includes('sk-or-v1-updated-second-secret'),false,'Replacing a profile key never returns the new secret');
 assert.equal((await a.call(aiProfilesPath+'/'+primaryProfile.id+'/activate','POST',{version:5})).data.model,'openai/second-test-model','The owner can select which profile the AI endpoint uses');
 const otherAiClient=new Client();await otherAiClient.call('/session');await otherAiClient.call('/register','POST',{email:'ai-outsider@example.test',password:'another-ai-password'});
+assert.equal((await otherAiClient.call(aiJobsPath+'?pageId=home')).status,404,'Generation job status enforces ownership');
 assert.equal((await otherAiClient.call(aiSkillsPath)).status,404,'Skill libraries enforce project ownership');
 assert.equal((await otherAiClient.call(analyzePath,'POST',{version:6,content:'Use one H1.'})).status,404,'Skill analysis enforces project ownership before contacting a provider');
 assert.equal((await otherAiClient.call(aiSkillsPath+'/'+firstSkillId)).status,404,'Skill content cannot be read by another project owner');

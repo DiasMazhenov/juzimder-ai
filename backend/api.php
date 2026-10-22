@@ -4,6 +4,7 @@ require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
 require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/AiSkills.php';
+require_once __DIR__ . '/AiGenerationJobs.php';
 require_once __DIR__ . '/SkillAnalyzer.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
@@ -299,11 +300,14 @@ try {
             throw new Problem(422,$failure->getMessage());
         }
     }
-    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/generate-page$~D', $path, $aiDesignMatch) && $method === 'POST') {
+    if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/generation-jobs(?:/([a-f0-9]{24}))?$~D',$path,$jobMatch)&&$method==='GET'){
+        result((new Juzimder\AiGenerationJobs($store))->get($jobMatch[1],$user,$jobMatch[2]??null,is_string($_GET['pageId']??null)?$_GET['pageId']:null));
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/(generate-page|generation-jobs)$~D', $path, $aiDesignMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
         $skillId = array_key_exists('skillId',$body) ? $body['skillId'] : null;
         $skillProfile = array_key_exists('skillProfile', $body) ? $body['skillProfile'] : ($skillId===null?'taste':'standard');
-        if (array_diff(array_keys($body), ['prompt','skillProfile','skillId'])) throw new Problem(422,'Передайте описание сайта и поддерживаемый профиль генерации.');
+        if (array_diff(array_keys($body), $aiDesignMatch[2]==='generation-jobs'?['prompt','skillProfile','skillId','pageId','version']:['prompt','skillProfile','skillId'])) throw new Problem(422,'Передайте описание сайта и поддерживаемый профиль генерации.');
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
         if (!is_string($skillProfile) || !in_array($skillProfile, ['standard','taste'], true)) throw new Problem(422,'Выберите поддерживаемый профиль генерации.');
         if ($skillId !== null && (!is_string($skillId) || !preg_match('/^[a-f0-9]{24}$/D',$skillId) || $skillProfile==='taste')) throw new Problem(422,'Выберите либо встроенный профиль, либо один пользовательский Skill.');
@@ -318,6 +322,13 @@ try {
         if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
         $requests[] = $now;
         $_SESSION['ai_requests'] = $requests;
+        if($aiDesignMatch[2]==='generation-jobs'){
+            if(!is_string($body['pageId']??null)||!is_int($body['version']??null)||$body['version']<0)throw new Problem(422,'Укажите страницу и текущую версию проекта.');
+            $jobs=new Juzimder\AiGenerationJobs($store);
+            $job=$jobs->create($aiDesignMatch[1],$user,$body['pageId'],$body['version'],['prompt'=>$prompt,'skillProfile'=>$skillProfile,'userSkill'=>$userSkill]);
+            $jobs->launch($job['id']);
+            result($jobs->get($aiDesignMatch[1],$user,$job['id']),202);
+        }
         set_time_limit(120);
         try {
             result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\ProfileFailoverProvider($settings), $skillProfile, $userSkill));
