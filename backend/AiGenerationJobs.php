@@ -7,8 +7,8 @@ final class AiGenerationJobs {
         $this->expire();
     }
     private function expire(): void {
-        $this->store->query("UPDATE ai_generation_jobs SET status='failed',error=?,updated_at=? WHERE status IN ('queued','running') AND created_at<?",['Время задачи истекло. Создайте новую генерацию.',time(),time()-660]);
-        $this->store->query("DELETE FROM ai_generation_jobs WHERE status NOT IN ('queued','running') AND updated_at<?",[time()-86400]);
+        $this->store->query("UPDATE ai_generation_jobs SET status='failed',error=?,updated_at=? WHERE status IN ('queued','running','cancelling') AND created_at<?",['Время задачи истекло. Создайте новую генерацию.',time(),time()-660]);
+        $this->store->query("DELETE FROM ai_generation_jobs WHERE status NOT IN ('queued','running','cancelling') AND updated_at<?",[time()-86400]);
     }
     public function create(string $projectId,string $owner,string $pageId,int $version,array $payload): array {
         $project=$this->store->owned($projectId,$owner);
@@ -16,7 +16,7 @@ final class AiGenerationJobs {
         if(!in_array($pageId,array_column($project['document']->data->pages,'id'),true))throw new Problem(404,'Страница не найдена.');
         $this->store->query('BEGIN IMMEDIATE');
         try{
-            if($this->store->query("SELECT 1 FROM ai_generation_jobs WHERE project_id=? AND status IN ('queued','running')",[$projectId])->fetchColumn())throw new Problem(409,'В проекте уже есть задача генерации. Восстановите её или дождитесь завершения.');
+            if($this->store->query("SELECT 1 FROM ai_generation_jobs WHERE project_id=? AND status IN ('queued','running','cancelling')",[$projectId])->fetchColumn())throw new Problem(409,'В проекте уже есть задача генерации. Восстановите её или дождитесь завершения.');
             $id=bin2hex(random_bytes(12));$now=time();
             $this->store->query("INSERT INTO ai_generation_jobs(id,project_id,owner_id,page_id,base_version,status,payload,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?,?)",[$id,$projectId,$owner,$pageId,$version,json_encode($payload,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),$now,$now]);
             $this->store->query('COMMIT');
@@ -29,6 +29,18 @@ final class AiGenerationJobs {
         if(!$row){if($id!==null)throw new Problem(404,'Задача не найдена.');return null;}
         $payload=json_decode($row['payload'],true,32,JSON_THROW_ON_ERROR);
         return ['id'=>$row['id'],'pageId'=>$row['page_id'],'baseVersion'=>(int)$row['base_version'],'status'=>$row['status'],'createdAt'=>(int)$row['created_at'],'request'=>['prompt'=>$payload['prompt'],'skillProfile'=>$payload['skillProfile'],'skillId'=>$payload['userSkill']['id']??null],'result'=>$row['result']===null?null:json_decode($row['result'],true,64,JSON_THROW_ON_ERROR),'error'=>$row['error']];
+    }
+    public function cancel(string $projectId,string $owner,string $id): array {
+        $job=$this->get($projectId,$owner,$id);
+        if(in_array($job['status'],['succeeded','failed'],true))throw new Problem(409,'Задача уже завершена.');
+        $change=$this->store->query("UPDATE ai_generation_jobs SET status=CASE WHEN status='queued' THEN 'cancelled' ELSE 'cancelling' END,error=?,updated_at=? WHERE id=? AND project_id=? AND owner_id=? AND status IN ('queued','running')",['Генерация отменена. Проект не изменён. Уже потраченные токены могут быть учтены провайдером.',time(),$id,$projectId,$owner]);
+        $updated=$this->get($projectId,$owner,$id);
+        if($change->rowCount()===0&&in_array($updated['status'],['succeeded','failed'],true))throw new Problem(409,'Задача уже завершена.');
+        return $updated;
+    }
+    public function shouldCancel(string $id): bool {
+        $status=$this->store->query('SELECT status FROM ai_generation_jobs WHERE id=?',[$id])->fetchColumn();
+        return $status===false||in_array($status,['cancelling','cancelled','failed'],true);
     }
     public function failLaunch(string $id): void {$this->store->query("UPDATE ai_generation_jobs SET status='failed',error=?,updated_at=? WHERE id=? AND status='queued'",['Не удалось запустить PHP worker. Проверьте конфигурацию сервера.',time(),$id]);}
     public function run(string $id,callable $providerFactory): bool {
@@ -45,6 +57,7 @@ final class AiGenerationJobs {
             $message=$error instanceof AiProviderFailure?$error->userMessage():($error instanceof Problem?$error->getMessage():'Не удалось завершить генерацию. Проект не изменён.');
             $this->store->query("UPDATE ai_generation_jobs SET status='failed',error=?,updated_at=? WHERE id=? AND status='running'",[$message,time(),$id]);
         }
+        $this->store->query("UPDATE ai_generation_jobs SET status='cancelled',result=NULL,updated_at=? WHERE id=? AND status='cancelling'",[time(),$id]);
         return true;
     }
     public function launch(string $id): void {

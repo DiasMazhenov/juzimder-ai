@@ -103,6 +103,8 @@ assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиник�
 const aiJobsPath=`/projects/${aiProject.id}/ai/generation-jobs`;
 assert.equal((await a.call(aiJobsPath+'?pageId=home')).data,null,'No generation job initially');
 assert.equal((await a.call(aiJobsPath+'/000000000000000000000000')).status,404,'Unknown jobs stay private');
+assert.equal((await a.call(aiJobsPath+'/000000000000000000000000/cancel','POST',{},'invalid')).status,403,'Job cancellation enforces CSRF');
+assert.equal((await a.call(aiJobsPath+'/000000000000000000000000/cancel','POST',{})).status,404,'Job cancellation validates job identity');
 assert.equal((await a.call(aiJobsPath,'POST',{prompt:'Workshop',pageId:'home',version:999},'invalid')).status,403,'Job creation enforces CSRF before launching');
 assert.equal((await a.call(aiJobsPath,'POST',{prompt:'Workshop',pageId:'home',version:999})).status,409,'Job creation enforces current version before launching');
 assert.equal((await a.call(aiJobsPath,'POST',{prompt:'Workshop',pageId:'missing',version:0})).status,404,'Job creation validates page identity before launching');

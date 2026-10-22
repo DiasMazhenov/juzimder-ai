@@ -6,7 +6,7 @@ import {promisify} from 'node:util';
 const exec=promisify(execFile);
 test('AI transport bounds drip responses, body size and redirects', async()=>{
   const server=http.createServer((req,res)=>{
-    if(req.url==='/drip'){
+    if(req.url==='/drip'||req.url==='/cancel'){
       res.writeHead(200);res.write(' ');
       const timer=setInterval(()=>res.write(' '),100);
       res.on('close',()=>clearInterval(timer));
@@ -23,6 +23,8 @@ test('AI transport bounds drip responses, body size and redirects', async()=>{
     const started=Date.now();
     assert.equal(await request('/drip'),'bounded-failure');
     assert.ok(Date.now()-started<2500,'total timeout must survive continuously arriving bytes');
+    const cancelCode=String.raw`require 'backend/Ai.php'; $checks=0; $t=new Juzimder\StreamAiHttpTransport(function()use(&$checks){return ++$checks>4;});try{$t->post($argv[1],[],'{}',5);echo 'not-cancelled';}catch(RuntimeException $error){echo $error->getCode();}`;
+    assert.equal((await exec('php',['-r',cancelCode,url+'/cancel'],{timeout:5000})).stdout,'42','Cancellation interrupts an actual in-flight HTTP transfer');
     assert.equal(await request('/large'),'bounded-failure');
     assert.equal(JSON.parse(await request('/redirect')).status,302);
   }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}

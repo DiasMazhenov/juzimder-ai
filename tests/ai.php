@@ -351,3 +351,6 @@ aiRejects(fn()=>Juzimder\AiProfileProbe::check(new OpenRouterProvider($settings,
 
 $timeoutTransport=new FakeAiTransport([new RuntimeException('synthetic timeout',28)]);
 try{(new OpenRouterProvider($settings,$timeoutTransport,null,false))->completeJson('system','prompt',['type'=>'object'],'timeout_test');throw new RuntimeException('Expected timeout');}catch(AiProviderFailure $failure){aiCheck($failure->category==='timeout'&&$failure->retryable&&str_contains($failure->userMessage(),'полный ответ'),'Timeout is distinct from provider availability and remains eligible for failover');}
+
+$cancelledTransport=new FakeAiTransport([new RuntimeException('cancelled',42)]);
+try{(new Juzimder\ProfileFailoverProvider($profileEntries,$cancelledTransport))->completeJson('system','prompt',['type'=>'object'],'cancel_test');throw new RuntimeException('Expected cancellation');}catch(AiProviderFailure $failure){aiCheck($failure->category==='cancelled'&&!$failure->retryable&&count($cancelledTransport->calls)===1,'Cancellation aborts without retries or profile failover');}

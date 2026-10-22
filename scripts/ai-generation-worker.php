@@ -7,8 +7,14 @@ require __DIR__.'/../backend/AiCredentials.php';
 require __DIR__.'/../backend/AiGenerationJobs.php';
 set_time_limit(630);
 $store=new Juzimder\Store($argv[1]);
-(new Juzimder\AiGenerationJobs($store))->run($argv[2],static function(string $project,string $owner)use($store):Juzimder\StructuredAiProvider{
+$jobs=new Juzimder\AiGenerationJobs($store);
+$jobs->run($argv[2],static function(string $project,string $owner)use($store,$jobs,$argv):Juzimder\StructuredAiProvider{
     $profiles=(new Juzimder\AiCredentialVault($store))->failoverSettings($project,$owner);
     if(!$profiles)throw new Juzimder\AiProviderFailure('No AI profiles.',false,'credentials');
-    return new Juzimder\ProfileFailoverProvider($profiles,null,600,180);
+    $lastCheck=0.0;$cancelled=false;
+    $transport=new Juzimder\StreamAiHttpTransport(static function()use($jobs,$argv,&$lastCheck,&$cancelled):bool{
+        if(microtime(true)-$lastCheck>=0.5){$cancelled=$jobs->shouldCancel($argv[2]);$lastCheck=microtime(true);}
+        return $cancelled;
+    });
+    return new Juzimder\ProfileFailoverProvider($profiles,$transport,600,180);
 });

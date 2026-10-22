@@ -300,6 +300,10 @@ try {
             throw new Problem(422,$failure->getMessage());
         }
     }
+    if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/generation-jobs/([a-f0-9]{24})/cancel$~D',$path,$cancelJob)&&$method==='POST'){
+        if($body)throw new Problem(422,'Отмена не принимает дополнительные поля.');
+        result((new Juzimder\AiGenerationJobs($store))->cancel($cancelJob[1],$user,$cancelJob[2]));
+    }
     if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/generation-jobs(?:/([a-f0-9]{24}))?$~D',$path,$jobMatch)&&$method==='GET'){
         result((new Juzimder\AiGenerationJobs($store))->get($jobMatch[1],$user,$jobMatch[2]??null,is_string($_GET['pageId']??null)?$_GET['pageId']:null));
     }

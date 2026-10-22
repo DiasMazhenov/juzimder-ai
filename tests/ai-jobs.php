@@ -27,6 +27,18 @@ try{
  $failed=$jobs->get($id,'owner',$failure['id']);jobCheck($failed['status']==='failed'&&!str_contains($failed['error'],'raw-secret'),'Provider failure stores only safe guidance');
  $expired=$jobs->create($id,'owner',$page,0,$payload);$store->query('UPDATE ai_generation_jobs SET created_at=? WHERE id=?',[time()-700,$expired['id']]);
  jobCheck($jobs->get($id,'owner',$expired['id'])['status']==='failed','Abandoned queued/running jobs expire and stop blocking the project');
+ $queuedCancel=$jobs->create($id,'owner',$page,0,$payload);
+ jobReject(fn()=>$jobs->cancel($id,'other',$queuedCancel['id']),404);
+ jobCheck($jobs->cancel($id,'owner',$queuedCancel['id'])['status']==='cancelled','Queued cancellation is immediate');
+ jobCheck(!$jobs->run($queuedCancel['id'],fn()=>throw new RuntimeException('Must not call provider')),'Cancelled queued job never calls provider');
+ $runningCancel=$jobs->create($id,'owner',$page,0,$payload);
+ $jobs->run($runningCancel['id'],function()use($jobs,$id,$runningCancel,$page,$payload){
+   jobCheck($jobs->cancel($id,'owner',$runningCancel['id'])['status']==='cancelling','Running cancellation waits for worker acknowledgement');
+   jobReject(fn()=>$jobs->create($id,'owner',$page,0,$payload),409);
+   return new JobProvider();
+ });
+ $cancelled=$jobs->get($id,'owner',$runningCancel['id']);
+ jobCheck($cancelled['status']==='cancelled'&&$cancelled['result']===null,'A result racing with cancellation is discarded and releases the active slot');
  $workerJob=$jobs->create($id,'owner',$page,0,$payload);$jobs->launch($workerJob['id']);
  for($wait=0;$wait<40;$wait++){usleep(100000);$workerState=$jobs->get($id,'owner',$workerJob['id']);if($workerState['status']==='failed')break;}
  jobCheck($workerState['status']==='failed','Detached CLI worker starts and safely reports missing credentials without blocking the API');

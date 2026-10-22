@@ -17,14 +17,18 @@ final class AiHttpResponse {
 
 final class StreamAiHttpTransport implements AiHttpTransport {
     private const MAX_RESPONSE_BYTES = 1000000;
+    public function __construct(private readonly ?\Closure $shouldCancel=null) {}
 
     public function post(string $url, array $headers, string $body, int $timeoutSeconds): AiHttpResponse {
         // Stream read timeouts reset as bytes arrive; cURL bounds the entire transfer.
         if (!function_exists('curl_init')) throw new \RuntimeException('AI transport requires PHP cURL.');
+        if($this->shouldCancel&&($this->shouldCancel)())throw new \RuntimeException('AI request cancelled.',42);
         $handle = curl_init($url);
         $responseBody = '';
         $responseHeaders = [];
         curl_setopt_array($handle, [
+            CURLOPT_NOPROGRESS => false,
+            CURLOPT_XFERINFOFUNCTION => fn()=>($this->shouldCancel&&($this->shouldCancel)())?1:0,
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_POSTFIELDS => $body,
@@ -57,6 +61,7 @@ final class AiProviderFailure extends \RuntimeException {
 
     public function userMessage(): string {
         return match ($this->category) {
+            'cancelled' => 'Генерация отменена. Проект не изменён. Уже потраченные токены могут быть учтены провайдером.',
             'timeout' => 'Модель не успела вернуть полный ответ за отведённое время. Попробуйте более быструю модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'unavailable' => 'OpenRouter временно недоступен. Попробуйте позже или настройте резервную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'credentials' => 'OpenRouter отклонил доступ. Проверьте API-ключ и выбранную модель в «Настройки сайта → AI Engine». Проект не изменён.',
@@ -213,6 +218,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
                 if ($remaining < 1) throw new AiProviderFailure('AI request deadline exceeded.', false, 'unavailable');
                 $response = $transport->post(self::ENDPOINT, $headers, $requestBody, min($this->transferTimeout??$this->settings->timeoutSeconds, $remaining));
             } catch (\Throwable $transportError) {
+                if($transportError->getCode()===42)throw new AiProviderFailure('AI request cancelled.',false,'cancelled');
                 error_log('Juzimder AI: OpenRouter transport failure.');
                 if ($attempt === 0 && $this->retryTransient) {
                     usleep(150000);
