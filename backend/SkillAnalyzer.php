@@ -66,7 +66,7 @@ final class SkillAnalyzer {
             $stage='draft_size';
             if(mb_strlen($draft)>16000)throw new \InvalidArgumentException();
             if(!$manual)$manual=['Проверить полноту требований Skill и визуальное качество результата.'];
-            return ['items'=>$output['items'],'content'=>$draft,'manualChecks'=>$manual,'sourceHash'=>hash('sha256',$content),'coverage'=>'owner_review_required','metadata'=>['repairAttempted'=>$attempt>0,'resolvedModel'=>$response['model']??null,'usage'=>$usage]];
+            return ['items'=>$output['items'],'content'=>$draft,'manualChecks'=>$manual,'sourceHash'=>hash('sha256',$content),'coverage'=>'owner_review_required','metadata'=>['repairAttempted'=>$attempt>0,'resolvedModel'=>$response['model']??null,'resolvedProfileName'=>$response['profileName']??null,'usage'=>$usage]];
         }catch(\JsonException|\InvalidArgumentException|\TypeError $error){
             error_log('Juzimder AI: Skill analysis rejected at '.$stage.'.');
             if($attempt===0){$system.=' Previous extraction failed validation at '.$stage.'. Regenerate from the same source. IDs must be unique lowercase ASCII with hyphens only. Copy sourceQuote verbatim, without translating, adding punctuation or correcting the source. ruleJson contains only type and its parameters. Do not repeat id or label inside ruleJson.';continue;}

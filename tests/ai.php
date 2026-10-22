@@ -31,6 +31,11 @@ try {
     $primaryProfileId=$savedStatus['profiles'][0]['id'];
     $secondStatus=$vault->createProfile($vaultProject['id'],'vault-owner',1,'Рабочий','sk-vault-second-test','anthropic/test-model','openai/fallback-model');
     $secondProfileId=$secondStatus['activeProfileId'];
+    $orderedProfiles=$vault->failoverSettings($vaultProject['id'],'vault-owner');
+    aiCheck(count($orderedProfiles)===2&&$orderedProfiles[0]['id']===$secondProfileId&&$orderedProfiles[0]['settings']->apiKey==='sk-vault-second-test'&&$orderedProfiles[1]['settings']->apiKey==='sk-vault-round-trip-test','Vault supplies active-first project-scoped decrypted failover profiles');
+    aiCheck($vault->status($vaultProject['id'],'vault-owner')['activeProfileId']===$secondProfileId,'Reading failover profiles does not change active selection');
+    try{$vault->failoverSettings($vaultProject['id'],'other-owner');throw new RuntimeException('Expected ownership guard');}catch(Juzimder\Problem){aiCheck(true,'Failover credentials remain owner protected');}
+
     $secondPublicProfile=array_values(array_filter($secondStatus['profiles'],static fn($profile)=>$profile['id']===$secondProfileId))[0]??null;
     aiCheck(count($secondStatus['profiles'])===2&&$secondStatus['version']===2&&$secondPublicProfile!==null&&$secondPublicProfile['fallbackModel']==='openai/fallback-model'&&$secondStatus['fallbackModel']==='openai/fallback-model','Project stores the optional fallback model with its profile');
     $secondStatus=$vault->updateProfile($vaultProject['id'],'vault-owner',2,$secondProfileId,'Рабочая модель','', 'anthropic/updated-model');
@@ -81,7 +86,7 @@ try {
     $allSectionsPlan['sections']=array_keys($textCounts);
     $allSectionsPlan['content']=array_map(static fn(string $section): array=>['section'=>$section,'texts'=>array_map(static fn(int $index): string=>$section.' copy '.($index+1),range(0,$textCounts[$section]-1))],$allSectionsPlan['sections']);
     aiCheck(count(AiDesignPlan::parseProviderOutput(json_encode($allSectionsPlan,JSON_THROW_ON_ERROR))['content'])===9,'Server validation supports generated text slots in every built-in section');
-    aiCheck($request['timeoutSeconds']===25 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports the fixed timeout, resolved model, token usage and upstream cost');
+    aiCheck($request['timeoutSeconds']===60 && $result['metadata']['resolvedModel']==='openai/resolved-model' && $result['metadata']['usage']['costUsd']===0.00125, 'Provider reports the fixed timeout, resolved model, token usage and upstream cost');
     aiCheck($result['plan']['sections'][1]==='hero' && $result['plan']['colors']['accent']==='#2A8C7A', 'Design plan is normalized into supported section and color values');
 
     $componentFixture = json_decode(file_get_contents(__DIR__.'/grapesjs-0.23.8.fixture.json'), false, 64, JSON_THROW_ON_ERROR);
@@ -295,3 +300,36 @@ $deadlineProperty=new ReflectionProperty(OpenRouterProvider::class,'deadline');
 $deadlineProperty->setValue($expiredProvider,microtime(true)-1);
 aiRejects(fn()=>$expiredProvider->completeJson('system','prompt',['type'=>'object'],'deadline_test'),'An exhausted request budget fails closed before another transfer');
 aiCheck($expiredTransport->calls===[],'Expired request budget never sends another provider request');
+
+$budgetTransport=new FakeAiTransport([new AiHttpResponse(200,$successBody)]);
+$budgetProvider=new OpenRouterProvider($settings,$budgetTransport);
+$deadlineProperty->setValue($budgetProvider,microtime(true)+8);
+$budgetProvider->completeJson('system','prompt',['type'=>'object'],'budget_test');
+aiCheck($budgetTransport->calls[0]['timeoutSeconds']>=1&&$budgetTransport->calls[0]['timeoutSeconds']<=8,'Longer model wait is capped by the remaining shared request budget');
+
+$profileEntries=[
+ ['id'=>'primary','name'=>'Primary','settings'=>OpenRouterSettings::fromCredentials('sk-primary-test','test/primary')],
+ ['id'=>'backup','name'=>'Backup','settings'=>OpenRouterSettings::fromCredentials('sk-backup-test','test/backup')],
+];
+foreach([429,502,401] as $failedStatus){
+ $failoverTransport=new FakeAiTransport([new AiHttpResponse($failedStatus,'{}'),new AiHttpResponse(200,$successBody)]);
+ $failover=new Juzimder\ProfileFailoverProvider($profileEntries,$failoverTransport);
+ $completed=$failover->completeJson('system','prompt',['type'=>'object'],'profile_test');
+ aiCheck($completed['profileName']==='Backup'&&count($failoverTransport->calls)===2,'Profile failover succeeds after HTTP '.$failedStatus);
+ aiCheck(in_array('Authorization: Bearer sk-primary-test',$failoverTransport->calls[0]['headers'],true)&&in_array('Authorization: Bearer sk-backup-test',$failoverTransport->calls[1]['headers'],true),'Failover uses each profile own key');
+ $failoverTransport->calls=[];
+ // The successful profile remains preferred within this request (e.g. a design repair).
+ $reused=new ReflectionProperty(FakeAiTransport::class,'responses');$reused->setValue($failoverTransport,[new AiHttpResponse(200,$successBody)]);
+ $failover->completeJson('system','prompt',['type'=>'object'],'profile_repair');
+ aiCheck(in_array('Authorization: Bearer sk-backup-test',$failoverTransport->calls[0]['headers'],true),'Repair reuses the successful profile');
+}
+$strictTransport=new FakeAiTransport([new AiHttpResponse(400,'{}')]);
+aiRejects(fn()=>(new Juzimder\ProfileFailoverProvider($profileEntries,$strictTransport))->completeJson('system','prompt',['type'=>'object'],'profile_test'),'Non-transient request errors do not rotate profiles');
+aiCheck(count($strictTransport->calls)===1,'No extra billable calls for a non-transient request error');
+
+$networkTransport=new FakeAiTransport([new RuntimeException('timeout'),new AiHttpResponse(200,$successBody)]);
+$networkResult=(new Juzimder\ProfileFailoverProvider($profileEntries,$networkTransport))->completeJson('system','prompt',['type'=>'object'],'network_profile');
+aiCheck($networkResult['profileName']==='Backup'&&count($networkTransport->calls)===2&&$networkTransport->calls[0]['timeoutSeconds']<=50,'Timeout rotates profiles and reserves time for the backup');
+$failedProfiles=new FakeAiTransport([new AiHttpResponse(503,'{}'),new AiHttpResponse(503,'{}')]);
+aiRejects(fn()=>(new Juzimder\ProfileFailoverProvider($profileEntries,$failedProfiles))->completeJson('system','prompt',['type'=>'object'],'all_failed'),'All unavailable profiles fail closed');
+aiCheck(count($failedProfiles->calls)===2,'Unavailable profiles are attempted once without a retry storm');

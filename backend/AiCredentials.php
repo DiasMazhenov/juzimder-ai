@@ -50,6 +50,24 @@ final class AiCredentialVault {
         return $settings;
     }
 
+    /** Server-only credentials, active profile first; never return this through an API. */
+    public function failoverSettings(string $projectId, string $userId): array {
+        $active = $this->settings($projectId, $userId);
+        if (!$active) return [];
+        $status = $this->status($projectId, $userId);
+        $entries = [];
+        foreach ($status['profiles'] as $profile) {
+            $settings = $active;
+            if (!$profile['active']) {
+                $row = $this->store->query('SELECT api_key_ciphertext FROM project_ai_profiles WHERE project_id=? AND id=?', [$projectId,$profile['id']])->fetch();
+                $settings = OpenRouterSettings::fromCredentials($this->decrypt($row['api_key_ciphertext']),$profile['model'],$profile['fallbackModel']);
+            }
+            if ($settings) $entries[] = ['id'=>$profile['id'],'name'=>$profile['name'],'settings'=>$settings,'active'=>$profile['active']];
+        }
+        usort($entries,static fn($a,$b)=>(int)$b['active']<=>(int)$a['active']);
+        return $entries;
+    }
+
     public function createProfile(string $projectId, string $userId, int $expectedVersion, string $name, ?string $apiKey, string $model, ?string $fallbackModel = null): array {
         $this->store->owned($projectId, $userId);
         $name = self::validateName($name);

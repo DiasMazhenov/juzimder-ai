@@ -199,13 +199,13 @@ try {
         $library=(new Juzimder\ProjectAiSkills($store))->list($skillAnalysisMatch[1],$user);
         if($library['version']!==$body['version'])throw new Problem(409,'Библиотека Skills изменилась. Обновите страницу перед разбором.');
         try{$content=Juzimder\SkillAnalyzer::validateSource($body['content']);}catch(InvalidArgumentException $error){throw new Problem(422,$error->getMessage());}
-        $settings=(new Juzimder\AiCredentialVault($store))->settings($skillAnalysisMatch[1],$user);
+        $settings=(new Juzimder\AiCredentialVault($store))->failoverSettings($skillAnalysisMatch[1],$user);
         if(!$settings)throw new Problem(503,'Настройте профиль OpenRouter в AI Engine.');
         $now=time();$stored=$_SESSION['ai_requests']??[];
         $requests=array_values(array_filter(is_array($stored)?$stored:[],static fn($at)=>is_int($at)&&$at>$now-60));
         if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
         $requests[]=$now;$_SESSION['ai_requests']=$requests;set_time_limit(120);
-        try{result(Juzimder\SkillAnalyzer::create($content,new Juzimder\OpenRouterProvider($settings)));}
+        try{result(Juzimder\SkillAnalyzer::create($content,new Juzimder\ProfileFailoverProvider($settings)));}
         catch(Juzimder\AiProviderFailure $error){throw new Problem(502,Juzimder\SkillAnalyzer::failureMessage($error));}
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/skills(?:/([a-f0-9]{24})(?:/(activate))?)?$~D', $path, $aiSkillMatch)) {
@@ -233,7 +233,7 @@ try {
         $prompt = $body['prompt'] ?? null;
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
         $credentials = new Juzimder\AiCredentialVault($store);
-        $settings = $credentials->settings($aiPlanMatch[1], $user);
+        $settings = $credentials->failoverSettings($aiPlanMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $now = time();
         $storedRequests = $_SESSION['ai_requests'] ?? [];
@@ -246,7 +246,7 @@ try {
         // optional fallback can together exceed PHP's usual 30-second limit.
         set_time_limit(120);
         try {
-            result(Juzimder\AiDesignPlanner::create($prompt, new Juzimder\OpenRouterProvider($settings)));
+            result(Juzimder\AiDesignPlanner::create($prompt, new Juzimder\ProfileFailoverProvider($settings)));
         } catch (Juzimder\AiProviderFailure $failure) {
             throw new Problem(502,$failure->userMessage());
         }
@@ -264,7 +264,7 @@ try {
         if ($project['version'] !== $body['version']) throw new Problem(409,'Версия проекта изменилась. Загрузите актуальную версию и подготовьте правку заново.');
         $target = Juzimder\ProjectOperations::componentForAiEdit($project['document'], $pageId, $componentPath, $componentId);
         $credentials = new Juzimder\AiCredentialVault($store);
-        $settings = $credentials->settings($projectId, $user);
+        $settings = $credentials->failoverSettings($projectId, $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $now = time();
         $storedRequests = $_SESSION['ai_requests'] ?? [];
@@ -275,7 +275,7 @@ try {
         $_SESSION['ai_requests'] = $requests;
         set_time_limit(120);
         try {
-            $proposal = Juzimder\AiComponentEditor::create($prompt, $target['component'], new Juzimder\OpenRouterProvider($settings));
+            $proposal = Juzimder\AiComponentEditor::create($prompt, $target['component'], new Juzimder\ProfileFailoverProvider($settings));
             Juzimder\ProjectOperations::apply($target['document'], $proposal['operations']);
             result(['pageId'=>$pageId,'componentId'=>$target['componentId'],'requestedComponentId'=>$componentId,'needsId'=>$target['needsId'],'baseVersion'=>$project['version'],...$proposal]);
         } catch (Juzimder\AiProviderFailure $failure) {
@@ -293,7 +293,7 @@ try {
         if (!is_string($skillProfile) || !in_array($skillProfile, ['standard','taste'], true)) throw new Problem(422,'Выберите поддерживаемый профиль генерации.');
         if ($skillId !== null && (!is_string($skillId) || !preg_match('/^[a-f0-9]{24}$/D',$skillId) || $skillProfile==='taste')) throw new Problem(422,'Выберите либо встроенный профиль, либо один пользовательский Skill.');
         $credentials = new Juzimder\AiCredentialVault($store);
-        $settings = $credentials->settings($aiDesignMatch[1], $user);
+        $settings = $credentials->failoverSettings($aiDesignMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $userSkill=$skillId===null?null:(new Juzimder\ProjectAiSkills($store))->forGeneration($aiDesignMatch[1],$user,$skillId);
         $now = time();
@@ -305,7 +305,7 @@ try {
         $_SESSION['ai_requests'] = $requests;
         set_time_limit(120);
         try {
-            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings), $skillProfile, $userSkill));
+            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\ProfileFailoverProvider($settings), $skillProfile, $userSkill));
         } catch (Juzimder\AiProviderFailure $failure) {
             throw new Problem(502,$failure->userMessage());
         }

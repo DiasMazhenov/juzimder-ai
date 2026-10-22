@@ -86,7 +86,7 @@ final class OpenRouterSettings {
         if ($fallbackModel === '') $fallbackModel = null;
         if ($apiKey === '' || strlen($apiKey) > 512 || preg_match('/[\x00-\x20\x7F]/', $apiKey) || !self::isValidModel($model)) return null;
         if ($fallbackModel !== null && (!self::isValidModel($fallbackModel) || $fallbackModel === $model)) return null;
-        return new self($apiKey, $model, $fallbackModel, 25);
+        return new self($apiKey, $model, $fallbackModel, 60);
     }
 
     public static function isValidModel(string $model): bool {
@@ -102,10 +102,40 @@ interface StructuredAiProvider {
     public function completeJson(string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens = 3200): array;
 }
 
+/** Request-scoped failover; persisted active profile is never changed. */
+final class ProfileFailoverProvider implements StructuredAiProvider {
+    private ?float $deadline = null;
+    private ?string $preferredId = null;
+    public function __construct(private array $profiles, private readonly ?AiHttpTransport $transport = null) {}
+    public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200): array {
+        $this->deadline ??= microtime(true)+100;
+        $profiles=$this->profiles;
+        if($this->preferredId!==null)usort($profiles,fn($a,$b)=>(int)($b['id']===$this->preferredId)<=>(int)($a['id']===$this->preferredId));
+        $last=null;
+        foreach($profiles as $index=>$profile){
+            $remaining=$this->deadline-microtime(true);
+            if($remaining<1)break;
+            // Reserve time for each remaining profile instead of exhausting it on the first key.
+            $profileDeadline=microtime(true)+$remaining/(count($profiles)-$index);
+            $provider=new OpenRouterProvider($profile['settings'],$this->transport,$profileDeadline,count($profiles)===1);
+            try{
+                $result=$provider->completeJson($systemPrompt,$userPrompt,$schema,$schemaName,$maxTokens);
+                $this->preferredId=$profile['id'];
+                return [...$result,'profileId'=>$profile['id'],'profileName'=>$profile['name']];
+            }catch(AiProviderFailure $failure){
+                if(!$failure->retryable&&$failure->category!=='credentials')throw $failure;
+                $last=$failure;
+                error_log('Juzimder AI: profile attempt failed ('.$failure->category.'); trying the next saved profile within budget.');
+            }
+        }
+        throw $last??new AiProviderFailure('AI profile budget exhausted.',false,'unavailable');
+    }
+}
+
 final class OpenRouterProvider implements StructuredAiProvider {
     private const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
-    public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null) {}
+    public function __construct(private readonly OpenRouterSettings $settings, private readonly ?AiHttpTransport $transport = null, ?float $deadline = null, private readonly bool $retryTransient = true) { $this->deadline=$deadline; }
 
     private ?float $deadline = null;
 
@@ -166,21 +196,21 @@ final class OpenRouterProvider implements StructuredAiProvider {
             'Accept: application/json',
         ];
         $response = null;
-        for ($attempt = 0; $attempt < 2; $attempt++) {
+        for ($attempt = 0; $attempt < ($this->retryTransient ? 2 : 1); $attempt++) {
             try {
                 $remaining = (int) floor(($this->deadline ?? 0) - microtime(true));
                 if ($remaining < 1) throw new AiProviderFailure('AI request deadline exceeded.', false, 'unavailable');
                 $response = $transport->post(self::ENDPOINT, $headers, $requestBody, min($this->settings->timeoutSeconds, $remaining));
             } catch (\Throwable) {
                 error_log('Juzimder AI: OpenRouter transport failure.');
-                if ($attempt === 0) {
+                if ($attempt === 0 && $this->retryTransient) {
                     usleep(150000);
                     continue;
                 }
                 throw new AiProviderFailure('AI provider is unavailable.', true, 'unavailable');
             }
             $retryableStatus = $response->status === 408 || $response->status === 429 || ($response->status >= 500 && $response->status <= 599);
-            if ($attempt === 0 && $retryableStatus) {
+            if ($attempt === 0 && $this->retryTransient && $retryableStatus) {
                 usleep(150000);
                 continue;
             }
@@ -327,6 +357,7 @@ final class AiDesignPlanner {
             'metadata' => [
                 'provider' => 'openrouter',
                 'resolvedModel' => $completion['model'] ?? null,
+                'resolvedProfileName'=>$completion['profileName']??null,
                 'usage' => $completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
             ],
         ];
@@ -366,6 +397,7 @@ final class AiComponentEditor {
             'metadata' => [
                 'provider' => 'openrouter',
                 'resolvedModel' => $completion['model'] ?? null,
+                'resolvedProfileName'=>$completion['profileName']??null,
                 'usage' => $completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
             ],
         ];
@@ -625,6 +657,7 @@ final class AiGeneratedWebsite {
             'metadata'=>[
                 'provider'=>'openrouter',
                 'resolvedModel'=>$completion['model'] ?? null,
+                'resolvedProfileName'=>$completion['profileName']??null,
                 'usage'=>$completion['usage'] ?? ['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],
                 'repairAttempted'=>$repairAttempted,
                 'skillProfile'=>$profileName,
