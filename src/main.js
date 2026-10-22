@@ -377,12 +377,13 @@ async function openEditor(id,pageId=null) {
     }
     const frame=document.createElement('iframe');frame.id='ai-design-preview-frame';frame.className='ai-design-preview-frame';frame.title='Предпросмотр AI-дизайна';frame.setAttribute('sandbox','');
     const frameViewport=document.createElement('div');frameViewport.className='ai-skill-preview-scroll';frameViewport.append(frame);preview.append(frameViewport);
-    if(isTaste){
+    {
       const viewNote=document.createElement('p');viewNote.className='muted small ai-taste-view-note';viewNote.textContent='На каждой ширине проверьте композицию, читаемость, пустые области и изображения, включая незаполненные слоты.';preview.append(viewNote);
       const viewportControls=document.createElement('div');viewportControls.className='ai-taste-viewport-controls';viewportControls.setAttribute('role','group');viewportControls.setAttribute('aria-label','Размер предпросмотра');
       const viewportWidths={desktop:1440,tablet:768,mobile:390};
-      for(const [name,width] of Object.entries(viewportWidths)){const button=document.createElement('button');button.type='button';button.dataset.viewport=name;button.textContent=(name==='desktop'?'Desktop':name==='tablet'?'Tablet':'Mobile')+' · '+width+' px';button.setAttribute('aria-pressed','false');button.onclick=()=>{frame.style.width=width+'px';frame.style.maxWidth='none';for(const item of viewportControls.querySelectorAll('button'))item.setAttribute('aria-pressed',String(item===button));const reviewInput=preview.querySelector(`[data-review="${name}"]`);if(reviewInput){reviewInput.disabled=false;if(aiDesignState?.skillReview)aiDesignState.skillReview.visited[name]=true;}};viewportControls.append(button);}
-      preview.append(viewportControls);
+      for(const [name,width] of Object.entries(viewportWidths)){const button=document.createElement('button');button.type='button';button.dataset.viewport=name;button.textContent=(name==='desktop'?'Desktop':name==='tablet'?'Tablet':'Mobile')+' · '+width+' px';button.setAttribute('aria-pressed','false');button.onclick=()=>{frame.style.width=width+'px';frame.style.maxWidth='none';for(const item of viewportControls.querySelectorAll('[data-viewport]'))item.setAttribute('aria-pressed',String(item===button));const reviewInput=preview.querySelector(`[data-review="${name}"]`);if(reviewInput){reviewInput.disabled=false;if(aiDesignState?.skillReview)aiDesignState.skillReview.visited[name]=true;}};viewportControls.append(button);}
+      const expandButton=document.createElement('button');expandButton.type='button';expandButton.textContent='Расширить окно';expandButton.setAttribute('aria-pressed','false');expandButton.onclick=()=>{const expanded=$('#ai-plan-dialog').classList.toggle('ai-preview-expanded');expandButton.setAttribute('aria-pressed',String(expanded));expandButton.textContent=expanded?'Обычное окно':'Расширить окно';};viewportControls.append(expandButton);
+      preview.insertBefore(viewportControls,frameViewport);
     }
     renderAIImageSlots();updateAIDesignFrame().catch(error=>{$('#ai-plan-status').textContent=error.message;});
     const contactsNote=document.createElement('p');contactsNote.className='muted small';contactsNote.textContent=design.contactAudit?.status==='passed'?'Контакты и внешние ссылки проверены на наличие в описании. Это не проверка достоверности; адреса и местные номера в тексте проверьте вручную.':'Контакты этого старого результата автоматически не проверены.';preview.append(contactsNote);
@@ -614,7 +615,7 @@ async function openEditor(id,pageId=null) {
   $('#cancel-theme').onclick=()=>$('#theme-dialog').close();
   $('#theme-form').onsubmit=e=>{e.preventDefault();try{applyDesignTokens(Object.fromEntries(new FormData(e.target)));$('#theme-dialog').close();notify('Тема применена ко всем страницам');}catch(error){notify(error.message,true);}};
   $('#close-ai-plan').onclick=()=>$('#ai-plan-dialog').close();
-  $('#ai-plan-dialog').addEventListener('close',()=>{$('#ai-job-diagnostics').hidden=true;generationEpoch++;aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-image-slot-list').replaceChildren();$('#ai-plan-preview').replaceChildren();});
+  $('#ai-plan-dialog').addEventListener('close',()=>{$('#ai-plan-dialog').classList.remove('ai-preview-expanded');$('#ai-job-diagnostics').hidden=true;generationEpoch++;aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-image-slot-list').replaceChildren();$('#ai-plan-preview').replaceChildren();});
   $('#ai-plan-open').onclick=async()=>{
     const openButton=$('#ai-plan-open');openButton.disabled=true;
     try{

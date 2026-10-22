@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.047 (npm SemVer 0.1.47). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.048 (npm SemVer 0.1.48). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -294,3 +294,12 @@ Live QA выявил: активный Nemotron через 121с вернул in
 Повторная реальная QA генерация с пользовательским pottery Skill завершилась успешно за20.3с на первом профиле Резервный, nvidia/nemotron-3.5-super-vl:free:3 секции,5/5 declared rules, contactAudit passed,3003 tokens,$0. Переключение при invalid_response подтверждено fixtures, но не потребовалось в успешном live запуске. Preview доступен через восстановление последней задачи QA-страницы. Screenshot /tmp/juzimder-contact-acceptance-047.png. Импорт не выполнялся, Project Data остался revision39. Старый сохранённый QA mailto не исправлен автоматически. Скриншот узкого preview просмотрен: пустой image slot и языковые ошибки требуют ручной доработки; полная desktop/tablet/mobile visual acceptance NOT RUN. Серверный acceptance не равен публикационной готовности.
 
 npm test PASS (локальные HTTP integration servers запускались вне sandbox), npm run build PASS, PHP syntax PASS. Сохраняется предупреждение Vite о размере GrapesJS chunk. Следующий шаг: улучшить качество реальной композиции и текста, провести полную адаптивную приёмку, затем отдельно импортировать и проверить persistence/Undo.
+
+
+## Адаптивный просмотр всех AI-профилей · 00.00.048
+
+Desktop1440 / Tablet768 / Mobile390 теперь доступны в preview для стандартного и пользовательского Skill, а не только Taste. Кнопки размещены перед iframe; «Расширить окно» увеличивает диалог до доступной ширины, не масштабируя и не меняя CSS дизайна. Большой viewport горизонтально прокручивается; iframe сохраняет sandbox. Закрытие сбрасывает расширение. Ручные Taste/Skill gates и backend CAS не изменены.
+
+Live: восстановлен реальный успешный результат .047 без нового AI-вызова; проверены расширение и переключение трёх ширин, видна версия .048. Desktop/mobile screenshot: /tmp/juzimder-responsive-desktop-048.png и /tmp/juzimder-responsive-mobile-048.png. Обнаружен большой пустой image slot на первом экране и ошибки русского текста. Полная visual acceptance результата не пройдена, импорт/persistence/Undo не выполнялись; Project Data revision39. Следующий шаг — поведение незаполненного слота и качество текста, затем полная визуальная приёмка.
+
+npm test PASS, build PASS, JS syntax PASS, diff check PASS; backend не менялся. Известный Vite warning GrapesJS chunk сохраняется. После полной тестовой серии уточнён selector aria-pressed, чтобы выбор viewport не сбрасывал состояние кнопки расширения; выполнены повторная сборка и syntax check.
