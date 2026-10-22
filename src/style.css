@@ -112,3 +112,13 @@
 .ai-plan-preview .ai-plan-facts{margin-bottom:12px}
 .ai-plan-preview .ai-plan-facts p:first-child{font-size:15px}
 @media(max-width:520px){.ai-design-preview-frame{height:45vh;min-height:240px}.ai-plan-preview .ai-plan-facts p:first-child{font-size:13px}}
+.editor-right .component-actions-trigger{flex:0 0 30px;width:30px;font-size:19px;font-weight:650;letter-spacing:1px;color:#b8c9bd}
+.component-context-menu{position:fixed;z-index:10000;display:grid;gap:2px;width:min(230px,calc(100vw - 16px));padding:6px;border:1px solid #46564a;border-radius:9px;background:#202823;box-shadow:0 12px 36px #0009;color:#e7eee8}
+.component-context-menu[hidden]{display:none}
+.component-context-menu button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:34px;padding:7px 9px;border:0;border-radius:5px;background:transparent;text-align:left;font-size:11px}
+.component-context-menu button:hover:not(:disabled),.component-context-menu button:focus-visible{background:#2b372e}
+.component-context-menu button:disabled{opacity:.4;cursor:not-allowed}
+.component-context-menu button span{color:#89968d;font-size:9px;white-space:nowrap}
+.component-context-menu [role=separator]{height:1px;margin:3px 4px;background:#354138}
+.component-context-menu .danger-action{color:#e8a99a}
+.component-context-menu .danger-action:hover:not(:disabled),.component-context-menu .danger-action:focus-visible{background:#3b2925}
