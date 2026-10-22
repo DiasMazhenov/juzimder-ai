@@ -328,7 +328,7 @@ async function openEditor(id,pageId=null) {
     if(!aiDesignState)return;const frame=$('#ai-design-preview-frame');if(!frame)return;
     const renderId=++aiPreviewRenderId,design=aiDesignState.design,markup=new DOMParser().parseFromString(design.html,'text/html');
     for(const slot of markup.querySelectorAll('[data-image-slot]')){
-      const asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slot.dataset.imageSlot]);if(!asset)continue;
+      const asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slot.dataset.imageSlot]);if(!asset){slot.remove();continue;}
       const image=markup.createElement('img');image.src=await getAIPreviewUrl(asset);image.alt=aiDesignState.imageAlt[slot.dataset.imageSlot]||'';slot.replaceChildren(image);
     }
     if(renderId!==aiPreviewRenderId||!frame.isConnected)return;
@@ -344,7 +344,7 @@ async function openEditor(id,pageId=null) {
       const fields=document.createElement('div');fields.className='ai-image-slot-fields';
       const label=document.createElement('label');label.textContent=slot.label;
       const select=document.createElement('select');select.setAttribute('aria-label',slot.label+' из библиотеки проекта');
-      const empty=document.createElement('option');empty.value='';empty.textContent='Оставить без изображения';select.append(empty);
+      const empty=document.createElement('option');empty.value='';empty.textContent='Без изображения · убрать блок';select.append(empty);
       for(const asset of aiDesignState.assets){const option=document.createElement('option');option.value=asset.id;option.textContent=asset.name;select.append(option);}
       select.value=aiDesignState.imageAssignments[slot.id]||'';
       const alt=document.createElement('input');alt.type='text';alt.maxLength=200;alt.placeholder='Описание для доступности';alt.setAttribute('aria-label','Описание '+slot.label);alt.value=aiDesignState.imageAlt[slot.id]||'';
@@ -422,7 +422,7 @@ async function openEditor(id,pageId=null) {
     const markup=new DOMParser().parseFromString(aiDesignState.design.html,'text/html');
     for(const slot of markup.querySelectorAll('[data-image-slot]')){
       const slotId=slot.dataset.imageSlot,asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slotId]);slot.removeAttribute('data-image-slot');slot.replaceChildren();
-      if(!asset)continue;
+      if(!asset){slot.remove();continue;}
       const image=markup.createElement('img');image.src=asset.url;image.alt=aiDesignState.imageAlt[slotId]||'';slot.append(image);
     }
     return markup.body.innerHTML;

@@ -248,3 +248,12 @@ Desktop1440 / Tablet768 / Mobile390 теперь доступны в preview д�
 Live: восстановлен реальный успешный результат .047 без нового AI-вызова; проверены расширение и переключение трёх ширин, видна версия .048. Desktop/mobile screenshot: /tmp/juzimder-responsive-desktop-048.png и /tmp/juzimder-responsive-mobile-048.png. Обнаружен большой пустой image slot на первом экране и ошибки русского текста. Полная visual acceptance результата не пройдена, импорт/persistence/Undo не выполнялись; Project Data revision39. Следующий шаг — поведение незаполненного слота и качество текста, затем полная визуальная приёмка.
 
 npm test PASS, build PASS, JS syntax PASS, diff check PASS; backend не менялся. Известный Vite warning GrapesJS chunk сохраняется. После полной тестовой серии уточнён selector aria-pressed, чтобы выбор viewport не сбрасывал состояние кнопки расширения; выполнены повторная сборка и syntax check.
+
+
+## Незаполненные изображения · 00.00.049
+
+Если изображение не назначено, preview и buildAIDesignHtml удаляют сам slot node вместо пустого цветного блока. Исходный результат задачи не меняется: выбор asset при повторном рендере восстанавливает слот из design.html. Выбранные assets продолжают вставляться обычными img. UI явно обозначает «Без изображения · убрать блок». Родительские fixed/grid размеры произвольного дизайна автоматически не переписываются; возможные пустые родительские колонки требуют визуального контроля.
+
+Live: восстановлен .047 результат, Mobile390, расширенное окно. Прежний большой прямоугольник исчез; заголовок, описание и CTA видны на первом экране. Screenshot /tmp/juzimder-empty-slot-049.png. Project Data revision39 не менялся, импорт/persistence/Undo и назначение нового изображения в этом релизе NOT RUN. Текстовые ошибки и синий default link остались: полная visual acceptance не пройдена. Следующий шаг — качество текста/CTA, затем импорт на QA и persistence/Undo.
+
+npm test, npm run build, JS syntax, PHP syntax backend/Ai.php и diff check PASS. Backend не менялся; предупреждение большого GrapesJS chunk сохраняется.
