@@ -65,7 +65,9 @@
 - [x] Server OpenRouter abstraction and authenticated non-mutating design-plan endpoint with strict JSON Schema, token cap, timeout/retry, redacted errors and usage metadata.
 - [x] Редактор: disclosure о передаче prompt, статус провайдера, предпросмотр плана и отдельное подтверждение перед добавлением preset-секций typed operations с новой revision.
 - [x] Intent → plan → structured text generation for supported section presets → server/client validation → editable GrapesJS output → revision.
-- [ ] Targeted edits по stable id и реальные browser save/reload сценарии.
+- [x] Address-scoped AI edits: selected component, stable ID/path checks, typed operations, diff confirmation and Project Data/CAS save; browser normal-editor save/reload verified in 00.00.030.
+- [ ] Live AI edit acceptance: real provider proposal → confirm → save → reload; the configured free model returned a temporary unavailable response.
+- [ ] Skill-driven agent: convert an uploaded skill into a traceable requirements checklist, enforce tool/result validators, collect acceptance evidence and fail closed on conflicts or unverifiable requirements.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
 - [x] Необязательная резервная модель профиля; используется после повторной попытки основной модели при временной сетевой ошибке или HTTP 408/429/5xx.
@@ -81,7 +83,6 @@
 - [x] Локальные image slots в full-page AI generation: обязательное изображение hero, до трёх дополнительных; выбор/загрузка из приватной project library после генерации; file bytes, filenames, IDs and URLs are excluded from OpenRouter request; import produces editable managed GrapesJS image components.
 - [ ] Live browser acceptance новых image slots: выбрать файл из библиотеки, проверить blob preview и импорт/сохранение в изолированном QA-проекте.
 - [ ] Продолжить live acceptance до восстановления ревизии и публикации отдельного безопасного снимка.
-- [ ] Targeted AI edits по stable component ID.
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
 
@@ -120,4 +121,4 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.029.
+**Текущее состояние:** foundation, версия продукта 00.00.030.

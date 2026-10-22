@@ -12,6 +12,72 @@ final class ProjectOperations {
         'margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
         'line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity'
     ];
+
+    public static function styleFields(): array { return self::STYLE_FIELDS; }
+    public static function nodeIdentifier(\stdClass $node): ?string { return self::nodeId($node); }
+
+    public static function componentSubtree(mixed $document, string $pageId, string $componentId): \stdClass {
+        if (!$document instanceof \stdClass) throw new Problem(422, 'Некорректный документ проекта.');
+        Document::validate($document);
+        $pageId = self::identifier($pageId);
+        $componentId = self::identifier($componentId);
+        $pages = $document->data->pages ?? [];
+        $pageIndex = null;
+        foreach ($pages as $index => $page) {
+            if (($page->id ?? null) === $pageId) { $pageIndex = $index; break; }
+        }
+        if ($pageIndex === null) throw new Problem(404, 'Страница не найдена.');
+        $rootPath = ['data','pages',$pageIndex,'frames',0,'component'];
+        $location = self::findComponent($document, $componentId);
+        if (!self::isPathPrefix($rootPath, $location['path'])) throw new Problem(404, 'Компонент не найден на выбранной странице.');
+        $component =& self::atPath($document, $location['path']);
+        if (($component->type ?? null) === 'wrapper') throw new Problem(422, 'Выберите компонент внутри страницы.');
+        return json_decode(json_encode($component, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+    }
+
+    public static function componentForAiEdit(mixed $document, string $pageId, mixed $componentPath, string $componentId): array {
+        if (!$document instanceof \stdClass) throw new Problem(422, 'Некорректный документ проекта.');
+        Document::validate($document);
+        $pageId = self::identifier($pageId);
+        if (!is_array($componentPath) || !array_is_list($componentPath) || $componentPath === [] || count($componentPath) > 35) throw new Problem(422, 'Некорректный путь выбранного компонента.');
+        foreach ($componentPath as $index) if (!is_int($index) || $index < 0) throw new Problem(422, 'Некорректный путь выбранного компонента.');
+        if ($componentId !== '') $componentId = self::identifier($componentId);
+        $pages = $document->data->pages ?? [];
+        $pageIndex = null;
+        foreach ($pages as $index => $page) if (($page->id ?? null) === $pageId) { $pageIndex = $index; break; }
+        if ($pageIndex === null) throw new Problem(404, 'Страница не найдена.');
+        $draft = json_decode(json_encode($document, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+        $path = ['data','pages',$pageIndex,'frames',0,'component'];
+        foreach ($componentPath as $index) {
+            $parent =& self::atPath($draft, $path);
+            if (!is_array($parent->components ?? null) || !array_is_list($parent->components) || !array_key_exists($index, $parent->components)) throw new Problem(404, 'Компонент не найден по выбранному пути.');
+            $path[] = 'components';
+            $path[] = $index;
+            unset($parent);
+        }
+        $component =& self::atPath($draft, $path);
+        if (!$component instanceof \stdClass || ($component->type ?? null) === 'wrapper') throw new Problem(422, 'Выберите компонент внутри страницы.');
+        $actualId = self::nodeId($component);
+        if ($actualId === '') $actualId = null;
+        if ($componentId !== '' && $actualId !== $componentId) throw new Problem(409, 'Выбранный стабильный ID больше не совпадает с компонентом. Выберите его заново.');
+        if ($actualId !== null) {
+            $location = self::findComponent($draft, $actualId);
+            if ($location['path'] !== $path) throw new Problem(409, 'ID компонента неоднозначен. Обновите страницу перед AI-правкой.');
+        }
+        $needsId = !(($component->attributes ?? null) instanceof \stdClass && is_string($component->attributes->id ?? null) && $component->attributes->id !== '');
+        $stableId = $actualId;
+        if ($stableId === null) {
+            $ids = [];
+            self::collectIds($draft, $ids);
+            do { $stableId = 'cmp-' . bin2hex(random_bytes(12)); } while (isset($ids[$stableId]));
+        }
+        if ($needsId) {
+            if (!($component->attributes ?? null) instanceof \stdClass) $component->attributes = new \stdClass();
+            $component->attributes->id = $stableId;
+        }
+        $target = json_decode(json_encode($component, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+        return ['document'=>$draft,'component'=>$target,'componentId'=>$stableId,'needsId'=>$needsId];
+    }
     private const LAYOUT_FIELDS = [
         'display'=>'display','flexDirection'=>'flex-direction','justifyContent'=>'justify-content','alignItems'=>'align-items',
         'flexWrap'=>'flex-wrap','gridTemplateColumns'=>'grid-template-columns','gap'=>'gap','width'=>'width','height'=>'height',
@@ -51,6 +117,19 @@ final class ProjectOperations {
                 $type = $component->type ?? null;
                 if (!in_array($type, ['text','textnode','link'], true)) throw new Problem(422, 'Этот компонент не поддерживает изменение текста.');
                 $component->content = $operation->content;
+                return;
+            case 'replace_text':
+                self::fields($operation, ['operation','componentId','content'], ['operation','componentId','content']);
+                if (!is_string($operation->content) || mb_strlen($operation->content, 'UTF-8') > 1000 || preg_match('/[<>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|https?:\/\/|www\./iu', $operation->content)) throw new Problem(422, 'Текст должен быть обычным текстом без разметки и URL.');
+                $location = self::findComponent($document, self::identifier($operation->componentId));
+                $component =& self::atPath($document, $location['path']);
+                $type = $component->type ?? null;
+                if (!in_array($type, ['text','textnode','link'], true)) throw new Problem(422, 'Этот компонент не поддерживает замену текста.');
+                if ($type === 'textnode') $component->content = $operation->content;
+                else {
+                    unset($component->content);
+                    $component->components = [(object)['type'=>'textnode','content'=>$operation->content]];
+                }
                 return;
             case 'update_styles':
                 self::fields($operation, ['operation','componentId','styles'], ['operation','componentId','styles']);

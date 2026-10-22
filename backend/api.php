@@ -214,6 +214,39 @@ try {
             throw new Problem(502,$failure->userMessage());
         }
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/edit-component$~D', $path, $aiEditMatch) && $method === 'POST') {
+        if (array_diff(array_keys($body), ['prompt','pageId','componentPath','componentId','version']) || count($body) !== 5 || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Передайте описание, страницу, путь компонента и текущую версию проекта.');
+        $prompt = $body['prompt'] ?? null;
+        $pageId = $body['pageId'] ?? null;
+        $componentPath = $body['componentPath'] ?? null;
+        $componentId = $body['componentId'] ?? null;
+        if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 2000) throw new Problem(422,'Опишите правку: от 1 до 2000 символов.');
+        if (!is_string($pageId) || !is_string($componentId) || !is_array($componentPath)) throw new Problem(422,'Выберите компонент страницы для AI-правки.');
+        $projectId = $aiEditMatch[1];
+        $project = $store->owned($projectId, $user);
+        if ($project['version'] !== $body['version']) throw new Problem(409,'Версия проекта изменилась. Загрузите актуальную версию и подготовьте правку заново.');
+        $target = Juzimder\ProjectOperations::componentForAiEdit($project['document'], $pageId, $componentPath, $componentId);
+        $credentials = new Juzimder\AiCredentialVault($store);
+        $settings = $credentials->settings($projectId, $user);
+        if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
+        $now = time();
+        $storedRequests = $_SESSION['ai_requests'] ?? [];
+        if (!is_array($storedRequests)) $storedRequests = [];
+        $requests = array_values(array_filter($storedRequests, static fn($at) => is_int($at) && $at > $now - 60));
+        if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
+        $requests[] = $now;
+        $_SESSION['ai_requests'] = $requests;
+        set_time_limit(120);
+        try {
+            $proposal = Juzimder\AiComponentEditor::create($prompt, $target['component'], new Juzimder\OpenRouterProvider($settings));
+            Juzimder\ProjectOperations::apply($target['document'], $proposal['operations']);
+            result(['pageId'=>$pageId,'componentId'=>$target['componentId'],'requestedComponentId'=>$componentId,'needsId'=>$target['needsId'],'baseVersion'=>$project['version'],...$proposal]);
+        } catch (Juzimder\AiProviderFailure $failure) {
+            throw new Problem(502,$failure->userMessage());
+        } catch (InvalidArgumentException $failure) {
+            throw new Problem(422,$failure->getMessage());
+        }
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/generate-page$~D', $path, $aiDesignMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
         if (array_diff(array_keys($body), ['prompt'])) throw new Problem(422,'Передайте только текстовое описание сайта.');

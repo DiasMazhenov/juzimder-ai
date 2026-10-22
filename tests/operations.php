@@ -35,6 +35,16 @@ $original = json_decode(json_encode($fixture, JSON_THROW_ON_ERROR), false, 64, J
 $contentUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_content','componentId'=>'ij4p','content'=>'Локальное изменение'])]);
 operationCheck(operationNode($contentUpdated, 'ij4p')->content === 'Локальное изменение', 'Typed content update targets one stable component ID');
 operationCheck(operationNode($fixture, 'ij4p')->content === operationNode($original, 'ij4p')->content, 'Applying operations never mutates the caller document');
+$textReplaced = ProjectOperations::apply($fixture, [operationObject(['operation'=>'replace_text','componentId'=>'ii57','content'=>'Сохранённый текст'])]);
+$selectedText = operationNode($textReplaced, 'ii57');
+operationCheck(!isset($selectedText->content) && ($selectedText->components[0]->content ?? null) === 'Сохранённый текст', 'Focused text replacement replaces nested GrapesJS text without changing the stable element');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'replace_text','componentId'=>'ii57','content'=>'<script>bad</script>'])]),422,'Focused text replacement rejects markup');
+$unstableTarget = ProjectOperations::componentForAiEdit($fixture, 'home', [0,2,0], '');
+$temporaryId = $unstableTarget['componentId'];
+operationCheck($unstableTarget['needsId'] === true && preg_match('/^cmp-[a-f0-9]{24}$/', $temporaryId) === 1, 'An ID-less selected node receives a proposed stable ID in a draft only');
+operationCheck(ProjectOperations::nodeIdentifier($fixture->data->pages[0]->frames[0]->component->components[0]->components[2]->components[0]) === null && ProjectOperations::nodeIdentifier($unstableTarget['component']) === $temporaryId, 'Proposed ID is not written into the original project document');
+$unstableText = ProjectOperations::apply($unstableTarget['document'], [operationObject(['operation'=>'replace_text','componentId'=>$temporaryId,'content'=>'Новый текст'])]);
+operationCheck(($unstableText->data->pages[0]->frames[0]->component->components[0]->components[2]->components[0]->content ?? null) === 'Новый текст', 'Draft ID resolves the exact selected path for an AI edit');
 
 $styleUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['background-color'=>'#122334','border-radius'=>'12px']])]);
 operationCheck($styleUpdated->data->pages[0]->frames[0]->component->components[0]->style->{'background-color'} === '#122334', 'Style updates preserve the existing component tree');
