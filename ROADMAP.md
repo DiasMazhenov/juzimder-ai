@@ -48,7 +48,7 @@
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
 - [x] Floating Layers/Sections drawers, icon Flex controls и layout для Page Root/Body; isolated-browser save/reload подтвердил Body Flex.
 - [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
-- [x] Component context menu on canvas and inspector with copy/cut/paste/duplicate/reorder/select-parent/delete; browser checked menu, copy, duplicate→Undo/reload, delete confirmation and keyboard navigation; reference remapping has unit coverage.
+- [x] Component context menu on canvas, inspector and Layers with copy/cut/paste/duplicate/reorder/select-parent/delete; Codex Browser confirmed right-click on a layer row selects that component and opens the shared menu; duplicate→Undo/reload, delete confirmation, keyboard navigation and reference remapping are also checked.
 - [ ] Универсальные component operations, duplicate с безопасным remap ссылок/styles и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
@@ -121,4 +121,4 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.030.
+**Текущее состояние:** foundation, версия продукта 00.00.031.

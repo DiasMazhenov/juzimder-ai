@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { remapCopiedReferences } from '../src/component-actions.js';
+import { findLayerComponentAtTarget, remapCopiedReferences } from '../src/component-actions.js';
 
 class Component {
   constructor(id, attributes = {}, children = []) {
@@ -44,4 +44,19 @@ test('reference remapping leaves IDs unchanged when the copied subtree has no co
   remapCopiedReferences(source, copy);
 
   assert.equal(JSON.stringify(copy.children[0].attributes), before);
+});
+
+test('layer context targets resolve to the deepest matching component row', () => {
+  const target = {};
+  const childRow = { contains: node => node === target || node === childRow };
+  const parentRow = { contains: node => node === target || node === childRow || node === parentRow };
+  const child = new Component('child');
+  child.viewLayer = { el: childRow };
+  const parent = new Component('parent', {}, [child]);
+  parent.viewLayer = { el: parentRow };
+  const root = new Component('root', {}, [parent]);
+  root.viewLayer = { el: { contains: node => node === target || node === childRow || node === parentRow } };
+
+  assert.equal(findLayerComponentAtTarget(root, target), child);
+  assert.equal(findLayerComponentAtTarget(root, {}), null);
 });

@@ -51,6 +51,18 @@ function getClipboard(editor) {
   return editor.getModel?.().get?.('clipboard') || [];
 }
 
+export function findLayerComponentAtTarget(rootComponent, target) {
+  const visit = component => {
+    for (const child of getChildren(component)) {
+      const nested = visit(child);
+      if (nested) return nested;
+    }
+    const layerElement = component?.viewLayer?.el;
+    return layerElement && (layerElement === target || layerElement.contains?.(target)) ? component : null;
+  };
+  return visit(rootComponent);
+}
+
 function pasteFromClipboard(editor, sources, action = 'paste-component') {
   const pasted = [];
   const onPaste = component => pasted.push(component);
@@ -259,6 +271,16 @@ export function installComponentActions({ editor, confirmDelete, notify }) {
   document.addEventListener('keydown', handleKeydown, true);
 
   const attachedDocuments = new WeakSet();
+  const layerManager = document.querySelector('#layer-manager');
+  const handleLayerContextMenu = event => {
+    const component = findLayerComponentAtTarget(editor.getWrapper(), event.target);
+    if (!component || isPageRoot(component)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    open(event.clientX, event.clientY, component);
+  };
+  layerManager?.addEventListener('contextmenu', handleLayerContextMenu, true);
+
   const attachCanvasContextMenu = frame => {
     const frameWindow = frame?.window;
     const frameDocument = frameWindow?.document;
@@ -293,6 +315,7 @@ export function installComponentActions({ editor, confirmDelete, notify }) {
       editor.off('canvas:frame:load', attachCanvasContextMenu);
       document.removeEventListener('pointerdown', handlePointerdown, true);
       document.removeEventListener('keydown', handleKeydown, true);
+      layerManager?.removeEventListener('contextmenu', handleLayerContextMenu, true);
       trigger.remove();
       menu.remove();
     },
