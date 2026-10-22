@@ -2,6 +2,7 @@ import 'grapesjs/dist/css/grapes.min.css';
 import './style.css';
 import { blocks, registerBlocks } from './blocks.js';
 import { installComponentActions } from './component-actions.js';
+import { hasAcceptedDesignReview } from './ai-review.js';
 import { createPageRoot } from './page-root.js';
 import { DEFAULT_DESIGN_TOKENS, FONT_FAMILIES, FONT_WEIGHTS, TOKEN_FIELDS, designTokensFromStyle, designTokensToStyle, migrateLegacyTokenValue, normalizeDesignTokens, tokenValue } from './design-tokens.js';
 import packageInfo from '../package.json';
@@ -316,6 +317,7 @@ async function openEditor(id,pageId=null) {
     for(const field of TOKEN_FIELDS){const control=$(`#theme-form [name="${field.name}"]`);if(control)control.value=tokens[field.name];}
   };
   let aiDesignState=null,aiPreviewRenderId=0,aiComponentProposal=null,aiComponentTargetId=null,aiComponentTargetModel=null,aiComponentTargetPath=null;
+  const syncAIApply=()=>{const button=$('#ai-plan-apply');if(button)button.disabled=isAIDesignReadOnly()||!hasAcceptedDesignReview(aiDesignState?.metadata?.skillProfile,aiDesignState?.skillReview);};
   const isAIDesignReadOnly=()=>!aiDesignState||aiDesignState.baseVersion!==current.version||aiDesignState.design.contactAudit?.status!=='passed';
   const aiPreviewObjectUrls=new Map();
   const clearAIPreviewUrls=()=>{aiPreviewRenderId++;for(const url of aiPreviewObjectUrls.values())URL.revokeObjectURL(url);aiPreviewObjectUrls.clear();};
@@ -395,7 +397,7 @@ async function openEditor(id,pageId=null) {
       addReviewCheck('concept','Идея опирается на детали этого проекта, а не только на нишу или стиль.');
       addReviewCheck('content','Я проверил текст и факты: в нём нет выдуманных отзывов, статистики или доказательств.');
       addReviewCheck('desktop','Я осмотрел предпросмотр на 1440 px.',true);addReviewCheck('tablet','Я осмотрел предпросмотр на 768 px.',true);addReviewCheck('mobile','Я осмотрел предпросмотр на 390 px.',true);
-      review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;for(const input of review.querySelectorAll('[data-review]')){const key=input.dataset.review;if(key==='concept'||key==='content')aiDesignState.skillReview[key]=input.checked;else aiDesignState.skillReview.viewports[key]=input.checked;}const applyButton=$('#ai-plan-apply');if(applyButton)applyButton.disabled=isAIDesignReadOnly()||!aiDesignState.skillReview.concept||!aiDesignState.skillReview.content||Object.values(aiDesignState.skillReview.viewports).some(value=>!value);});
+      review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;for(const input of review.querySelectorAll('[data-review]')){const key=input.dataset.review;if(key==='concept'||key==='content')aiDesignState.skillReview[key]=input.checked;else aiDesignState.skillReview.viewports[key]=input.checked;}const applyButton=$('#ai-plan-apply');if(applyButton)syncAIApply();});
       preview.append(review);
     }
     if(isUserSkill){
@@ -404,9 +406,14 @@ async function openEditor(id,pageId=null) {
       const legend=document.createElement('legend');legend.textContent='Проверьте требования Skill';review.append(legend);
       const explanation=document.createElement('p');explanation.className='muted small';explanation.textContent='Эти пункты не проверены автоматически. Отметьте каждый после просмотра результата.';review.append(explanation);
       items.forEach((item,index)=>{const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.userReviewIndex=String(index);row.append(input,document.createTextNode(item));review.append(row);});
-      review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;aiDesignState.skillReview.manualReview=items.map((_,index)=>Boolean(review.querySelector(`[data-user-review-index="${index}"]`)?.checked));const applyButton=$('#ai-plan-apply');if(applyButton)applyButton.disabled=isAIDesignReadOnly()||aiDesignState.skillReview.manualReview.length===0||aiDesignState.skillReview.manualReview.some(value=>!value);});
+      review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;aiDesignState.skillReview.manualReview=items.map((_,index)=>Boolean(review.querySelector(`[data-user-review-index="${index}"]`)?.checked));const applyButton=$('#ai-plan-apply');if(applyButton)syncAIApply();});
       preview.append(review);
     }
+    const acceptance=document.createElement('fieldset');acceptance.className='ai-taste-review';acceptance.setAttribute('aria-label','Приёмка текста и контраста');
+    const acceptanceTitle=document.createElement('legend');acceptanceTitle.textContent='Проверка перед импортом';acceptance.append(acceptanceTitle);
+    const acceptanceNote=document.createElement('p');acceptanceNote.className='muted small';acceptanceNote.textContent='Сервер проверяет структуру и контакты, но не достоверность всех утверждений и не визуальный контраст. Если есть ошибка, не отмечайте пункт: исправьте описание и создайте новый вариант.';acceptance.append(acceptanceNote);
+    for(const [key,label] of [['facts','Я сверил услуги, цены, сроки, числа и обещания с исходными данными. Неподтверждённых утверждений нет.'],['contrast','Я проверил читаемость текста и контраст кнопок на всех трёх размерах предпросмотра.']]){const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.onchange=()=>{if(!aiDesignState?.skillReview)return;aiDesignState.skillReview[key]=input.checked;syncAIApply();};row.append(input,document.createTextNode(label));acceptance.append(row);}
+    preview.append(acceptance);
     const usage=metadata?.usage||{},usageParts=[];
     for(const [key,label] of [['promptTokens','входные токены'],['completionTokens','выходные токены'],['totalTokens','всего токенов']])if(Number.isInteger(usage[key])&&usage[key]>=0)usageParts.push(label+': '+usage[key]);
     if(typeof usage.costUsd==='number'&&Number.isFinite(usage.costUsd)&&usage.costUsd>=0)usageParts.push('стоимость: $'+usage.costUsd.toFixed(6));
@@ -414,7 +421,7 @@ async function openEditor(id,pageId=null) {
     const meta=document.createElement('p');meta.className='muted small ai-plan-metadata';meta.textContent=(metadata?.resolvedProfileName?metadata.resolvedProfileName+' · ':'')+model+(usageParts.length?' · '+usageParts.join(' · '):'');preview.append(meta);
     const actions=document.createElement('div');actions.className='dialog-actions';
     const apply=document.createElement('button');apply.type='button';apply.id='ai-plan-apply';apply.className='primary';apply.textContent='Добавить дизайн · '+design.sectionCount+' секций';apply.onclick=applyAIDesign;
-    if(isTaste||isUserSkill||isAIDesignReadOnly())apply.disabled=true;
+    apply.disabled=true;
     if(isAIDesignReadOnly())apply.textContent='Только просмотр · требуется новая генерация';
     actions.append(apply);preview.append(actions);preview.hidden=false;
   };
@@ -448,6 +455,7 @@ async function openEditor(id,pageId=null) {
   const applyAIDesign=async()=>{
     if(!aiDesignState)return;
     if(isAIDesignReadOnly()){$('#ai-plan-status').textContent='Версия проекта изменилась или отсутствует проверка контактов. Создайте новую генерацию.';return;}
+    if(!hasAcceptedDesignReview(aiDesignState.metadata?.skillProfile,aiDesignState.skillReview)){$('#ai-plan-status').textContent='Завершите проверку фактов, контраста и требований выбранного профиля перед импортом.';return;}
     if(aiDesignState.metadata?.skillProfile==='taste'&&(!aiDesignState.skillReview?.concept||!aiDesignState.skillReview?.content||Object.values(aiDesignState.skillReview?.viewports||{}).some(value=>!value)||Object.values(aiDesignState.skillReview?.visited||{}).some(value=>!value))){$('#ai-plan-status').textContent='Сначала подтвердите проверку идеи и текста, затем осмотрите все три размера предпросмотра.';return;}
     if(aiDesignState.metadata?.skillProfile==='user_skill'&&(!aiDesignState.skillReview?.manualReview?.length||aiDesignState.skillReview.manualReview.some(value=>!value))){$('#ai-plan-status').textContent='Проверьте и отметьте каждый пункт выбранного Skill, затем повторите подтверждение.';return;}
     const page=editor.Pages.getAll().find(item=>item.get('id')===aiDesignState.pageId);
@@ -693,7 +701,7 @@ async function openEditor(id,pageId=null) {
       if(userSkillId&&(response.metadata?.skillProfile!=='user_skill'||response.metadata?.userSkillId!==userSkillId||response.design.skillAudit?.profile!=='user_skill'||!Array.isArray(response.design.skillAudit.humanReviewRequired)||!response.design.skillAudit.humanReviewRequired.length))throw new Error('Ответ не содержит чек-лист выбранного Skill. Дизайн не применён.');
       let assets=[],assetWarning='';try{assets=await api(`/projects/${id}/assets`);}catch(error){assetWarning=' Не удалось загрузить библиотеку изображений: '+error.message;}
       const slots=response.design.imageSlots||[];
-      aiDesignState={baseVersion:job.baseVersion,design:response.design,metadata:response.metadata,pageId:page.get('id'),assets,imageAssignments:Object.fromEntries(slots.map(slot=>[slot.id,''])),imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label])),skillReview:{concept:false,content:false,visited:{desktop:false,tablet:false,mobile:false},viewports:{desktop:false,tablet:false,mobile:false},manualReview:(response.design.skillAudit?.humanReviewRequired||[]).map(()=>false)}};
+      aiDesignState={baseVersion:job.baseVersion,design:response.design,metadata:response.metadata,pageId:page.get('id'),assets,imageAssignments:Object.fromEntries(slots.map(slot=>[slot.id,''])),imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label])),skillReview:{facts:false,contrast:false,concept:false,content:false,visited:{desktop:false,tablet:false,mobile:false},viewports:{desktop:false,tablet:false,mobile:false},manualReview:(response.design.skillAudit?.humanReviewRequired||[]).map(()=>false)}};
       renderAIDesign(response.design,response.metadata);if(isAIDesignReadOnly()){$('#ai-image-slot-chooser').hidden=true;for(const input of $('#ai-plan-preview').querySelectorAll('input'))input.disabled=true;}$('#ai-plan-status').textContent=response.design.contactAudit?.status!=='passed'?'Старый результат без проверки контактов: только просмотр. Создайте новую генерацию.':job.baseVersion!==current.version?'Результат ревизии '+job.baseVersion+' доступен только для просмотра: текущая ревизия '+current.version+'. Для применения создайте новую генерацию.':'Проверьте предпросмотр. Страница изменится только после отдельного подтверждения.';
       if(assetWarning)$('#ai-plan-status').textContent+=assetWarning;
     }catch(error){$('#ai-plan-status').textContent=error.message;notify(error.message,true);}

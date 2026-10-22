@@ -266,3 +266,12 @@ Sanitized дизайн теперь получает scoped baseline `.scope a{c
 Live: новая реальная pottery QA генерация с пользовательским Skill, одна исправляющая попытка, обе на Резервный/Nemotron (39.3+38.8с),6302 tokens,$0. Итог3 секции,5/5 declared rules,contact audit passed. Mobile390 screenshot /tmp/juzimder-cta-copy-050.png: CTA «Посмотреть форматы» без browser-blue, hero без пустого slot. Контраст текста CTA слабый; текст придумал четыре занятия и обжиг за одну встречу, чего нет в brief. Полная visual/fact acceptance FAIL, импорт не выполнялся,revision39. Нельзя выдавать prompt вычитки за гарантию корректного текста. Следующий пункт — контраст и проверка бизнес-фактов перед импортом; persistence/Undo всё ещё требуют live acceptance.
 
 npm test PASS, build PASS, PHP syntax PASS, diff check PASS. Regression проверяет scoped baseline перед модельным CSS. Известный большой GrapesJS chunk warning сохраняется.
+
+
+## Общая ручная приёмка AI-дизайна · 00.00.051
+
+Все профили требуют отдельные подтверждения фактов (услуги, цены, сроки, числа, обещания) и читаемости/контраста перед импортом. Общий predicate hasAcceptedDesignReview используется при обновлении кнопки и повторно в apply handler. Taste дополнительно требует прежние concept/content и три visited+reviewed viewport; user_skill — все ручные пункты Skill. Новый/восстановленный результат начинает с false. Owner/auth/CSRF/CAS серверного save не менялись. Это UI acceptance, не автоматический fact/contrast audit и не защита от владельца, обходящего интерфейс.
+
+Live: восстановлен результат .050, версия .051 видна. Все три Skill checkbox временно отмечены для теста: apply остался disabled без общих facts/contrast. Тестовые отметки сброшены. Подтверждения фактов/контраста не отмечались, поскольку известны выдуманные сведения и слабый CTA contrast. Project Data остаётся revision39. /tmp/juzimder-review-gate-051.png. Новый provider call, исправление дизайна, apply/persistence/Undo NOT RUN. Пункт автоматического выявления/исправления контраста и бизнес-фактов остаётся открытым, равно как успешная полная visual acceptance.
+
+npm test PASS (включая новые pure acceptance tests), npm run build PASS, JS syntax/PHP syntax/diff checks PASS. Предупреждение большого GrapesJS chunk сохраняется.
