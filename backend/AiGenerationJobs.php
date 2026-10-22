@@ -30,6 +30,15 @@ final class AiGenerationJobs {
         $payload=json_decode($row['payload'],true,32,JSON_THROW_ON_ERROR);
         return ['id'=>$row['id'],'pageId'=>$row['page_id'],'baseVersion'=>(int)$row['base_version'],'status'=>$row['status'],'createdAt'=>(int)$row['created_at'],'request'=>['prompt'=>$payload['prompt'],'skillProfile'=>$payload['skillProfile'],'skillId'=>$payload['userSkill']['id']??null],'result'=>$row['result']===null?null:json_decode($row['result'],true,64,JSON_THROW_ON_ERROR),'error'=>$row['error']];
     }
+    public function history(string $projectId,string $owner,string $pageId): array {
+        $project=$this->store->owned($projectId,$owner);$this->expire();
+        if(!in_array($pageId,array_column($project['document']->data->pages,'id'),true))throw new Problem(404,'Страница не найдена.');
+        $rows=$this->store->query('SELECT id,page_id,base_version,status,payload,created_at,updated_at,result IS NOT NULL AS has_result FROM ai_generation_jobs WHERE project_id=? AND owner_id=? AND page_id=? ORDER BY created_at DESC,rowid DESC LIMIT 20',[$projectId,$owner,$pageId])->fetchAll();
+        return ['limit'=>20,'retentionHours'=>24,'items'=>array_map(static function(array $row):array{
+            $payload=json_decode($row['payload'],true,32,JSON_THROW_ON_ERROR);
+            return ['id'=>$row['id'],'pageId'=>$row['page_id'],'baseVersion'=>(int)$row['base_version'],'status'=>$row['status'],'createdAt'=>(int)$row['created_at'],'updatedAt'=>(int)$row['updated_at'],'promptExcerpt'=>mb_substr($payload['prompt'],0,160),'skillName'=>$payload['userSkill']['name']??($payload['skillProfile']==='taste'?'Taste':'Стандартный'),'hasResult'=>(bool)$row['has_result']];
+        },$rows)];
+    }
     public function cancel(string $projectId,string $owner,string $id): array {
         $job=$this->get($projectId,$owner,$id);
         if(in_array($job['status'],['succeeded','failed'],true))throw new Problem(409,'Задача уже завершена.');

@@ -42,5 +42,12 @@ try{
  $workerJob=$jobs->create($id,'owner',$page,0,$payload);$jobs->launch($workerJob['id']);
  for($wait=0;$wait<40;$wait++){usleep(100000);$workerState=$jobs->get($id,'owner',$workerJob['id']);if($workerState['status']==='failed')break;}
  jobCheck($workerState['status']==='failed','Detached CLI worker starts and safely reports missing credentials without blocking the API');
+ $history=$jobs->history($id,'owner',$page);
+ jobCheck($history['items'][0]['id']===$workerJob['id']&&in_array($job['id'],array_column($history['items'],'id'),true),'History includes earlier success after a later cancellation or failure, newest first');
+ jobCheck(!array_key_exists('result',$history['items'][0])&&!array_key_exists('payload',$history['items'][0]),'History summaries omit full result and Skill source');
+ jobReject(fn()=>$jobs->history($id,'other',$page),404);jobReject(fn()=>$jobs->history($id,'owner','missing'),404);
+ for($i=0;$i<23;$i++){$entry=$jobs->create($id,'owner',$page,0,$payload);$jobs->failLaunch($entry['id']);}
+ jobCheck(count($jobs->history($id,'owner',$page)['items'])===20,'History response is bounded to the newest twenty tasks');
+ jobCheck($store->owned($id,'owner')['version']===0,'Reading task history never changes Project Data');
  jobReject(fn()=>$jobs->create($id,'owner','missing',0,$payload),404);jobReject(fn()=>$jobs->create($id,'owner',$page,1,$payload),409);
 }finally{unset($store,$jobs);@unlink($path);}

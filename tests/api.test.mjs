@@ -102,6 +102,9 @@ assert.equal(aiSaved.status,200);assert.equal(aiSaved.data.configured,true);asse
 assert.equal((await a.call(aiGeneratePath,'POST',{prompt:'Сайт клиники',skillId:deletedSkillId,skillProfile:'standard'})).status,404,'Full-page generation rejects a deleted project Skill before contacting OpenRouter');
 const aiJobsPath=`/projects/${aiProject.id}/ai/generation-jobs`;
 assert.equal((await a.call(aiJobsPath+'?pageId=home')).data,null,'No generation job initially');
+assert.deepEqual((await a.call(aiJobsPath+'/history?pageId=home')).data.items,[],'History starts empty');
+assert.equal((await a.call(aiJobsPath+'/history')).status,422,'History requires page selection');
+assert.equal((await a.call(aiJobsPath+'/history?pageId=missing')).status,404,'History validates page membership');
 assert.equal((await a.call(aiJobsPath+'/000000000000000000000000')).status,404,'Unknown jobs stay private');
 assert.equal((await a.call(aiJobsPath+'/000000000000000000000000/cancel','POST',{},'invalid')).status,403,'Job cancellation enforces CSRF');
 assert.equal((await a.call(aiJobsPath+'/000000000000000000000000/cancel','POST',{})).status,404,'Job cancellation validates job identity');
@@ -136,6 +139,7 @@ assert.equal(JSON.stringify(profilesSaved.data).includes('sk-or-v1-updated-secon
 assert.equal((await a.call(aiProfilesPath+'/'+primaryProfile.id+'/activate','POST',{version:5})).data.model,'openai/second-test-model','The owner can select which profile the AI endpoint uses');
 const otherAiClient=new Client();await otherAiClient.call('/session');await otherAiClient.call('/register','POST',{email:'ai-outsider@example.test',password:'another-ai-password'});
 assert.equal((await otherAiClient.call(aiJobsPath+'?pageId=home')).status,404,'Generation job status enforces ownership');
+assert.equal((await otherAiClient.call(aiJobsPath+'/history?pageId=home')).status,404,'History enforces owner isolation');
 assert.equal((await otherAiClient.call(aiSkillsPath)).status,404,'Skill libraries enforce project ownership');
 assert.equal((await otherAiClient.call(analyzePath,'POST',{version:6,content:'Use one H1.'})).status,404,'Skill analysis enforces project ownership before contacting a provider');
 assert.equal((await otherAiClient.call(aiSkillsPath+'/'+firstSkillId)).status,404,'Skill content cannot be read by another project owner');
