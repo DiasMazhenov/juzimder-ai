@@ -194,6 +194,13 @@ try {
     $unsafeSite=$generatedDesign;$unsafeSite['html']=str_replace('<header','<script>alert(1)</script><header',$unsafeSite['html']);
     $unsafeSiteContent=json_encode($unsafeSite,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $unsafeSiteBody=json_encode(['model'=>'openai/unsafe-model','choices'=>[['message'=>['content'=>$unsafeSiteContent]]],'usage'=>['prompt_tokens'=>120,'completion_tokens'=>50,'total_tokens'=>170,'cost'=>0.0001]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $profileRepairProvider=new class([$unsafeSiteContent,json_encode($generatedDesign,JSON_UNESCAPED_UNICODE)]) implements Juzimder\StructuredAiProvider {
+        private int $attempt=0;
+        public function __construct(private array $responses){}
+        public function completeJson(string $s,string $u,array $schema,string $name,int $maxTokens=3200):array{$index=$this->attempt++;return ['content'=>$this->responses[$index],'model'=>'test/model','profileName'=>$index===0?'First':'Repair backup'];}
+    };
+    $profileRepair=AiGeneratedWebsite::create('Сайт клиники',$profileRepairProvider);
+    aiCheck($profileRepair['metadata']['resolvedProfileName']==='Repair backup','Repaired design reports the profile that produced the accepted result');
     $repairTransport=new FakeAiTransport([new AiHttpResponse(200,$unsafeSiteBody),new AiHttpResponse(200,$generatedBody)]);
     $repairResult=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$repairTransport));
     $repairRequest=json_decode($repairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
@@ -341,3 +348,6 @@ aiCheck($probeResult['ok']&&$probeResult['resolvedModel']==='test/probe'&&$probe
 aiCheck(!str_contains(json_encode($probeResult),$settings->apiKey),'Profile probe never returns credentials');
 $badProbe=new FakeAiTransport([new AiHttpResponse(200,json_encode(['choices'=>[['message'=>['content'=>'{"ok":false}']]]]))]);
 aiRejects(fn()=>Juzimder\AiProfileProbe::check(new OpenRouterProvider($settings,$badProbe)),'Profile probe rejects an invalid structured acknowledgement');
+
+$timeoutTransport=new FakeAiTransport([new RuntimeException('synthetic timeout',28)]);
+try{(new OpenRouterProvider($settings,$timeoutTransport,null,false))->completeJson('system','prompt',['type'=>'object'],'timeout_test');throw new RuntimeException('Expected timeout');}catch(AiProviderFailure $failure){aiCheck($failure->category==='timeout'&&$failure->retryable&&str_contains($failure->userMessage(),'полный ответ'),'Timeout is distinct from provider availability and remains eligible for failover');}

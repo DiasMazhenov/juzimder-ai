@@ -46,7 +46,7 @@ final class StreamAiHttpTransport implements AiHttpTransport {
         ]);
         $completed = curl_exec($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        if ($completed === false) { error_log('Juzimder AI: transport error code '.curl_errno($handle).'.'); throw new \RuntimeException('AI transport failed or exceeded its limit.'); }
+        if ($completed === false) { error_log('Juzimder AI: transport failure '.json_encode(['code'=>curl_errno($handle),'httpStatus'=>$status,'elapsedMs'=>(int)round(curl_getinfo($handle,CURLINFO_TOTAL_TIME)*1000),'firstByteMs'=>(int)round(curl_getinfo($handle,CURLINFO_STARTTRANSFER_TIME)*1000),'receivedBytes'=>strlen($responseBody)]).'.'); throw new \RuntimeException('AI transport failed or exceeded its limit.',curl_errno($handle)); }
 
         return new AiHttpResponse($status, $responseBody, $responseHeaders);
     }
@@ -57,6 +57,7 @@ final class AiProviderFailure extends \RuntimeException {
 
     public function userMessage(): string {
         return match ($this->category) {
+            'timeout' => 'Модель не успела вернуть полный ответ за отведённое время. Попробуйте более быструю модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'unavailable' => 'OpenRouter временно недоступен. Попробуйте позже или настройте резервную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'credentials' => 'OpenRouter отклонил доступ. Проверьте API-ключ и выбранную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'invalid_response' => 'Модель не вернула структурированный дизайн. Проверьте поддержку JSON Schema для выбранной модели или настройте резервную модель. Проект не изменён.',
@@ -211,13 +212,13 @@ final class OpenRouterProvider implements StructuredAiProvider {
                 $remaining = (int) floor(($this->deadline ?? 0) - microtime(true));
                 if ($remaining < 1) throw new AiProviderFailure('AI request deadline exceeded.', false, 'unavailable');
                 $response = $transport->post(self::ENDPOINT, $headers, $requestBody, min($this->settings->timeoutSeconds, $remaining));
-            } catch (\Throwable) {
+            } catch (\Throwable $transportError) {
                 error_log('Juzimder AI: OpenRouter transport failure.');
                 if ($attempt === 0 && $this->retryTransient) {
                     usleep(150000);
                     continue;
                 }
-                throw new AiProviderFailure('AI provider is unavailable.', true, 'unavailable');
+                throw new AiProviderFailure('AI provider transfer failed.', true, $transportError->getCode()===28?'timeout':'unavailable');
             }
             $retryableStatus = $response->status === 408 || $response->status === 429 || ($response->status >= 500 && $response->status <= 599);
             if ($attempt === 0 && $this->retryTransient && $retryableStatus) {
@@ -657,6 +658,7 @@ final class AiGeneratedWebsite {
             try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile); $userChecks=$auditUserRules($design); }
             catch (AiProviderFailure $repairFailure) { throw new AiProviderFailure($repairFailure->getMessage(), false, self::validationCategory($repairFailure)); }
             $completion['model'] = $repairCompletion['model'] ?? $completion['model'] ?? null;
+            $completion['profileName'] = $repairCompletion['profileName'] ?? $completion['profileName'] ?? null;
             $completion['usage'] = self::combinedUsage($completion['usage'] ?? [], $repairCompletion['usage'] ?? []);
             $repairAttempted = true;
         }
