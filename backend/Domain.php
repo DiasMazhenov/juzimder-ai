@@ -205,6 +205,16 @@ final class Store {
                 throw $error;
             }
         }
+        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 10) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 10) $this->db->exec(file_get_contents(__DIR__.'/migrations/011_ai_job_diagnostics.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();

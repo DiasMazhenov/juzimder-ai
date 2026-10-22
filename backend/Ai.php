@@ -60,6 +60,9 @@ final class StreamAiHttpTransport implements AiHttpTransport {
 final class AiProviderFailure extends \RuntimeException {
     public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider') { parent::__construct($message); }
 
+    public static function publicCategory(string $category): string {
+        return in_array($category,['cancelled','timeout','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit'],true)?$category:'provider';
+    }
     public function userMessage(): string {
         return match ($this->category) {
             'cancelled' => 'Генерация отменена. Проект не изменён. Уже потраченные токены могут быть учтены провайдером.',
@@ -124,6 +127,8 @@ final class AiProfileProbe {
 final class ProfileFailoverProvider implements StructuredAiProvider {
     private ?float $deadline = null;
     private ?string $preferredId = null;
+    private array $attempts=[];
+    public function diagnostics(): array {return $this->attempts;}
     public function __construct(private array $profiles, private readonly ?AiHttpTransport $transport = null, private readonly int $budgetSeconds=100, private readonly ?int $transferTimeout=null) {}
     public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200): array {
         $this->deadline ??= microtime(true)+$this->budgetSeconds;
@@ -136,11 +141,15 @@ final class ProfileFailoverProvider implements StructuredAiProvider {
             // Reserve time for each remaining profile instead of exhausting it on the first key.
             $profileDeadline=microtime(true)+$remaining/(count($profiles)-$index);
             $provider=new OpenRouterProvider($profile['settings'],$this->transport,$profileDeadline,count($profiles)===1,$this->transferTimeout);
+            $started=microtime(true);
+            $record=function(string $outcome,?string $resolvedModel=null)use($profile,$started):void{if(count($this->attempts)<20)$this->attempts[]=['profileName'=>$profile['name'],'model'=>$resolvedModel??$profile['settings']->model,'outcome'=>$outcome,'elapsedMs'=>(int)round((microtime(true)-$started)*1000)];};
             try{
                 $result=$provider->completeJson($systemPrompt,$userPrompt,$schema,$schemaName,$maxTokens);
+                $record('response_received',$result['model']??null);
                 $this->preferredId=$profile['id'];
                 return [...$result,'profileId'=>$profile['id'],'profileName'=>$profile['name']];
             }catch(AiProviderFailure $failure){
+                $record(AiProviderFailure::publicCategory($failure->category));
                 if(!$failure->retryable&&$failure->category!=='credentials')throw $failure;
                 $last=$failure;
                 error_log('Juzimder AI: profile attempt failed ('.$failure->category.'); trying the next saved profile within budget.');

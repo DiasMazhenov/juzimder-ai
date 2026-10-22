@@ -354,3 +354,12 @@ try{(new OpenRouterProvider($settings,$timeoutTransport,null,false))->completeJs
 
 $cancelledTransport=new FakeAiTransport([new RuntimeException('cancelled',42)]);
 try{(new Juzimder\ProfileFailoverProvider($profileEntries,$cancelledTransport))->completeJson('system','prompt',['type'=>'object'],'cancel_test');throw new RuntimeException('Expected cancellation');}catch(AiProviderFailure $failure){aiCheck($failure->category==='cancelled'&&!$failure->retryable&&count($cancelledTransport->calls)===1,'Cancellation aborts without retries or profile failover');}
+
+$diagnosticTransport=new FakeAiTransport([new AiHttpResponse(503,'{"secret":"raw-upstream"}'),new AiHttpResponse(200,$successBody)]);
+$diagnosticProvider=new Juzimder\ProfileFailoverProvider($profileEntries,$diagnosticTransport);
+$diagnosticProvider->completeJson('private-prompt','private-user-content',['type'=>'object'],'diagnostic_test');
+$attempts=$diagnosticProvider->diagnostics();
+aiCheck(count($attempts)===2&&$attempts[0]['profileName']==='Primary'&&$attempts[0]['outcome']==='unavailable'&&$attempts[1]['outcome']==='response_received','Diagnostics distinguish failed profile and successful structured response');
+$diagnosticJson=json_encode($attempts);
+aiCheck(!str_contains($diagnosticJson,'sk-primary')&&!str_contains($diagnosticJson,'raw-upstream')&&!str_contains($diagnosticJson,'private-prompt')&&!str_contains($diagnosticJson,'private-user-content'),'Diagnostics exclude keys, provider bodies and request text');
+aiCheck(AiProviderFailure::publicCategory('secret-arbitrary-category')==='provider','Unknown categories are reduced to a fixed public code');

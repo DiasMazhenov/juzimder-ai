@@ -20,11 +20,12 @@ try{
  jobReject(fn()=>$jobs->create($id,'owner',$page,0,$payload),409);jobReject(fn()=>$jobs->get($id,'other',$job['id']),404);jobReject(fn()=>$jobs->get($id,'owner',str_repeat('a',24)),404);
  jobCheck($jobs->run($job['id'],fn()=>new JobProvider()),'Worker claims queued job');
  $result=(new AiGenerationJobs(new Store($path)))->get($id,'owner',null,$page);
+ jobCheck($result['diagnostics']['outcome']==='succeeded','Job diagnostics persist across reopening');
  jobCheck($result['status']==='succeeded'&&$result['result']['design']['sectionCount']===3,'Validated result persists and can be restored after reopening');
  jobCheck(!$jobs->run($job['id'],fn()=>throw new RuntimeException('Duplicate worker')),'Duplicate workers cannot repeat a completed provider call');
  jobCheck($store->owned($id,'owner')['version']===0,'Job completion never modifies Project Data or revisions');
  $failure=$jobs->create($id,'owner',$page,0,$payload);$jobs->run($failure['id'],fn()=>throw new AiProviderFailure('raw-secret',false,'timeout'));
- $failed=$jobs->get($id,'owner',$failure['id']);jobCheck($failed['status']==='failed'&&!str_contains($failed['error'],'raw-secret'),'Provider failure stores only safe guidance');
+ $failed=$jobs->get($id,'owner',$failure['id']);jobCheck($failed['diagnostics']['outcome']==='timeout'&&$failed['diagnostics']['attempts']===[],'Job persists a safe failure category even before the provider is available');jobCheck($failed['status']==='failed'&&!str_contains($failed['error'],'raw-secret'),'Provider failure stores only safe guidance');
  $expired=$jobs->create($id,'owner',$page,0,$payload);$store->query('UPDATE ai_generation_jobs SET created_at=? WHERE id=?',[time()-700,$expired['id']]);
  jobCheck($jobs->get($id,'owner',$expired['id'])['status']==='failed','Abandoned queued/running jobs expire and stop blocking the project');
  $queuedCancel=$jobs->create($id,'owner',$page,0,$payload);

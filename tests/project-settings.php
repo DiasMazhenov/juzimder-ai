@@ -18,7 +18,7 @@ try {
     unset($legacy);
 
     $store=new Store($path);
-    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===10,'Upgrade existing database through schema 10');
+    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===11,'Upgrade existing database through schema 11');
     $project=$store->owned('0123456789abcdef01234567','legacy');
     settingsCheck($project['settings']['schemaVersion']===4,'Project settings migrate to schema version 4');
     settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');
@@ -92,7 +92,7 @@ try {
     $migratedAi=new Store($profileMigrationPath);
     $profile=$migratedAi->query('SELECT id,name,api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
     $profileState=$migratedAi->query('SELECT active_profile_id,version FROM project_ai_profile_state WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
-    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===10,'Upgrade schema 4 AI credentials through profile, asset, fallback-model and skill migrations');
+    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===11,'Upgrade schema 4 AI credentials through profile, asset, fallback-model and skill migrations');
     settingsCheck($profile!==false&&$profile['name']==='Основной профиль'&&$profile['api_key_ciphertext']==='encrypted-legacy-fixture'&&$profile['model']==='openai/legacy-model'&&$profile['fallback_model']===null,'Migration preserves the existing encrypted key and model and leaves fallback disabled');
     settingsCheck($profileState!==false&&$profileState['active_profile_id']===$profile['id']&&(int)$profileState['version']===7,'Migration preserves active selection and optimistic version');
     settingsCheck($migratedAi->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='project_ai_credentials'")->fetchColumn()===false,'Migration removes the obsolete single-profile credential table');
