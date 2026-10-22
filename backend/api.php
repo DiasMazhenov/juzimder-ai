@@ -206,7 +206,7 @@ try {
         if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
         $requests[]=$now;$_SESSION['ai_requests']=$requests;set_time_limit(120);
         try{result(Juzimder\SkillAnalyzer::create($content,new Juzimder\OpenRouterProvider($settings)));}
-        catch(Juzimder\AiProviderFailure $error){throw new Problem(502,'Не удалось получить проверяемый разбор Skill. Попробуйте уточнить текст или модель. Ничего не сохранено.');}
+        catch(Juzimder\AiProviderFailure $error){throw new Problem(502,Juzimder\SkillAnalyzer::failureMessage($error));}
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/skills(?:/([a-f0-9]{24})(?:/(activate))?)?$~D', $path, $aiSkillMatch)) {
         $projectId=$aiSkillMatch[1];$skillId=$aiSkillMatch[2]??'';$action=$aiSkillMatch[3]??'';$skills=new Juzimder\ProjectAiSkills($store);
