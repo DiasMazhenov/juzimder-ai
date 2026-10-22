@@ -220,6 +220,7 @@ try {
     try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$invalidCssTransport)); throw new RuntimeException('Expected invalid generated CSS.'); }
     catch (AiProviderFailure $failure) { aiCheck(count($invalidCssTransport->calls)===2&&$failure->category==='invalid_css'&&str_contains($failure->userMessage(),'Стили')&&!str_contains($failure->userMessage(),'https://'),'Generated CSS failures get safe style-specific guidance'); }
     aiCheck(str_contains($generatedOutput['css'],'.'.$scopeMatch[1].' .ai-hero')&&str_contains($generatedOutput['css'],'@media (max-width: 768px)')&&$generated['metadata']['usage']['completionTokens']===1800,'Generated responsive CSS is scoped and provider usage remains available for preview');
+    aiCheck(str_starts_with($generatedOutput['css'],'.'.$scopeMatch[1].' a{color:inherit}'), 'Scoped link baseline precedes generated styles and avoids browser blue without removing underlines');
     $plainActions=$generatedDesign;$plainActions['html']=str_replace('<a class="ai-link" href="#contact">Записаться</a>','<a href="#contact">Записаться</a><button type="button">Записаться</button>', $plainActions['html']);
     $plainActionOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($plainActions,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
     aiCheck(str_contains($plainActionOutput['html'],'<a href="#')&&str_contains($plainActionOutput['html'],'<button type="button">Записаться</button>'),'Generated links and buttons without classes remain safe');

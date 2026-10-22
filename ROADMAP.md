@@ -257,3 +257,12 @@ npm test PASS, build PASS, JS syntax PASS, diff check PASS; backend не мен�
 Live: восстановлен .047 результат, Mobile390, расширенное окно. Прежний большой прямоугольник исчез; заголовок, описание и CTA видны на первом экране. Screenshot /tmp/juzimder-empty-slot-049.png. Project Data revision39 не менялся, импорт/persistence/Undo и назначение нового изображения в этом релизе NOT RUN. Текстовые ошибки и синий default link остались: полная visual acceptance не пройдена. Следующий шаг — качество текста/CTA, затем импорт на QA и persistence/Undo.
 
 npm test, npm run build, JS syntax, PHP syntax backend/Ai.php и diff check PASS. Backend не менялся; предупреждение большого GrapesJS chunk сохраняется.
+
+
+## Базовый цвет ссылок и вычитка · 00.00.050
+
+Sanitized дизайн теперь получает scoped baseline `.scope a{color:inherit}` перед CSS модели. Это убирает browser-blue при пропущенном color; generated rules сохраняют приоритет по cascade, подчёркивания не удаляются. Старые сохранённые designs/jobs автоматически не переписываются. Prompt всех профилей требует язык owner brief, вычитку грамматики и CTA без обещаний работающей формы/обратного звонка при inert button. Это инструкция модели, а не автоматический grammar/fact audit.
+
+Live: новая реальная pottery QA генерация с пользовательским Skill, одна исправляющая попытка, обе на Резервный/Nemotron (39.3+38.8с),6302 tokens,$0. Итог3 секции,5/5 declared rules,contact audit passed. Mobile390 screenshot /tmp/juzimder-cta-copy-050.png: CTA «Посмотреть форматы» без browser-blue, hero без пустого slot. Контраст текста CTA слабый; текст придумал четыре занятия и обжиг за одну встречу, чего нет в brief. Полная visual/fact acceptance FAIL, импорт не выполнялся,revision39. Нельзя выдавать prompt вычитки за гарантию корректного текста. Следующий пункт — контраст и проверка бизнес-фактов перед импортом; persistence/Undo всё ещё требуют live acceptance.
+
+npm test PASS, build PASS, PHP syntax PASS, diff check PASS. Regression проверяет scoped baseline перед модельным CSS. Известный большой GrapesJS chunk warning сохраняется.
