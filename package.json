@@ -1,13 +1,13 @@
 {
   "name": "juzimder-ai",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "serve": "sh scripts/serve-local.sh",
-    "test": "php tests/domain.php && php tests/schema.php && php tests/project-settings.php && php tests/ai.php && php tests/operations.php && php tests/static-export.php && node --test tests/schema.test.mjs && node --test tests/api.test.mjs && node --test tests/blocks.test.mjs && node --test tests/design-tokens.test.mjs && node --test tests/ai-plan.test.mjs && node --test tests/component-actions.test.mjs"
+    "test": "php tests/domain.php && php tests/schema.php && php tests/project-settings.php && php tests/ai.php && php tests/operations.php && php tests/static-export.php && node --test tests/schema.test.mjs && node --test tests/api.test.mjs && node --test tests/blocks.test.mjs && node --test tests/design-tokens.test.mjs && node --test tests/ai-plan.test.mjs && node --test tests/component-actions.test.mjs && node --test tests/page-root.test.mjs"
   },
   "dependencies": {
     "grapesjs": "^0.23.8"
@@ -16,5 +16,5 @@
     "ajv": "^8.20.0",
     "vite": "^8.3.4"
   },
-  "productVersion": "00.00.031"
+  "productVersion": "00.00.032"
 }

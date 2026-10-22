@@ -47,6 +47,7 @@
 - [x] Cmd/Ctrl+Z, Shift+Z/Y и Cmd/Ctrl+S; сочетания игнорируют поля ввода.
 - [x] На viewport до 800 px доступны панели «Холст», «Секции» и «Свойства».
 - [x] Floating Layers/Sections drawers, icon Flex controls и layout для Page Root/Body; isolated-browser save/reload подтвердил Body Flex.
+- [x] Новый Body по умолчанию сохраняет `display:flex` и `flex-direction:column`; новый проект, новая страница и инспектор корня используют вертикальное направление, явные стили не перезаписываются.
 - [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
 - [x] Component context menu on canvas, inspector and Layers with copy/cut/paste/duplicate/reorder/select-parent/delete; Codex Browser confirmed right-click on a layer row selects that component and opens the shared menu; duplicate→Undo/reload, delete confirmation, keyboard navigation and reference remapping are also checked.
 - [ ] Универсальные component operations, duplicate с безопасным remap ссылок/styles и расширение schema при добавлении новых типов.
@@ -68,6 +69,7 @@
 - [x] Address-scoped AI edits: selected component, stable ID/path checks, typed operations, diff confirmation and Project Data/CAS save; browser normal-editor save/reload verified in 00.00.030.
 - [ ] Live AI edit acceptance: real provider proposal → confirm → save → reload; the configured free model returned a temporary unavailable response.
 - [ ] Skill-driven agent: convert an uploaded skill into a traceable requirements checklist, enforce tool/result validators, collect acceptance evidence and fail closed on conflicts or unverifiable requirements.
+- [ ] Встроить адаптированную методику Taste Skill как источник проверяемых требований; исходные browser/Node scripts не запускать на сервере, требования проверять валидаторами и отдельной визуальной приёмкой. Источник MIT: https://github.com/Leonxlnx/taste-skill.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
 - [x] Необязательная резервная модель профиля; используется после повторной попытки основной модели при временной сетевой ошибке или HTTP 408/429/5xx.
@@ -121,4 +123,4 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.031.
+**Текущее состояние:** foundation, версия продукта 00.00.032.
