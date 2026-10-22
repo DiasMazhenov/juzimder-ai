@@ -114,7 +114,7 @@ async function siteSettings(id) {
   const tokens=normalizeDesignTokens(project.settings?.designTokens||DEFAULT_DESIGN_TOKENS);
   const tokenSelect=(name,label,choices,choiceLabel=value=>value)=>`<label class="settings-field">${esc(label)}<select name="${name}">${choices.map(value=>`<option value="${esc(value)}" ${tokens[name]===value?'selected':''}>${esc(choiceLabel(value))}</option>`).join('')}</select></label>`;
   const sizeSelect=(name,label)=>{const [min,max,step]=fontSizeRanges[name];const choices=Array.from({length:Math.floor((max-min)/step)+1},(_,index)=>`${min+index*step}px`);return tokenSelect(name,label,choices);};
-  let body='',aiSettings=null;
+  let body='',aiSettings=null,aiSkillLibrary=null;
   if(selected[0]==='design')body=`<form id="design-tokens-form" class="settings-form"><p class="muted settings-form-intro">Основные цвета и скругление хранятся в настройках проекта, применяются ко всем страницам и доступны редактору и AI.</p><div class="settings-color-grid">${TOKEN_FIELDS.filter(field=>field.type==='color').map(field=>`<label>${esc(field.label)}<input type="color" name="${field.name}" value="${esc(tokens[field.name])}" aria-label="${esc(field.label)}"></label>`).join('')}</div><label class="settings-field">Скругление карточек<select name="radius">${[0,4,6,8,12,16,24,32].map(px=>`<option value="${px}px" ${tokens.radius===`${px}px`?'selected':''}>${px} px</option>`).join('')}</select></label><p class="muted small">Локальные стили элементов остаются самостоятельными. Настройки сохраняются отдельной ревизией проекта; они пока не управляют публикацией, которой ещё нет.</p><div class="settings-form-actions"><button class="primary" type="submit">Сохранить цвета и стили</button><span id="settings-save-status" class="muted small" role="status"></span></div></form>`;
   else if(selected[0]==='fonts')body=`<form id="font-tokens-form" class="settings-form"><p class="muted settings-form-intro">Задайте шрифты, веса, размеры и интервалы проекта. H1–H3 адаптируются к ширине холста; значения, заданные непосредственно элементу, сохраняют приоритет.</p><div class="typography-grid">${tokenSelect('headingFontFamily','Шрифт заголовков',FONT_FAMILIES,font=>font.startsWith('Georgia')?'Georgia':font.startsWith('system-ui')?'Системный':'Arial')}${tokenSelect('bodyFontFamily','Шрифт основного текста',FONT_FAMILIES,font=>font.startsWith('Georgia')?'Georgia':font.startsWith('system-ui')?'Системный':'Arial')}${tokenSelect('headingFontWeight','Вес заголовков',FONT_WEIGHTS)}${tokenSelect('bodyFontWeight','Вес основного текста',FONT_WEIGHTS)}${sizeSelect('baseFontSize','Базовый размер текста')}${sizeSelect('fontSizeH1','Размер H1')}${sizeSelect('fontSizeH2','Размер H2')}${sizeSelect('fontSizeH3','Размер H3')}${sizeSelect('fontSizeH4','Размер H4')}${sizeSelect('fontSizeH5','Размер H5')}${sizeSelect('fontSizeH6','Размер H6')}${tokenSelect('headingLineHeight','Интервал заголовков',lineHeightOptions)}${tokenSelect('bodyLineHeight','Интервал основного текста',lineHeightOptions)}${tokenSelect('letterSpacing','Межбуквенный интервал',letterSpacingOptions)}</div><p class="muted small">Настройки сохраняются новой ревизией и используются редактором и AI-секциями. Публичная публикация и static export ещё не подключены.</p><div class="settings-form-actions"><button class="primary" type="submit">Сохранить типографику</button><span id="settings-save-status" class="muted small" role="status"></span></div></form>`;
   else if(selected[0]==='seo'){
@@ -124,10 +124,13 @@ async function siteSettings(id) {
   else if(selected[0]==='ai'){
     try { aiSettings=await api('/projects/'+id+'/ai/settings'); }
     catch(error) { aiSettings={configured:false,model:null,activeProfileId:null,profiles:[],version:0,error:error.message}; }
+    try { aiSkillLibrary=await api(`/projects/${id}/ai/skills`); }
+    catch(error) { aiSkillLibrary={version:0,activeSkillId:null,skills:[],limit:10,error:error.message}; }
     const initialProfileId=aiSettings.activeProfileId||(aiSettings.profiles[0]?.id||'');
     const initialProfile=aiSettings.profiles.find(profile=>profile.id===initialProfileId);
     const profileCards=aiSettings.profiles.map(profile=>'<button type="button" data-ai-profile-id="'+esc(profile.id)+'" class="ai-profile-card'+(profile.id===initialProfileId?' selected':'')+'" aria-pressed="'+(profile.id===initialProfileId?'true':'false')+'"><span><strong>'+esc(profile.name)+'</strong><small>'+esc(profile.model)+(profile.fallbackModel?' · запасная: '+esc(profile.fallbackModel):'')+'</small></span><span class="status-pill">'+(profile.active?'Активен':'Редактировать')+'</span></button>').join('');
     body='<section class="ai-engine-settings"><div class="settings-notice"><span class="settings-notice-icon">✳</span><div><strong id="ai-settings-heading">'+(aiSettings.configured?'Активный профиль: '+esc(aiSettings.profiles.find(profile=>profile.id===aiSettings.activeProfileId)?.name||'OpenRouter'):'Добавьте профиль OpenRouter')+'</strong><p id="ai-settings-intro">'+(aiSettings.configured?'AI-запросы используют выбранный профиль и модель «'+esc(aiSettings.model||'')+'»'+(aiSettings.fallbackModel?' · запасная модель «'+esc(aiSettings.fallbackModel)+'».':'.'):'Сохраните несколько профилей с разными API-ключами и моделями. Один профиль будет активным для AI-запросов.')+'</p></div></div><p class="muted small ai-profile-security">Ключи шифруются на сервере и не возвращаются в браузер. Чтобы заменить ключ профиля, введите новый; пустое поле сохранит прежний.</p><div class="ai-profile-manager"><div class="ai-profile-list-column"><div class="ai-profile-list-heading"><h3>Профили OpenRouter</h3><button id="ai-profile-add" class="secondary-link" type="button">+ Новый профиль</button></div><div id="ai-profile-list" class="ai-profile-list">'+(profileCards||'<p class="muted small">Профилей пока нет. Создайте первый профиль справа.</p>')+'</div></div><form id="ai-settings-form" class="settings-form ai-profile-form"><input type="hidden" name="profileId" value="'+esc(initialProfile?.id||'')+'"><label class="settings-field">Название профиля<input name="profileName" required maxlength="64" value="'+esc(initialProfile?.name||'')+'" placeholder="Например, Основной"></label><label class="settings-field">API-ключ OpenRouter<input type="password" name="apiKey" autocomplete="off" maxlength="512" placeholder="'+(initialProfile?'Ключ сохранён · пустое поле оставит его без изменений':'sk-or-v1-…')+'" spellcheck="false" '+(initialProfile?'':'required')+'></label><label class="settings-field">ID основной модели<input type="text" name="model" required maxlength="128" value="'+esc(initialProfile?.model||'')+'" placeholder="provider/model-slug" autocomplete="off" spellcheck="false"></label><label class="settings-field">ID резервной модели · необязательно<input type="text" name="fallbackModel" maxlength="128" value="'+esc(initialProfile?.fallbackModel||'')+'" placeholder="provider/fallback-model" autocomplete="off" spellcheck="false"></label><p class="muted small">При временной ошибке или лимите основной модели запрос повторится через резервную. OpenRouter может начислить стоимость за каждый запрос. Пустое поле отключает резервную модель.</p><p class="muted small">Ключ передаётся серверу вашего проекта (на production — по HTTPS), шифруется и не попадает в Project Data или историю ревизий.</p><div class="settings-form-actions"><button id="ai-profile-save" class="primary" type="submit">'+(initialProfile?'Сохранить изменения':'Создать профиль')+'</button><button id="ai-profile-activate" class="secondary-link" type="button" '+(!initialProfile||initialProfile.active?'hidden':'')+'>Использовать для AI</button><button id="ai-profile-delete" class="secondary-link danger-action" type="button" '+(initialProfile?'':'hidden')+'>Удалить профиль</button><span id="ai-settings-status" class="muted small" role="status">'+esc(aiSettings.error||'Профили AI · версия '+aiSettings.version)+'</span></div></form></div><a class="secondary-link ai-editor-link" href="/projects/'+id+'/pages/'+encodeURIComponent(project.document.data.pages[0].id)+'/edit">Перейти к редактору AI-плана</a></section>';
+    body+=`<section class="ai-skill-library" aria-labelledby="ai-skills-title"><div class="section-title-row"><div><h3 id="ai-skills-title">Пользовательские Skills</h3><p class="muted">До ${aiSkillLibrary.limit} Markdown-файлов или вставленных инструкций на проект.</p></div><span id="ai-skills-version" class="version-label">Библиотека · версия ${aiSkillLibrary.version}</span></div><p class="muted small ai-skill-disclosure">Текст хранится только в проекте. Он будет отправлен в OpenRouter вместе с описанием лишь после выбора Skill в редакторе и нажатия «Создать дизайн». Skill не исполняет команды и не гарантирует безошибочное выполнение: перед импортом вы вручную отметите его пункты проверки.</p><div class="ai-skill-manager"><div class="ai-profile-list-column"><div class="ai-profile-list-heading"><h4>Сохранённые Skills</h4><button id="ai-skill-add" class="secondary-link" type="button">+ Добавить Skill</button></div><div id="ai-skill-list" class="ai-profile-list"></div></div><form id="ai-skill-form" class="settings-form ai-skill-form"><input type="hidden" name="skillId" value=""><label class="settings-field">Название<input name="skillName" required maxlength="64" placeholder="Например, фирменный стиль"></label><label class="settings-field">Загрузить Markdown-файл<input id="ai-skill-file" type="file" accept=".md,.markdown,text/markdown,text/plain"></label><label class="settings-field">Текст Skill<textarea name="content" rows="12" maxlength="16000" required placeholder="# Название Skill&#10;&#10;Опишите правила и ограничения дизайна"></textarea><small class="muted">UTF-8 · максимум 16 000 символов</small></label><label class="settings-field">Пункты ручной проверки<textarea name="manualChecks" rows="4" maxlength="3000" required placeholder="Проверь адаптивность на телефоне&#10;Убедись, что CTA заметна"></textarea><small class="muted">По одному пункту в строке · от 1 до 12 пунктов</small></label><div class="settings-form-actions"><button id="ai-skill-save" class="primary" type="submit">Сохранить Skill</button><button id="ai-skill-activate" class="secondary-link" type="button" hidden>Использовать в редакторе</button><button id="ai-skill-delete" class="secondary-link danger-action" type="button" hidden>Удалить Skill</button><span id="ai-skill-status" class="muted small" role="status">${esc(aiSkillLibrary.error||`Библиотека Skills · версия ${aiSkillLibrary.version}`)}</span></div></form></div></section>`;
   }
   else body=`<div class="settings-notice settings-planned"><span class="settings-notice-icon">◷</span><div><strong>${selected[0]==='domain'?'Подключение домена пока недоступно':'Раздел пока не подключён'}</strong><p>${selected[0]==='domain'?'Публичная публикация, DNS-проверка, маршрутизация и выпуск SSL ещё не реализованы. Сайт не будет показан как подключённый без проверки.':'Для этого раздела пока нет сохранения и backend-интеграции. Форма появится вместе с рабочей серверной поддержкой.'}</p><span class="status-pill">Не реализовано</span></div></div>`;
   app.innerHTML=`<div class="dashboard project-dashboard settings-dashboard"><aside class="dash-sidebar"><a class="brand" href="/">${mark} Juzimder <span>AI</span></a><div class="workspace-label">ПРОЕКТ</div><a class="project-side-link" href="/projects/${id}">▦ <span>Страницы</span></a><a class="nav-active" href="/projects/${id}/settings">⚙ <span>Настройки сайта</span></a>${settingsNav}<div class="sidebar-note"><span class="status-dot"></span> FOUNDATION<div class="version-label">Версия продукта <strong>${productVersion}</strong></div><p>${esc(project.name)}</p></div><a class="text-button" href="/">← Все проекты</a><button id="logout" class="text-button">Выйти из аккаунта ↗</button></aside><main class="dash-main settings-main"><header class="dash-top"><span><a href="/">Мои проекты</a><span class="slash">/</span><a href="/projects/${id}">${esc(project.name)}</a><span class="slash">/</span>Настройки сайта</span><span class="version-label">Версия ${productVersion}</span></header><section class="project-intro"><p class="eyebrow">НАСТРОЙКИ ПРОЕКТА</p><h1>Настройки сайта<span class="accent">.</span></h1><p class="muted">Общие параметры проекта и подключённые возможности.</p></section><div class="settings-layout"><section class="settings-content"><div class="section-title-row"><div><p class="eyebrow">${esc(selected[1].toUpperCase())}</p><h2>${esc(selected[1])}</h2></div><span id="settings-revision" class="version-label">Проект · ревизия ${project.version}</span></div>${body}</section></div><footer class="dash-footer"><span>YOUR IDEAS, TAKING SHAPE.</span><span>GrapesJS Core · PHP · SQLite</span></footer></main></div><dialog id="confirm-dialog"><form method="dialog"><p id="confirm-message"></p><div class="dialog-actions"><button value="cancel">Отмена</button><button id="confirm-submit" class="primary" value="confirm">Продолжить</button></div></form></dialog>`;
@@ -174,6 +177,53 @@ async function siteSettings(id) {
       catch(error){status.textContent=error.message;}finally{deleteButton.disabled=false;}
     };
     renderAiProfiles();
+    const skillForm=$('#ai-skill-form'),skillList=$('#ai-skill-list'),skillStatus=$('#ai-skill-status');
+    const skillIdInput=skillForm.elements.skillId,skillNameInput=skillForm.elements.skillName,skillContentInput=skillForm.elements.content,skillChecksInput=skillForm.elements.manualChecks;
+    const skillSave=$('#ai-skill-save'),skillActivate=$('#ai-skill-activate'),skillDelete=$('#ai-skill-delete');
+    const selectedSkill=()=>aiSkillLibrary.skills.find(skill=>skill.id===skillIdInput.value)||null;
+    const renderAiSkills=()=>{
+      skillList.innerHTML=aiSkillLibrary.skills.map(skill=>`<button type="button" data-ai-skill-id="${esc(skill.id)}" class="ai-profile-card${skill.id===skillIdInput.value?' selected':''}" aria-pressed="${skill.id===skillIdInput.value}"><span><strong>${esc(skill.name)}</strong><small>${skill.characterCount.toLocaleString('ru-RU')} символов · ${skill.manualChecks.length} пунктов проверки</small></span><span class="status-pill">${skill.active?'Активен':'Редактировать'}</span></button>`).join('')||'<p class="muted small">Skills ещё не добавлены. Загрузите Markdown или вставьте текст справа.</p>';
+      const skill=selectedSkill();skillActivate.hidden=!skill||skill.active;skillDelete.hidden=!skill;
+      $('#ai-skills-version').textContent=`Библиотека · версия ${aiSkillLibrary.version}`;
+    };
+    const clearAiSkillForm=()=>{skillForm.reset();skillIdInput.value='';skillActivate.hidden=true;skillDelete.hidden=true;skillSave.textContent='Сохранить Skill';renderAiSkills();};
+    skillList.onclick=async event=>{
+      const button=event.target.closest('[data-ai-skill-id]');if(!button)return;
+      skillStatus.textContent='Загружаем Skill…';
+      try{const skill=await api(`/projects/${id}/ai/skills/${encodeURIComponent(button.dataset.aiSkillId)}`);skillIdInput.value=skill.id;skillNameInput.value=skill.name;skillContentInput.value=skill.content;skillChecksInput.value=skill.manualChecks.join('\n');skillSave.textContent='Сохранить изменения';renderAiSkills();skillStatus.textContent=`Skill загружен · библиотека версии ${aiSkillLibrary.version}`;}
+      catch(error){skillStatus.textContent=error.message;}
+    };
+    $('#ai-skill-add').onclick=()=>{clearAiSkillForm();skillNameInput.focus();};
+    $('#ai-skill-file').onchange=async event=>{
+      const file=event.target.files?.[0];if(!file)return;
+      try{if(file.size>65536)throw new Error('Размер файла превышает 64 КБ.');const text=await file.text();if([...text].length>16000)throw new Error('Файл длиннее 16 000 символов.');skillContentInput.value=text;if(!skillNameInput.value.trim())skillNameInput.value=file.name.replace(/\.(?:md|markdown|txt)$/i,'');skillStatus.textContent=`Файл «${file.name}» прочитан. Нажмите «Сохранить Skill», чтобы добавить его в проект.`;}
+      catch(error){skillStatus.textContent=error.message;event.target.value='';}
+    };
+    skillForm.onsubmit=async event=>{
+      event.preventDefault();skillSave.disabled=true;skillStatus.textContent='Сохраняем Skill в проекте…';
+      const editing=selectedSkill(),existingSkillIds=new Set(aiSkillLibrary.skills.map(skill=>skill.id)),method=editing?'PUT':'POST',path=editing?`/ai/skills/${encodeURIComponent(editing.id)}`:'/ai/skills';
+      const manualChecks=skillChecksInput.value.split(/\r?\n/).map(item=>item.trim()).filter(Boolean);
+      try{
+        aiSkillLibrary=await api(`/projects/${id}${path}`,method,{version:aiSkillLibrary.version,name:skillNameInput.value,content:skillContentInput.value,manualChecks});
+        if(!editing){const created=aiSkillLibrary.skills.find(skill=>!existingSkillIds.has(skill.id));if(created)skillIdInput.value=created.id;}
+        if(skillIdInput.value){const saved=await api(`/projects/${id}/ai/skills/${encodeURIComponent(skillIdInput.value)}`);skillNameInput.value=saved.name;skillContentInput.value=saved.content;skillChecksInput.value=saved.manualChecks.join('\n');}
+        skillSave.textContent='Сохранить изменения';renderAiSkills();skillStatus.textContent=`Skill сохранён · версия ${aiSkillLibrary.version}`;
+      }catch(error){skillStatus.textContent=error.message;}
+      finally{skillSave.disabled=false;}
+    };
+    skillActivate.onclick=async()=>{
+      const skill=selectedSkill();if(!skill)return;skillActivate.disabled=true;skillStatus.textContent='Активируем Skill…';
+      try{aiSkillLibrary=await api(`/projects/${id}/ai/skills/${encodeURIComponent(skill.id)}/activate`,'POST',{version:aiSkillLibrary.version});renderAiSkills();skillStatus.textContent=`«${skill.name}» будет выбран по умолчанию в редакторе · версия ${aiSkillLibrary.version}`;}
+      catch(error){skillStatus.textContent=error.message;}finally{skillActivate.disabled=false;}
+    };
+    skillDelete.onclick=async()=>{
+      const skill=selectedSkill();if(!skill||!await askConfirmation(`Удалить Skill «${skill.name}»?`,'Удалить Skill'))return;
+      skillDelete.disabled=true;skillStatus.textContent='Удаляем Skill…';
+      try{aiSkillLibrary=await api(`/projects/${id}/ai/skills/${encodeURIComponent(skill.id)}`,'DELETE',{version:aiSkillLibrary.version});clearAiSkillForm();skillStatus.textContent=`Skill удалён · версия ${aiSkillLibrary.version}`;}
+      catch(error){skillStatus.textContent=error.message;}finally{skillDelete.disabled=false;}
+    };
+    if(aiSkillLibrary.error)skillStatus.textContent=aiSkillLibrary.error;
+    renderAiSkills();
   }
   $('#logout').onclick=async()=>{await api('/logout','POST',{});session=await api('/session');auth();};
 }
@@ -197,6 +247,26 @@ async function openEditor(id,pageId=null) {
   const skillProfileSelect=document.createElement('select');skillProfileSelect.id='ai-skill-profile';skillProfileSelect.setAttribute('aria-label','Профиль генерации');
   for(const [value,label] of [['taste','Taste · выразительный дизайн'],['standard','Стандартный дизайн']]){const option=document.createElement('option');option.value=value;option.textContent=label;skillProfileSelect.append(option);}
   skillProfileLabel.append(skillProfileSelect);$('#ai-prompt').closest('label').before(skillProfileLabel);
+  let userSkillLibrary={version:0,activeSkillId:null,skills:[]},userSkillOptionsLoaded=false,userSkillLoadError='';
+  const updateAIDisclosure=()=>{
+    const value=skillProfileSelect.value;
+    if(value.startsWith('user:'))$('.ai-disclosure').textContent='После нажатия «Создать дизайн» в OpenRouter отправятся описание и полный текст выбранного Skill с его ручным чек-листом. Project Data и содержимое страницы не передаются. Модель постарается соблюдать Skill, но это не гарантия: проверьте каждый пункт перед импортом.';
+    else if(value==='taste')$('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенный профиль Taste. Project Data и содержимое страницы не передаются. Перед применением нужно проверить идею и текст, затем осмотреть sandbox-предпросмотр на 1440, 768 и 390 px.';
+    else $('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенные инструкции стандартного профиля. Project Data и содержимое страницы не передаются. Страница изменится только после проверки sandbox-предпросмотра и отдельного подтверждения.';
+  };
+  const refreshUserSkillOptions=async()=>{
+    const previous=skillProfileSelect.value;
+    userSkillLibrary=await api(`/projects/${id}/ai/skills`);
+    for(const option of [...skillProfileSelect.options])if(option.dataset.userSkillId)option.remove();
+    for(const skill of userSkillLibrary.skills){const option=document.createElement('option');option.value='user:'+skill.id;option.dataset.userSkillId=skill.id;option.textContent=`${skill.name}${skill.active?' · активный':''}`;skillProfileSelect.append(option);}
+    const previousStillExists=[...skillProfileSelect.options].some(option=>option.value===previous);
+    if(!userSkillOptionsLoaded&&userSkillLibrary.activeSkillId)skillProfileSelect.value='user:'+userSkillLibrary.activeSkillId;
+    else if(previousStillExists)skillProfileSelect.value=previous;
+    else skillProfileSelect.value='taste';
+    userSkillOptionsLoaded=true;updateAIDisclosure();
+  };
+  skillProfileSelect.onchange=updateAIDisclosure;
+  updateAIDisclosure();
   editor.Components.addType('image',{model:{defaults:{traits:['alt','src']}}});
   registerBlocks(editor);
   const libraryFilter=document.createElement('div');libraryFilter.className='library-filter';libraryFilter.innerHTML=`<label><span class="visually-hidden">Поиск секций и элементов</span><input id="block-search" type="search" placeholder="Поиск секций и элементов" autocomplete="off"></label><div class="library-categories" role="group" aria-label="Категории библиотеки">${[['all','Все'],['Секции','Секции'],['Элементы','Элементы'],['Компоновка','Компоновка'],['Медиа','Медиа'],['Навигация','Навигация']].map(([id,label],index)=>`<button type="button" data-library-category="${id}" aria-pressed="${index===0}">${label}</button>`).join('')}</div>`;
@@ -257,7 +327,9 @@ async function openEditor(id,pageId=null) {
       const row=document.createElement('p'),caption=document.createElement('span');caption.textContent=label;row.append(caption,document.createTextNode(value));facts.append(row);
     }
     const isTaste=metadata?.skillProfile==='taste';
+    const isUserSkill=metadata?.skillProfile==='user_skill';
     if(isTaste&&design.concept){const row=document.createElement('p'),caption=document.createElement('span');caption.textContent='Идея';row.append(caption,document.createTextNode(design.concept));facts.append(row);}
+    if(isUserSkill&&metadata?.userSkillName){const row=document.createElement('p'),caption=document.createElement('span');caption.textContent='Skill';row.append(caption,document.createTextNode(metadata.userSkillName));facts.append(row);}
     preview.append(facts);
     const audit=design.skillAudit;
     if(isTaste&&audit?.profile==='taste'){
@@ -289,6 +361,15 @@ async function openEditor(id,pageId=null) {
       review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;for(const input of review.querySelectorAll('[data-review]')){const key=input.dataset.review;if(key==='concept'||key==='content')aiDesignState.skillReview[key]=input.checked;else aiDesignState.skillReview.viewports[key]=input.checked;}const applyButton=$('#ai-plan-apply');if(applyButton)applyButton.disabled=!aiDesignState.skillReview.concept||!aiDesignState.skillReview.content||Object.values(aiDesignState.skillReview.viewports).some(value=>!value);});
       preview.append(review);
     }
+    if(isUserSkill){
+      const items=Array.isArray(audit?.humanReviewRequired)?audit.humanReviewRequired:[];
+      const review=document.createElement('fieldset');review.className='ai-taste-review ai-user-skill-review';review.setAttribute('aria-label','Ручная проверка пользовательского Skill');
+      const legend=document.createElement('legend');legend.textContent='Проверьте требования Skill';review.append(legend);
+      const explanation=document.createElement('p');explanation.className='muted small';explanation.textContent='Эти пункты не проверены автоматически. Отметьте каждый после просмотра результата.';review.append(explanation);
+      items.forEach((item,index)=>{const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.userReviewIndex=String(index);row.append(input,document.createTextNode(item));review.append(row);});
+      review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;aiDesignState.skillReview.manualReview=items.map((_,index)=>Boolean(review.querySelector(`[data-user-review-index="${index}"]`)?.checked));const applyButton=$('#ai-plan-apply');if(applyButton)applyButton.disabled=aiDesignState.skillReview.manualReview.length===0||aiDesignState.skillReview.manualReview.some(value=>!value);});
+      preview.append(review);
+    }
     const usage=metadata?.usage||{},usageParts=[];
     for(const [key,label] of [['promptTokens','входные токены'],['completionTokens','выходные токены'],['totalTokens','всего токенов']])if(Number.isInteger(usage[key])&&usage[key]>=0)usageParts.push(label+': '+usage[key]);
     if(typeof usage.costUsd==='number'&&Number.isFinite(usage.costUsd)&&usage.costUsd>=0)usageParts.push('стоимость: $'+usage.costUsd.toFixed(6));
@@ -296,7 +377,7 @@ async function openEditor(id,pageId=null) {
     const meta=document.createElement('p');meta.className='muted small ai-plan-metadata';meta.textContent=model+(usageParts.length?' · '+usageParts.join(' · '):'');preview.append(meta);
     const actions=document.createElement('div');actions.className='dialog-actions';
     const apply=document.createElement('button');apply.type='button';apply.id='ai-plan-apply';apply.className='primary';apply.textContent='Добавить дизайн · '+design.sectionCount+' секций';apply.onclick=applyAIDesign;
-    if(isTaste)apply.disabled=true;
+    if(isTaste||isUserSkill)apply.disabled=true;
     actions.append(apply);preview.append(actions);preview.hidden=false;
   };
   const buildAIDesignHtml=()=>{
@@ -329,6 +410,7 @@ async function openEditor(id,pageId=null) {
   const applyAIDesign=async()=>{
     if(!aiDesignState)return;
     if(aiDesignState.metadata?.skillProfile==='taste'&&(!aiDesignState.skillReview?.concept||!aiDesignState.skillReview?.content||Object.values(aiDesignState.skillReview?.viewports||{}).some(value=>!value)||Object.values(aiDesignState.skillReview?.visited||{}).some(value=>!value))){$('#ai-plan-status').textContent='Сначала подтвердите проверку идеи и текста, затем осмотрите все три размера предпросмотра.';return;}
+    if(aiDesignState.metadata?.skillProfile==='user_skill'&&(!aiDesignState.skillReview?.manualReview?.length||aiDesignState.skillReview.manualReview.some(value=>!value))){$('#ai-plan-status').textContent='Проверьте и отметьте каждый пункт выбранного Skill, затем повторите подтверждение.';return;}
     const page=editor.Pages.getAll().find(item=>item.get('id')===aiDesignState.pageId);
     if(!page){notify('Страница предпросмотра больше не существует.',true);return;}
     if(editor.Pages.getSelected()?.get('id')!==aiDesignState.pageId){$('#ai-plan-status').textContent='Выбрана другая страница. Составьте дизайн заново для текущей страницы.';return;}
@@ -502,8 +584,9 @@ async function openEditor(id,pageId=null) {
       if(dirty){await saveDocument(false);if(dirty||conflicted)throw new Error('Не удалось сохранить текущие изменения. План не применён.');}
       aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-image-slot-list').replaceChildren();$('#ai-image-upload-status').textContent='';$('#ai-plan-preview').replaceChildren();$('#ai-plan-preview').hidden=true;$('#ai-plan-status').textContent='';$('#ai-provider-status').textContent='Проверяем настройку AI-сервера…';$('#ai-generate').disabled=true;
       $('#ai-plan-dialog').showModal();
-  const status=await api(`/projects/${id}/ai/settings`);
-      if(status.configured===true){$('#ai-generate').disabled=false;$('#ai-settings-link').hidden=true;$('#ai-provider-status').textContent=`OpenRouter настроен для проекта${status.model?` · ${status.model}`:''}. Запрос будет отправлен только после нажатия «Создать дизайн».`;$('#ai-panel-status').textContent='AI настроен для проекта.';}
+      try{await refreshUserSkillOptions();userSkillLoadError='';}catch(error){userSkillLoadError=error.message;}
+      const status=await api(`/projects/${id}/ai/settings`);
+      if(status.configured===true){$('#ai-generate').disabled=false;$('#ai-settings-link').hidden=true;$('#ai-provider-status').textContent=`OpenRouter настроен для проекта${status.model?` · ${status.model}`:''}. Запрос будет отправлен только после нажатия «Создать дизайн».${userSkillLoadError?' Библиотека Skills недоступна: '+userSkillLoadError:''}`;$('#ai-panel-status').textContent='AI настроен для проекта.';}
       else{$('#ai-settings-link').hidden=false;$('#ai-provider-status').textContent='AI не настроен. Описание останется на этой странице и не будет отправлено.';$('#ai-panel-status').textContent='Задайте ключ в «Настройки сайта → AI Engine».';}
     }catch(error){$('#ai-settings-link').hidden=false;$('#ai-provider-status').textContent=error.message;$('#ai-panel-status').textContent=error.message;notify(error.message,true);}
     finally{openButton.disabled=false;}
@@ -515,13 +598,14 @@ async function openEditor(id,pageId=null) {
     try{
       const page=editor.Pages.getSelected();
       if(!page)throw new Error('Выберите страницу проекта.');
-      const skillProfile=$('#ai-skill-profile').value;
-      const response=await api(`/projects/${id}/ai/generate-page`,'POST',{prompt,skillProfile});
+      const selectedProfile=$('#ai-skill-profile').value,userSkillId=selectedProfile.startsWith('user:')?selectedProfile.slice(5):null,skillProfile=userSkillId?'standard':selectedProfile;
+      const response=await api(`/projects/${id}/ai/generate-page`,'POST',{prompt,skillProfile,...(userSkillId?{skillId:userSkillId}:{})});
       if(!response.design||typeof response.design.html!=='string'||typeof response.design.css!=='string')throw new Error('AI вернул неполный дизайн. Попробуйте уточнить описание.');
       if(skillProfile==='taste'&&(response.metadata?.skillProfile!=='taste'||response.design.skillAudit?.profile!=='taste'||!Array.isArray(response.design.skillAudit.checks)||response.design.skillAudit.checks.some(item=>item.status!=='passed')))throw new Error('Ответ не подтвердил обязательные проверки Taste. Дизайн не применён.');
+      if(userSkillId&&(response.metadata?.skillProfile!=='user_skill'||response.metadata?.userSkillId!==userSkillId||response.design.skillAudit?.profile!=='user_skill'||!Array.isArray(response.design.skillAudit.humanReviewRequired)||!response.design.skillAudit.humanReviewRequired.length))throw new Error('Ответ не содержит чек-лист выбранного Skill. Дизайн не применён.');
       let assets=[],assetWarning='';try{assets=await api(`/projects/${id}/assets`);}catch(error){assetWarning=' Не удалось загрузить библиотеку изображений: '+error.message;}
       const slots=response.design.imageSlots||[];
-      aiDesignState={design:response.design,metadata:response.metadata,pageId:page.get('id'),assets,imageAssignments:Object.fromEntries(slots.map(slot=>[slot.id,''])),imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label])),skillReview:{concept:false,content:false,visited:{desktop:false,tablet:false,mobile:false},viewports:{desktop:false,tablet:false,mobile:false}}};
+      aiDesignState={design:response.design,metadata:response.metadata,pageId:page.get('id'),assets,imageAssignments:Object.fromEntries(slots.map(slot=>[slot.id,''])),imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label])),skillReview:{concept:false,content:false,visited:{desktop:false,tablet:false,mobile:false},viewports:{desktop:false,tablet:false,mobile:false},manualReview:(response.design.skillAudit?.humanReviewRequired||[]).map(()=>false)}};
       renderAIDesign(response.design,response.metadata);$('#ai-plan-status').textContent='Проверьте предпросмотр. Страница изменится только после отдельного подтверждения.';
       if(assetWarning)$('#ai-plan-status').textContent+=assetWarning;
     }catch(error){$('#ai-plan-status').textContent=error.message;notify(error.message,true);}

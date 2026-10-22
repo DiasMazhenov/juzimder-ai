@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
 require_once __DIR__ . '/AiCredentials.php';
+require_once __DIR__ . '/AiSkills.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
@@ -192,6 +193,27 @@ try {
             result($credentials->deleteProfile($projectId, $user, $body['version'], $profileId));
         }
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/skills(?:/([a-f0-9]{24})(?:/(activate))?)?$~D', $path, $aiSkillMatch)) {
+        $projectId=$aiSkillMatch[1];$skillId=$aiSkillMatch[2]??'';$action=$aiSkillMatch[3]??'';$skills=new Juzimder\ProjectAiSkills($store);
+        if($skillId===''&&$method==='GET')result($skills->list($projectId,$user));
+        if($skillId!==''&&$action===''&&$method==='GET')result($skills->get($projectId,$user,$skillId));
+        if($skillId===''&&$method==='POST'){
+            if(array_diff(array_keys($body),['version','name','content','manualChecks'])||!is_int($body['version']??null)||$body['version']<0||!is_string($body['name']??null)||!is_string($body['content']??null)||!is_array($body['manualChecks']??null))throw new Problem(422,'Укажите версию списка, название, Markdown-текст и пункты ручной проверки Skill.');
+            result($skills->create($projectId,$user,$body['version'],$body['name'],$body['content'],$body['manualChecks']));
+        }
+        if($skillId!==''&&$action===''&&$method==='PUT'){
+            if(array_diff(array_keys($body),['version','name','content','manualChecks'])||!is_int($body['version']??null)||$body['version']<0||!is_string($body['name']??null)||!is_string($body['content']??null)||!is_array($body['manualChecks']??null))throw new Problem(422,'Укажите версию списка, название, Markdown-текст и пункты ручной проверки Skill.');
+            result($skills->update($projectId,$user,$body['version'],$skillId,$body['name'],$body['content'],$body['manualChecks']));
+        }
+        if($skillId!==''&&$action==='activate'&&$method==='POST'){
+            if(array_diff(array_keys($body),['version'])||!is_int($body['version']??null)||$body['version']<0)throw new Problem(422,'Укажите текущую версию списка Skills.');
+            result($skills->activate($projectId,$user,$body['version'],$skillId));
+        }
+        if($skillId!==''&&$action===''&&$method==='DELETE'){
+            if(array_diff(array_keys($body),['version'])||!is_int($body['version']??null)||$body['version']<0)throw new Problem(422,'Укажите текущую версию списка Skills.');
+            result($skills->delete($projectId,$user,$body['version'],$skillId));
+        }
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/design-plan$~D', $path, $aiPlanMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
@@ -249,13 +271,16 @@ try {
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/generate-page$~D', $path, $aiDesignMatch) && $method === 'POST') {
         $prompt = $body['prompt'] ?? null;
-        $skillProfile = array_key_exists('skillProfile', $body) ? $body['skillProfile'] : 'taste';
-        if (array_diff(array_keys($body), ['prompt','skillProfile'])) throw new Problem(422,'Передайте описание сайта и поддерживаемый профиль генерации.');
+        $skillId = array_key_exists('skillId',$body) ? $body['skillId'] : null;
+        $skillProfile = array_key_exists('skillProfile', $body) ? $body['skillProfile'] : ($skillId===null?'taste':'standard');
+        if (array_diff(array_keys($body), ['prompt','skillProfile','skillId'])) throw new Problem(422,'Передайте описание сайта и поддерживаемый профиль генерации.');
         if (!is_string($prompt) || trim($prompt) === '' || mb_strlen(trim($prompt), 'UTF-8') > 4000) throw new Problem(422,'Опишите сайт: от 1 до 4000 символов.');
         if (!is_string($skillProfile) || !in_array($skillProfile, ['standard','taste'], true)) throw new Problem(422,'Выберите поддерживаемый профиль генерации.');
+        if ($skillId !== null && (!is_string($skillId) || !preg_match('/^[a-f0-9]{24}$/D',$skillId) || $skillProfile==='taste')) throw new Problem(422,'Выберите либо встроенный профиль, либо один пользовательский Skill.');
         $credentials = new Juzimder\AiCredentialVault($store);
         $settings = $credentials->settings($aiDesignMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
+        $userSkill=$skillId===null?null:(new Juzimder\ProjectAiSkills($store))->forGeneration($aiDesignMatch[1],$user,$skillId);
         $now = time();
         $storedRequests = $_SESSION['ai_requests'] ?? [];
         if (!is_array($storedRequests)) $storedRequests = [];
@@ -265,7 +290,7 @@ try {
         $_SESSION['ai_requests'] = $requests;
         set_time_limit(120);
         try {
-            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings), $skillProfile));
+            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\OpenRouterProvider($settings), $skillProfile, $userSkill));
         } catch (Juzimder\AiProviderFailure $failure) {
             throw new Problem(502,$failure->userMessage());
         }

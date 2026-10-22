@@ -68,7 +68,8 @@
 - [x] Intent → plan → structured text generation for supported section presets → server/client validation → editable GrapesJS output → revision.
 - [x] Address-scoped AI edits: selected component, stable ID/path checks, typed operations, diff confirmation and Project Data/CAS save; browser normal-editor save/reload verified in 00.00.030.
 - [ ] Live AI edit acceptance: real provider proposal → confirm → save → reload; the configured free model returned a temporary unavailable response.
-- [ ] Skill-driven agent for uploaded skills: convert requirements into a traceable checklist, enforce tool/result validators, collect acceptance evidence, and fail closed on conflicts or unverifiable requirements. The built-in Taste profile is the first bounded adapter; user-supplied skill loading remains open.
+- [x] Project-scoped user Skill library: upload/paste Markdown, edit, activate, delete, owner/CAS protection, and select a saved Skill for full-page generation. The selected Skill text and owner checklist are sent only after generation is confirmed; every manual checklist item must be checked before import.
+- [ ] Skill-driven agent for uploaded skills: convert requirements into traceable machine-checkable criteria where possible, run validators and bounded repair loops, collect evidence, and fail closed on conflicts or requirements that cannot be verified. Arbitrary Skills still rely on model instruction-following and owner review; this version does not guarantee exact adherence.
 - [x] Встроенный профиль Taste для полной AI-генерации: subject-specific concept, единый H1 в hero, CTA, заголовок и минимальный объём текста в каждой секции, адаптивное CSS-правило; одна исправляющая попытка и отказ при повторном нарушении. Перед применением пользователь обязан осмотреть 1440/768/390 px и подтвердить уместность идеи. Upstream browser/Node scripts на сервере не запускаются; источник MIT: https://github.com/Leonxlnx/taste-skill.
 - [x] Per-project OpenRouter key/model form in Site Settings → AI Engine; encrypted server storage, no environment-key fallback, no key in Project Data/revisions/API responses.
 - [x] Несколько OpenRouter profiles на проект, редактирование, выбор активного профиля, удаление и миграция прежней конфигурации.
@@ -123,4 +124,4 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.033.
+**Текущее состояние:** foundation, версия продукта 00.00.034.

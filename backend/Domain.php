@@ -172,6 +172,18 @@ final class Store {
                 throw $error;
             }
         }
+        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+        if ($schemaVersion === 7) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
+                if ($schemaVersion === 7) $this->db->exec(file_get_contents(__DIR__ . '/migrations/008_ai_skills.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();
