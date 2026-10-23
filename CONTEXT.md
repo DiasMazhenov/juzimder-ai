@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.055 (npm SemVer 0.1.55). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.056 (npm SemVer 0.1.56). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -369,3 +369,14 @@ Live: в .054 восстановлен тот же .053 job без AI-запро
 AI-preview Mobile теперь375px, как native editor Mobile. Taste disclosure и ручной viewport label согласованы. Раньше390vs375 могли давать разные переносы без CSS-дефекта. Desktop1440 и Tablet768 остаются прежними; editor Desktop адаптивный, не фиксированный1440.
 
 Live .055: сохранённая QA revision45, editor Mobile375 и восстановленный job Mobile375 просмотрены, screenshots /tmp/juzimder-editor-375-055.png и /tmp/juzimder-preview-375-055.png. Body font совпадает, перенос заголовка соответствует. Выявлено оставшееся различие heading weight: native theme задаёт500, sandbox default bold. Полная visual identity не принята; следующий пункт — heading theme defaults, затем image/theme acceptance. Assets в этом проходе NOT RUN; новый AI/import/save не выполнялись,revision45 не менялась. npm test/build/JS syntax/PHP syntax/diff checks PASS, GrapesJS chunk warning прежний.
+
+
+## Самостоятельный выбор визуалов карточек · 00.00.056 · 23.10.2026
+
+Системные инструкции всех профилей теперь предлагают без owner-подсказки выбирать уместный визуал: встроенную символическую иконку для смысловых преимуществ/процесса либо существующий managed image slot внутри карточки, где важен внешний вид предмета. Нельзя украшать всё без смысла или рассчитывать на обязательное наличие фото. Фотослоты сохраняют прежние id/count limits; реальные фото выбираются владельцем из приватной библиотеки. Автозагрузка/поиск по стокам не реализованы.
+
+Встроенный каталог8 декоративных символов spark/check/clock/heart/target/arrow/list/diamond. AI отдаёт пустой span.ai-icon.ai-icon-NAME. Сервер allowlist проверяет span/пустоту/один известный key/лимит12, вставляет glyph и aria-hidden=true, убирает role/aria-label. Это нативный редактируемый text span без SVG/внешних скриптов, шрифтов и API. CSS baseline задаёт размер32px перед стилями модели. SchemaVersion и JSON fields не менялись; safe HTML marker convention расширен явно здесь. OS glyph appearance может отличаться; это небольшой символьный каталог, не полноценный набор SVG pictograms.
+
+Live: стандартный синтетический brief с карточками Забота/Практика/Свой ритм, без слов фото/иконка/визуал. Nemotron за89.2с вернул accepted3sections,3203tokens,$0. Read-only query результата подтвердил3 icon spans и4 image slots; мобильный screenshot /tmp/juzimder-auto-card-icons-056.png просмотрен: сердце в карточке Забота. Иконки скрыты от AX как decorative. Результат не импортировался, текущая сохранённая QA revision45 не менялась. Live icon import/persistence/Undo NOT RUN; нативные span допускаются прежним canonical contract. Полная визуальная приёмка нового дизайна/выбор и загрузка фото NOT RUN. Прежний пункт heading weight parity остаётся открытым.
+
+npm test/build/PHP syntax/diff checks PASS; fixtures проверяют icon rendering, system instruction и отказ unknown/nonempty/wrong-tag/>12 markers. После удаления дублирующей baseline anchor строки повторены php tests/ai.php и syntax. Предупреждение GrapesJS chunk прежнее. Следующие пункты: приёмка импорта иконок и image selection, согласование heading defaults, отдельно stock-photo integration.
