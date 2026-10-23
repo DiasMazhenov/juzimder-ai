@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__ . '/ProjectSettings.php';
+require_once __DIR__ . '/IconCatalogue.php';
 
 final class Problem extends \RuntimeException {
     public function __construct(public int $status, string $message) { parent::__construct($message); }
@@ -61,7 +62,7 @@ final class Document {
                 if (in_array($key, ['href','src'], true)) {
                     $validUri = is_string($item) && preg_match('~^(https://[^\s<>"\x00-\x20]+|\#[a-zA-Z0-9_-]*|mailto:[a-zA-Z0-9@._+-]+|tel:[+0-9 -]+)$~D', $item);
                     $validAsset = $key === 'src' && is_string($item) && preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D', $item);
-                    if (!$validUri && !$validAsset) throw new Problem(422, 'Недопустимый адрес ресурса.');
+                    if (!$validUri && !$validAsset && !($key === 'src' && IconCatalogue::permits($item))) throw new Problem(422, 'Недопустимый адрес ресурса.');
                 }
                 self::walk($item, $depth + 1, $count);
             }

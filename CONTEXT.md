@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.067 (npm SemVer 0.1.67). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.068 (npm SemVer 0.1.68). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -489,3 +489,9 @@ Live QA выявила false rejection «Выбран другой элемен�
 После исправления реальный повторный proposal/confirm/save прошёл: один абзац на Photo card QA заменён с «Выберите подходящий сорт и оформите заказ в разделе меню.» на «Выберите любимый хлеб и посмотрите меню.». DOM сравнение нового AI scope подтвердило ровно эту замену текста, прежние section count и image URLs. Save revision59. Один Undo вернул исходный текст, Redo восстановил новый, autosave revision60. После reload новый текст и постоянный cmp-ID сохранились; инспектор показывает актуальный текст/ID. Скрин /tmp/juzimder-ai-edit-saved-067.png просмотрен. Главная страница владельца не менялась. Проверен текстовый сценарий, не вся style-edit/conflict матрица.
 
 npm test (повтор после final runtime changes), npm run build, JS/PHP syntax и diff checks PASS. Ближайший следующий шаг — реальная AI-правка стиля выбранного компонента и приёмка stale-selection/CAS конфликтов. Project Data schema и backend validation не изменены.
+
+## Единая библиотека иконок · 00.00.068
+
+Текстовые символы заменены локальным проверенным набором из восьми Tabler Outline (MIT). Генератор выбирает семантические ai-icon ID; сервер вставляет только готовые изображения одного outline стиля, stroke2/viewBox24, размер32px и фиксированный slate цвет. Произвольный SVG модели по-прежнему запрещён. В документе сохраняются обычные image components с точными catalogue data URIs; JSON schema и backend policy согласованно расширены только этим enum, envelope schemaVersion1 прежний. В каждой иконке вложена MIT лицензия, экспорт сохраняет её без CDN/видимых backlinks. Старые сохранённые страницы автоматически не переписываются.
+
+Проверки: npm test (с разрешённым запуском локального API), npm run build, PHP syntax PASS. В браузере осмотрены все8 реальных catalogue images: /tmp/juzimder-tabler-068.png. Это контрольный каталог, не новая LLM генерация/не live import-save-reload acceptance; данный end-to-end сценарий остаётся NOT RUN. Export fixture подтверждает сохранение всех иконок и отказ изменённому SVG. Следующий шаг: реальная генерация с иконками → импорт → сохранение/reload и AI style-edit acceptance.

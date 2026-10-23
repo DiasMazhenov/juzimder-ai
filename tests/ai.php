@@ -397,7 +397,7 @@ aiCheck($embeddedResult['profileName']==='Backup'&&count($embeddedFailover->call
 $iconDesign=$generatedDesign;
 $iconDesign['html']=str_replace('<article class="ai-card">','<article class="ai-card"><span class="ai-icon ai-icon-heart"></span>', $iconDesign['html']);
 $iconOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($iconDesign,JSON_UNESCAPED_UNICODE));
-aiCheck(str_contains($iconOutput['html'],'aria-hidden="true">♡</span>')&&str_contains($iconOutput['css'],'.ai-icon{display:inline-block'),'Card icon markers become safe native decorative text with a default size');
+aiCheck(str_contains($iconOutput['html'],\Juzimder\IconCatalogue::markup('heart'))&&str_contains($iconOutput['css'],'.ai-icon{display:inline-block'),'Card icon markers become trusted Tabler Outline images with a default size');
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Independently choose useful card visuals'),'Card visual selection is part of system instructions without owner prompting');
 foreach(['<span class="ai-icon ai-icon-unknown"></span>','<span class="ai-icon ai-icon-heart">custom</span>','<div class="ai-icon ai-icon-heart"></div>',str_repeat('<span class="ai-icon ai-icon-heart"></span>',13)] as $badIcon){
  $bad=$generatedDesign;$bad['html']=str_replace('<article class="ai-card">','<article class="ai-card">'.$badIcon,$bad['html']);

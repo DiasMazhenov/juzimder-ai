@@ -152,7 +152,7 @@ final class StaticSiteExporter {
                 $hasRel = true;
             }
             if (($name === 'href' || $name === 'src') && $name === 'src' && isset($assetPaths[$value])) $value = $assetPaths[$value];
-            elseif (($name === 'href' || $name === 'src') && !preg_match('~^(?:https://[^\s<>"\x00-\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$~D', $value)) continue;
+            elseif (($name === 'href' || $name === 'src') && !($name === 'src' && IconCatalogue::permits($value)) && !preg_match('~^(?:https://[^\s<>"\x00-\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$~D', $value)) continue;
             if (str_starts_with($name, 'aria-') && mb_strlen($value, 'UTF-8') > 256) continue;
             $output .= ' ' . $name . '="' . self::escape($value) . '"';
         }

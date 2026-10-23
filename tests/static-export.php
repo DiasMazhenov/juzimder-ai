@@ -76,3 +76,14 @@ try {
     exportCheck($archive->locateName('index.html') !== false && $archive->locateName('o-nas/index.html') !== false && $archive->locateName('assets/site.css') !== false, 'ZIP preserves static export paths');
     $archive->close();
 } finally { @unlink($zipPath); }
+
+$iconDoc = Document::empty();
+foreach (\Juzimder\IconCatalogue::all() as $key=>$uri) {
+    $iconDoc['data']['pages'][0]['frames'][0]['component']['components'][] = ['type'=>'image','tagName'=>'img','attributes'=>['src'=>$uri,'alt'=>'']];
+}
+Document::validate($iconDoc);
+$iconFiles = StaticSiteExporter::files(['id'=>str_repeat('a',24),'name'=>'Icons','document'=>json_decode(json_encode($iconDoc))]);
+foreach (\Juzimder\IconCatalogue::all() as $uri) exportCheck(str_contains($iconFiles['index.html'],$uri),'Trusted icon survives static export with embedded MIT notice');
+$badIconDoc=$iconDoc;
+$badIconDoc['data']['pages'][0]['frames'][0]['component']['components'][0]['attributes']['src'].='x';
+exportRejects(fn()=>Document::validate($badIconDoc),422,'Altered icon SVG rejected');
