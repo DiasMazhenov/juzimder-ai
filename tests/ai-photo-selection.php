@@ -19,3 +19,7 @@ $result=AiPhotoSelection::enrich($base,new PhotoProvider('invalid'),$search);
 selectionCheck($result['design']['photoSelection']['status']==='unavailable'&&$result['design']['photoSelection']['photos']===[],'Selection failure preserves design without random photos');
 $result=AiPhotoSelection::enrich($base,new PhotoProvider('{"selections":[{"slotId":"hero","photoId":""}]}'),$search);
 selectionCheck($result['design']['photoSelection']['assignments']===[],'Model can reject all unsuitable candidates');
+
+selectionCheck($result['design']['photoSelection']['status']==='no_matches','Rejecting all candidates reports no matches');
+$result=AiPhotoSelection::enrich($base,new PhotoProvider('{}'),static function($query){throw new RuntimeException('source unavailable');});
+selectionCheck($result['design']['photoSelection']['status']==='unavailable','Search outage is distinct from no matches');

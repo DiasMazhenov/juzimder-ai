@@ -42,7 +42,7 @@ final class StockPhotos {
             $licenseUrl=match($license){'CC0','CC0 1.0'=>'https://creativecommons.org/publicdomain/zero/1.0/','Public domain'=>'https://creativecommons.org/publicdomain/mark/1.0/',default=>null};
             if(preg_match('/^CC BY(-SA)? (2\.0|2\.5|3\.0|4\.0)$/D',$license,$m))$licenseUrl='https://creativecommons.org/licenses/'.($m[1]?'by-sa':'by').'/'.$m[2].'/';
             $author=self::plain($meta['Artist']['value']??'');if(!$licenseUrl||$author==='')continue;
-            $photos[]=['id'=>'commons:'.(int)($page['pageid']??0),'kind'=>'commons','url'=>$url,'name'=>self::plain(substr($title,5)),'author'=>$author,'license'=>$license,'licenseUrl'=>$licenseUrl,'sourceUrl'=>'https://commons.wikimedia.org/wiki/'.rawurlencode(str_replace(' ','_',$title))];
+            $photos[]=['id'=>'commons:'.(int)($page['pageid']??0),'kind'=>'commons','url'=>$url,'name'=>self::plain(substr($title,5)),'description'=>self::plain($meta['ImageDescription']['value']??''),'author'=>$author,'license'=>$license,'licenseUrl'=>$licenseUrl,'sourceUrl'=>'https://commons.wikimedia.org/wiki/'.rawurlencode(str_replace(' ','_',$title))];
         }
         return array_slice($photos,0,4);
     }
