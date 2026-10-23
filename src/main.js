@@ -1,3 +1,4 @@
+import { persistedComponentId } from './component-identity.js';
 import 'grapesjs/dist/css/grapes.min.css';
 import './style.css';
 import { blocks, registerBlocks } from './blocks.js';
@@ -500,7 +501,7 @@ async function openEditor(id,pageId=null) {
   const syncSizeControls=component=>{const style=component.getStyle();const width=style.width||'auto';const height=style.height||'auto';$('#width-mode').value=['auto','fit-content','100%'].includes(width)?width:'custom';$('#height-mode').value=['auto','100%'].includes(height)?height:'custom';for(const property of ['min-width','max-width','min-height','max-height'])$(`#${property}`).value=style[property]||'';};
   const flexDefaults=component=>({'flex-direction':component?.get?.('type')==='wrapper'?'column':'row','justify-content':'flex-start','align-items':'stretch','flex-wrap':'nowrap'});
   const syncFlexControls=component=>{const style=component?.getStyle?.()||{},defaults=flexDefaults(component);$('#flex-controls').hidden=!component;for(const button of document.querySelectorAll('[data-flex-property]')){const property=button.dataset.flexProperty,value=style[property]||defaults[property];const active=value===button.dataset.flexValue;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));}};
-  const componentIdentifier=component=>component?.getAttributes?.().id||'';
+  const componentIdentifier=persistedComponentId;
   const componentPath=(component,page)=>{const root=page?.getMainComponent?.();const path=[];let cursor=component;while(cursor&&cursor!==root){const parent=cursor.parent?.(),index=parent?.components?.().indexOf(cursor);if(!parent||!Number.isInteger(index)||index<0)return null;path.unshift(index);cursor=parent;}return cursor===root?path:null;};
   const clearAIComponentProposal=status=>{aiComponentProposal=null;$('#ai-component-preview').hidden=true;$('#ai-component-changes').replaceChildren();if(status)$('#ai-component-status').textContent=status;};
   const syncAIComponentTarget=component=>{
@@ -537,6 +538,7 @@ async function openEditor(id,pageId=null) {
     if(!component||!page||!prompt)return;
     if(conflicted){$('#ai-component-status').textContent='Сначала загрузите актуальную версию проекта с сервера.';return;}
     if(component!==aiComponentTargetModel){syncAIComponentTarget(component);$('#ai-component-status').textContent='Выбор элемента обновлён. Проверьте его и повторите запрос.';return;}
+    if(componentIdentifier(component)!==aiComponentTargetId)syncAIComponentTarget(component);
     if(dirty){await saveDocument(false);if(dirty||conflicted){$('#ai-component-status').textContent='Не удалось сохранить текущие правки. AI-изменение не запрошено.';return;}}
     const pageId=page.get('id'),componentId=aiComponentTargetId,path=componentPath(component,page),targetPath=aiComponentTargetPath,baseVersion=current.version;
     if(!Array.isArray(path)||path.length===0||JSON.stringify(path)!==JSON.stringify(targetPath)||component.get('type')==='wrapper'){syncAIComponentTarget(component);$('#ai-component-status').textContent='Выбор элемента изменился. Проверьте его и повторите запрос.';return;}
@@ -567,7 +569,7 @@ async function openEditor(id,pageId=null) {
     dirty=JSON.stringify(editor.getProjectData())!==JSON.stringify(current.document.data);
     if(!dirty){clearAIComponentProposal('AI не предложил изменений, отличающихся от текущих значений. Ревизия не создана.');button.disabled=false;return;}
     $('#save-status').textContent='Сохраняем AI-правку…';await saveDocument(false);
-    if(!dirty&&current.version>baseVersion){clearAIComponentProposal(`Изменения сохранены · ревизия ${current.version}.`);notify(`AI-правка сохранена · ревизия ${current.version}`);}
+    if(!dirty&&current.version>baseVersion){syncAIComponentTarget(component);$('#component-text').value=component.getEl()?.textContent||component.get('content')||'';clearAIComponentProposal(`Изменения сохранены · ревизия ${current.version}.`);notify(`AI-правка сохранена · ревизия ${current.version}`);}
     else{$('#ai-component-status').textContent='Редактор подготовил изменение, но сервер не подтвердил сохранение. Проверьте статус проекта; при конфликте загрузите актуальную версию.';notify('AI-правка не подтверждена сервером.',true);}
     button.disabled=false;
   };
