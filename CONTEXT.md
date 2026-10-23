@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.077 (npm SemVer 0.1.77). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.078 (npm SemVer 0.1.78). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -555,3 +555,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 00.00.076: пять действий верхней панели (история, настройки, JSON, ZIP, сохранение) показывают только Tabler icons; доступны title/aria-label, кнопки 38×38 px.
 
 00.00.077: Eye «Просмотр» перенесён в top-actions непосредственно перед «Сохранить», размер 38×38 px; target/rel и маршрут сохранённой страницы сохранены.
+
+00.00.078: небольшой opt-in ai-hero-split в существующем GeneratedDesignDefaults. Только Hero с двумя direct children (copy с h1 + image slot) получает предсказуемые колонки, compact CTA и mobile text-first. Background/unmarked/сложные структуры не переписываются. Canonical Project Data не меняется. Радиус Hero выбирается дизайном; rounded Hero clips contents, явный радиус фото приоритетен над родительским. Проверка PHP tests и browser fixture 1100/375; новая LLM generation и полный import/save/Undo для этой композиции NOT RUN.

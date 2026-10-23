@@ -14,3 +14,19 @@ $again=GeneratedDesignDefaults::apply($out);
 defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges are retained without duplicates');
 
 defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');
+
+$split=['html'=>'<div class="ai-scope-test"><section class="ai-hero ai-hero-split"><div class="ai-image-slot" data-image-slot="hero"></div><div class="ai-copy"><h1>Clinic</h1><p>Care</p><a href="#contact">Book</a></div></section></div>','css'=>'.ai-scope-test .ai-hero{background-color:#123456}'];
+$composed=GeneratedDesignDefaults::apply($split);
+defaultsCheck(strpos($composed['html'],'ai-split-copy') < strpos($composed['html'],'data-image-slot="hero"'),'Split Hero orders text before photo in native DOM');
+defaultsCheck(str_contains($composed['css'],'@media(max-width:767px)')&&str_contains($composed['css'],'grid-template-columns:minmax(0,1fr)'),'Split Hero has single-column mobile layout');
+defaultsCheck(str_contains($composed['css'],'background-color:#123456'),'Split composition retains model palette');
+$split['html']=str_replace('ai-hero-split','ai-hero-background ai-hero-split',$split['html']);
+defaultsCheck(!str_contains(GeneratedDesignDefaults::apply($split)['html'],'ai-split-ready'),'Background Hero is never rewritten as split');
+$split['html']=str_replace('ai-hero-background ai-hero-split','ai-hero',$split['html']);
+defaultsCheck(!str_contains(GeneratedDesignDefaults::apply($split)['html'],'ai-split-ready'),'Unmarked Hero stays free-form');
+
+$rounded=$input;$rounded['css'].='.ai-scope-test .ai-hero{border-radius:24px}';$rounded=GeneratedDesignDefaults::apply($rounded);
+defaultsCheck(str_contains($rounded['html'],'ai-hero-rounded')&&str_contains($rounded['css'],'overflow:hidden'),'Rounded Hero retains its radius and clips contents');
+
+$separate=$input;$separate['css'].='.ai-scope-test .ai-hero{border-radius:24px}.ai-scope-test .ai-image-slot{border-radius:8px}';
+defaultsCheck(str_contains(GeneratedDesignDefaults::apply($separate)['css'],'ai-photo-radius-1 img{border-radius:8px}'),'Explicit photo radius is independent of Hero container radius');
