@@ -61,13 +61,14 @@ final class AiProviderFailure extends \RuntimeException {
     public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider') { parent::__construct($message); }
 
     public static function publicCategory(string $category): string {
-        return in_array($category,['cancelled','timeout','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit'],true)?$category:'provider';
+        return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit'],true)?$category:'provider';
     }
     public function userMessage(): string {
         return match ($this->category) {
             'cancelled' => 'Генерация отменена. Проект не изменён. Уже потраченные токены могут быть учтены провайдером.',
             'timeout' => 'Модель не успела вернуть полный ответ за отведённое время. Попробуйте более быструю модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'unavailable' => 'OpenRouter временно недоступен. Попробуйте позже или настройте резервную модель в «Настройки сайта → AI Engine». Проект не изменён.',
+            'rate_limited' => 'Провайдер ограничил запросы к модели (HTTP 429). Попробуйте позже или выберите другой профиль в «Настройки сайта → AI Engine». Проект не изменён.',
             'credentials' => 'OpenRouter отклонил доступ. Проверьте API-ключ и выбранную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'invalid_response' => 'Модель не вернула структурированный дизайн. Проверьте поддержку JSON Schema для выбранной модели или настройте резервную модель. Проект не изменён.',
             'invalid_schema' => 'Ответ модели не соответствует формату генерации. Попробуйте ещё раз. Проект не изменён.',
@@ -249,7 +250,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
             $status = $response?->status ?? 0;
             error_log('Juzimder AI: OpenRouter returned HTTP ' . $status . '.');
             $retryable = $status === 0 || $status === 408 || $status === 429 || ($status >= 500 && $status <= 599);
-            $category = in_array($status, [401,403], true) ? 'credentials' : ($retryable ? 'unavailable' : 'provider');
+            $category = in_array($status, [401,403], true) ? 'credentials' : ($status === 429 ? 'rate_limited' : ($retryable ? 'unavailable' : 'provider'));
             throw new AiProviderFailure('AI provider returned an error.', $retryable, $category);
         }
 

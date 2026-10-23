@@ -279,7 +279,7 @@ try {
     catch (AiProviderFailure $error) { aiCheck(!str_contains($error->getMessage(),'sk-secret') && count($failedTransport->calls)===1 && $error->category==='credentials' && str_contains($error->userMessage(),'API-ключ') && !str_contains($error->userMessage(),'sk-secret'), 'Authorization failures show safe profile guidance without exposing provider response content'); }
     $unavailableTransport=new FakeAiTransport([new AiHttpResponse(429,'{}'),new AiHttpResponse(429,'{}')]);
     try { (new OpenRouterProvider($settings,$unavailableTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected temporary upstream failure.'); }
-    catch (AiProviderFailure $error) { aiCheck($error->category==='unavailable'&&str_contains($error->userMessage(),'временно недоступен')&&!str_contains($error->userMessage(),'{}'),'Transient provider failures have safe retry guidance'); }
+    catch (AiProviderFailure $error) { aiCheck($error->category==='rate_limited'&&$error->retryable&&str_contains($error->userMessage(),'HTTP 429')&&!str_contains($error->userMessage(),'{}'),'Transient provider failures have safe retry guidance'); }
     $invalidResponseTransport=new FakeAiTransport([new AiHttpResponse(200,'{"choices":[{"message":{"content":""}}]}')]);
     try { (new OpenRouterProvider($settings,$invalidResponseTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected invalid provider response.'); }
     catch (AiProviderFailure $error) { aiCheck($error->category==='invalid_response'&&str_contains($error->userMessage(),'структурированный дизайн'),'Malformed provider responses are distinguished from temporary availability failures'); }
@@ -373,3 +373,5 @@ aiCheck(count($attempts)===2&&$attempts[0]['profileName']==='Primary'&&$attempts
 $diagnosticJson=json_encode($attempts);
 aiCheck(!str_contains($diagnosticJson,'sk-primary')&&!str_contains($diagnosticJson,'raw-upstream')&&!str_contains($diagnosticJson,'private-prompt')&&!str_contains($diagnosticJson,'private-user-content'),'Diagnostics exclude keys, provider bodies and request text');
 aiCheck(AiProviderFailure::publicCategory('secret-arbitrary-category')==='provider','Unknown categories are reduced to a fixed public code');
+
+aiCheck(AiProviderFailure::publicCategory('rate_limited')==='rate_limited','Rate limits remain distinct in safe diagnostics');

@@ -275,3 +275,12 @@ npm test PASS, build PASS, PHP syntax PASS, diff check PASS. Regression пров
 Live: восстановлен результат .050, версия .051 видна. Все три Skill checkbox временно отмечены для теста: apply остался disabled без общих facts/contrast. Тестовые отметки сброшены. Подтверждения фактов/контраста не отмечались, поскольку известны выдуманные сведения и слабый CTA contrast. Project Data остаётся revision39. /tmp/juzimder-review-gate-051.png. Новый provider call, исправление дизайна, apply/persistence/Undo NOT RUN. Пункт автоматического выявления/исправления контраста и бизнес-фактов остаётся открытым, равно как успешная полная visual acceptance.
 
 npm test PASS (включая новые pure acceptance tests), npm run build PASS, JS syntax/PHP syntax/diff checks PASS. Предупреждение большого GrapesJS chunk сохраняется.
+
+
+## Проверка альтернативных моделей и HTTP429 · 00.00.052 · 23.10.2026
+
+По публичному каталогу OpenRouter от23.10 выбраны бесплатные модели с advertised structured_outputs. Server-only синтетический полный AiGeneratedWebsite::create (тот же sanitizer/contact gates) выполнен без изменения сохранённых профилей/ключей: xingchen-agi/xing4.0-29b-a4b:free — HTTP429 за2.1с; dots-studio/dots-3-note-preview:free — timeout90с, HTTP200, firstByte1195ms,330 полученных bytes без полного ответа. Это не successful design и не доказательство внутренней причины задержки. Секреты использовались только через vault в памяти и не выводились. Нового accepted результата нет; импорт/persistence/Undo остаются NOT RUN. QA страница Acceptance QA —23.10.2026 id6523637f-cdc0-46e3-a8c7-10c168a4ee3f создана ранее,revision40; не опубликована.
+
+HTTP429 теперь имеет отдельную safe category rate_limited и сообщение «Провайдер ограничил запросы»; прежний bounded retry/failover сохраняется. Диагностика UI отличает rate limit от network/unavailable и timeout. Не определяется, относится ли ограничение к ключу или инфраструктуре бесплатного endpoint; raw provider body не выводится. Старые jobs не переинтерпретируются. Regression покрывает retryable category/public code и успешное переключение после429. Новый browser terminal report rate_limited NOT RUN; реальный429 получен до исправления, классификация проверена fixtures.
+
+npm test/build/PHP syntax/JS syntax/diff checks PASS. Предупреждение GrapesJS chunk сохраняется. Цель найти стабильную модель и пройти import/persistence/Undo остаётся открытой; повторно увеличивать timeout без доказательств не следует.
