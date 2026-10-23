@@ -375,3 +375,21 @@ aiCheck(!str_contains($diagnosticJson,'sk-primary')&&!str_contains($diagnosticJs
 aiCheck(AiProviderFailure::publicCategory('secret-arbitrary-category')==='provider','Unknown categories are reduced to a fixed public code');
 
 aiCheck(AiProviderFailure::publicCategory('rate_limited')==='rate_limited','Rate limits remain distinct in safe diagnostics');
+
+foreach([429=>'rate_limited',408=>'timeout',502=>'unavailable',401=>'credentials',400=>'provider'] as $code=>$category){
+ foreach(['top','choice'] as $location){
+  $error=['code'=>$code,'message'=>'secret-raw-error'];
+  $body=$location==='top'?['error'=>$error]:['choices'=>[['message'=>['content'=>'{"ok":true}'],'finish_reason'=>'error','error'=>$error]]];
+  $transport=new FakeAiTransport([new AiHttpResponse(200,json_encode($body))]);
+  try{(new OpenRouterProvider($settings,$transport,null,false))->completeJson('system','user',['type'=>'object'],'embedded_error');throw new RuntimeException('Expected embedded error');}
+  catch(AiProviderFailure $failure){aiCheck($failure->category===$category&&!str_contains($failure->getMessage(),'secret-raw')&&!str_contains($failure->userMessage(),'secret-raw'),'Embedded HTTP200 error is classified without accepting partial content or exposing raw errors');}
+ }
+}
+foreach(['error','length','content_filter'] as $reason){
+ $transport=new FakeAiTransport([new AiHttpResponse(200,json_encode(['choices'=>[['message'=>['content'=>'{"ok":true}'],'finish_reason'=>$reason]]]))]);
+ try{(new OpenRouterProvider($settings,$transport,null,false))->completeJson('system','user',['type'=>'object'],'incomplete');throw new RuntimeException('Expected incomplete response');}
+ catch(AiProviderFailure $failure){aiCheck($failure->category==='invalid_response','Incomplete provider response is never accepted even with parseable content');}
+}
+$embeddedFailover=new FakeAiTransport([new AiHttpResponse(200,json_encode(['error'=>['code'=>502,'message'=>'private']])),new AiHttpResponse(200,$successBody)]);
+$embeddedResult=(new Juzimder\ProfileFailoverProvider($profileEntries,$embeddedFailover))->completeJson('system','user',['type'=>'object'],'embedded_failover');
+aiCheck($embeddedResult['profileName']==='Backup'&&count($embeddedFailover->calls)===2,'Embedded transient failure switches to next saved profile');

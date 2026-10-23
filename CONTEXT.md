@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.052 (npm SemVer 0.1.52). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.053 (npm SemVer 0.1.53). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -339,3 +339,10 @@ npm test PASS (включая новые pure acceptance tests), npm run build P
 HTTP429 теперь имеет отдельную safe category rate_limited и сообщение «Провайдер ограничил запросы»; прежний bounded retry/failover сохраняется. Диагностика UI отличает rate limit от network/unavailable и timeout. Не определяется, относится ли ограничение к ключу или инфраструктуре бесплатного endpoint; raw provider body не выводится. Старые jobs не переинтерпретируются. Regression покрывает retryable category/public code и успешное переключение после429. Новый browser terminal report rate_limited NOT RUN; реальный429 получен до исправления, классификация проверена fixtures.
 
 npm test/build/PHP syntax/JS syntax/diff checks PASS. Предупреждение GrapesJS chunk сохраняется. Цель найти стабильную модель и пройти import/persistence/Undo остаётся открытой; повторно увеличивать timeout без доказательств не следует.
+
+
+## Ошибки OpenRouter внутри HTTP200 · 00.00.053 · 23.10.2026
+
+По официальному OpenRouter errors-and-debugging HTTP200 может содержать top-level error или choices[0].error после начала обработки, в том числе с частичным content. Раньше такие ответы сводились к invalid_response либо могли пройти как content. Теперь до content обрабатывается безопасный числовой error.code:429 rate_limited,408 timeout,401/403 credentials,5xx unavailable,остальные provider. Raw message/metadata не выводятся. Retryable embedded ошибки передаются existing bounded profile failover; внутримодельный network retry для embedded ошибки не добавлен. finish_reason error/length/content_filter отклоняет даже синтаксически валидный partial content. Неизвестный error object fail closed. Канонический Project Data и API keys не менялись.
+
+Regression PASS: top/choice embedded errors, partial valid content, fixed safe messages, transient embedded502 -> второй профиль; неполные finish reasons не принимаются. npm test/build/PHP syntax/diff checks PASS, GrapesJS chunk warning прежний. Live новая accepted генерация после исправления NOT RUN; неизвестно, были ли прежние invalid_response вызваны embedded errors. Исторические jobs не переклассифицируются. Рабочая модель и import/persistence/Undo остаются незакрытыми. Source https://github.com/OpenRouterTeam/docs/blob/main/api_reference/errors-and-debugging.mdx .

@@ -260,6 +260,25 @@ final class OpenRouterProvider implements StructuredAiProvider {
             error_log('Juzimder AI: OpenRouter returned invalid JSON.');
             throw new AiProviderFailure('AI provider returned an invalid response.', false, 'invalid_response');
         }
+        // Providers can fail after HTTP 200 headers, including alongside partial content.
+        $choice = $decoded['choices'][0] ?? null;
+        $upstreamError = $decoded['error'] ?? (is_array($choice) ? ($choice['error'] ?? null) : null);
+        if ($upstreamError !== null) {
+            $code = is_array($upstreamError) ? ($upstreamError['code'] ?? null) : null;
+            $code = is_int($code) ? $code : 0;
+            $retryable = in_array($code, [408,429], true) || ($code >= 500 && $code <= 599);
+            $category = match (true) {
+                $code === 429 => 'rate_limited',
+                $code === 408 => 'timeout',
+                in_array($code, [401,403], true) => 'credentials',
+                $retryable => 'unavailable',
+                default => 'provider',
+            };
+            throw new AiProviderFailure('AI provider returned an embedded error.', $retryable, $category);
+        }
+        if (is_array($choice) && in_array($choice['finish_reason'] ?? null, ['error','length','content_filter'], true)) {
+            throw new AiProviderFailure('AI provider did not complete the structured response.', false, 'invalid_response');
+        }
         $content = $decoded['choices'][0]['message']['content'] ?? null;
         if (!is_string($content) || trim($content) === '' || strlen($content) > 100000) {
             error_log('Juzimder AI: OpenRouter returned no structured content.');
