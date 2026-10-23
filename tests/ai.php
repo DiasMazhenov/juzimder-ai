@@ -179,7 +179,7 @@ try {
     $tasteResult=AiGeneratedWebsite::create('Сайт семейной клиники в Алматы',new OpenRouterProvider($settings,$tasteTransport),'taste');
     $tasteRequest=json_decode($tasteTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);$tasteOutput=$tasteResult['design'];
     aiCheck($tasteRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','concept','html','css']&&str_contains($tasteRequest['messages'][0]['content'],'concrete detail in this subject'),'Taste profile adds a subject-grounded concept to its structured request');
-    aiCheck($tasteResult['metadata']['skillProfile']==='taste'&&$tasteResult['metadata']['skillVersion']==='taste-v1'&&$tasteResult['metadata']['manualReviewRequired']===true&&count($tasteOutput['skillAudit']['checks'])===5&&!array_filter($tasteOutput['skillAudit']['checks'],static fn($check)=>$check['status']!=='passed'),'Taste output returns server-verified requirements separately from mandatory human review');
+    aiCheck($tasteResult['metadata']['skillProfile']==='taste'&&$tasteResult['metadata']['skillVersion']==='taste-v1'&&$tasteResult['metadata']['manualReviewRequired']===false&&count($tasteOutput['skillAudit']['checks'])===5&&!array_filter($tasteOutput['skillAudit']['checks'],static fn($check)=>$check['status']!=='passed'),'Taste output keeps server checks without mandatory human review');
     $tasteWithoutAction=$tasteDesign;$tasteWithoutAction['html']=str_replace('<a class="ai-link" href="#contact">Записаться на приём</a>','',$tasteWithoutAction['html']);
     $tasteWithoutActionBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($tasteWithoutAction,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $tasteRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$tasteWithoutActionBody),new AiHttpResponse(200,$tasteWithoutActionBody)]);
@@ -407,3 +407,12 @@ foreach(['<span class="ai-icon ai-icon-unknown"></span>','<span class="ai-icon a
 $queryDesign=$generatedDesign;$queryDesign['html']=str_replace('data-image-slot="hero"','data-image-slot="hero" data-image-query="pottery bowl"',$queryDesign['html']);
 $queryOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($queryDesign,JSON_UNESCAPED_UNICODE));
 aiCheck(($queryOutput['imageSlots'][0]['query']??null)==='pottery bowl'&&!str_contains($queryOutput['html'],'data-image-query'),'Photo search topics are bounded metadata, not persisted custom HTML attributes');
+
+$badMarkup=$generatedDesign;$badMarkup['html']=str_replace('<header','<script>private-test-marker</script><header',$badMarkup['html']);
+$badBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($badMarkup,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$goodBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($generatedDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$guidedTransport=new FakeAiTransport([new AiHttpResponse(200,$badBody),new AiHttpResponse(200,$goodBody)]);
+$guidedResult=AiGeneratedWebsite::create('Clinic',new OpenRouterProvider($settings,$guidedTransport));
+$repairPayload=json_decode($guidedTransport->calls[1]['body'],true);
+aiCheck($guidedResult['metadata']['repairAttempted']&&count($guidedTransport->calls)===2&&str_contains($repairPayload['messages'][0]['content'],'Failed validation rule: tag_allowlist')&&!str_contains($repairPayload['messages'][0]['content'],'private-test-marker'),'Markup repair receives a fixed rule code without copying rejected content');
+try{AiGeneratedWebsite::parseProviderOutput(json_encode($badMarkup,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected rejection');}catch(AiProviderFailure $e){aiCheck($e->validationRule==='tag_allowlist'&&$e->category==='invalid_markup','Safe markup reason survives sanitizer wrapping');}

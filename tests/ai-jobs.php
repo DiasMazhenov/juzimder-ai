@@ -26,6 +26,8 @@ try{
  jobCheck($store->owned($id,'owner')['version']===0,'Job completion never modifies Project Data or revisions');
  $failure=$jobs->create($id,'owner',$page,0,$payload);$jobs->run($failure['id'],fn()=>throw new AiProviderFailure('raw-secret',false,'timeout'));
  $failed=$jobs->get($id,'owner',$failure['id']);jobCheck($failed['diagnostics']['outcome']==='timeout'&&$failed['diagnostics']['attempts']===[],'Job persists a safe failure category even before the provider is available');jobCheck($failed['status']==='failed'&&!str_contains($failed['error'],'raw-secret'),'Provider failure stores only safe guidance');
+ $markupFailure=$jobs->create($id,'owner',$page,0,$payload);$jobs->run($markupFailure['id'],fn()=>throw new AiProviderFailure('raw-rejected-markup',false,'invalid_markup','tag_allowlist'));
+ $markupDiagnostic=$jobs->get($id,'owner',$markupFailure['id']);jobCheck($markupDiagnostic['diagnostics']['validationRule']==='tag_allowlist'&&!str_contains(json_encode($markupDiagnostic),'raw-rejected-markup'),'Job stores a fixed markup rule without rejected provider content');
  $expired=$jobs->create($id,'owner',$page,0,$payload);$store->query('UPDATE ai_generation_jobs SET created_at=? WHERE id=?',[time()-700,$expired['id']]);
  jobCheck($jobs->get($id,'owner',$expired['id'])['status']==='failed','Abandoned queued/running jobs expire and stop blocking the project');
  $queuedCancel=$jobs->create($id,'owner',$page,0,$payload);
