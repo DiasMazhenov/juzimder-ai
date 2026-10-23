@@ -275,7 +275,7 @@ async function openEditor(id,pageId=null) {
   const componentActions=installComponentActions({editor,confirmDelete:askConfirmation,notify});
   installEditorIcons(editor);
   installBackgroundControls(editor,id,api,notify);
-  const viewLink=document.createElement('a');viewLink.id='page-view';viewLink.className='secondary-link';viewLink.title='Просмотр сохранённой страницы в новом окне';viewLink.setAttribute('aria-label','Просмотр');viewLink.target='_blank';viewLink.rel='noopener noreferrer';viewLink.innerHTML=tablerIcon('eye');$('#preview').before(viewLink);
+  const viewLink=document.createElement('a');viewLink.id='page-view';viewLink.className='secondary-link';viewLink.title='Просмотр сохранённой страницы в новом окне';viewLink.setAttribute('aria-label','Просмотр');viewLink.target='_blank';viewLink.rel='noopener noreferrer';viewLink.innerHTML=tablerIcon('eye');$('#save').before(viewLink);
   const syncView=()=>{const page=editor.Pages.getSelected();viewLink.href=`/api/projects/${id}/pages/${encodeURIComponent(page?.get('id')||'home')}/view`;};editor.on('page:select',syncView);editor.on('load',syncView);syncView();
   $('#ai-plan-open').textContent='AI-дизайн';
   $('.ai-plan-panel .eyebrow').textContent='AI-ДИЗАЙН';
