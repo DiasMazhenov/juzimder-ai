@@ -156,3 +156,9 @@ npm test, npm run build, PHP/JS syntax и diff checks — PASS. Fixtures про�
 Версия 00.00.059: heading defaults доступны в AI-preview; тема редактора не перекрывает совпавшие явные AI-CSS свойства заголовков.
 
 Версия 00.00.060: сетевой поиск Wikimedia Commons, темы фото от AI и автоматический подбор после успешной генерации. Фото сохраняет remote URL, автора, source/license ссылки; не скачивается в локальную библиотеку. Поддержка автоматического потока требует дальнейшей live приёмки из-за отказов LLM; manual network search/preview проверен.
+
+## Постоянный локальный сервер · 00.00.061
+
+Причина недоступности: временный PHP-процесс завершался вместе с сессией. `npm run serve:install` устанавливает пользовательский macOS LaunchAgent local.juzimder-ai: RunAtLoad, KeepAlive, loopback 127.0.0.1:8080. Требуются PHP и Python3. Логи только в ignored var/. Адрес http://juzimder-ai.localhost:8080/. Сервис работает после входа пользователя, не во время сна/выключения компьютера. Удаление: launchctl bootout gui/$(id -u)/local.juzimder-ai и удаление ~/Library/LaunchAgents/local.juzimder-ai.plist.
+
+Проверки .061: npm test и npm run build PASS; PHP syntax и shell syntax PASS. LaunchAgent state=running; HTTP 200 до и после launchctl kickstart -k. Browser visual NOT RUN: ранее доступ инструмента заблокирован URL policy. Первоначальный sandbox test не смог открыть loopback; повтор с разрешённым loopback прошёл.
