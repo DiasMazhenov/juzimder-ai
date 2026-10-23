@@ -341,7 +341,10 @@ async function openEditor(id,pageId=null) {
     const typography=document.createElement('div');
     if(rootElement){const computed=editor.Canvas.getWindow().getComputedStyle(rootElement);for(const property of ['font-family','font-size','font-weight','font-style','line-height','letter-spacing','color'])typography.style.setProperty(property,computed.getPropertyValue(property));}
     const inheritedTypography=typography.style.cssText.replace(/</g,'\\3c ');
-    frame.srcdoc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+csp+'"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0;'+inheritedTypography+'}'+design.css+'</style></head><body>'+markup.body.innerHTML+'</body></html>';
+    const theme=currentDesignTokens();
+    const headingStyle=document.createElement('div');headingStyle.style.fontFamily=theme.headingFontFamily;headingStyle.style.fontWeight=theme.headingFontWeight;headingStyle.style.lineHeight=theme.headingLineHeight;
+    const headingDefaults=Array.from({length:6},(_,index)=>{headingStyle.style.fontSize=theme[`fontSizeH${index+1}`];return `h${index+1}{${headingStyle.style.cssText.replace(/</g,'\\3c ')}}`;}).join('');
+    frame.srcdoc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+csp+'"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0;'+inheritedTypography+'}'+headingDefaults+design.css+'</style></head><body>'+markup.body.innerHTML+'</body></html>';
   };
   const renderAIImageSlots=()=>{
     const chooser=$('#ai-image-slot-chooser'),list=$('#ai-image-slot-list');list.replaceChildren();
@@ -508,7 +511,13 @@ async function openEditor(id,pageId=null) {
       const heading=tagName.match(/^h([1-6])$/)?.[1];
       if(heading){
         const defaults={'font-family':'var(--juzimder-font-heading, Arial, sans-serif)','font-size':tokenValue(`fontSizeH${heading}`),'font-weight':'var(--juzimder-font-weight-heading, 500)','line-height':'var(--juzimder-line-height-heading, 1.15)'};
-        for(const [property,next] of Object.entries(defaults)){const previous=style[property];if(previous===undefined||typeof previous==='string'&&(previous.includes('--juzimder-font')||previous.includes('--juzimder-line-height')))updates[property]=next;}
+        for(const [property,next] of Object.entries(defaults)){
+          const previous=style[property],element=component.getEl?.();
+          const modelHasStyle=element&&editor.Css.getAll().some(rule=>{const selector=rule.selectorsToString();if(!selector.includes('.ai-scope-')||!Object.hasOwn(rule.getStyle(),property))return false;try{return element.matches(selector);}catch{return false;}});
+          const managed=typeof previous==='string'&&(previous.includes('--juzimder-font')||previous.includes('--juzimder-line-height'));
+          if(modelHasStyle){if(managed)component.removeStyle(property);continue;}
+          if(previous===undefined||managed)updates[property]=next;
+        }
       }
       if(Object.keys(updates).length)component.addStyle(updates);
       component.components?.().forEach(migrate);
