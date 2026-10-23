@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
+require_once __DIR__ . '/StockPhotos.php';
 require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/AiSkills.php';
 require_once __DIR__ . '/AiGenerationJobs.php';
@@ -155,6 +156,15 @@ try {
         }
         $publication = $store->unpublish($projectId, $user, $body['version']);
         result(['publication'=>$publication,'publicUrl'=>null]);
+    }
+    if(preg_match('~^/api/projects/([a-f0-9]{24})/stock-photos$~D',$path,$photoMatch)&&$method==='GET'){
+        $store->owned($photoMatch[1],$user);
+        $query=$_GET['q']??null;if(!is_string($query))throw new Problem(422,'Укажите тему фото.');
+        $requests=array_values(array_filter($_SESSION['photo_requests']??[],static fn($at)=>is_int($at)&&$at>time()-60));
+        if(count($requests)>=24)throw new Problem(429,'Слишком много поисков фото. Повторите через минуту.');
+        $requests[]=time();$_SESSION['photo_requests']=$requests;
+        session_write_close();
+        result(['photos'=>Juzimder\StockPhotos::search($query),'source'=>'Wikimedia Commons']);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/settings$~D', $path, $aiSettingsMatch)) {
         $projectId = $aiSettingsMatch[1];

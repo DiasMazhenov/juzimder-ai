@@ -46,6 +46,8 @@ await a.call('/session');assert.equal((await a.call('/register','POST',{email:'o
 const isolatedDatabaseClient=new Client(devBase);await isolatedDatabaseClient.call('/session');assert.notEqual(a.cookie.split('=')[0],isolatedDatabaseClient.cookie.split('=')[0],'separate SQLite databases use separate browser session cookie names');
 assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
 const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`,aiGeneratePath=`/projects/${aiProject.id}/ai/generate-page`,aiSkillsPath=`/projects/${aiProject.id}/ai/skills`;
+assert.equal((await anon.call(`/projects/${aiProject.id}/stock-photos?q=pottery`)).status,401);
+assert.equal((await a.call(`/projects/${aiProject.id}/stock-photos?q=`)).status,422);
 assert.equal((await anon.call(aiSkillsPath)).status,401,'User Skills require an authenticated session');
 assert.deepEqual((await a.call(aiSkillsPath)).data,{version:0,activeSkillId:null,skills:[],limit:10},'Projects start with a bounded and empty Skill library');
 const analyzePath=aiSkillsPath+'/analyze';
@@ -204,6 +206,7 @@ const created=await a.call('/projects','POST',{name:'API workspace'});assert.equ
 assert.equal((await anon.download(`/projects/${p.id}/export/static`)).status,401,'Static exports require an authenticated session');
 const archive=await a.download(`/projects/${p.id}/export/static`);assert.equal(archive.status,200);assert.equal(archive.type,'application/zip');assert.equal(archive.body.subarray(0,2).toString(),'PK','Authenticated owner receives a ZIP archive');
 await b.call('/session');await b.call('/register','POST',{email:'two@example.test',password:'another-test-password'});
+assert.equal((await b.call(`/projects/${aiProject.id}/stock-photos?q=pottery`)).status,404);
 assert.deepEqual((await b.call('/projects')).data,[]);assert.equal((await b.call('/projects/'+p.id)).status,404);assert.equal((await b.download(`/projects/${p.id}/export/static`)).status,404,'Static export enforces project ownership');
 assert.equal((await b.call(`/projects/${operationProject.id}/operations`,'POST',{version:3,operations:[{operation:'update_content',componentId:generatedHeading.attributes.id,content:'foreign'}]})).status,404,'Typed operations enforce project ownership');
 assert.equal((await b.call('/projects/'+p.id,'PUT',{version:0,document:p.document})).status,404);

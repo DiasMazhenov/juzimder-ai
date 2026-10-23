@@ -403,3 +403,7 @@ foreach(['<span class="ai-icon ai-icon-unknown"></span>','<span class="ai-icon a
  $bad=$generatedDesign;$bad['html']=str_replace('<article class="ai-card">','<article class="ai-card">'.$badIcon,$bad['html']);
  aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($bad,JSON_UNESCAPED_UNICODE)),'Invalid or excessive icon markers fail closed');
 }
+
+$queryDesign=$generatedDesign;$queryDesign['html']=str_replace('data-image-slot="hero"','data-image-slot="hero" data-image-query="pottery bowl"',$queryDesign['html']);
+$queryOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($queryDesign,JSON_UNESCAPED_UNICODE));
+aiCheck(($queryOutput['imageSlots'][0]['query']??null)==='pottery bowl'&&!str_contains($queryOutput['html'],'data-image-query'),'Photo search topics are bounded metadata, not persisted custom HTML attributes');
