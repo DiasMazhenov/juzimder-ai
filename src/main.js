@@ -1,4 +1,4 @@
-import { tablerIcon, tablerCoreIcons, installEditorIcons } from './editor-icons.js';
+import { tablerIcon, tablerCoreIcons, installEditorIcons, updateFlexIcons } from './editor-icons.js';
 import { backgroundValue, installBackgroundControls } from './editor-background.js';
 import { persistedComponentId } from './component-identity.js';
 import 'grapesjs/dist/css/grapes.min.css';
@@ -509,7 +509,7 @@ async function openEditor(id,pageId=null) {
   editor.on('page:select page:add page:remove',()=>{refreshPages();syncThemeForm();syncPageRoute();});
   const syncSizeControls=component=>{const style=component.getStyle();const width=style.width||'auto';const height=style.height||'auto';$('#width-mode').value=['auto','fit-content','100%'].includes(width)?width:'custom';$('#height-mode').value=['auto','100%'].includes(height)?height:'custom';for(const property of ['min-width','max-width','min-height','max-height'])$(`#${property}`).value=style[property]||'';};
   const flexDefaults=component=>({'flex-direction':component?.get?.('type')==='wrapper'?'column':'row','justify-content':'flex-start','align-items':'stretch','flex-wrap':'nowrap'});
-  const syncFlexControls=component=>{const style=component?.getStyle?.()||{},defaults=flexDefaults(component);$('#flex-controls').hidden=!component;for(const button of document.querySelectorAll('[data-flex-property]')){const property=button.dataset.flexProperty,value=style[property]||defaults[property];const active=value===button.dataset.flexValue;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));}};
+  const syncFlexControls=component=>{const style=component?.getStyle?.()||{},defaults=flexDefaults(component);$('#flex-controls').hidden=!component;for(const button of document.querySelectorAll('[data-flex-property]')){const property=button.dataset.flexProperty,value=style[property]||defaults[property];const active=value===button.dataset.flexValue;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));}updateFlexIcons(document,{...defaults,...style});};
   const componentIdentifier=persistedComponentId;
   const componentPath=(component,page)=>{const root=page?.getMainComponent?.();const path=[];let cursor=component;while(cursor&&cursor!==root){const parent=cursor.parent?.(),index=parent?.components?.().indexOf(cursor);if(!parent||!Number.isInteger(index)||index<0)return null;path.unshift(index);cursor=parent;}return cursor===root?path:null;};
   const clearAIComponentProposal=status=>{aiComponentProposal=null;$('#ai-component-preview').hidden=true;$('#ai-component-changes').replaceChildren();if(status)$('#ai-component-status').textContent=status;};

@@ -1,3 +1,4 @@
+import { flexIconSpec } from './flex-icons.js';
 import catalogue from '../resources/tabler-editor/catalogue.json';
 export const tablerIcon = name => catalogue[name] || catalogue.square;
 export const tablerCoreIcons = Object.fromEntries(Object.entries({close:'x',move:'arrows-move',plus:'plus',caret:'chevron-down',delete:'trash',copy:'copy',arrowUp:'arrow-up',chevron:'chevron-up',eye:'eye',eyeOff:'eye-off'}).map(([key,name])=>[key,tablerIcon(name)]));
@@ -11,8 +12,18 @@ export function installEditorIcons(editor) {
     for(const [selector,name] of Object.entries({'#history':'history','#theme':'settings','#export':'code','#static-export':'download','#save':'device-floppy','#preview':'eye','#start-hero':'plus','[data-device="Desktop"]':'device-desktop','[data-device="Tablet"]':'device-tablet','[data-device="Mobile"]':'device-mobile'}))set(selector,name);
     for(const node of shell.querySelectorAll('.fa')){const names={'fa-arrows':'arrows-move','fa-trash-o':'trash','fa-trash':'trash','fa-clone':'copy','fa-arrow-up':'arrow-up','fa-chevron-right':'chevron-right','fa-chevron-down':'chevron-down','fa-eye':'eye','fa-eye-slash':'eye-off','fa-cog':'settings','fa-bars':'menu','fa-plus':'plus','fa-minus':'chevron-up'};for(const [cls,name]of Object.entries(names))if(node.classList.contains(cls)&&!node.querySelector('.tabler-editor-icon')){node.classList.add('tabler-replaced');node.innerHTML=tablerIcon(name);}}
   };
-  for(const glyph of shell.querySelectorAll('.flex-glyph')){const property=glyph.dataset.property,value=glyph.dataset.value;const name=property==='flex-direction'?(value.startsWith('row')?'arrows-horizontal':'arrows-vertical'):property==='flex-wrap'?'menu':value==='center'?'align-center':value==='flex-end'?'align-right':value==='flex-start'?'align-left':'arrows-move';glyph.replaceWith(document.createRange().createContextualFragment(tablerIcon(name)));}
+  updateFlexIcons(document,{});
   const preview=shell.querySelector('#preview');if(preview)preview.textContent=preview.textContent.replace('↗','').trim();
   const hero=shell.querySelector('#start-hero');if(hero)hero.textContent=hero.textContent.replace(/^\+\s*/,'');
   update();const observer=new MutationObserver(update);observer.observe(shell,{childList:true,subtree:true});editor.on('destroy',()=>observer.disconnect());
+}
+
+export function updateFlexIcons(root, style) {
+  const direction=style['flex-direction']||'row',wrap=style['flex-wrap']||'nowrap';
+  for(const button of root.querySelectorAll('[data-flex-property]')){
+    const spec=flexIconSpec(button.dataset.flexProperty,button.dataset.flexValue,direction,wrap);if(!spec)continue;
+    const key=spec.name+':'+(spec.transform||'');if(button.dataset.iconSpec===key)continue;
+    button.innerHTML=tablerIcon(spec.name);button.dataset.iconSpec=key;
+    const svg=button.querySelector('svg');if(svg&&spec.transform)svg.style.transform=spec.transform;
+  }
 }

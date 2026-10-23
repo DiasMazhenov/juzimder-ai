@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.072 (npm SemVer 0.1.72). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.073 (npm SemVer 0.1.73). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -537,3 +537,11 @@ Readonly проверка полного existing Project Data (Design token QA)
 Новые regression fixtures используют реальный формат Core: classes отдельно, selectors пустой массив + selectorsAdd, compound selector objects/state, scoped tag selectors, responsive rule, expanded properties и malicious selector fragment. npm test, npm run build, PHP syntax, diff checks PASS.
 
 В браузере открыта та же сохранённая Photo card QA страница с медицинским макетом (9291eeeb-4cb7-4553-9e7a-a25f3cfd1496). Осмотрен именно блок «Медицинские услуги» из скриншота: grid330.664px x3, padding64px24px, card radius12px/border1px, pill badge и blue CTA восстановлены. /tmp/juzimder-styles-fixed-072.png просмотрен. Открыта исправленная вкладка view; пользовательский editor не перезагружался и Project Data не менялись. Полный pixel-perfect/вся mobile матрица не объявляются.
+
+## Смысловые Tabler-иконки Flex · 00.00.073
+
+По скриншоту владельца заменены повторяющиеся generic arrows-move/menu/text-align glyphs в Flex settings. Отдельный flexIconSpec задаёт явное соответствие всех18 options: однонаправленные arrows для row/column/reverse; align-box для начала/центра/конца по нужной оси; layout-distribute/spacing/columns3 для трёх видов распределения; baseline и cross-axis arrows для stretch; text-wrap-disabled/text-wrap с отражением для wrap-reverse. Поворот Columns3 и wrap применяется только в editor UI. Существующие title/aria-label сохраняют точное CSS значение и русское описание.
+
+Icons обновляются при выборе компонента/изменении стиля и учитывают direction, reverse и cross-axis wrap-reverse. Ни одна группа не содержит одинаковых icon+transform options. Это иконографические обозначения, не миниатюрная точная симуляция всех CSS spacing алгоритмов. Канонический Project Data и сами CSS действия прежние. Источники официальные Tabler Outline, MIT notice включён в catalogue как раньше.
+
+Unit fixtures проверяют все18 options во всех4 directions, наличие vetted assets, отсутствие повторов внутри групп и конкретные physical-axis/reverse mappings. npm test/build, PHP/JS syntax и diff checks PASS. Browser QA выполнена в отдельной прежней /tmp SQLite на18083: row → row-reverse + wrap-reverse; DOM computed styles подтвердили оба значения, main-start icon сменился на right-middle, cross-start на bottom-center. Вернули column/nowrap, saved revision7. Все18 actual DOM iconSpec осмотрены. /tmp/juzimder-flex-icons-073.png просмотрен, полный context /tmp/juzimder-flex-editor-073.png сохранён. Пользовательские страницы на8080 не редактировались/не reload.
