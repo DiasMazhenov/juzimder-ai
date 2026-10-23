@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.070 (npm SemVer 0.1.70). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.071 (npm SemVer 0.1.71). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -521,3 +521,9 @@ AI получает contextual class ai-hero-background при подходящ�
 Live приёмка в отдельной /tmp SQLite на127.0.0.1:18083, не в проектах владельца: новый Background Overlay QA070, Hero → Commons CC0 фото Evan-Amos Big Mac hamburger (контроль геометрии, не тематическая генерация) → white overlay65% → save revision2. Computed container/heading opacity1. Eye реально открыл новую вкладку с HTML и тем же background/overlay. Undo→background none, Redo→background restored, save4. После reload background/rgba65% сохранены. Native Mobile: viewport375, section375, background cover; screenshot /tmp/juzimder-background-mobile-070.png просмотрен. Desktop /tmp/juzimder-background-070.png и view /tmp/juzimder-eye-070.png сохранены. Проверены слои: все отрисованные SVG host controls Tabler; CSS-rendered frame decorations не считаются картинками generated page. Production проекты не записывались, публикации не было.
 
 npm test включая новые background/overlay и view owner tests, npm run build, PHP syntax, JS syntax и diff checks PASS. Открытые следующие шаги: live generated Hero с photo/overlay и полная responsive матрица, live AI style-edit/conflicts из предыдущего плана.
+
+## Совместимость фоновых стилей · 00.00.071
+
+Финальный live Eye на существующем проекте обнаружил регрессию .070: новый background validator отвергал ранее сохранённые Core linear-gradient(rgb…) и initial. BackgroundImage теперь сохраняет безопасные CSS-wide keywords/пустое значение и ограниченные non-resource linear/radial/conic gradients. Nested url()/expression(), credential URLs и опасные схемы по-прежнему rejected; fixtures добавлены. Пустое значение пропускается экспортом. Прочие .070 функции прежние.
+
+Readonly проверка полного existing Project Data (Design token QA) PASS без миграции/перезаписи; фактический private page view на8080 вернул страницу с её заголовком вместо ошибки background validation. npm test/build, PHP syntax и diff checks PASS. Итоговая текущая версия00.00.071; скриншоты функциональной .070 приёмки остаются применимыми к фону и overlay (визуального изменения .071 нет).

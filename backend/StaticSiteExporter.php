@@ -237,7 +237,7 @@ final class StaticSiteExporter {
         if (!is_array($style)) return [];
         $declarations = [];
         foreach ($style as $property => $value) {
-            if ($property === 'background-image') { if (BackgroundImage::valid($value)) $declarations[] = $property . ':' . $value; continue; }
+            if ($property === 'background-image') { if ($value !== '' && BackgroundImage::valid($value)) $declarations[] = $property . ':' . $value; continue; }
             if (!is_string($property) || !in_array($property, self::STYLE_PROPERTIES, true) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512) continue;
             if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F;{}<>\\"\']|\/\*|\*\//', $value) || preg_match('/(?:url|expression)\s*\(|@import|javascript\s*:/i', $value)) continue;
             $declarations[] = $property . ':' . $value;

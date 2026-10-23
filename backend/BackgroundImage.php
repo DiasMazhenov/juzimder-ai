@@ -12,5 +12,12 @@ final class BackgroundImage {
         $parts=parse_url($src);
         return is_array($parts) && ($parts['scheme']??'')==='https' && !empty($parts['host']) && !isset($parts['user']) && !isset($parts['pass']) ? $src : null;
     }
-    public static function valid(mixed $value): bool { return $value==='none' || self::source($value)!==null; }
+    public static function valid(mixed $value): bool {
+        if (!is_string($value) || strlen($value)>2048) return false;
+        if (in_array($value,['','none','initial','inherit','unset','revert','revert-layer'],true)) return true;
+        if (self::source($value)!==null) return true;
+        // Preserve legacy Core gradients; never allow nested resource/execution functions.
+        if (preg_match('/(?:url|expression)\\s*\\(|javascript|vbscript|@import/i',$value)) return false;
+        return (bool)preg_match('/^(?:repeating-)?(?:linear|radial|conic)-gradient\\([a-zA-Z0-9#(),.%+ \\t-]+\\)$/D',$value);
+    }
 }
