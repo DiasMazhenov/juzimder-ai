@@ -9,7 +9,7 @@ final class StaticSiteExporter {
     private const STYLE_PROPERTIES = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
-        'margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
+        'background-image','background-size','background-position','background-repeat','position','overflow','z-index','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
         'line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity','cursor',
         '--juzimder-color-ink','--juzimder-color-forest','--juzimder-color-canvas','--juzimder-color-paper','--juzimder-color-body','--juzimder-color-muted','--juzimder-color-line','--juzimder-color-accent',
         '--juzimder-font-family','--juzimder-font-heading','--juzimder-font-body','--juzimder-font-weight-body','--juzimder-font-weight-heading',
@@ -46,6 +46,7 @@ final class StaticSiteExporter {
         foreach ($pages as $page) if (($settings['pages'][(string)$page->id]['isHome'] ?? false) === true) { $home = (string)$page->id; break; }
         if ($home === null && isset($pages[0])) $home = (string)$pages[0]->id;
 
+        foreach ($assetPaths as $assetId=>$assetPath) $css = str_replace('/api/projects/'.$projectId.'/assets/'.$assetId.'/file', '../'.$assetPath, $css);
         $files = ['assets/site.css' => $css];
         foreach ($assets as $assetId=>$asset) $files[$assetPaths[$assetId]] = $asset['content'];
         foreach ($pages as $page) {
@@ -61,10 +62,16 @@ final class StaticSiteExporter {
             $relativeAssetPaths = [];
             foreach ($assetPaths as $assetId=>$assetPath) $relativeAssetPaths['/api/projects/' . $projectId . '/assets/' . $assetId . '/file'] = ($isHome ? '' : '../') . $assetPath;
             $html = self::pageHtml($page, $root, $route['seo'] ?? [], $isHome ? 'assets/site.css' : '../assets/site.css', $relativeAssetPaths);
+            foreach ($relativeAssetPaths as $source=>$target) $html = str_replace($source,$target,$html);
             $files[$path] = $html;
         }
         $files['README.txt'] = "Juzimder AI static site export\n\nOpen index.html locally or upload the extracted files to a static web host.\nSubpages are stored in their configured route folders; shared styles are in assets/site.css.\nReferenced project images are copied into media/.\n\nThis archive contains only static HTML, CSS and referenced images. Forms, AI, analytics, custom code, domains and online publication are not included. No public deployment was performed.\n";
         return $files;
+    }
+
+    public static function inlineBackgroundStyles(string $css,array $assets,string $projectId): string {
+        foreach($assets as $assetId=>$asset){$extension=['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$asset['mime']??'']??null;if($extension===null)continue;$css=str_replace('../media/'.$projectId.'/'.$assetId.'.'.$extension,'data:'.$asset['mime'].';base64,'.base64_encode($asset['content']),$css);}
+        return $css;
     }
 
     public static function inlineAssets(string $html, array $assets, string $projectId, bool $isHome): string {
@@ -72,6 +79,8 @@ final class StaticSiteExporter {
             $extension = ['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$asset['mime'] ?? ''] ?? null;
             if ($extension === null || !is_string($asset['content'] ?? null)) continue;
             $path = ($isHome ? '' : '../') . 'media/' . $projectId . '/' . $assetId . '.' . $extension;
+            $html = str_replace('url(&quot;'.$path.'&quot;)', 'url(&quot;data:'.$asset['mime'].';base64,'.base64_encode($asset['content']).'&quot;)', $html);
+            $html = str_replace('url("'.$path.'")', 'url("data:'.$asset['mime'].';base64,'.base64_encode($asset['content']).'")', $html);
             $html = str_replace('src="' . self::escape($path) . '"', 'src="data:' . $asset['mime'] . ';base64,' . base64_encode($asset['content']) . '"', $html);
         }
         return $html;
@@ -228,6 +237,7 @@ final class StaticSiteExporter {
         if (!is_array($style)) return [];
         $declarations = [];
         foreach ($style as $property => $value) {
+            if ($property === 'background-image') { if (BackgroundImage::valid($value)) $declarations[] = $property . ':' . $value; continue; }
             if (!is_string($property) || !in_array($property, self::STYLE_PROPERTIES, true) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512) continue;
             if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F;{}<>\\"\']|\/\*|\*\//', $value) || preg_match('/(?:url|expression)\s*\(|@import|javascript\s*:/i', $value)) continue;
             $declarations[] = $property . ':' . $value;

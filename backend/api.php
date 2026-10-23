@@ -113,6 +113,26 @@ try {
         echo $archive;
         exit;
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/pages/([A-Za-z0-9_-]{1,128})/view$~D', $path, $viewMatch) && $method === 'GET') {
+        $project=$store->owned($viewMatch[1],$user);
+        $assets=$store->referencedAssets($viewMatch[1],$user,$project['document']);
+        $files=Juzimder\StaticSiteExporter::files($project,$assets);
+        $pages=$project['document']->data->pages; $homeId=null; $target=null;
+        foreach($pages as $page) { if(($project['settings']['pages'][(string)$page->id]['isHome']??false)===true)$homeId=(string)$page->id; if((string)$page->id===$viewMatch[2])$target=$page; }
+        $homeId??=(string)$pages[0]->id;
+        if(!$target)throw new Problem(404,'Страница не найдена.');
+        $isHome=(string)$target->id===$homeId;
+        $route=$project['settings']['pages'][(string)$target->id];
+        $html=$files[$isHome?'index.html':$route['slug'].'/index.html'];
+        $css=$files['assets/site.css'];
+        foreach($assets as $assetId=>$asset){$ext=['image/jpeg'=>'jpg','image/png'=>'png','image/gif'=>'gif','image/webp'=>'webp'][$asset['mime']];$css=str_replace('../media/'.$viewMatch[1].'/'.$assetId.'.'.$ext,'data:'.$asset['mime'].';base64,'.base64_encode($asset['content']),$css);}
+        $html=Juzimder\StaticSiteExporter::inlineAssets($html,$assets,$viewMatch[1],$isHome);
+        $html=preg_replace_callback('~<link rel="stylesheet"[^>]*>~',static fn()=>'<style>'.$css.'</style>',$html);
+        header('Content-Type: text/html; charset=utf-8');
+        header("Content-Security-Policy: sandbox; default-src 'none'; script-src 'none'; connect-src 'none'; style-src 'unsafe-inline'; img-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+        header('Cross-Origin-Opener-Policy: same-origin');
+        echo $html;exit;
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/preview/static$~D', $path, $previewMatch) && $method === 'GET') {
         $project = $store->owned($previewMatch[1], $user);
         $assets = $store->referencedAssets($previewMatch[1], $user, $project['document']);
@@ -135,7 +155,7 @@ try {
             $html = Juzimder\StaticSiteExporter::inlineAssets($files[$htmlPath], $assets, $previewMatch[1], $isHome);
             $previewPages[] = ['name'=>(string)($page->name ?? 'Страница'),'path'=>$isHome ? '/' : '/' . (string)$route['slug'] . '/', 'html'=>$html];
         }
-        $preview = ['version'=>(int)$project['version'],'pages'=>$previewPages,'css'=>$files['assets/site.css'] ?? ''];
+        $preview = ['version'=>(int)$project['version'],'pages'=>$previewPages,'css'=>Juzimder\StaticSiteExporter::inlineBackgroundStyles($files['assets/site.css'] ?? '',$assets,$previewMatch[1])];
         if (strlen(json_encode($preview, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)) > 30000000) throw new Problem(413, 'Предпросмотр превышает 30 МБ.');
         result($preview);
     }

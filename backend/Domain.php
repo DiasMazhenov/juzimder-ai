@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__ . '/ProjectSettings.php';
 require_once __DIR__ . '/IconCatalogue.php';
+require_once __DIR__ . '/BackgroundImage.php';
 
 final class Problem extends \RuntimeException {
     public function __construct(public int $status, string $message) { parent::__construct($message); }
@@ -64,6 +65,7 @@ final class Document {
                     $validAsset = $key === 'src' && is_string($item) && preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D', $item);
                     if (!$validUri && !$validAsset && !($key === 'src' && IconCatalogue::permits($item))) throw new Problem(422, 'Недопустимый адрес ресурса.');
                 }
+                if ($key === 'background-image') { if (!BackgroundImage::valid($item)) throw new Problem(422, 'Недопустимое фоновое изображение.'); continue; }
                 self::walk($item, $depth + 1, $count);
             }
         } elseif (is_string($value)) {
@@ -95,7 +97,8 @@ final class Document {
             elseif (is_array($value)) $fields = $value;
             else return;
             foreach ($fields as $key => $item) {
-                if ($key === 'src' && is_string($item) && preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $item, $match)) {
+                if ($key === 'background-image') $item = BackgroundImage::source($item);
+                if (in_array($key,['src','background-image'],true) && is_string($item) && preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $item, $match)) {
                     $references[$match[1] . ':' . $match[2]] = ['projectId'=>$match[1], 'assetId'=>$match[2]];
                     if (count($references) > 200) throw new Problem(422, 'В одном проекте можно использовать не более 200 изображений.');
                 }

@@ -418,3 +418,10 @@ aiCheck($guidedResult['metadata']['repairAttempted']&&count($guidedTransport->ca
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($badMarkup,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected rejection');}catch(AiProviderFailure $e){aiCheck($e->validationRule==='tag_allowlist'&&$e->category==='invalid_markup','Safe markup reason survives sanitizer wrapping');}
 
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Do not add photo slots to these abstract capability cards.'),'Abstract software capabilities use semantic icons instead of stand-in stock photos');
+
+aiCheck(str_contains($generatedRequest['messages'][0]['content'],'add class ai-hero-background'),'Hero background photo and overlay are an automatic contextual art-direction option');
+
+$backgroundDesign=$generatedDesign;
+$backgroundDesign['html']=preg_replace('/class="ai-hero(?=[ "])/','class="ai-hero-background ai-hero',$backgroundDesign['html'],1);
+$backgroundOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($backgroundDesign,JSON_UNESCAPED_UNICODE));
+aiCheck(str_contains($backgroundOutput['html'],'ai-hero-background') && str_contains($backgroundOutput['css'],'background-color:#17211b'),'Contextual hero marker keeps readable fallback without permitting model image URLs');

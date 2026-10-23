@@ -410,3 +410,14 @@ const publicPage=await publicCall(project.id);
 assert.equal(publicPage.status,200);assert.match(publicPage.body,/hero copy 2/);assert.doesNotMatch(publicPage.body,/Ручная правка до восстановления/);
 assert.equal((await owner.call(`/projects/${project.id}`)).data.version,3,'Preview, export and publish do not mutate Project Data');
 }
+test('Saved page view is owner-only HTML and preserves background overlays',async()=>{
+const owner=new Client(devBase),other=new Client(devBase),anonymous=new Client(devBase);
+for(const [client,email]of [[owner,'background-owner@example.test'],[other,'background-other@example.test']]){await client.call('/session');assert.equal((await client.call('/register','POST',{email,password:'local-background-test-password'})).status,200);}
+const project=(await owner.call('/projects','POST',{name:'Background QA'})).data;
+const state=(await owner.call(`/projects/${project.id}`)).data;
+state.document.data.pages[0].frames[0].component.components=[{tagName:'section',attributes:{id:'hero'},style:{'background-image':'linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), url("https://example.com/scene.jpg")','background-size':'cover'},components:[{type:'text',tagName:'h1',content:'Background view QA'}]}];
+assert.equal((await owner.call(`/projects/${project.id}`,'PUT',{version:0,document:state.document})).status,200);
+const path=`/projects/${project.id}/pages/home/view`;
+const view=await owner.download(path);assert.equal(view.status,200);assert.match(view.type,/text\/html/);assert.match(view.body.toString(),/Background view QA/);assert.match(view.body.toString(),/background-image/);assert.match(view.body.toString(),/0\.55/);assert.doesNotMatch(view.body.toString(),/<script/);
+assert.equal((await anonymous.download(path)).status,401);assert.equal((await other.download(path)).status,404);assert.equal((await owner.download(`/projects/${project.id}/pages/missing/view`)).status,404);
+});

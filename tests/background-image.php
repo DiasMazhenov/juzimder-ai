@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/../backend/Domain.php';
+require __DIR__.'/../backend/StaticSiteExporter.php';
+use Juzimder\{Document,BackgroundImage,StaticSiteExporter,Problem};
+function bgCheck($condition,$label){if(!$condition)throw new RuntimeException($label);echo "PASS $label\n";}
+$values=['url("https://example.com/a.jpg")','linear-gradient(rgba(12, 34, 56, 0.55), rgba(12, 34, 56, 0.55)), url("https://example.com/a.jpg")'];
+foreach($values as $value){bgCheck(BackgroundImage::valid($value),'Trusted background syntax accepted');$doc=Document::empty();$doc['data']['pages'][0]['frames'][0]['component']['style']['background-image']=$value;Document::validate($doc);$files=StaticSiteExporter::files(['name'=>'QA','document'=>json_decode(json_encode($doc))]);bgCheck(str_contains($files['index.html'],$value==='none'?'none':'background-image:'),'Native background survives export');}
+foreach(['url("javascript:alert(1)")','url("data:image/svg+xml,evil")','url("https://user:pass@example.com/a")','url("https://example.com/a");color:red','linear-gradient(rgba(999, 0, 0, 0.5), rgba(999, 0, 0, 0.5)), url("https://example.com/a")','url("http://example.com/a")','url("https://example.com/a"), url("https://example.com/b")'] as $bad){bgCheck(!BackgroundImage::valid($bad),'Unsafe background rejected');$doc=Document::empty();$doc['data']['pages'][0]['frames'][0]['component']['style']['background-image']=$bad;try{Document::validate($doc);throw new RuntimeException('Unsafe document accepted');}catch(Problem $e){bgCheck($e->status===422,'Document fails closed');}}
+$projectId=str_repeat('a',24);$assetId=str_repeat('b',24);$src='/api/projects/'.$projectId.'/assets/'.$assetId.'/file';$doc=Document::empty();$doc['data']['pages'][0]['frames'][0]['component']['style']['background-image']='url("'.$src.'")';bgCheck(Document::assetReferences($doc)===[['projectId'=>$projectId,'assetId'=>$assetId]],'Background references participate in ownership checks');
+$files=StaticSiteExporter::files(['id'=>$projectId,'name'=>'QA','document'=>json_decode(json_encode($doc))],[$assetId=>['mime'=>'image/png','content'=>'test-image']]);bgCheck(str_contains($files['index.html'],'media/'.$projectId.'/'.$assetId.'.png'),'Managed background rewritten for static export');

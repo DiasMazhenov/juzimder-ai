@@ -9,7 +9,7 @@ final class ProjectOperations {
     private const STYLE_FIELDS = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
-        'margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
+        'background-image','background-size','background-position','background-repeat','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
         'line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity'
     ];
 
