@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.075 (npm SemVer 0.1.75). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.076 (npm SemVer 0.1.76). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -551,3 +551,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 
 ## Версия 00.00.075 — подписи фото не ломают Hero grid
 Диагноз на сохранённой странице 9291eeeb-4cb7-4553-9e7a-a25f3cfd1496: appendAIPhotoCredit использовал slot.after(p), поэтому подпись стала третьим direct child двухколоночного Hero и вытеснила текст во второй ряд. Общий helper src/photo-credit.js размещает credit внутри фото (для background Hero — внутри Hero), absolute overlay, 8px. Экспорт сохраняет top/right/bottom/left и justify-self; ранее offsets отбрасывались, подпись оказывалась вне overflow. Pill badges получают fit-content/align-self/justify-self и не растягиваются Flex/Grid. На исходной странице три captions перенесены внутрь фото, badges ограничены по ширине, CAS-ревизия 79; прочие страницы сохранены. Desktop проверка на копии и исходной странице: Hero снова два grid items, подпись видна внутри фото, 8px. npm test/build/PHP syntax PASS. Новая LLM-генерация и mobile отдельно NOT RUN. Тематическая уместность выбранного фото (выставочный фасад клиники) остаётся отдельной задачей photo selection.
+
+00.00.076: пять действий верхней панели (история, настройки, JSON, ZIP, сохранение) показывают только Tabler icons; доступны title/aria-label, кнопки 38×38 px.
