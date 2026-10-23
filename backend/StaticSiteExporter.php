@@ -9,7 +9,7 @@ final class StaticSiteExporter {
     private const STYLE_PROPERTIES = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
-        'background-image','background-size','background-position','background-repeat','position','overflow','z-index','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
+        'background-image','background-size','background-position','background-repeat','position','top','right','bottom','left','justify-self','overflow','z-index','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
         'font-style','text-transform','list-style-type','box-shadow','row-gap','column-gap','overflow-x','overflow-y','background-position-x','background-position-y','background-attachment','background-origin','background-clip','text-decoration-line','text-decoration-thickness','text-decoration-style','text-decoration-color','line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity','cursor',
         '--juzimder-color-ink','--juzimder-color-forest','--juzimder-color-canvas','--juzimder-color-paper','--juzimder-color-body','--juzimder-color-muted','--juzimder-color-line','--juzimder-color-accent',
         '--juzimder-font-family','--juzimder-font-heading','--juzimder-font-body','--juzimder-font-weight-body','--juzimder-font-weight-heading',

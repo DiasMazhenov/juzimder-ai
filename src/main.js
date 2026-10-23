@@ -1,3 +1,4 @@
+import { appendPhotoCredit as appendAIPhotoCredit } from './photo-credit.js';
 import { tablerIcon, tablerCoreIcons, installEditorIcons, updateFlexIcons } from './editor-icons.js';
 import { backgroundValue, installBackgroundControls } from './editor-background.js';
 import { persistedComponentId } from './component-identity.js';
@@ -354,13 +355,6 @@ async function openEditor(id,pageId=null) {
     const headingStyle=document.createElement('div');headingStyle.style.fontFamily=theme.headingFontFamily;headingStyle.style.fontWeight=theme.headingFontWeight;headingStyle.style.lineHeight=theme.headingLineHeight;
     const headingDefaults=Array.from({length:6},(_,index)=>{headingStyle.style.fontSize=theme[`fontSizeH${index+1}`];return `h${index+1}{${headingStyle.style.cssText.replace(/</g,'\\3c ')}}`;}).join('');
     frame.srcdoc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+csp+'"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0;'+inheritedTypography+'}'+headingDefaults+design.css+'</style></head><body>'+markup.body.innerHTML+'</body></html>';
-  };
-  const appendAIPhotoCredit=(slot,asset)=>{
-    if(asset.kind!=='commons')return;
-    const doc=slot.ownerDocument,credit=doc.createElement('p'),source=doc.createElement('a'),license=doc.createElement('a');
-    credit.style.fontSize='8px';credit.style.lineHeight='1.4';source.style.fontSize='8px';license.style.fontSize='8px';
-    source.href=asset.sourceUrl;source.textContent='Фото: '+asset.author+' / Wikimedia Commons';license.href=asset.licenseUrl;license.textContent=asset.license;
-    credit.append(source,doc.createTextNode(' · '),license);slot.after(credit);
   };
   const findAIStockPhoto=async(slotId,query)=>{
     const state=aiDesignState;if(!state||isAIDesignReadOnly())return;

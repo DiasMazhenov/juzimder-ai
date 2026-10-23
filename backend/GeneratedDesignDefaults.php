@@ -34,7 +34,7 @@ final class GeneratedDesignDefaults {
             $radius=null;for($node=$slot->parentNode;$node instanceof \DOMElement&&$node!==$root;$node=$node->parentNode){$radius=$value($node,'border-radius');if($radius!==null&&$radius!=='inherit')break;}
             if($radius===null||$radius==='inherit')$radius=$fallback;$name='ai-photo-radius-'.++$index;self::addClass($slot,$name);$extra.="\n.$scope .$name.$name,.$scope .$name img{border-radius:$radius}";
         }
-        $extra.="\n.$scope .ai-default-left.ai-default-left,.$scope .ai-default-left h1,.$scope .ai-default-left h2,.$scope .ai-default-left p{text-align:left}\n.$scope .ai-pill-badge.ai-pill-badge{display:inline-block;border-radius:9999px;padding:6px 12px;border:1px solid currentColor;font-size:12px;line-height:1.3;margin:0 0 16px;max-width:100%}";
+        $extra.="\n.$scope .ai-default-left.ai-default-left,.$scope .ai-default-left h1,.$scope .ai-default-left h2,.$scope .ai-default-left p{text-align:left}\n.$scope .ai-pill-badge.ai-pill-badge{display:inline-block;border-radius:9999px;padding:6px 12px;border:1px solid currentColor;font-size:12px;line-height:1.3;margin:0 0 16px;max-width:100%;width:fit-content;align-self:flex-start;justify-self:start}";
         $design['html']=$dom->saveHTML($root);$design['css'].=$extra;return $design;
     }
     private static function addClass(\DOMElement $el,string $class):void{$el->setAttribute('class',trim($el->getAttribute('class').' '.$class));}

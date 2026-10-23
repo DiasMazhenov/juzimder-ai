@@ -46,6 +46,12 @@ exportCheck(str_contains($files['o-nas/index.html'], '<span style="color:#123456
 exportCheck(str_contains($files['assets/site.css'], '@media (max-width: 576px)') && str_contains($files['assets/site.css'], '#ij4p{color:#123456'), 'Responsive Project Data styles and design tokens reach static CSS');
 exportCheck(str_contains($files['index.html'], 'http-equiv="Content-Security-Policy"') && !preg_match('/<script\b|onerror\s*=|javascript:/i', implode("\n", $files)), 'Static output applies a restrictive CSP and contains no executable markup');
 
+$captionProject = $project;
+$captionProject['document'] = json_decode(json_encode($project['document'], JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+$captionProject['document']->data->pages[0]->frames[0]->component->components[] = (object)['classes'=>['ai-image-slot'],'style'=>(object)['position'=>'relative'],'components'=>[(object)['tagName'=>'p','classes'=>['ai-photo-credit'],'style'=>(object)['position'=>'absolute','left'=>'0px','right'=>'0px','bottom'=>'0px','font-size'=>'8px'],'components'=>[(object)['type'=>'textnode','content'=>'Photo credit']]]]];
+$captionFiles = StaticSiteExporter::files($captionProject);
+exportCheck(str_contains($captionFiles['index.html'],'position:absolute;left:0px;right:0px;bottom:0px;font-size:8px'), 'Photo caption offsets and small text survive saved HTML export');
+
 $assetProject = $project;
 $assetProject['id'] = str_repeat('a', 24);
 $assetId = str_repeat('b', 24);

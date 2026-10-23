@@ -12,3 +12,5 @@ $center=$input;$center['css']=str_replace('text-align:left','text-align:center',
 defaultsCheck(!str_contains($center['html'],'ai-default-left'),'Centered Hero does not force left alignment');
 $again=GeneratedDesignDefaults::apply($out);
 defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges are retained without duplicates');
+
+defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');

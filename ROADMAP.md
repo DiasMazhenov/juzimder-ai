@@ -493,3 +493,6 @@ Icons обновляются при выборе компонента/измен
 Unit fixtures проверяют все18 options во всех4 directions, наличие vetted assets, отсутствие повторов внутри групп и конкретные physical-axis/reverse mappings. npm test/build, PHP/JS syntax и diff checks PASS. Browser QA выполнена в отдельной прежней /tmp SQLite на18083: row → row-reverse + wrap-reverse; DOM computed styles подтвердили оба значения, main-start icon сменился на right-middle, cross-start на bottom-center. Вернули column/nowrap, saved revision7. Все18 actual DOM iconSpec осмотрены. /tmp/juzimder-flex-icons-073.png просмотрен, полный context /tmp/juzimder-flex-editor-073.png сохранён. Пользовательские страницы на8080 не редактировались/не reload.
 
 - [x] 00.00.074: шестерёнка настроек страницы в редакторе; название/slug, SEO, отдельные OG/Twitter metadata, существующее глобальное оформление; CAS/revisions и миграция settings v5, desktop save/reopen QA.
+
+- [x] 00.00.075: исправить grid/flex-компоновку после вставки photo credit; компактные pill badges; сохранить offsets в HTML export; исправленная сохранённая страница и desktop QA.
+- [ ] Проверять пригодность фото именно для Hero (посторонние вывески, выставочные фасады, текст на фото), а не только совпадение темы поиска.
