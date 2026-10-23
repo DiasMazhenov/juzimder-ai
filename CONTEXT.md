@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.057 (npm SemVer 0.1.57). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.058 (npm SemVer 0.1.58). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -396,3 +396,10 @@ Live: восстановлен .056 job, просмотрены Desktop1440/Tabl
 Undo потребовал2нажатия до удаления нового блока; первое не изменило видимые тексты. Точная причина первого шага не установлена, предположение о CSS grouping не подтверждено. Два Redo восстановили результат, save + выход к списку страниц далиrevision48. Повторное открытие сохранило все3иконки: /tmp/juzimder-icons-reopened-057.png просмотрен. Read-only canonical document query подтвердил3native text span components с classes ai-icon-heart/check/clock и aria-hidden=true. Прямая правка glyph через inspector в этом проходе NOT RUN; нативная структура присутствует, не заявлять edit test выполненным. Import/persistence/reopen PASS; Undo/Redo functional PASS за2шага, single-step undo NOT ACCEPTED. Публичный snapshot прежний rev0, публикация не обновлялась.
 
 Runtime code не менялся, продукт остаётся .057; тесты/сборка без новых code changes не повторялись. Следующий пункт: исследовать и объединить undo импорта в один шаг, затем managed image selection/persistence и heading parity. Stock-photo auto-download всё ещё не реализован.
+
+
+## Undo без истории выделения · 00.00.058 · 23.10.2026
+
+Установлена причина дополнительного шага .057: bundled GrapesJS Core UndoManager config trackSelection=true по умолчанию и postLoad регистрирует selected collection. Перед Undo в QA выбиралась карточка, поэтому отдельным действием отменялось выделение. Предположение о раздельной группировке CSS/HTML не подтвердилось. Editor init теперь undoManager:{trackSelection:false}; мутации компонентов/стилей отслеживаются прежним Core, история выделения не создаётся. Core не менялся; собственный transaction/stack patch не нужен.
+
+Live .058 на QA: quick-edit paragraph ->QA Undo058, выбран другой heading «Забота», один Undo вернул исходный paragraph при сохранённом выборе «Забота». Один Redo вернул QA Undo058. Ещё Undo + save убрали тестовую правку, итогrevision51. Все3иконки и предыдущие QA sample сохранены. Fresh AI import+singleUndo в .058 NOT RUN; проверен конкретный сценарий лишнего selection step, не объявлять весь возможный grouping доказанным. Публикация не менялась. npm test/build/JS syntax/PHP syntax/diff checks PASS; GrapesJS chunk warning прежний. Следующий шаг — реальные managed photos и heading parity; single fresh import acceptance при следующей генерации.
