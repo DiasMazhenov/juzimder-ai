@@ -285,7 +285,7 @@ async function openEditor(id,pageId=null) {
   const updateAIDisclosure=()=>{
     const value=skillProfileSelect.value;
     if(value.startsWith('user:'))$('.ai-disclosure').textContent='После нажатия «Создать дизайн» в OpenRouter отправятся описание и полный текст выбранного Skill с его ручным чек-листом. Project Data и содержимое страницы не передаются. Модель постарается соблюдать Skill, но это не гарантия: проверьте каждый пункт перед импортом.';
-    else if(value==='taste')$('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенный профиль Taste. Project Data и содержимое страницы не передаются. Перед применением нужно проверить идею и текст, затем осмотреть sandbox-предпросмотр на 1440, 768 и 390 px.';
+    else if(value==='taste')$('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенный профиль Taste. Project Data и содержимое страницы не передаются. Перед применением нужно проверить идею и текст, затем осмотреть sandbox-предпросмотр на 1440, 768 и 375 px.';
     else $('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенные инструкции стандартного профиля. Project Data и содержимое страницы не передаются. Страница изменится только после проверки sandbox-предпросмотра и отдельного подтверждения.';
     $('.ai-disclosure').textContent+=' Генерация идёт в фоне до 10 минут. Закрытие окна не отменяет запрос и его расход. Задачу можно восстановить; описание, Skill и результат хранятся приватно до 24 часов. Применение — отдельно.';
   };
@@ -387,7 +387,7 @@ async function openEditor(id,pageId=null) {
     {
       const viewNote=document.createElement('p');viewNote.className='muted small ai-taste-view-note';viewNote.textContent='На каждой ширине проверьте композицию, читаемость, пустые области и изображения, включая незаполненные слоты.';preview.append(viewNote);
       const viewportControls=document.createElement('div');viewportControls.className='ai-taste-viewport-controls';viewportControls.setAttribute('role','group');viewportControls.setAttribute('aria-label','Размер предпросмотра');
-      const viewportWidths={desktop:1440,tablet:768,mobile:390};
+      const viewportWidths={desktop:1440,tablet:768,mobile:375};
       for(const [name,width] of Object.entries(viewportWidths)){const button=document.createElement('button');button.type='button';button.dataset.viewport=name;button.textContent=(name==='desktop'?'Desktop':name==='tablet'?'Tablet':'Mobile')+' · '+width+' px';button.setAttribute('aria-pressed','false');button.onclick=()=>{frame.style.width=width+'px';frame.style.maxWidth='none';for(const item of viewportControls.querySelectorAll('[data-viewport]'))item.setAttribute('aria-pressed',String(item===button));const reviewInput=preview.querySelector(`[data-review="${name}"]`);if(reviewInput){reviewInput.disabled=false;if(aiDesignState?.skillReview)aiDesignState.skillReview.visited[name]=true;}};viewportControls.append(button);}
       const expandButton=document.createElement('button');expandButton.type='button';expandButton.textContent='Расширить окно';expandButton.setAttribute('aria-pressed','false');expandButton.onclick=()=>{const expanded=$('#ai-plan-dialog').classList.toggle('ai-preview-expanded');expandButton.setAttribute('aria-pressed',String(expanded));expandButton.textContent=expanded?'Обычное окно':'Расширить окно';};viewportControls.append(expandButton);
       preview.insertBefore(viewportControls,frameViewport);
@@ -401,7 +401,7 @@ async function openEditor(id,pageId=null) {
       const addReviewCheck=(key,label,disabled=false)=>{const row=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.dataset.review=key;input.disabled=disabled;row.append(input,document.createTextNode(label));review.append(row);};
       addReviewCheck('concept','Идея опирается на детали этого проекта, а не только на нишу или стиль.');
       addReviewCheck('content','Я проверил текст и факты: в нём нет выдуманных отзывов, статистики или доказательств.');
-      addReviewCheck('desktop','Я осмотрел предпросмотр на 1440 px.',true);addReviewCheck('tablet','Я осмотрел предпросмотр на 768 px.',true);addReviewCheck('mobile','Я осмотрел предпросмотр на 390 px.',true);
+      addReviewCheck('desktop','Я осмотрел предпросмотр на 1440 px.',true);addReviewCheck('tablet','Я осмотрел предпросмотр на 768 px.',true);addReviewCheck('mobile','Я осмотрел предпросмотр на 375 px.',true);
       review.addEventListener('change',()=>{if(!aiDesignState?.skillReview)return;for(const input of review.querySelectorAll('[data-review]')){const key=input.dataset.review;if(key==='concept'||key==='content')aiDesignState.skillReview[key]=input.checked;else aiDesignState.skillReview.viewports[key]=input.checked;}const applyButton=$('#ai-plan-apply');if(applyButton)syncAIApply();});
       preview.append(review);
     }
