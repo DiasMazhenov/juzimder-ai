@@ -32,11 +32,13 @@ $about->frames[0]->component->components = [(object)[
 $document->data->pages[] = $about;
 $settings = ProjectSettings::initial($document);
 $homeId = (string)$document->data->pages[0]->id;
-$settings['pages'][$homeId]['seo'] = ['title' => 'Home <Page>', 'description' => 'A useful & safe description', 'robots' => 'index', 'socialImage' => 'https://example.test/social.jpg'];
+$settings['pages'][$homeId]['seo'] = ['title' => 'Home <Page>', 'description' => 'A useful & safe description', 'robots' => 'index', 'socialImage' => 'https://example.test/social.jpg', 'socialTitle'=>'Social <Title>', 'socialDescription'=>'Social & description'];
 $settings['pages']['about']['seo'] = ['title' => 'About page', 'description' => '', 'robots' => 'noindex', 'socialImage' => ''];
 $settings['designTokens']['ink'] = '#123456';
 $project = ['name' => 'Export project', 'version' => 4, 'document' => $document, 'settings' => $settings];
 $files = StaticSiteExporter::files($project);
+exportCheck(str_contains($files['index.html'], 'property="og:title" content="Social &lt;Title&gt;"') && str_contains($files['index.html'], 'name="twitter:description" content="Social &amp; description"') && str_contains($files['index.html'], 'name="twitter:card" content="summary_large_image"'), 'Separate social metadata is escaped and exported as Open Graph and Twitter Card');
+exportCheck(str_contains($files['o-nas/index.html'], 'property="og:title" content="About page"') && str_contains($files['o-nas/index.html'], 'name="twitter:card" content="summary"'), 'Older page social metadata falls back to SEO without an image');
 exportCheck(isset($files['index.html'], $files['o-nas/index.html'], $files['assets/site.css'], $files['README.txt']), 'Static export contains home, routed pages, shared CSS and instructions');
 exportCheck(str_contains($files['index.html'], '<title>Home &lt;Page&gt;</title>') && str_contains($files['index.html'], 'name="description" content="A useful &amp; safe description"') && str_contains($files['index.html'], 'property="og:image"'), 'SEO metadata is escaped and included in page head');
 exportCheck(str_contains($files['o-nas/index.html'], 'name="robots" content="noindex,follow"') && str_contains($files['o-nas/index.html'], 'href="../assets/site.css"'), 'Subpage route, relative stylesheet and robots directive are preserved');

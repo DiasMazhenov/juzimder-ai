@@ -56,7 +56,7 @@ final class ProjectSettings {
         'radius' => '--juzimder-radius',
     ];
     private const FONT_FAMILIES = ['Arial, sans-serif', 'system-ui, sans-serif', 'Georgia, serif'];
-    private const SEO_DEFAULTS = ['title' => '', 'description' => '', 'robots' => 'index', 'socialImage' => ''];
+    private const SEO_DEFAULTS = ['title' => '', 'description' => '', 'robots' => 'index', 'socialImage' => '', 'socialTitle' => '', 'socialDescription' => ''];
 
     public static function initial(mixed $document): array {
         $pages = self::documentPages($document);
@@ -69,12 +69,12 @@ final class ProjectSettings {
             $used[$slug] = true;
             $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0, 'seo' => self::SEO_DEFAULTS];
         }
-        return ['schemaVersion' => 4, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
+        return ['schemaVersion' => 5, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -93,7 +93,7 @@ final class ProjectSettings {
             $routes[$id] = ['slug' => $slug, 'isHome' => $isHome, 'seo' => $seo];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 4;
+        $settings['schemaVersion'] = 5;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
         return $settings;
@@ -111,8 +111,8 @@ final class ProjectSettings {
             if (array_key_exists($name, $fallback)) $seo[$name] = $fallback[$name];
         }
         foreach ($value as $name => $item) {
-            if (in_array($name, ['title', 'description'], true)) {
-                $limit = $name === 'title' ? 70 : 160;
+            if (in_array($name, ['title', 'description', 'socialTitle', 'socialDescription'], true)) {
+                $limit = in_array($name, ['title','socialTitle'], true) ? 70 : 160;
                 if (!is_string($item) || mb_strlen(trim($item), 'UTF-8') > $limit || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $item)) throw new Problem(422, $name === 'title' ? 'Заголовок SEO: не более 70 символов.' : 'Описание SEO: не более 160 символов.');
                 $seo[$name] = trim($item);
             } elseif ($name === 'robots') {

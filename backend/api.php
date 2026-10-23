@@ -383,7 +383,7 @@ try {
         result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/settings$~D', $path, $settingsMatch) && $method === 'PUT') {
-        if (array_diff(array_keys($body), ['version','designTokens','seo']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
+        if (array_diff(array_keys($body), ['version','designTokens','seo','page']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body) && !array_key_exists('page', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
         $projectId = $settingsMatch[1];
         $project = $store->owned($projectId, $user);
         $settings = $project['settings'];
@@ -393,10 +393,21 @@ try {
             $settings['designTokens'] = $tokens;
             $document = Juzimder\ProjectSettings::applyDesignTokensToDocument($document, $tokens);
         }
+        if (array_key_exists('page', $body)) {
+            $page = $body['page'];
+            if ($page instanceof stdClass) $page = get_object_vars($page);
+            if (!is_array($page) || array_diff(array_keys($page), ['pageId','name','slug']) || !is_string($page['pageId'] ?? null) || !isset($settings['pages'][$page['pageId']]) || !is_string($page['name'] ?? null) || !is_string($page['slug'] ?? null)) throw new Problem(422,'Укажите страницу, название и адрес.');
+            $name = trim($page['name']);
+            if ($name === '' || mb_strlen($name,'UTF-8') > 100 || preg_match('/[\x00-\x1F\x7F]/', $name)) throw new Problem(422,'Название страницы: от 1 до 100 символов.');
+            $slug = Juzimder\ProjectSettings::validateSlug($page['slug']);
+            foreach ($settings['pages'] as $otherId=>$route) if ($otherId !== $page['pageId'] && $route['slug'] === $slug) throw new Problem(422,'Такой URL уже используется в проекте.');
+            foreach ($document->data->pages as $item) if ((string)$item->id === $page['pageId']) $item->name = $name;
+            $settings['pages'][$page['pageId']]['slug'] = $slug;
+        }
         if (array_key_exists('seo', $body)) {
             $seoInput = $body['seo'];
             if ($seoInput instanceof stdClass) $seoInput = get_object_vars($seoInput);
-            if (!is_array($seoInput) || array_diff(array_keys($seoInput), ['pageId','title','description','robots','socialImage']) || !is_string($seoInput['pageId'] ?? null) || $seoInput['pageId'] === '') throw new Problem(422,'Укажите страницу и разрешённые SEO-поля.');
+            if (!is_array($seoInput) || array_diff(array_keys($seoInput), ['pageId','title','description','robots','socialImage','socialTitle','socialDescription']) || !is_string($seoInput['pageId'] ?? null) || $seoInput['pageId'] === '') throw new Problem(422,'Укажите страницу и разрешённые SEO-поля.');
             $pageId = $seoInput['pageId'];
             unset($seoInput['pageId']);
             if (!array_key_exists($pageId, $settings['pages'])) throw new Problem(422,'Указанная страница не принадлежит проекту.');

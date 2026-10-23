@@ -20,16 +20,16 @@ try {
     $store=new Store($path);
     settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===11,'Upgrade existing database through schema 11');
     $project=$store->owned('0123456789abcdef01234567','legacy');
-    settingsCheck($project['settings']['schemaVersion']===4,'Project settings migrate to schema version 4');
+    settingsCheck($project['settings']['schemaVersion']===5,'Project settings migrate to schema version 5');
     settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');
     settingsCheck(count($project['document']->data->pages)===2,'Legacy page content preserved');
     settingsCheck($project['settings']['pages']['home']['isHome']===true,'First legacy page becomes home');
     settingsCheck($project['settings']['pages']['about-page']['slug']==='o-kompanii','Cyrillic legacy title gets stable slug');
     $schemaTwo=ProjectSettings::reconcile(['schemaVersion'=>2,'pages'=>['home'=>['slug'=>'home','isHome'=>true]],'designTokens'=>['fontFamily'=>'Georgia, serif']],$project['document']);
-    settingsCheck($schemaTwo['schemaVersion']===4&&$schemaTwo['designTokens']['headingFontFamily']==='Georgia, serif'&&$schemaTwo['designTokens']['bodyFontFamily']==='Georgia, serif','Schema version 2 settings migrate while preserving the shared font family');
+    settingsCheck($schemaTwo['schemaVersion']===5&&$schemaTwo['designTokens']['headingFontFamily']==='Georgia, serif'&&$schemaTwo['designTokens']['bodyFontFamily']==='Georgia, serif','Schema version 2 settings migrate while preserving the shared font family');
     settingsCheck($schemaTwo['pages']['home']['seo']===ProjectSettings::seoDefaults(),'Legacy pages receive safe default SEO metadata');
     $schemaThree=ProjectSettings::reconcile(['schemaVersion'=>3,'pages'=>['home'=>['slug'=>'home','isHome'=>true]],'designTokens'=>['fontFamily'=>'Georgia, serif']],$project['document']);
-    settingsCheck($schemaThree['schemaVersion']===4&&$schemaThree['pages']['home']['seo']===ProjectSettings::seoDefaults(),'Schema version 3 adds SEO metadata defaults without losing existing routes');
+    settingsCheck($schemaThree['schemaVersion']===5&&$schemaThree['pages']['home']['seo']===ProjectSettings::seoDefaults(),'Schema version 3 adds SEO metadata defaults without losing existing routes');
     $revisionSettings=$store->query('SELECT settings_payload FROM revisions WHERE project_id=? AND version=1',['0123456789abcdef01234567'])->fetchColumn();
     settingsCheck(is_string($revisionSettings)&&str_contains($revisionSettings,'about-page'),'Historical revisions receive route metadata');
     settingsCheck(ProjectSettings::validateSlug('/О нас')==='o-nas','Cyrillic and leading slash normalize');
@@ -97,3 +97,6 @@ try {
     settingsCheck($profileState!==false&&$profileState['active_profile_id']===$profile['id']&&(int)$profileState['version']===7,'Migration preserves active selection and optimistic version');
     settingsCheck($migratedAi->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='project_ai_credentials'")->fetchColumn()===false,'Migration removes the obsolete single-profile credential table');
 } finally { unset($migratedAi); @unlink($profileMigrationPath); @unlink($profileMigrationPath.'-journal'); }
+
+settingsReject(fn()=>ProjectSettings::validateSeoMetadata(['socialTitle'=>str_repeat('x',71)]),422);
+settingsReject(fn()=>ProjectSettings::validateSeoMetadata(['socialDescription'=>str_repeat('x',161)]),422);

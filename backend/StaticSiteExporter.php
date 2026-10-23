@@ -115,12 +115,15 @@ final class StaticSiteExporter {
         $description = trim((string)($seo['description'] ?? ''));
         $robots = ($seo['robots'] ?? 'index') === 'noindex' ? 'noindex,follow' : 'index,follow';
         $socialImage = trim((string)($seo['socialImage'] ?? ''));
+        $socialTitle = trim((string)($seo['socialTitle'] ?? '')) ?: $title;
+        $socialDescription = trim((string)($seo['socialDescription'] ?? '')) ?: $description;
         $metadata = '<title>' . self::escape($title) . '</title>' .
             ($description !== '' ? '<meta name="description" content="' . self::escape($description) . '">' : '') .
             '<meta name="robots" content="' . $robots . '">' .
             ($socialImage !== '' ? '<meta property="og:image" content="' . self::escape($socialImage) . '">' : '') .
-            '<meta property="og:title" content="' . self::escape($title) . '">' .
-            ($description !== '' ? '<meta property="og:description" content="' . self::escape($description) . '">' : '');
+            '<meta property="og:title" content="' . self::escape($socialTitle) . '">' .
+            ($socialDescription !== '' ? '<meta property="og:description" content="' . self::escape($socialDescription) . '">' : '');
+        $metadata .= '<meta property="og:type" content="website"><meta name="twitter:card" content="' . ($socialImage !== '' ? 'summary_large_image' : 'summary') . '">' . '<meta name="twitter:title" content="' . self::escape($socialTitle) . '">' . ($socialDescription !== '' ? '<meta name="twitter:description" content="' . self::escape($socialDescription) . '">' : '') . ($socialImage !== '' ? '<meta name="twitter:image" content="' . self::escape($socialImage) . '">' : '');
         $contentSecurityPolicy = '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;none&#39;; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
         $bodyAttributes = self::renderAttributes(self::componentAttributes($root), $root->style ?? null, $assetPaths);
         $content = '';
