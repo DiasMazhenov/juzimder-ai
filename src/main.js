@@ -335,7 +335,12 @@ async function openEditor(id,pageId=null) {
     }
     if(renderId!==aiPreviewRenderId||!frame.isConnected)return;
     const csp="default-src 'none'; script-src 'none'; connect-src 'none'; img-src blob:; font-src 'none'; style-src 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'";
-    frame.srcdoc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+csp+'"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}'+design.css+'</style></head><body>'+markup.body.innerHTML+'</body></html>';
+    // Match the inherited typography of the selected native page, not the host UI.
+    const rootElement=editor.Pages.getSelected()?.getMainComponent()?.getEl();
+    const typography=document.createElement('div');
+    if(rootElement){const computed=editor.Canvas.getWindow().getComputedStyle(rootElement);for(const property of ['font-family','font-size','font-weight','font-style','line-height','letter-spacing','color'])typography.style.setProperty(property,computed.getPropertyValue(property));}
+    const inheritedTypography=typography.style.cssText.replace(/</g,'\\3c ');
+    frame.srcdoc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="'+csp+'"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0;'+inheritedTypography+'}'+design.css+'</style></head><body>'+markup.body.innerHTML+'</body></html>';
   };
   const renderAIImageSlots=()=>{
     const chooser=$('#ai-image-slot-chooser'),list=$('#ai-image-slot-list');list.replaceChildren();
