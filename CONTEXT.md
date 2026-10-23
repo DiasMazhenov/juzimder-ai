@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.056 (npm SemVer 0.1.56). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.057 (npm SemVer 0.1.57). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -380,3 +380,10 @@ Live .055: сохранённая QA revision45, editor Mobile375 и восст�
 Live: стандартный синтетический brief с карточками Забота/Практика/Свой ритм, без слов фото/иконка/визуал. Nemotron за89.2с вернул accepted3sections,3203tokens,$0. Read-only query результата подтвердил3 icon spans и4 image slots; мобильный screenshot /tmp/juzimder-auto-card-icons-056.png просмотрен: сердце в карточке Забота. Иконки скрыты от AX как decorative. Результат не импортировался, текущая сохранённая QA revision45 не менялась. Live icon import/persistence/Undo NOT RUN; нативные span допускаются прежним canonical contract. Полная визуальная приёмка нового дизайна/выбор и загрузка фото NOT RUN. Прежний пункт heading weight parity остаётся открытым.
 
 npm test/build/PHP syntax/diff checks PASS; fixtures проверяют icon rendering, system instruction и отказ unknown/nonempty/wrong-tag/>12 markers. После удаления дублирующей baseline anchor строки повторены php tests/ai.php и syntax. Предупреждение GrapesJS chunk прежнее. Следующие пункты: приёмка импорта иконок и image selection, согласование heading defaults, отдельно stock-photo integration.
+
+
+## Пустые обёртки фотослотов · 00.00.057 · 23.10.2026
+
+При live приёмке .056 перед импортом выявлены большие пустые ai-format-image/ai-hero-slot div вокруг удалённых незаполненных slots. Новая shared removeUnassignedImageSlot используется в updateAIDesignFrame и buildAIDesignHtml. Поднимается только по div с единственным element child и пустым textContent; останавливается на id/role/aria-label, semantic element или любых соседях/тексте. Удаляет только image-only цепочку, не карточку с текстом. Не правит произвольные fixed/grid размеры оставшихся родителей. Исходный job HTML остаётся неизменным, назначение image снова строит исходную структуру. Результат с выбранным asset прежний, ветка удаления не вызывается.
+
+Live: восстановлен .056 job, просмотрены Desktop1440/Tablet768/Mobile375 до исправления, обнаружены пустые фотообласти. В .057 Mobile375 «Выбор формата» теперь сразу показывает заголовок, copy и кнопку без пустого прямоугольника; screenshot /tmp/juzimder-empty-wrappers-057.png просмотрен. Иконки .056 до исправления видны в desktop screenshot /tmp/juzimder-icons-desktop-056.png. Импорт не выполнялся, revision45 неизменна. Иконки import/persistence/Undo и фото selection остаются NOT RUN; не объявлять их закрытыми. Новый provider call не выполнялся. npm test/build/JS syntax/PHP syntax/diff checks PASS; GrapesJS chunk warning прежний. Следующий шаг — завершить приёмку icon import, затем heading parity и реальные фото.

@@ -2,6 +2,7 @@ import 'grapesjs/dist/css/grapes.min.css';
 import './style.css';
 import { blocks, registerBlocks } from './blocks.js';
 import { installComponentActions } from './component-actions.js';
+import { removeUnassignedImageSlot } from './ai-image-slots.js';
 import { hasAcceptedDesignReview } from './ai-review.js';
 import { createPageRoot } from './page-root.js';
 import { DEFAULT_DESIGN_TOKENS, FONT_FAMILIES, FONT_WEIGHTS, TOKEN_FIELDS, designTokensFromStyle, designTokensToStyle, migrateLegacyTokenValue, normalizeDesignTokens, tokenValue } from './design-tokens.js';
@@ -330,7 +331,7 @@ async function openEditor(id,pageId=null) {
     if(!aiDesignState)return;const frame=$('#ai-design-preview-frame');if(!frame)return;
     const renderId=++aiPreviewRenderId,design=aiDesignState.design,markup=new DOMParser().parseFromString(design.html,'text/html');
     for(const slot of markup.querySelectorAll('[data-image-slot]')){
-      const asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slot.dataset.imageSlot]);if(!asset){slot.remove();continue;}
+      const asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slot.dataset.imageSlot]);if(!asset){removeUnassignedImageSlot(slot);continue;}
       const image=markup.createElement('img');image.src=await getAIPreviewUrl(asset);image.alt=aiDesignState.imageAlt[slot.dataset.imageSlot]||'';slot.replaceChildren(image);
     }
     if(renderId!==aiPreviewRenderId||!frame.isConnected)return;
@@ -434,7 +435,7 @@ async function openEditor(id,pageId=null) {
     const markup=new DOMParser().parseFromString(aiDesignState.design.html,'text/html');
     for(const slot of markup.querySelectorAll('[data-image-slot]')){
       const slotId=slot.dataset.imageSlot,asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slotId]);slot.removeAttribute('data-image-slot');slot.replaceChildren();
-      if(!asset){slot.remove();continue;}
+      if(!asset){removeUnassignedImageSlot(slot);continue;}
       const image=markup.createElement('img');image.src=asset.url;image.alt=aiDesignState.imageAlt[slotId]||'';slot.append(image);
     }
     return markup.body.innerHTML;
