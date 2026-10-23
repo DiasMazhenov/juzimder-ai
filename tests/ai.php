@@ -416,3 +416,5 @@ $guidedResult=AiGeneratedWebsite::create('Clinic',new OpenRouterProvider($settin
 $repairPayload=json_decode($guidedTransport->calls[1]['body'],true);
 aiCheck($guidedResult['metadata']['repairAttempted']&&count($guidedTransport->calls)===2&&str_contains($repairPayload['messages'][0]['content'],'Failed validation rule: tag_allowlist')&&!str_contains($repairPayload['messages'][0]['content'],'private-test-marker'),'Markup repair receives a fixed rule code without copying rejected content');
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($badMarkup,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected rejection');}catch(AiProviderFailure $e){aiCheck($e->validationRule==='tag_allowlist'&&$e->category==='invalid_markup','Safe markup reason survives sanitizer wrapping');}
+
+aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Do not add photo slots to these abstract capability cards.'),'Abstract software capabilities use semantic icons instead of stand-in stock photos');

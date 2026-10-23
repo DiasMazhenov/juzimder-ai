@@ -336,7 +336,7 @@ async function openEditor(id,pageId=null) {
       const image=markup.createElement('img');image.src=await getAIPreviewUrl(asset);image.alt=aiDesignState.imageAlt[slot.dataset.imageSlot]||'';slot.replaceChildren(image);appendAIPhotoCredit(slot,asset);
     }
     if(renderId!==aiPreviewRenderId||!frame.isConnected)return;
-    const csp="default-src 'none'; script-src 'none'; connect-src 'none'; img-src blob: https://upload.wikimedia.org https://thumb.wikimedia.org; font-src 'none'; style-src 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'";
+    const csp="default-src 'none'; script-src 'none'; connect-src 'none'; img-src data: blob: https://upload.wikimedia.org https://thumb.wikimedia.org; font-src 'none'; style-src 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'";
     // Match the inherited typography of the selected native page, not the host UI.
     const rootElement=editor.Pages.getSelected()?.getMainComponent()?.getEl();
     const typography=document.createElement('div');
