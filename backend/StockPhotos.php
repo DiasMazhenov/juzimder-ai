@@ -7,6 +7,18 @@ final class StockPhotos {
     public static function search(string $query): array {
         $query=trim($query);
         if($query===''||mb_strlen($query)>100||preg_match('/[\x00-\x1f<>]/u',$query))throw new Problem(422,'Тема фото должна содержать от 1 до 100 символов.');
+        $photos=self::request($query);
+        if($photos)return $photos;
+        $fallback=self::broaderQuery($query);
+        return $fallback!==$query?array_map(static fn($photo)=>[...$photo,'searchBroadened'=>true],self::request($fallback)):[];
+    }
+    /** Relax all-word matching only after an empty result; candidates still require owner review. */
+    public static function broaderQuery(string $query): string {
+        preg_match_all('/[\p{L}\p{N}]+/u',$query,$matches);
+        $words=array_values(array_unique(array_filter($matches[0],static fn($word)=>mb_strlen($word)>2&&!in_array(mb_strtolower($word),['the','and','with','from','photo','image','photograph','close','shot','view','background'],true))));
+        return count($words)>1?implode(' OR ',array_map(static fn($word)=>'"'.$word.'"',array_slice($words,0,8))):$query;
+    }
+    private static function request(string $query): array {
         $params=['action'=>'query','format'=>'json','formatversion'=>2,'generator'=>'search','gsrnamespace'=>6,'gsrlimit'=>6,'gsrsearch'=>$query,'prop'=>'imageinfo','iiprop'=>'url|mime|extmetadata','iiurlwidth'=>960,'iiextmetadatafilter'=>'Artist|LicenseShortName|LicenseUrl|ImageDescription','iiextmetadatalanguage'=>'en'];
         $curl=curl_init('https://commons.wikimedia.org/w/api.php?'.http_build_query($params));$body='';
         curl_setopt_array($curl,[CURLOPT_TIMEOUT=>10,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'JuzimderAI/0.1 (https://github.com/DiasMazhenov/juzimder-ai)',CURLOPT_WRITEFUNCTION=>static function($handle,string $chunk)use(&$body):int{if(strlen($body)+strlen($chunk)>500000)return 0;$body.=$chunk;return strlen($chunk);}]);

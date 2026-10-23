@@ -360,9 +360,10 @@ async function openEditor(id,pageId=null) {
     if(aiDesignState!==state)return;
     const photos=result.photos||[];
     for(const photo of photos)if(!state.assets.some(item=>item.id===photo.id))state.assets.push(photo);
-    if(photos.length){state.imageAssignments[slotId]=photos[0].id;state.imageAlt[slotId]=query;}
+    const needsReview=photos.some(photo=>photo.searchBroadened);
+    if(photos.length&&!needsReview){state.imageAssignments[slotId]=photos[0].id;state.imageAlt[slotId]=query;}
     renderAIImageSlots();await updateAIDesignFrame();
-    state.photoNotice=photos.length?'Фото из Wikimedia Commons подобрано. Проверьте уместность и условия лицензии перед импортом.':'Подходящее лицензированное фото не найдено. Слот оставлен без изображения.';$('#ai-plan-status').textContent=state.photoNotice;
+    state.photoNotice=needsReview?'Точных совпадений нет. Найдены варианты по отдельным словам темы: выберите подходящее фото вручную из списка.':photos.length?'Фото из Wikimedia Commons подобрано. Проверьте уместность и условия лицензии перед импортом.':'Подходящее лицензированное фото не найдено. Слот оставлен без изображения.';$('#ai-plan-status').textContent=state.photoNotice;
   };
   const renderAIImageSlots=()=>{
     const chooser=$('#ai-image-slot-chooser'),list=$('#ai-image-slot-list');list.replaceChildren();

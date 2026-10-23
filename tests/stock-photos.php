@@ -8,3 +8,6 @@ $photos=StockPhotos::candidates(['query'=>['pages'=>[$page]]]);photoCheck(count(
 foreach(['http://upload.wikimedia.org/a.jpg','https://upload.wikimedia.org.evil.test/a.jpg','https://user:pass@upload.wikimedia.org/a.jpg','https://upload.wikimedia.org:8443/a.jpg','https://127.0.0.1/a.jpg'] as $url){$bad=$page;$bad['imageinfo'][0]['thumburl']=$url;photoCheck(StockPhotos::candidates(['query'=>['pages'=>[$bad]]])===[],'Untrusted image URL rejected');}
 foreach(['All rights reserved','CC BY-NC 4.0','unknown',''] as $license){$bad=$page;$bad['imageinfo'][0]['extmetadata']['LicenseShortName']['value']=$license;photoCheck(StockPhotos::candidates(['query'=>['pages'=>[$bad]]])===[],'Unsupported licence rejected');}
 $bad=$page;$bad['imageinfo'][0]['mime']='image/svg+xml';photoCheck(StockPhotos::candidates(['query'=>['pages'=>[$bad]]])===[],'Only raster photos accepted');
+
+photoCheck(StockPhotos::broaderQuery('bread loaf on wooden table')==='"bread" OR "loaf" OR "wooden" OR "table"','Empty search can broaden bounded keywords');
+photoCheck(StockPhotos::broaderQuery('bread')==='bread','Single subject is not retried');

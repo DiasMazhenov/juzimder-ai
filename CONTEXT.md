@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.061 (npm SemVer 0.1.61). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.062 (npm SemVer 0.1.62). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -431,3 +431,11 @@ npm test/build/JS+PHP syntax/diff checks PASS. Fixtures: strict origins, raster 
 Причина недоступности: временный PHP-процесс завершался вместе с сессией. `npm run serve:install` устанавливает пользовательский macOS LaunchAgent local.juzimder-ai: RunAtLoad, KeepAlive, loopback 127.0.0.1:8080. Требуются PHP и Python3. Логи только в ignored var/. Адрес http://juzimder-ai.localhost:8080/. Сервис работает после входа пользователя, не во время сна/выключения компьютера. Удаление: launchctl bootout gui/$(id -u)/local.juzimder-ai и удаление ~/Library/LaunchAgents/local.juzimder-ai.plist.
 
 Проверки .061: npm test и npm run build PASS; PHP syntax и shell syntax PASS. LaunchAgent state=running; HTTP 200 до и после launchctl kickstart -k. Browser visual NOT RUN: ранее доступ инструмента заблокирован URL policy. Первоначальный sandbox test не смог открыть loopback; повтор с разрешённым loopback прошёл.
+
+## Поиск длинных тем фотографий · 00.00.062
+
+Live в открытой QA: успешный bakery job содержит четыре AI image queries; длинные темы не находили Commons photos. После пустого точного поиска выполняется один дополнительный запрос по отдельным словам (до8 уникальных слов, только буквы/цифры, OR quoted terms). Не повторяем одиночную тему; transport/API errors не маскируем fallback. Максимум два Commons запроса по10с; origin/licence/raster/author filters прежние. Fallback candidates отмечены searchBroadened: клиент добавляет их в список, но не назначает автоматически и просит выбрать вручную. Это необходимо: live broadened search вернул хлеб/багеты, но для rye bread также колос ржи, поэтому релевантность не гарантирована.
+
+Live backend fallback в старой открытой frontend-сессии подтвердил реальные Commons candidates с credit links; новая защита ручного выбора добавлена после наблюдения неверного rye candidate. Новая frontend-защита browser NOT RUN: текущий пользовательский незавершённый preview не перезагружали. Макет не применялся: цены/обещания не подтверждены кратким исходным prompt. Stock import/save/reopen/Undo остаются открыты. Следующий шаг — новая QA генерация с достоверным демонстрационным текстом и проверка полного потока фото.
+
+Проверки .062: npm test/build, node --check, PHP syntax, git diff --check PASS. Скрин списка найденных хлеба/багетов с author/licence: /tmp/juzimder-photo-search-062.png, просмотрен. Он отражает прежнюю открытую frontend-сессию до reload, не доказательство новой ручной fallback-защиты.
