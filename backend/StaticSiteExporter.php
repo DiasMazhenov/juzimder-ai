@@ -10,12 +10,13 @@ final class StaticSiteExporter {
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
         'background-image','background-size','background-position','background-repeat','position','overflow','z-index','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
-        'line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity','cursor',
+        'font-style','text-transform','list-style-type','box-shadow','row-gap','column-gap','overflow-x','overflow-y','background-position-x','background-position-y','background-attachment','background-origin','background-clip','text-decoration-line','text-decoration-thickness','text-decoration-style','text-decoration-color','line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity','cursor',
         '--juzimder-color-ink','--juzimder-color-forest','--juzimder-color-canvas','--juzimder-color-paper','--juzimder-color-body','--juzimder-color-muted','--juzimder-color-line','--juzimder-color-accent',
         '--juzimder-font-family','--juzimder-font-heading','--juzimder-font-body','--juzimder-font-weight-body','--juzimder-font-weight-heading',
         '--juzimder-font-size-base','--juzimder-font-size-h1','--juzimder-font-size-h2','--juzimder-font-size-h3','--juzimder-font-size-h4','--juzimder-font-size-h5','--juzimder-font-size-h6',
         '--juzimder-line-height-body','--juzimder-line-height-heading','--juzimder-letter-spacing','--juzimder-radius'
     ];
+    private const EXPANDED_STYLE_PROPERTIES = ['border-top-left-radius','border-top-right-radius','border-bottom-right-radius','border-bottom-left-radius','border-top-width','border-right-width','border-bottom-width','border-left-width','border-top-style','border-right-style','border-bottom-style','border-left-style','border-top-color','border-right-color','border-bottom-color','border-left-color','border-image-source','border-image-slice','border-image-width','border-image-outset','border-image-repeat'];
     private const RICH_TEXT_TAGS = ['p','span','br','strong','em','b','i','u','s'];
 
     /** @return array<string,string> Paths and file contents for a deployable static ZIP. */
@@ -121,7 +122,7 @@ final class StaticSiteExporter {
             '<meta property="og:title" content="' . self::escape($title) . '">' .
             ($description !== '' ? '<meta property="og:description" content="' . self::escape($description) . '">' : '');
         $contentSecurityPolicy = '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;none&#39;; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
-        $bodyAttributes = self::renderAttributes($root->attributes ?? null, $root->style ?? null, $assetPaths);
+        $bodyAttributes = self::renderAttributes(self::componentAttributes($root), $root->style ?? null, $assetPaths);
         $content = '';
         foreach (($root->components ?? []) as $component) $content .= self::renderComponent($component, 0, $assetPaths);
         return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' . $contentSecurityPolicy . $metadata .
@@ -137,13 +138,24 @@ final class StaticSiteExporter {
             'image' => 'img', 'link', 'link-block' => 'a', 'wrapper' => 'div', default => 'div'
         };
         if (!in_array($tag, self::TAGS, true)) throw new Problem(422, 'Статический экспорт встретил неподдерживаемый HTML-тег.');
-        $attributes = self::renderAttributes($component->attributes ?? null, $component->style ?? null, $assetPaths);
+        $attributes = self::renderAttributes(self::componentAttributes($component), $component->style ?? null, $assetPaths);
         if (in_array($tag, self::VOID_TAGS, true)) return '<' . $tag . $attributes . '>';
         $content = is_string($component->content ?? null) && $component->content !== ''
             ? self::renderRichText($component->content)
             : '';
         if ($content === '') foreach (($component->components ?? []) as $child) $content .= self::renderComponent($child, $depth + 1, $assetPaths);
         return '<' . $tag . $attributes . '>' . $content . '</' . $tag . '>';
+    }
+
+    private static function componentAttributes(\stdClass $component): \stdClass {
+        $nativeAttributes = clone ($component->attributes ?? new \stdClass());
+        $classes = preg_split('/\s+/', (string)($nativeAttributes->class ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        foreach (($component->classes ?? []) as $class) {
+            if ($class instanceof \stdClass) $class = $class->name ?? null;
+            if (is_string($class) && preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $class)) $classes[] = $class;
+        }
+        if ($classes) $nativeAttributes->class = implode(' ', array_unique($classes));
+        return $nativeAttributes;
     }
 
     private static function renderAttributes(mixed $attributes, mixed $styles, array $assetPaths = []): string {
@@ -215,12 +227,7 @@ final class StaticSiteExporter {
         $css = "*,*::before,*::after{box-sizing:border-box}html{font-family:Arial,sans-serif}body{margin:0}img{display:block;max-width:100%;height:auto}\n";
         foreach ($rules as $rule) {
             if (!$rule instanceof \stdClass || !($rule->style ?? null) instanceof \stdClass || !is_array($rule->selectors ?? null) || !array_is_list($rule->selectors)) continue;
-            $selectors = [];
-            foreach ($rule->selectors as $selector) {
-                if ($selector instanceof \stdClass) $selector = $selector->name ?? null;
-                if (!is_string($selector) || !preg_match('/^(?:#[A-Za-z][A-Za-z0-9_:-]{0,127}|\.[A-Za-z0-9_-]{1,128})(?:\s+(?:#[A-Za-z][A-Za-z0-9_:-]{0,127}|\.[A-Za-z0-9_-]{1,128}))*$/D', $selector)) continue;
-                $selectors[] = $selector;
-            }
+            $selectors = self::ruleSelectors($rule);
             $declarations = self::declarations($rule->style);
             if (!$selectors || !$declarations) continue;
             $media = $rule->mediaText ?? null;
@@ -231,6 +238,34 @@ final class StaticSiteExporter {
         return $css;
     }
 
+    /** Native Core selectors are concatenated; selectorsAdd is an additional selector list. */
+    private static function ruleSelectors(\stdClass $rule): array {
+        $native = '';
+        foreach ($rule->selectors ?? [] as $selector) {
+            if ($selector instanceof \stdClass) {
+                $name = $selector->name ?? null;
+                if (!is_string($name) || !preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $name)) return [];
+                $selector = (($selector->type ?? 1) === 2 ? '#' : '.') . $name;
+            } elseif (is_string($selector) && preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $selector)) $selector = '.' . $selector;
+            if (!is_string($selector)) return [];
+            $native .= $selector;
+        }
+        $state = $rule->state ?? '';
+        if ($state !== '') {
+            if (!in_array($state, ['hover','focus','focus-visible','focus-within','active','disabled','visited','checked'], true)) return [];
+            $native .= ':' . $state;
+        }
+        $parts = $native !== '' ? [$native] : [];
+        if (is_string($rule->selectorsAdd ?? null) && $rule->selectorsAdd !== '') $parts = array_merge($parts, explode(',', $rule->selectorsAdd));
+        $safe = [];
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if (strlen($part)>2048 || !preg_match('/^(?:[A-Za-z][A-Za-z0-9-]*|[.#][A-Za-z0-9_-]+)(?:[.#][A-Za-z0-9_-]+)*(?::(?:hover|focus|focus-visible|focus-within|active|disabled|visited|checked))?(?:\s+(?:[A-Za-z][A-Za-z0-9-]*|[.#][A-Za-z0-9_-]+)(?:[.#][A-Za-z0-9_-]+)*(?::(?:hover|focus|focus-visible|focus-within|active|disabled|visited|checked))?)*$/D', $part)) continue;
+            $safe[] = $part;
+        }
+        return array_values(array_unique($safe));
+    }
+
     /** @return list<string> */
     private static function declarations(mixed $style): array {
         if ($style instanceof \stdClass) $style = get_object_vars($style);
@@ -238,7 +273,7 @@ final class StaticSiteExporter {
         $declarations = [];
         foreach ($style as $property => $value) {
             if ($property === 'background-image') { if ($value !== '' && BackgroundImage::valid($value)) $declarations[] = $property . ':' . $value; continue; }
-            if (!is_string($property) || !in_array($property, self::STYLE_PROPERTIES, true) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512) continue;
+            if (!is_string($property) || (!in_array($property, self::STYLE_PROPERTIES, true) && !in_array($property, self::EXPANDED_STYLE_PROPERTIES, true)) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512) continue;
             if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F;{}<>\\"\']|\/\*|\*\//', $value) || preg_match('/(?:url|expression)\s*\(|@import|javascript\s*:/i', $value)) continue;
             $declarations[] = $property . ':' . $value;
         }

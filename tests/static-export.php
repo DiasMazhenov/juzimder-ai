@@ -87,3 +87,25 @@ foreach (\Juzimder\IconCatalogue::all() as $uri) exportCheck(str_contains($iconF
 $badIconDoc=$iconDoc;
 $badIconDoc['data']['pages'][0]['frames'][0]['component']['components'][0]['attributes']['src'].='x';
 exportRejects(fn()=>Document::validate($badIconDoc),422,'Altered icon SVG rejected');
+
+// Native Core serializes imported class rules into selectorsAdd and classes separately.
+$nativeDoc = Document::empty();
+$nativeDoc['data']['pages'][0]['frames'][0]['component']['components'] = [['tagName'=>'section','classes'=>['ai-scope-native','ai-card'],'attributes'=>['class'=>'existing'],'components'=>[['type'=>'text','tagName'=>'h2','classes'=>[(object)['name'=>'ai-title']],'content'=>'Native class QA']]]];
+$nativeDoc['data']['styles'] = [
+ ['selectors'=>[],'selectorsAdd'=>'.ai-scope-native.ai-card','style'=>['display'=>'grid','row-gap'=>'24px','border-top-left-radius'=>'18px','box-shadow'=>'0 4px 20px #00000022']],
+ ['selectors'=>[],'selectorsAdd'=>'.ai-scope-native h2, .ai-scope-native .ai-title','style'=>['color'=>'#123456','font-size'=>'40px']],
+ ['selectors'=>[(object)['name'=>'ai-title','type'=>1],(object)['name'=>'highlight','type'=>1]],'state'=>'hover','style'=>['color'=>'#abcdef']],
+ ['selectors'=>[],'selectorsAdd'=>'.ai-scope-native h2','mediaText'=>'(max-width: 768px)','style'=>['font-size'=>'28px']],
+ ['selectors'=>[],'selectorsAdd'=>'body{color:red} .evil, .safe','style'=>['color'=>'#ffffff']],
+];
+$nativeFiles = StaticSiteExporter::files(['name'=>'Native CSS','document'=>json_decode(json_encode($nativeDoc))]);
+exportCheck(str_contains($nativeFiles['index.html'],'class="existing ai-scope-native ai-card"') && str_contains($nativeFiles['index.html'],'class="ai-title"'),'Core class arrays and selector objects become HTML classes without mutating Project Data');
+exportCheck(str_contains($nativeFiles['assets/site.css'],'.ai-scope-native.ai-card{display:grid;row-gap:24px;border-top-left-radius:18px;box-shadow:'),'selectorsAdd preserves compound selectors and expanded Core properties');
+exportCheck(str_contains($nativeFiles['assets/site.css'],'.ai-scope-native h2,.ai-scope-native .ai-title{color:#123456;font-size:40px}'),'Scoped descendant tags and selector lists reach CSS');
+exportCheck(str_contains($nativeFiles['assets/site.css'],'.ai-title.highlight:hover{color:#abcdef}'),'Native selector collections concatenate rather than becoming a comma list');
+exportCheck(str_contains($nativeFiles['assets/site.css'],'@media (max-width: 768px){.ai-scope-native h2{font-size:28px}}'),'Responsive native selectorsAdd rules survive export');
+exportCheck(!str_contains($nativeFiles['assets/site.css'],'body{color:red}') && str_contains($nativeFiles['assets/site.css'],'.safe{color:#ffffff}'),'Invalid selector fragments cannot inject stylesheet text');
+
+$nativeDoc['data']['pages'][0]['frames'][0]['component']['classes']=['page-theme'];
+$rootFiles=StaticSiteExporter::files(['name'=>'Root CSS','document'=>json_decode(json_encode($nativeDoc))]);
+exportCheck(str_contains($rootFiles['index.html'],'<body class="page-theme"'),'Native wrapper classes also reach the exported body');
