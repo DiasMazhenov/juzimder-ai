@@ -349,6 +349,7 @@ async function openEditor(id,pageId=null) {
   const appendAIPhotoCredit=(slot,asset)=>{
     if(asset.kind!=='commons')return;
     const doc=slot.ownerDocument,credit=doc.createElement('p'),source=doc.createElement('a'),license=doc.createElement('a');
+    credit.style.fontSize='8px';credit.style.lineHeight='1.4';source.style.fontSize='8px';license.style.fontSize='8px';
     source.href=asset.sourceUrl;source.textContent='Фото: '+asset.author+' / Wikimedia Commons';license.href=asset.licenseUrl;license.textContent=asset.license;
     credit.append(source,doc.createTextNode(' · '),license);slot.after(credit);
   };
