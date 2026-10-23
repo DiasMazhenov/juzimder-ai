@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Juzimder;
+require_once __DIR__.'/AiPhotoSelection.php';
 
 final class AiGenerationJobs {
     public function __construct(private readonly Store $store) {
@@ -64,6 +65,7 @@ final class AiGenerationJobs {
             $payload=json_decode($row['payload'],true,32,JSON_THROW_ON_ERROR);
             $provider=$providerFactory($row['project_id'],$row['owner_id']);
             $result=AiGeneratedWebsite::create($payload['prompt'],$provider,$payload['skillProfile'],$payload['userSkill']);
+            $result=AiPhotoSelection::enrich($result,$provider);
             $this->store->query("UPDATE ai_generation_jobs SET status='succeeded',result=?,diagnostics=?,updated_at=? WHERE id=? AND status='running'",[json_encode($result,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),$diagnostics('succeeded'),time(),$id]);
         }catch(\Throwable $error){
             $category=$error instanceof AiProviderFailure?AiProviderFailure::publicCategory($error->category):($error instanceof Problem&&$error->status===409?'project_changed':'internal');
