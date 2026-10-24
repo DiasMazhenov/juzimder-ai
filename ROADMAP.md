@@ -59,8 +59,9 @@
 - [x] Absolute Positioning Engine: независимые X/Y/W/H, rotation, Grid/Window, 9 anchor/origin points, local groups, z-order и отрицательные координаты.
 - [x] Отдельный редактор на 8080, scoped CAS/revisions и безопасная BroadcastChannel синхронизация с основным редактором.
 - [x] Начальные Z2–Z5 инструменты: typed элементы, Inspector/Layers, Pointer drag/8 resize handles/rotate, zoom/pan, history, grid/rulers/guides/snap, 5 режимов и overrides/reset.
+- [x] 00.00.102: клик и двойной клик по элементу не перемещают его и не запускают snap; перемещение начинается после фактического drag.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
-- [ ] Autoscale, полная визуальная матрица всех инструментов/промежуточных ширин, nested transforms и ручная browser QA публикации/ZIP.
+- [ ] Autoscale, полная визуальная матрица промежуточных ширин, nested transforms и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
 - [x] Z6 revision restore and conflict reload keep the active page selected when it exists; browser acceptance on the dedicated Zero QA page.
 - [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
@@ -134,7 +135,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** foundation, версия продукта 00.00.046.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.102; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -561,4 +562,4 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 
 ## Zero Block · 00.00.098
 
-Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Initial Z2–Z5 controls implemented; финальная Z6-приёмка остаётся открытой. Codex Browser: отдельная QA-страница a0d6b777-a709-48ec-b17a-d8239dcd2c15, upload синтетического PNG, текст поверх фото, Drag50/100/200%, resize без сдвига соседей, Undo/Redo, отрицательные координаты, Lock, Duplicate/Delete, anchor+rotation, Group/Ungroup, все пять геометрий после reopen. Исправлен normalization/autosave race двух окон. Обе стороны синхронизации показали одну ревизию. Saved PHP view содержит absolute элементы и загруженное изображение, без editor-only UI. Browser public-host/ZIP, все восемь handles, nested rotated groups, rich-text клавиатура, performance и restore/conflict visual matrix не объявлены PASS. Подробности и evidence в docs/ZERO_BLOCK.md.
+Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Начальные Z2–Z5 controls реализованы; финальная Z6-приёмка остаётся открытой. В 00.00.102 исправлено смещение при клике: snap больше не меняет геометрию, пока пользователь не начал drag. Codex Browser проверил восемь resize handles при zoom 50% с Undo после каждой ручки, rotation и порядок слоёв. Клик и двойной клик сохранили исходные X/Y/W/H без новой ревизии; реальный drag переместил заголовок, Undo и reload вернули X=100/Y=140/W=520/H=170 на ревизии 159. Также проверены Drag 50/100/200%, отрицательные координаты, Lock, Duplicate/Delete, anchors, Group/Ungroup, пять режимов после reopen. Остались nested rotated groups, rich-text keyboard editing, ruler/snap combos, все промежуточные ширины, performance, публичная визуальная проверка ZIP/public и полная restore/conflict visual matrix. Подробности и evidence в docs/ZERO_BLOCK.md.

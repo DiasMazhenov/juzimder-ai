@@ -1137,6 +1137,12 @@ export async function openZeroEditor({
     const task = gesture;
     const dx = event.clientX - task.x,
       dy = event.clientY - task.y;
+    if (["drag", "resize", "rotate"].includes(task.kind) && !task.moved) {
+      // A click also ends with pointerup. Do not treat it as a zero-distance
+      // drag: snapGeometry can otherwise move an element simply on selection.
+      if (Math.hypot(dx, dy) < 1.5) return;
+      task.moved = true;
+    }
     if (task.kind === "pan") {
       workspace.scrollLeft = task.left - dx;
       workspace.scrollTop = task.top - dy;
