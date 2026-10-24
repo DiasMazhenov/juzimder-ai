@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.087 (npm SemVer 0.1.87). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.088 (npm SemVer 0.1.88). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -577,3 +577,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 00.00.086: ещё 10 native presets для образования и услуг (программа курса, формат, преподаватели, аудитории, результаты, сотрудничество, вакансии, база знаний, пространства, поддержка), всего 74 карточки. Все definitions PHP validation PASS; npm test/build и PHP lint PASS. Изолированная browser QA: collaboration desktop/mobile без overflow (365px, одна колонка), save/reopen, поиск/вставка course и Undo. Остальные 8 presets отдельно визуально NOT RUN.
 
 00.00.087: 10 native компоновок: обложка-панорама, акцент возможности, направления, анонс события, кейс по этапам, состав предложения, фотоистория, письмо основателя, публикация и часы работы. Всего 84 карточки. PHP validation всех definitions, npm test/build и PHP lint PASS. Изолированная browser QA: offer-inclusions desktop/mobile (365px, одна колонка без overflow), save/reopen, поиск/вставка cover-panorama и Undo. Остальные 8 presets отдельно визуально NOT RUN.
+
+00.00.088: 8 native секций: сравнение вариантов, подготовка, каталог файлов, навигатор разделов, границы услуги, запись на встречу, коллекция работ, краткие условия. Всего 92 карточки. PHP validation всех definitions, npm test/build и PHP lint PASS. Изолированная browser QA: option-comparison desktop/mobile (365px без overflow), save/reopen, поиск/вставка page-directory и Undo. Остальные 6 presets отдельно визуально NOT RUN.
