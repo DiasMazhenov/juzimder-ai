@@ -69,6 +69,7 @@
 - [x] 00.00.107: per-breakpoint Grid Autoscale: пропорциональная геометрия, типографика и высота секции; Window Container остаётся фиксированным. Схема, backend validator и JS/PHP renderer согласованы.
 - [x] 00.00.108: Zero Block breakpoint widths are dynamic; modes can be added, removed, and resized, with Tabler device icons, safe base promotion, and width-derived media ranges in both renderers.
 - [ ] 00.00.108: Codex Browser persistence acceptance for saving/reopening custom widths; panel and draft add/remove were visually checked in the existing editor tab and canceled without changing QA content.
+- [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. Unsupported element types remain visibly disabled until their safe renderer exists.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale browser acceptance на разных ширинах, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
@@ -144,7 +145,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.108; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.109; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -578,3 +579,7 @@ Z0 завершён; Z1 работает от добавления блока д
 ## Zero Block · 00.00.108
 
 Breakpoint manager now supports editable widths, adding and removing modes, and Tabler device icons in the toolbar and settings panel. Dynamic ranges are calculated as the next wider width minus one. Deleting the base promotes the widest remaining artboard and materializes its resolved geometry/style/visibility/source to preserve composition; adding a mode copies the nearest wider mode. JSON Schema, PHP validation and both renderers accept the bounded dynamic mode set. `npm test` and `npm run build` pass. Existing-tab QA confirmed the visual panel and transient add/remove of 768 px; the draft was canceled with the existing Zero page still at revision 181. Persisted custom-width save/reopen remains open.
+
+## Zero Block · 00.00.109
+
+The former sidebar element list is now a Tilda-style floating palette anchored below a round plus button. Text, image, shapes and buttons remain immediately addable; shape variants expand to rectangle, ellipse and line. Shortcut chips are live for T, Shift+I, R and B. Additional vector, video, HTML, tooltip, form and gallery types are visible but disabled until their safe renderers are implemented. The palette closes on item selection, Escape and outside pointer. It uses local Tabler Outline SVG assets; no CDN is involved.

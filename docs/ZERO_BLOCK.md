@@ -1,6 +1,6 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.108. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.109. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
 
 ## Architecture decision (Z0)
 
@@ -61,6 +61,7 @@ BroadcastChannel messages contain project/page/block IDs and revision only. The 
 - Shapes, strokes, shadows, buttons with links/targets and hover colours.
 - Alignment/distribution, grouping, nested groups, duplicate/copy/paste, layer order, Undo/Redo and keyboard shortcuts. Input/contenteditable fields retain normal keyboard editing.
 - Dynamic breakpoints (add/remove/edit width), device icons, overrides/reset, artboard settings, twelve-column grid, rulers, draggable guides, smart alignment guides and zoom-adjusted snapping.
+- Tilda-style floating add palette opened by a round plus control; Text, Image, Shape and Button are active, with Shape expanding to Rectangle/Ellipse/Line. T/Shift+I/R/B shortcuts are active. Vector, Video, HTML, Tooltip, Form and Gallery are displayed disabled until safe renderers exist; the palette uses local Tabler Outline assets and closes on outside click/Escape/selection.
 - Camera zoom 25–300%, anchored at the cursor or two-finger touch midpoint; supports touchscreen pinch and Ctrl/Cmd+wheel trackpads, plus 50/75/100/150/200% presets, Fit and Space+Drag pan. Zoom changes editor camera only; saved element geometry is unchanged.
 
 ## Validation and acceptance
@@ -81,6 +82,7 @@ This is a working absolute engine and Z1 vertical slice, with initial Z2–Z5 to
 - A click or double-click used to select/edit text must not invoke snap. The pointer gesture now waits for 1.5 CSS px of movement before applying drag/resize/rotation; smaller pointer jitter remains a click. Rich-text editing starts from a repeated pointer press or the native double-click path; text entry, save, Undo, and reload are verified on the isolated QA page. Nested rotated groups and ruler/snap combinations passed the browser checks recorded below. Product 00.00.106 visually checked responsive layouts at 360, 390, 480, 520, 640, 720, 768, 900, 901, and 1024px, including mobile panel switching and initial artboard fit; the full orientation/width matrix remains open.
 - Artboard Autoscale scales Grid Container geometry, typography, and section height proportionally to window width, independently per breakpoint. Window Container elements stay fixed; older zeroData without `scaleGrid` retains fixed sizing. Live browser acceptance for enabled Autoscale remains open. Percent/relative authored units, advanced SVG/video/gallery/forms/embed elements, animation and AI generation are intentionally not declared implemented. Fixed pixel geometry is the v1 authoring contract.
 - 00.00.108 added editable custom breakpoint widths, icon-only device selectors, and add/remove controls. JS model, schema, PHP validation, preview and static export derive media boundaries from artboard widths. Automated tests cover custom width ranges, base promotion, and layout preservation. Existing-tab Browser QA visually confirmed the settings panel and transient add/remove of a 768 px mode; the draft was canceled and QA revision 181 stayed unchanged. Persisted custom-width save/reopen acceptance remains NOT RUN.
+- 00.00.109 replaces the sidebar add list with a floating Tilda-style element palette. The active controls and keyboard shortcuts add existing safe element types; future types are visibly disabled. Browser UI acceptance is pending.
 - Layer drag reorder currently operates among siblings; structural nesting uses Group/Ungroup. Clipboard is internal to the Zero Editor.
 - Z6 remains open: full conflict/revision-restore visual matrix, browser public-host/ZIP acceptance, 300-node performance measurement and real mobile-device authoring. API/static tests do not substitute for these visual checks.
 - Basic/step-by-step animation is future work, after geometry/persistence/publication acceptance; any future runtime must respect reduced motion and the existing CSP.

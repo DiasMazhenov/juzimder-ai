@@ -1,6 +1,11 @@
 import { flexIconSpec } from './flex-icons.js';
 import catalogue from '../resources/tabler-editor/catalogue.json';
-export const tablerIcon = name => catalogue[name] || catalogue.square;
+import playerPlay from '../resources/tabler-editor/player-play.svg?raw';
+import message from '../resources/tabler-editor/message.svg?raw';
+import list from '../resources/tabler-editor/list.svg?raw';
+import vectorBezier from '../resources/tabler-editor/vector-bezier.svg?raw';
+const extraTablerIcons = Object.fromEntries(Object.entries({playerPlay,message,list,vectorBezier}).map(([name,source])=>[name.replace(/[A-Z]/g,letter=>`-${letter.toLowerCase()}`),source.slice(source.indexOf('<svg')).replace('<svg','<svg class="tabler-editor-icon" aria-hidden="true" focusable="false"')]));
+export const tablerIcon = name => catalogue[name] || extraTablerIcons[name] || catalogue.square;
 export const tablerCoreIcons = Object.fromEntries(Object.entries({close:'x',move:'arrows-move',plus:'plus',caret:'chevron-down',delete:'trash',copy:'copy',arrowUp:'arrow-up',chevron:'chevron-up',eye:'eye',eyeOff:'eye-off'}).map(([key,name])=>[key,tablerIcon(name)]));
 export function installEditorIcons(editor) {
   const shell=document.body;

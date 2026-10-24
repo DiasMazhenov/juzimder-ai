@@ -31,6 +31,7 @@ import {
   newId,
 } from "../model/model.js";
 import { renderZero, escapeHTML as esc } from "../render.js";
+import { renderZeroElementMenu } from "../ui/element-menu.js";
 import { tablerIcon } from "../../editor-icons.js";
 import packageInfo from "../../../package.json";
 import "../zero.css";
@@ -136,6 +137,41 @@ export async function openZeroEditor({
     status = (message) => {
       $("#zero-status").textContent = message;
     };
+  const addTrigger = $('[data-action="add-menu"]');
+  $(".zero-top").prepend(addTrigger);
+  addTrigger.classList.add("zero-add-trigger");
+  addTrigger.setAttribute("aria-expanded", "false");
+  addTrigger.setAttribute("aria-haspopup", "menu");
+  addTrigger.setAttribute("aria-controls", "zero-element-menu");
+  $(".zero-add").remove();
+  addTrigger.insertAdjacentHTML("afterend", renderZeroElementMenu());
+  const elementMenu = $("#zero-element-menu"),
+    shapeMenu = $("#zero-shape-menu");
+  function closeElementMenu({ restoreFocus = false } = {}) {
+    elementMenu.hidden = true;
+    shapeMenu.hidden = true;
+    addTrigger.setAttribute("aria-expanded", "false");
+    $('[data-action="shapes-menu"]').setAttribute("aria-expanded", "false");
+    if (restoreFocus) addTrigger.focus();
+  }
+  function toggleElementMenu() {
+    const open = elementMenu.hidden;
+    elementMenu.hidden = !open;
+    addTrigger.setAttribute("aria-expanded", String(open));
+    if (!open) {
+      shapeMenu.hidden = true;
+      $('[data-action="shapes-menu"]').setAttribute("aria-expanded", "false");
+    }
+  }
+  const onElementMenuOutside = (event) => {
+    if (
+      !elementMenu.hidden &&
+      !event.target.closest("#zero-element-menu") &&
+      !event.target.closest('[data-action="add-menu"]')
+    )
+      closeElementMenu();
+  };
+  document.addEventListener("pointerdown", onElementMenuOutside);
   let planeOffsetX = 80,
     planeOffsetY = 80,
     stagePaddingRight = 80,
@@ -148,7 +184,6 @@ export async function openZeroEditor({
     zeroRoot.classList.remove("zero-left-open", "zero-inspector-open");
     $(".zero-panel-backdrop").hidden = true;
     if (restoreSections) {
-      $(".zero-add").hidden = false;
       $(".zero-layer-panel").hidden = false;
       delete zeroRoot.dataset.mobilePanel;
     }
@@ -164,8 +199,7 @@ export async function openZeroEditor({
     }
     closeMobilePanels({ restoreSections: false });
     if (panel === "left") {
-      $(".zero-add").hidden = mode === "layers";
-      $(".zero-layer-panel").hidden = mode === "add";
+      $(".zero-layer-panel").hidden = mode !== "layers";
       zeroRoot.dataset.mobilePanel = mode;
     }
     zeroRoot.classList.add(className);
@@ -635,6 +669,7 @@ export async function openZeroEditor({
     }
   };
   function add(type) {
+    closeElementMenu();
     if (type === "image") {
       chooseImage();
       return;
@@ -783,6 +818,7 @@ export async function openZeroEditor({
     flushField();
     $("#zero-context").hidden = true;
     if (key === "breakpoints") {
+      closeElementMenu();
       if (breakpointDraft) {
         breakpointDraft = null;
         breakpointManager().hidden = true;
@@ -796,6 +832,15 @@ export async function openZeroEditor({
       breakpointDraft = null;
       breakpointManager().hidden = true;
       $('[data-action="breakpoints"]').setAttribute("aria-expanded", "false");
+      return;
+    }
+    if (key === "shapes-menu") {
+      const open = shapeMenu.hidden;
+      shapeMenu.hidden = !open;
+      $('[data-action="shapes-menu"]').setAttribute(
+        "aria-expanded",
+        String(open),
+      );
       return;
     }
     if (key === "save") {
@@ -889,11 +934,8 @@ export async function openZeroEditor({
       return;
     }
     if (key === "add-menu") {
-      if (matchMedia("(max-width: 720px)").matches) {
-        toggleMobilePanel("left", "add");
-        return;
-      }
-      $(".zero-add").hidden = !$(".zero-add").hidden;
+      closeMobilePanels();
+      toggleElementMenu();
       return;
     }
     if (key === "fit") {
@@ -915,6 +957,7 @@ export async function openZeroEditor({
       return;
     }
     if (key === "layers") {
+      closeElementMenu();
       if (matchMedia("(max-width: 720px)").matches) {
         toggleMobilePanel("left", "layers");
         return;
@@ -1705,6 +1748,10 @@ export async function openZeroEditor({
       return;
     }
     if (key === "escape") {
+      if (!elementMenu.hidden) {
+        closeElementMenu({ restoreFocus: true });
+        return;
+      }
       if (gesture?.before) data = gesture.before;
       gesture = null;
       selection.clear();
@@ -1726,6 +1773,16 @@ export async function openZeroEditor({
     if (shortcut) {
       event.preventDefault();
       action(shortcut);
+      return;
+    }
+    if (!mod && ["t", "r", "b"].includes(key)) {
+      event.preventDefault();
+      add({ t: "text", r: "rectangle", b: "button" }[key]);
+      return;
+    }
+    if (!mod && event.shiftKey && key === "i") {
+      event.preventDefault();
+      add("image");
       return;
     }
     if (mod && key === "a") {
@@ -1781,6 +1838,7 @@ export async function openZeroEditor({
       channel.close();
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("keyup", onUp);
+      document.removeEventListener("pointerdown", onElementMenuOutside);
       window.removeEventListener("beforeunload", beforeUnload);
     },
     { once: true },
