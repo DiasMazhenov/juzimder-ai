@@ -2,6 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 20;
+  --zero-left-width: 190px;
   background: #161918;
   color: #e9edeb;
   display: flex;
@@ -278,11 +279,51 @@
   display: flex;
 }
 .zero-left {
-  width: 190px;
-  flex-shrink: 0;
+  width: var(--zero-left-width, 190px);
+  flex: 0 0 var(--zero-left-width, 190px);
   border-right: 1px solid var(--line, #303632);
   padding: 10px;
   overflow: auto;
+}
+.zero-left-resizer {
+  position: relative;
+  z-index: 6;
+  flex: 0 0 12px;
+  width: 12px;
+  margin-inline: -6px;
+  align-self: stretch;
+  touch-action: none;
+  cursor: col-resize;
+}
+.zero-left-resizer::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+.zero-left-resizer::after {
+  position: absolute;
+  inset: 0 auto 0 5px;
+  width: 2px;
+  background: transparent;
+  content: "";
+  pointer-events: none;
+}
+.zero-left-resizer:hover::after,
+.zero-left-resizer:focus-visible::after,
+.zero-left-resizer.is-resizing::after {
+  background: var(--accent, #a2d4b5);
+}
+.zero-left-resizer:focus-visible {
+  outline: 0;
+}
+.zero-app:not(.zero-layers-open) .zero-left-resizer,
+.zero-preview .zero-left-resizer {
+  display: none;
+}
+.zero-sidebar-resizing,
+.zero-sidebar-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 .zero-app:not(.zero-layers-open) .zero-left {
   display: none;
@@ -863,8 +904,8 @@
 }
 
 @media (max-width: 900px) {
-  .zero-left {
-    width: 140px;
+  .zero-app {
+    --zero-left-width: 140px;
   }
   .zero-inspector {
     width: 220px;
@@ -894,7 +935,8 @@
     min-width: 0;
   }
   .zero-left,
-  .zero-inspector {
+  .zero-inspector,
+  .zero-left-resizer {
     display: none;
     position: absolute;
     top: 0;
@@ -911,6 +953,7 @@
   .zero-left {
     left: 0;
     width: min(86vw, 320px);
+    flex: 0 0 min(86vw, 320px);
     border-right: 1px solid var(--line, #303632);
   }
   .zero-inspector {

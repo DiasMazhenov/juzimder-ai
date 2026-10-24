@@ -106,7 +106,7 @@ export async function openZeroEditor({
     .map(([type, label]) => `<button data-add="${type}">${label}</button>`)
     .join(
       "",
-    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label><span>Zoom</span><select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>${[
+    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><div class="zero-left-resizer" role="separator" aria-orientation="vertical" aria-valuemin="140" aria-valuenow="190" aria-valuemax="480" aria-label="Ширина панели слоёв" tabindex="0" title="Перетащите, чтобы изменить ширину"></div><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label><span>Zoom</span><select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</select></label>${[
     ["snap", "Snap"],
     ["grid", "Grid"],
     ["guides", "Guides"],
@@ -140,6 +140,115 @@ export async function openZeroEditor({
   const addTrigger = $('[data-action="add-menu"]'),
     layerToggle = $('[data-action="layers"]'),
     mobilePanelQuery = matchMedia("(max-width: 720px)");
+  const leftPanel = $(".zero-left"),
+    leftResizer = $(".zero-left-resizer"),
+    inspectorPanel = $(".zero-inspector"),
+    minSidebarWidth = 140,
+    sidebarPreferenceKey = "juzimder-zero-sidebar-width";
+  let rememberSidebarWidth = false;
+  function maxSidebarWidth() {
+    const inspectorWidth = inspectorPanel.getBoundingClientRect().width || 270;
+    const workspaceMinimum = 280;
+    return Math.max(
+      minSidebarWidth,
+      Math.min(480, window.innerWidth - inspectorWidth - workspaceMinimum),
+    );
+  }
+  function setSidebarWidth(width) {
+    const maxWidth = maxSidebarWidth();
+    const nextWidth = Math.round(
+      Math.min(maxWidth, Math.max(minSidebarWidth, width)),
+    );
+    zeroRoot.style.setProperty("--zero-left-width", `${nextWidth}px`);
+    leftResizer.setAttribute("aria-valuemax", String(maxWidth));
+    leftResizer.setAttribute("aria-valuenow", String(nextWidth));
+    return nextWidth;
+  }
+  leftResizer.setAttribute("aria-valuemax", String(maxSidebarWidth()));
+  leftResizer.setAttribute(
+    "aria-valuenow",
+    String(Math.round(Number.parseFloat(getComputedStyle(leftPanel).width) || 190)),
+  );
+  function saveSidebarWidth(width) {
+    try {
+      localStorage.setItem(sidebarPreferenceKey, String(width));
+      rememberSidebarWidth = true;
+    } catch {
+      // Resizing remains available when browser storage is disabled.
+    }
+  }
+  try {
+    const savedWidth = Number(localStorage.getItem(sidebarPreferenceKey));
+    if (Number.isFinite(savedWidth) && savedWidth > 0) {
+      setSidebarWidth(savedWidth);
+      rememberSidebarWidth = true;
+    }
+  } catch {
+    // The CSS default width is used when browser storage is unavailable.
+  }
+  let sidebarResizePointer = null;
+  const finishSidebarResize = (event) => {
+    if (sidebarResizePointer === null || event.pointerId !== sidebarResizePointer)
+      return;
+    sidebarResizePointer = null;
+    zeroRoot.classList.remove("zero-sidebar-resizing");
+    leftResizer.classList.remove("is-resizing");
+    saveSidebarWidth(Number.parseFloat(leftResizer.getAttribute("aria-valuenow")));
+    if (leftResizer.hasPointerCapture(event.pointerId))
+      leftResizer.releasePointerCapture(event.pointerId);
+  };
+  leftResizer.addEventListener("pointerdown", (event) => {
+    if (
+      mobilePanelQuery.matches ||
+      !zeroRoot.classList.contains("zero-layers-open") ||
+      event.button !== 0
+    )
+      return;
+    event.preventDefault();
+    sidebarResizePointer = event.pointerId;
+    leftResizer.setPointerCapture(event.pointerId);
+    zeroRoot.classList.add("zero-sidebar-resizing");
+    leftResizer.classList.add("is-resizing");
+  });
+  leftResizer.addEventListener("pointermove", (event) => {
+    if (sidebarResizePointer === null || event.pointerId !== sidebarResizePointer)
+      return;
+    const mainLeft = $(".zero-main").getBoundingClientRect().left;
+    setSidebarWidth(event.clientX - mainLeft);
+  });
+  leftResizer.addEventListener("pointerup", finishSidebarResize);
+  leftResizer.addEventListener("pointercancel", finishSidebarResize);
+  leftResizer.addEventListener("lostpointercapture", (event) => {
+    if (sidebarResizePointer === event.pointerId) {
+      sidebarResizePointer = null;
+      zeroRoot.classList.remove("zero-sidebar-resizing");
+      leftResizer.classList.remove("is-resizing");
+      saveSidebarWidth(Number.parseFloat(leftResizer.getAttribute("aria-valuenow")));
+    }
+  });
+  leftResizer.addEventListener("keydown", (event) => {
+    const currentWidth = Number.parseFloat(
+      leftResizer.getAttribute("aria-valuenow"),
+    );
+    let nextWidth;
+    if (event.key === "ArrowLeft") nextWidth = currentWidth - 16;
+    else if (event.key === "ArrowRight") nextWidth = currentWidth + 16;
+    else if (event.key === "Home") nextWidth = minSidebarWidth;
+    else if (event.key === "End") nextWidth = maxSidebarWidth();
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+    saveSidebarWidth(setSidebarWidth(nextWidth));
+  });
+  const onSidebarViewportResize = () => {
+    leftResizer.setAttribute("aria-valuemax", String(maxSidebarWidth()));
+    if (!mobilePanelQuery.matches) {
+      const currentWidth = Number.parseFloat(getComputedStyle(leftPanel).width);
+      const appliedWidth = setSidebarWidth(currentWidth);
+      if (rememberSidebarWidth) saveSidebarWidth(appliedWidth);
+    }
+  };
+  window.addEventListener("resize", onSidebarViewportResize);
   let layerPanelOpen = !mobilePanelQuery.matches;
   zeroRoot.classList.toggle("zero-layers-open", layerPanelOpen);
   layerToggle.setAttribute("aria-pressed", String(layerPanelOpen));
@@ -1925,6 +2034,7 @@ export async function openZeroEditor({
       document.removeEventListener("keyup", onUp);
       document.removeEventListener("pointerdown", onElementMenuOutside);
       window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("resize", onSidebarViewportResize);
     },
     { once: true },
   );
