@@ -473,7 +473,7 @@
 .zero-layer {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   min-height: 25px;
   border-bottom: 1px solid #252b27;
   border-radius: 3px;
@@ -485,6 +485,9 @@
 }
 .zero-layer.is-group {
   font-weight: 550;
+}
+#zero-layers {
+  margin-left: -8px;
 }
 .zero-layer button {
   display: inline-flex;
@@ -498,6 +501,16 @@
   padding: 2px;
   background: transparent;
 }
+.zero-layer .zero-layer-disclosure {
+  flex: 0 0 8px;
+  width: 8px;
+  padding: 0;
+}
+.zero-layer .zero-layer-disclosure .tabler-editor-icon {
+  width: 10px;
+  height: 10px;
+  flex-basis: 10px;
+}
 .zero-layer-lock {
   opacity: 0;
   pointer-events: none;
@@ -508,6 +521,12 @@
   opacity: 1;
   pointer-events: auto;
 }
+.zero-layer.is-locked .zero-layer-lock {
+  opacity: 1;
+  pointer-events: auto;
+  border-radius: 50%;
+  background: #303632;
+}
 .zero-layer .tabler-editor-icon {
   display: block;
   width: 13px;
@@ -516,8 +535,8 @@
   margin: 0;
 }
 .zero-layer-disclosure-spacer {
-  flex: 0 0 19px;
-  width: 19px;
+  flex: 0 0 8px;
+  width: 8px;
   height: 19px;
 }
 .zero-layer-count {
@@ -534,9 +553,9 @@
   flex: 1 1 auto !important;
   width: auto !important;
   min-width: 0;
-  gap: 4px;
+  gap: 2px;
   justify-content: flex-start !important;
-  padding: 2px 4px !important;
+  padding: 2px 0 !important;
   font: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
