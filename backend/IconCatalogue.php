@@ -8,7 +8,9 @@ final class IconCatalogue {
         return $icons ??= json_decode(file_get_contents(__DIR__.'/../resources/tabler-outline/catalogue.json'), true, 32, JSON_THROW_ON_ERROR);
     }
     public static function permits(mixed $src): bool {
-        return is_string($src) && in_array($src, self::all(), true);
+        static $placeholder;
+        $placeholder ??= json_decode(file_get_contents(__DIR__.'/../resources/image-placeholder.json'),true,4,JSON_THROW_ON_ERROR)['src'];
+        return is_string($src) && ($src === $placeholder || in_array($src, self::all(), true));
     }
     public static function markup(string $key): string {
         $src = self::all()[$key];

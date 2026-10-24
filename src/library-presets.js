@@ -1,0 +1,37 @@
+import placeholder from '../resources/image-placeholder.json' with { type: 'json' };
+import { tokenValue as token } from './design-tokens.js';
+
+// Native GrapesJS definitions only: no copied templates or component scripts.
+const font={'font-family':token('bodyFontFamily'),'font-size':token('baseFontSize'),'line-height':token('bodyLineHeight'),color:token('body')};
+const heading=(tag,content)=>({type:'text',tagName:tag,content,style:{margin:'0','font-family':token('headingFontFamily'),'font-size':token(tag==='h1'?'fontSizeH1':tag==='h2'?'fontSizeH2':'fontSizeH3'),'line-height':token('headingLineHeight'),color:token('ink')}});
+const paragraph=content=>({type:'text',tagName:'p',content,style:{...font,margin:'0'}});
+const image=()=>({type:'image',name:'Выберите фотографию',attributes:{src:placeholder.src,alt:'Выберите фотографию'},style:{width:'100%','max-width':'100%','min-height':'180px','aspect-ratio':'4/3','background-color':token('line'),'object-fit':'cover','border-radius':token('radius')}});
+const link=(content='Измените ссылку')=>({type:'link',attributes:{href:'https://example.com'},content,style:{...font,color:token('forest')}});
+const button=()=>({...link('Подробнее'),style:{...font,display:'inline-block',width:'fit-content',padding:'12px 20px','text-decoration':'none','background-color':token('forest'),color:token('paper'),'border-radius':token('radius')}});
+const grid=children=>({tagName:'div',style:{display:'grid','grid-template-columns':'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',gap:'24px'},components:children});
+const stack=children=>({tagName:'div',style:{display:'flex','flex-direction':'column',gap:'16px'},components:children});
+const card=children=>({tagName:'article',style:{...font,display:'flex','flex-direction':'column',gap:'16px',padding:'24px',border:'1px solid '+token('line'),'border-radius':token('radius'),'background-color':token('paper')},components:children});
+const section=(title,children)=>({tagName:'section',name:title,style:{...font,display:'flex','flex-direction':'column',gap:'28px',padding:'56px 6%','background-color':token('canvas')},components:[heading('h2',title),...children]});
+const block=(id,label,category,description,content)=>({id,label,category,description,content});
+export const libraryPresets=[
+  block('heading','Заголовок','Элементы','Редактируемый H2',()=>heading('h2','Ваш заголовок')),
+  block('paragraph','Абзац','Элементы','Основной текст без секции',()=>paragraph('Добавьте содержательный текст для вашей аудитории.')),
+  block('text-link','Ссылка','Элементы','Текстовая ссылка с редактируемым адресом',()=>link()),
+  block('link-block','Ссылка-контейнер','Элементы','Кликабельная область с вложенными элементами',()=>({type:'link-block',tagName:'a',attributes:{href:'https://example.com'},style:{display:'block',padding:'24px','text-decoration':'none',border:'1px solid '+token('line'),'border-radius':token('radius')},components:[heading('h3','Открыть материал'),paragraph('Измените адрес в свойствах ссылки.')]})),
+  block('bullet-list','Список','Элементы','Маркированные редактируемые пункты',()=>({tagName:'ul',style:{...font,padding:'0 0 0 24px'},components:['Первый пункт','Второй пункт','Третий пункт'].map(content=>({type:'text',tagName:'li',content}))})),
+  block('divider','Разделитель','Элементы','Горизонтальная линия',()=>({tagName:'hr',style:{width:'100%',border:'0','border-top':'1px solid '+token('line'),margin:'24px 0'}})),
+  block('spacer','Отступ','Компоновка','Пустая область с изменяемой высотой',()=>({tagName:'div',name:'Отступ',style:{height:'48px',width:'100%'}})),
+  block('quote','Цитата','Элементы','Текст и подпись автора без вымышленных отзывов',()=>card([paragraph('Добавьте цитату, которую вы вправе использовать.'),paragraph('Автор цитаты') ])),
+  block('content-card','Карточка','Карточки','Заголовок, описание и действие',()=>card([heading('h3','Название карточки'),paragraph('Опишите содержание или пользу предложения.'),button()])),
+  block('image-card','Карточка с фото','Карточки','Фотография, заголовок и текст',()=>card([image(),heading('h3','Название карточки'),paragraph('Выберите фото и добавьте описание.')])),
+  block('card-grid','Сетка карточек','Карточки','Три карточки с адаптивными колонками',()=>section('Наши предложения',[grid([1,2,3].map(i=>card([heading('h3','Предложение '+i),paragraph('Замените этот текст описанием предложения.'),button()])))])),
+  block('article','Статья','Статьи','Заголовок, вводный текст и разделы',()=>section('Название статьи',[paragraph('Кратко расскажите, о чём этот материал и кому он полезен.'),heading('h3','Первый раздел'),paragraph('Добавьте основной текст статьи.'),heading('h3','Второй раздел'),paragraph('Продолжите раскрывать тему и завершите материал выводом.')])),
+  block('article-grid','Лента статей','Статьи','Адаптивные карточки публикаций',()=>section('Материалы',[grid([1,2,3].map(i=>card([image(),heading('h3','Название материала '+i),paragraph('Краткое описание статьи.'),link('Читать материал')])))])),
+  block('gallery','Галерея','Галереи','Четыре изображения; выберите фото в свойствах',()=>section('Галерея',[grid([1,2,3,4].map(()=>image()))])),
+  block('pricing','Тарифы','Цены','Сравнение предложений без выдуманных цен',()=>section('Выберите предложение',[grid(['Базовый','Расширенный','Индивидуальный'].map(name=>card([heading('h3',name),paragraph('Укажите стоимость'),paragraph('Перечислите, что входит в предложение.'),button()])))])),
+  block('team','Команда','Команда','Карточки сотрудников с заменяемыми фото',()=>section('Наша команда',[grid([1,2,3].map(()=>card([image(),heading('h3','Имя сотрудника'),paragraph('Должность и область ответственности')])))])),
+  block('cover-centered','Обложка по центру','Обложки','Заголовок, описание и компактный CTA',()=>({tagName:'section',name:'Обложка по центру',style:{...font,display:'flex','flex-direction':'column','align-items':'center','text-align':'center',gap:'24px',padding:'80px 6%','background-color':token('forest'),'border-radius':token('radius')},components:[{...heading('h1','Расскажите о главном'),style:{...heading('h1','').style,color:token('paper'),'max-width':'900px'}},{...paragraph('Объясните, что вы предлагаете и почему это важно.'),style:{...font,color:token('paper'),'max-width':'640px'}},{...button(),style:{...button().style,'background-color':token('paper'),color:token('forest')}}]})),
+  block('cover-split','Обложка с фото','Обложки','Текст перед фото; колонки складываются на узком экране',()=>section('Ваше главное предложение',[grid([stack([paragraph('Кратко представьте проект и его пользу.'),button()]),image()])])),
+  block('contact-details','Контактные данные','Секции','Адрес, часы работы и контактные ссылки',()=>section('Свяжитесь с нами',[grid([stack([heading('h3','Адрес'),paragraph('Укажите реальный адрес и часы работы.')]),stack([{...link('Email'),attributes:{href:'mailto:hello@example.com'}},{...link('Телефон'),attributes:{href:'tel:+70000000000'}}])])])),
+  block('footer-columns','Подвал с колонками','Навигация','Описание проекта и группы ссылок',()=>({tagName:'footer',style:{...font,padding:'40px 6%','background-color':token('paper')},components:[grid([stack([heading('h3','Название проекта'),paragraph('Краткое описание проекта.')]),stack([heading('h3','Разделы'),link('Первая ссылка'),link('Вторая ссылка')]),stack([heading('h3','Контакты'),link('Контактная страница')])])]}))
+];

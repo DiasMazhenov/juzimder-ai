@@ -8,7 +8,8 @@ import { DEFAULT_DESIGN_TOKENS, designTokensToStyle } from '../src/design-tokens
 test('section and element library has unique ids and complete labels', () => {
   const ids = blocks.map(block => block.id);
   assert.equal(new Set(ids).size, ids.length, 'block ids must be unique');
-  assert.deepEqual(ids, ['hero', 'features', 'cta', 'text', 'image', 'navigation', 'process', 'testimonial', 'faq', 'footer', 'container', 'button']);
+  assert.deepEqual(ids.slice(0,12), ['hero', 'features', 'cta', 'text', 'image', 'navigation', 'process', 'testimonial', 'faq', 'footer', 'container', 'button']);
+  assert.ok(ids.length>=32,'Library includes original sections and expanded native presets');
   for (const block of blocks) {
     assert.ok(block.label.trim(), `${block.id} has a visible label`);
     assert.ok(block.description.trim(), `${block.id} has a description`);
@@ -66,4 +67,13 @@ test('new section presets use editable global tokens for shared colors, typograp
   assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-body')));
   assert.ok(cssValues.some(value => String(value).includes('--juzimder-font-size-h1')));
   assert.ok(cssValues.some(value => String(value).includes('--juzimder-radius')));
+});
+
+test('new library families are present and image placeholders are explicitly trusted',()=>{
+  const categories=new Set(blocks.map(block=>block.category));
+  for(const category of ['Карточки','Статьи','Галереи','Цены','Команда','Обложки'])assert.ok(categories.has(category),category);
+  const gallery=blocks.find(block=>block.id==='gallery').content();
+  const images=gallery.components[1].components;
+  assert.equal(images.length,4);
+  for(const image of images){assert.ok(image.attributes.src.startsWith('data:image/png;base64,'));assert.equal(image.type,'image');}
 });

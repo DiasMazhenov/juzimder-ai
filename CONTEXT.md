@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.079 (npm SemVer 0.1.79). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.080 (npm SemVer 0.1.80). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -561,3 +561,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 00.00.079: первая часть запроса всех плагинов — basic columns/Flex, gradient/filter inputs, touch plugin. Остальные зависимости закреплены, но ещё не включены; точная матрица docs/PLUGIN_INTEGRATION.md. CSP, backend запрет script/event handlers и исполнение PHP не ослаблены. Предложенное широкое CSP изменение отклонено automatic approval review; требуется узкая hash/nonce + sandbox схема. Полная интеграция всех плагинов НЕ завершена.
 
 Проверка .079: npm test/build/PHP lint PASS; npm audit после совместимого обновления fast-uri: 0 vulnerabilities. Browser QA в отдельной базе: пять plugin layout cards, вставка 2 columns, сохранение ревизии 11, reload, gradient/filter присутствуют в Оформлении. Physical touch, фактическое редактирование gradient/filter, ZIP/public visual каждого plugin — NOT RUN.
+
+00.00.080: +20 native presets в src/library-presets.js, всего 32 собственных +5 plugin layouts =37 карточек. Новые категории: Обложки/Карточки/Статьи/Галереи/Цены/Команда; базовые heading/link/list/divider/spacer/quote, contacts и footer columns. Без заимствования PHP-GrapesJS и без новых runtime разрешений. Фото manual presets используют один разрешённый inline PNG placeholder (shared resource/schema/backend), не внешнюю генерацию и не произвольные data URLs. Реальные фото выбираются в свойствах; автоматический подбор LLM не изменён. QA: gallery insert/save, Undo0/Redo4, pricing insert/save в отдельной базе; все presets проходят authoritative validator. Полный перенос interactive plugins остаётся открытым.

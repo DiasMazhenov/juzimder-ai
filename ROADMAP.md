@@ -512,3 +512,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [ ] Forms, navbar, countdown, tabs, slider, tooltip: backend contract + preview/ZIP/public runtime.
 - [ ] Filestack settings/import; TOAST image edit/save; CKEditor license/runtime; custom code sandbox.
 - [ ] Приёмка каждого плагина: edit/save/reopen/Undo/preview/ZIP/publish.
+
+- [x] 00.00.080: расширить библиотеку до 37 позиций с 20 дополнительными native presets и тематическими категориями; PNG placeholders, gallery Undo/Redo/save QA.

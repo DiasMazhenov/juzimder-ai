@@ -1,3 +1,4 @@
+import { libraryPresets } from './library-presets.js';
 import { tokenValue } from './design-tokens.js';
 
 const palette = Object.freeze({
@@ -244,7 +245,8 @@ export const blocks = [
       content: 'Нажмите здесь',
       style: { padding: '12px 18px', 'background-color': palette.forest, color: '#fff', 'border': '0', 'border-radius': palette.radius, 'font-family': palette.font, 'font-size': '14px', cursor: 'pointer' }
     })
-  }
+  },
+  ...libraryPresets
 ];
 
 export function registerBlocks(editor) {
