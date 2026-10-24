@@ -498,6 +498,16 @@
   padding: 2px;
   background: transparent;
 }
+.zero-layer-lock {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.zero-layer:hover .zero-layer-lock,
+.zero-layer:focus-within .zero-layer-lock {
+  opacity: 1;
+  pointer-events: auto;
+}
 .zero-layer .tabler-editor-icon {
   display: block;
   width: 13px;
