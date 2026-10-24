@@ -53,13 +53,18 @@
 - [ ] Универсальные component operations, duplicate с безопасным remap ссылок/styles и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
-## Phase 4 — Zero Block (P2, только архитектура)
+## Phase 4 — Zero Block (P0 по требованию владельца 24.10.2026)
 
-- [ ] Отдельный тип секции `zero-block` внутри обычного GrapesJS page component tree; не глобальный режим canvas.
-- [ ] Собственное дерево элементов и responsive properties внутри full Project Data; расширить validator через версионируемую migration.
-- [ ] Отдельный Zero Block Editor с открытием из секции, возвратом в основной редактор и общим CAS/revision service.
-- [ ] Свободное позиционирование, drag/resize/guides/snap/alignment/breakpoints.
-- [ ] Не начинать реализацию редактора до закрытия P0/P1 и проверки component schema/undo/persistence.
+- [x] 00.00.098: `zero-block` + один `zeroData.version=1` внутри полного GrapesJS Project Data; строгая additive schema/backend policy.
+- [x] Absolute Positioning Engine: независимые X/Y/W/H, rotation, Grid/Window, 9 anchor/origin points, local groups, z-order и отрицательные координаты.
+- [x] Отдельный редактор на 8080, scoped CAS/revisions и безопасная BroadcastChannel синхронизация с основным редактором.
+- [x] Начальные Z2–Z5 инструменты: typed элементы, Inspector/Layers, Pointer drag/8 resize handles/rotate, zoom/pan, history, grid/rulers/guides/snap, 5 режимов и overrides/reset.
+- [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
+- [ ] Autoscale, полная визуальная матрица всех инструментов/промежуточных ширин, nested transforms и ручная browser QA публикации/ZIP.
+- [ ] Z6: визуальная проверка конфликтов и restore, performance на 300 элементах и физическом мобильном устройстве.
+- [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
+
+Предыдущее ограничение «только архитектура после остальных P0/P1» заменено прямым новым требованием владельца. Для обычных секций Flex/Grid сохраняются; внутри Zero расположение исключительно absolute.
 
 ## Phase 5 — AI
 
@@ -551,3 +556,8 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 
 - [x] 00.00.097: изолированная Browser QA вставки Navbar, Countdown, Slider, Tabs, Tooltip и Custom Code; сохранение/перезагрузка, все шесть в дереве слоёв, поле даты и live Countdown, Custom Code HTML/CSS/JS в opaque sandbox.
 - [ ] 00.00.097: отдельная Browser QA Undo, взаимодействия Tabs в публичном preview, ZIP и публикации; автоматические static-export/API тесты уже проходят. Это Core-native эквиваленты, upstream runtime плагинов не подключён.
+
+
+## Zero Block · 00.00.098
+
+Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Initial Z2–Z5 controls implemented; финальная Z6-приёмка остаётся открытой. Codex Browser: отдельная QA-страница a0d6b777-a709-48ec-b17a-d8239dcd2c15, upload синтетического PNG, текст поверх фото, Drag50/100/200%, resize без сдвига соседей, Undo/Redo, отрицательные координаты, Lock, Duplicate/Delete, anchor+rotation, Group/Ungroup, все пять геометрий после reopen. Исправлен normalization/autosave race двух окон. Обе стороны синхронизации показали одну ревизию. Saved PHP view содержит absolute элементы и загруженное изображение, без editor-only UI. Browser public-host/ZIP, все восемь handles, nested rotated groups, rich-text клавиатура, performance и restore/conflict visual matrix не объявлены PASS. Подробности и evidence в docs/ZERO_BLOCK.md.

@@ -1,0 +1,1447 @@
+import { renderInspector } from "../ui/inspector.js";
+import { groupElements, ungroupElements } from "../model/operations.js";
+import {
+  worldMatrix,
+  rotatedBounds,
+  scaleGroupChildren,
+} from "../model/transforms.js";
+import {
+  MODES,
+  copy,
+  createElement,
+  resolve,
+  setValue,
+  findElement,
+  flatten,
+  rect,
+  anchorGeometry,
+  screenDelta,
+  resizeGeometry,
+  rotatePoint,
+  geometryCSS,
+  appearanceCSS,
+  adapt,
+  History,
+  newId,
+} from "../model/model.js";
+import { renderZero, escapeHTML as esc } from "../render.js";
+import { tablerIcon } from "../../editor-icons.js";
+import packageInfo from "../../../package.json";
+import "../zero.css";
+const MODE_NAMES = {
+  desktop: "Desktop",
+  laptop: "Laptop",
+  tablet: "Tablet",
+  landscape: "Mobile landscape",
+  mobile: "Mobile",
+};
+export async function openZeroEditor({
+  projectId,
+  pageId,
+  blockId,
+  api,
+  session,
+  app,
+}) {
+  let project = await api(`/projects/${projectId}`),
+    data,
+    baseData,
+    version = project.version,
+    mode = "desktop",
+    selection = new Set(),
+    zoom = 1,
+    snap = true,
+    grid = true,
+    guides = true,
+    rulers = true,
+    dirty = false,
+    saving = false,
+    saveRetries = 0,
+    conflict = false,
+    timer,
+    space = false,
+    clipboard = [],
+    gesture = null,
+    frame = 0,
+    fieldTimer,
+    pendingField = null,
+    smartLines = [],
+    preview = false,
+    destroyed = false;
+  const locate = (p) => {
+    const page = p.document.data.pages.find((page) => page.id === pageId);
+    let result;
+    const walk = (n) => {
+      if (n.type === "zero-block" && n.attributes?.id === blockId) result = n;
+      for (const c of n.components || []) walk(c);
+    };
+    if (page) walk(page.frames[0].component);
+    if (!result) throw new Error("Zero Block не найден на странице.");
+    return result;
+  };
+  const block = locate(project);
+  data = copy(block.zeroData);
+  baseData = copy(data);
+  const history = new History(data);
+  const channel = new BroadcastChannel(`jz-zero-${projectId}`),
+    $ = (s) => app.querySelector(s);
+  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" title="Слои">Слои</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes">${Object.entries(
+    MODES,
+  )
+    .map(
+      ([id, w]) =>
+        `<button data-mode="${id}" title="${MODE_NAMES[id]}" aria-pressed="${id === mode}">${w}</button>`,
+    )
+    .join(
+      "",
+    )}</div><button data-action="preview">Просмотр</button><button class="primary" data-action="save">Сохранить</button><button data-action="close">Закрыть</button></header><div class="zero-main"><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
+    ["text", "Текст"],
+    ["image", "Фото"],
+    ["rectangle", "Прямоугольник"],
+    ["ellipse", "Эллипс"],
+    ["line", "Линия"],
+    ["button", "Кнопка"],
+  ]
+    .map(([type, label]) => `<button data-add="${type}">${label}</button>`)
+    .join(
+      "",
+    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label>Zoom <select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>${[
+    ["snap", "Snap"],
+    ["grid", "Grid"],
+    ["guides", "Guides"],
+    ["rulers", "Rulers"],
+  ]
+    .map(
+      ([key, label]) =>
+        `<button data-action="${key}" aria-pressed="true">${label}</button>`,
+    )
+    .join(
+      "",
+    )}<button data-action="fit">Вписать</button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export">Скачать JSON</button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><menu id="zero-context" hidden>${[
+    ["copy", "Копировать"],
+    ["paste", "Вставить"],
+    ["duplicate", "Дублировать"],
+    ["group", "Сгруппировать"],
+    ["ungroup", "Разгруппировать"],
+    ["front", "На передний план"],
+    ["back", "На задний план"],
+    ["delete", "Удалить"],
+  ]
+    .map(([key, label]) => `<button data-action="${key}">${label}</button>`)
+    .join("")}</menu></main>`;
+  const workspace = $(".zero-workspace"),
+    canvas = $("#zero-canvas"),
+    plane = $(".zero-plane"),
+    status = (message) => {
+      $("#zero-status").textContent = message;
+    };
+  const selected = () =>
+    [...selection].map((id) => findElement(data, id)).filter(Boolean);
+  const board = () => data.artboards[mode];
+  const parentBoard = (item) =>
+    item.parent
+      ? {
+          width: resolve(item.parent, mode).geometry.width,
+          height: resolve(item.parent, mode).geometry.height,
+          gridWidth: 0,
+        }
+      : board();
+  const parentRotation = (item) => {
+    let angle = 0,
+      p = item.parent;
+    while (p) {
+      angle += resolve(p, mode).geometry.rotation;
+      p = findElement(data, p.id)?.parent;
+    }
+    return angle;
+  };
+  const setGeometry = (el, g) => {
+    for (const key of Object.keys(g))
+      setValue(
+        el,
+        mode,
+        "geometry",
+        key,
+        Math.round(g[key] * 100) / 100 || g[key],
+      );
+  };
+  function flushField() {
+    clearTimeout(fieldTimer);
+    if (pendingField) {
+      history.push(data);
+      pendingField = null;
+    }
+  }
+  function changed() {
+    flushField();
+    history.push(data);
+    dirty = JSON.stringify(data) !== JSON.stringify(baseData);
+    status(
+      conflict
+        ? "Конфликт · локальные изменения сохранены в окне"
+        : "Изменения не сохранены",
+    );
+    clearTimeout(timer);
+    if (!conflict) timer = setTimeout(save, 1200);
+    render();
+  }
+  function layers() {
+    const root = $("#zero-layers");
+    root.innerHTML = flatten(data)
+      .slice()
+      .reverse()
+      .map(
+        ({ element: el, depth }) =>
+          `<div class="zero-layer ${selection.has(el.id) ? "selected" : ""}" draggable="true" data-layer="${el.id}" style="padding-left:${10 + depth * 14}px"><button data-visibility="${el.id}" title="Видимость" aria-label="Видимость ${esc(el.name)}">${tablerIcon(resolve(el, mode).visible ? "eye" : "eye-off")}</button><button class="zero-layer-name" data-select="${el.id}"><span aria-hidden="true">${tablerIcon({ text: "typography", image: "photo", rectangle: "square", ellipse: "circle", line: "minus", button: "link", group: "stack-2" }[el.type])}</span> ${esc(el.name)}</button><button data-lock="${el.id}" title="Блокировка" aria-label="Блокировка ${esc(el.name)}">${tablerIcon(el.locked ? "lock" : "lock-open")}</button></div>`,
+      )
+      .join("");
+  }
+  function inspector() {
+    $("#zero-inspector").innerHTML = renderInspector({
+      items: selected(),
+      mode,
+      board: board(),
+      project,
+    });
+  }
+  function drawCanvas() {
+    canvas.innerHTML = renderZero(data, blockId, mode);
+    const b = board();
+    plane.style.width = b.width + "px";
+    plane.style.height = b.height + "px";
+    plane.style.transform = `scale(${zoom})`;
+    $(".zero-stage").style.width = b.width * zoom + 160 + "px";
+    $(".zero-stage").style.height = b.height * zoom + 160 + "px";
+    for (const el of canvas.querySelectorAll("[data-ze]")) {
+      const item = findElement(data, el.dataset.ze);
+      if (item?.element.locked) el.dataset.locked = "true";
+      if (el.tagName === "A") el.onclick = (event) => event.preventDefault();
+    }
+    const overlays = $(".zero-selection-overlays");
+    overlays.replaceChildren();
+    if (!preview)
+      for (const item of selected()) {
+        const source = canvas.querySelector(`[data-ze="${item.element.id}"]`);
+        if (!source || !resolve(item.element, mode).visible) continue;
+        const box = document.createElement("div");
+        box.className = "zero-selection-box";
+        box.dataset.for = item.element.id;
+        box.style.width = source.offsetWidth + "px";
+        box.style.height = source.offsetHeight + "px";
+        box.style.transform = `matrix(${worldMatrix(data, item.element.id, mode, { width: source.offsetWidth, height: source.offsetHeight }).join(",")})`;
+        if (selection.size === 1 && !item.element.locked)
+          for (const handle of [
+            "nw",
+            "n",
+            "ne",
+            "e",
+            "se",
+            "s",
+            "sw",
+            "w",
+            "rotate",
+          ]) {
+            const node = document.createElement("i");
+            node.className = "zero-handle zero-handle-" + handle;
+            node.dataset.handle = handle;
+            node.setAttribute("aria-label", handle);
+            box.append(node);
+          }
+        overlays.append(box);
+      }
+    const gridEl = $(".zero-grid");
+    gridEl.hidden = !grid || preview;
+    const gw = Math.min(b.width, b.gridWidth),
+      column = (gw - 2 * b.margin - 11 * b.gutter) / 12;
+    gridEl.style.cssText = `left:${(b.width - gw) / 2 + b.margin}px;width:${Math.max(1, gw - 2 * b.margin)}px;height:${b.height}px;background:repeating-linear-gradient(to right,rgba(104,168,130,.10) 0px,rgba(104,168,130,.10) ${Math.max(1, column)}px,transparent ${Math.max(1, column)}px,transparent ${Math.max(1, column + b.gutter)}px)`;
+    $(".zero-guides").innerHTML =
+      guides && !preview
+        ? b.guides
+            .map(
+              (g, i) =>
+                `<div class="zero-guide zero-guide-${g.axis}" data-guide="${i}" style="${g.axis === "x" ? "left" : "top"}:${g.position}px"></div>`,
+            )
+            .join("") +
+          (gesture?.kind === "drag"
+            ? smartLines
+                .map(
+                  (g) =>
+                    `<div class="zero-guide zero-guide-${g.axis} zero-smart-guide" style="${g.axis === "x" ? "left" : "top"}:${g.position}px"></div>`,
+                )
+                .join("")
+            : "")
+        : "";
+    $(".zero-ruler-x").hidden = !rulers || preview;
+    $(".zero-ruler-y").hidden = !rulers || preview;
+    $(".zero-ruler-x").innerHTML = Array.from(
+      { length: Math.ceil(b.width / 100) },
+      (_, i) => `<span style="left:${i * 100}px">${i * 100}</span>`,
+    ).join("");
+    $(".zero-ruler-y").innerHTML = Array.from(
+      { length: Math.ceil(b.height / 100) },
+      (_, i) => `<span style="top:${i * 100}px">${i * 100}</span>`,
+    ).join("");
+  }
+  function drawGesture(task) {
+    const ids = new Set();
+    const collect = (el) => {
+      ids.add(el.id);
+      for (const c of el.children || []) collect(c);
+    };
+    for (const snap of task.snapshots || []) {
+      const i = findElement(data, snap.id);
+      if (i) collect(i.element);
+    }
+    for (const id of ids) {
+      const item = findElement(data, id),
+        e = resolve(item.element, mode),
+        el = canvas.querySelector(`[data-ze="${id}"]`);
+      if (!el) continue;
+      el.style.cssText =
+        geometryCSS(e.geometry, board(), !!item.parent) +
+        appearanceCSS(e.style) +
+        `z-index:${item.list.indexOf(item.element) + 1};display:${e.visible ? "block" : "none"};` +
+        (e.type === "ellipse" ? "border-radius:50%;" : "") +
+        (e.type === "image" && !e.style.objectFit ? "object-fit:cover;" : "");
+    }
+    for (const box of $(".zero-selection-overlays").children) {
+      const item = findElement(data, box.dataset.for),
+        g = resolve(item.element, mode).geometry;
+      box.style.width = g.width + "px";
+      box.style.height = g.height + "px";
+      box.style.transform = `matrix(${worldMatrix(data, box.dataset.for, mode).join(",")})`;
+    }
+    $(".zero-guides")
+      .querySelectorAll(".zero-smart-guide")
+      .forEach((n) => n.remove());
+    if (guides)
+      for (const g of smartLines) {
+        const el = document.createElement("div");
+        el.className = `zero-guide zero-guide-${g.axis} zero-smart-guide`;
+        el.style[g.axis === "x" ? "left" : "top"] = g.position + "px";
+        $(".zero-guides").append(el);
+      }
+  }
+  function render() {
+    if (destroyed) return;
+    drawCanvas();
+    layers();
+    inspector();
+    for (const button of app.querySelectorAll("[data-mode]"))
+      button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+    app.querySelector(".zero-app").classList.toggle("zero-preview", preview);
+  }
+  async function save() {
+    clearTimeout(timer);
+    if (!dirty || saving || conflict || gesture) return;
+    saving = true;
+    let retry = false;
+    status("Сохранение…");
+    const draft = copy(data);
+    try {
+      const result = await api(
+        `/projects/${projectId}/pages/${pageId}/zero/${blockId}`,
+        "PUT",
+        { version, zeroData: draft },
+      );
+      saveRetries = 0;
+      retry = true;
+      version = result.version;
+      baseData = draft;
+      dirty = JSON.stringify(data) !== JSON.stringify(draft);
+      channel.postMessage({
+        type: "zero:saved",
+        projectId,
+        pageId,
+        blockId,
+        version,
+      });
+      status(`Сохранено · ревизия ${version}`);
+    } catch (error) {
+      if (error.status === 409) {
+        conflict = true;
+        $('[data-action="rebase"]').hidden = false;
+        status("Конфликт версий · изменения остались в окне");
+      } else {
+        retry = (!error.status || error.status >= 500) && saveRetries++ < 2;
+        status(error.message);
+      }
+    } finally {
+      saving = false;
+      if (dirty && !conflict && retry) timer = setTimeout(save, 1500);
+    }
+  }
+  async function rebase() {
+    try {
+      const latest = await api(`/projects/${projectId}`),
+        remote = locate(latest).zeroData;
+      if (JSON.stringify(remote) === JSON.stringify(baseData)) {
+        version = latest.version;
+        conflict = false;
+        $('[data-action="rebase"]').hidden = true;
+        status("Другие изменения объединены; сохраняем Zero Block");
+        await save();
+      } else if (
+        window.confirm(
+          "Этот Zero Block изменён в другом окне. Загрузить серверный вариант? Текущую версию можно сначала скачать через «Скачать JSON».",
+        )
+      ) {
+        data = copy(remote);
+        baseData = copy(remote);
+        version = latest.version;
+        dirty = false;
+        conflict = false;
+        history.push(data);
+        $('[data-action="rebase"]').hidden = true;
+        render();
+        status(`Загружена ревизия ${version}`);
+      }
+    } catch (error) {
+      status(error.message);
+    }
+  }
+  let assetTarget = null,
+    assets = [];
+  function assetList() {
+    const query = $("#zero-asset-search").value.toLowerCase();
+    $(".zero-asset-list").innerHTML =
+      assets
+        .filter((a) => a.name.toLowerCase().includes(query))
+        .map(
+          (a) =>
+            `<button data-asset="${a.id}"><img src="${esc(a.url)}" alt=""><span>${esc(a.name)}</span></button>`,
+        )
+        .join("") ||
+      "<p>Фото пока нет. Загрузите изображение с компьютера.</p>";
+  }
+  async function chooseImage(target = null) {
+    assetTarget = target;
+    $("#zero-assets").showModal();
+    try {
+      assets = await api(`/projects/${projectId}/assets`);
+      assetList();
+    } catch (e) {
+      $("#zero-asset-status").textContent = e.message;
+    }
+  }
+  $("#zero-asset-search").oninput = assetList;
+  $("#zero-upload").onchange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      if (
+        file.size > 4194304 ||
+        !["image/png", "image/jpeg", "image/webp", "image/gif"].includes(
+          file.type,
+        )
+      )
+        throw new Error("Допустим PNG/JPEG/WebP/GIF до 4 МБ.");
+      $("#zero-asset-status").textContent = "Загрузка…";
+      const r = await fetch(`/api/projects/${projectId}/assets`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-CSRF-Token": session.csrf,
+            "X-Asset-Name": encodeURIComponent(file.name),
+          },
+          body: file,
+        }),
+        a = await r.json();
+      if (!r.ok) throw new Error(a.error);
+      assets.unshift(a);
+      assetList();
+      $("#zero-asset-status").textContent =
+        "Фото добавлено в библиотеку сайта.";
+    } catch (e) {
+      $("#zero-asset-status").textContent = e.message;
+    } finally {
+      event.target.value = "";
+    }
+  };
+  function add(type) {
+    if (type === "image") {
+      chooseImage();
+      return;
+    }
+    const el = createElement(type, project.settings?.designTokens);
+    if (flatten(data).length >= 300) {
+      status("Не более 300 элементов");
+      return;
+    }
+    data.elements.push(el);
+    selection = new Set([el.id]);
+    changed();
+  }
+  function duplicate() {
+    const roots = selected().filter(
+      (item) =>
+        !selected().some(
+          (other) =>
+            other.element.children && contains(other.element, item.element.id),
+        ),
+    );
+    const count = (el) =>
+      1 + (el.children || []).reduce((n, c) => n + count(c), 0);
+    if (
+      flatten(data).length + roots.reduce((n, i) => n + count(i.element), 0) >
+      300
+    ) {
+      status("Не более 300 элементов.");
+      return;
+    }
+    const copies = [];
+    for (const item of roots) {
+      const clone = copy(item.element),
+        rename = (el) => {
+          el.id = newId();
+          for (const child of el.children || []) rename(child);
+        };
+      rename(clone);
+      clone.geometry.x += 20;
+      clone.geometry.y += 20;
+      for (const o of Object.values(clone.overrides)) {
+        if (o.geometry) {
+          o.geometry.x = (o.geometry.x ?? item.element.geometry.x) + 20;
+          o.geometry.y = (o.geometry.y ?? item.element.geometry.y) + 20;
+        }
+      }
+      item.list.splice(item.list.indexOf(item.element) + 1, 0, clone);
+      copies.push(clone.id);
+    }
+    selection = new Set(copies);
+    changed();
+  }
+  const contains = (el, id) =>
+    el.id === id || (el.children || []).some((c) => contains(c, id));
+  function group() {
+    try {
+      selection = new Set(groupElements(data, [...selection], mode));
+      changed();
+    } catch (e) {
+      status(e.message);
+    }
+  }
+  function ungroup() {
+    try {
+      selection = new Set(ungroupElements(data, [...selection], mode));
+      changed();
+    } catch (e) {
+      status(e.message);
+    }
+  }
+  function reorder(direction) {
+    for (const item of selected()) {
+      const at = item.list.indexOf(item.element),
+        to =
+          direction === "front"
+            ? item.list.length - 1
+            : direction === "back"
+              ? 0
+              : Math.max(
+                  0,
+                  Math.min(
+                    item.list.length - 1,
+                    at + (direction === "forward" ? 1 : -1),
+                  ),
+                );
+      item.list.splice(at, 1);
+      item.list.splice(to, 0, item.element);
+    }
+    changed();
+  }
+  function align(axis) {
+    const items = selected().filter((i) => !i.element.locked);
+    for (const item of items) {
+      const g = resolve(item.element, mode).geometry,
+        pb = parentBoard(item),
+        r = rect(g, pb, !!item.parent);
+      let dx = 0,
+        dy = 0;
+      if (axis === "left") dx = -r.x;
+      else if (axis === "center") dx = pb.width / 2 - r.x - r.width / 2;
+      else if (axis === "right") dx = pb.width - r.x - r.width;
+      else if (axis === "top") dy = -r.y;
+      else if (axis === "bottom") dy = pb.height - r.y - r.height;
+      else dy = pb.height / 2 - r.y - r.height / 2;
+      setValue(item.element, mode, "geometry", "x", g.x + dx);
+      setValue(item.element, mode, "geometry", "y", g.y + dy);
+    }
+    changed();
+  }
+  function distribute(axis) {
+    const items = selected();
+    if (items.length < 3 || items.some((i) => i.parent !== items[0].parent))
+      return;
+    const coord = axis === "x" ? "x" : "y",
+      size = axis === "x" ? "width" : "height",
+      entries = items
+        .map((i) => ({
+          ...i,
+          r: rect(
+            resolve(i.element, mode).geometry,
+            parentBoard(i),
+            !!i.parent,
+          ),
+        }))
+        .sort((a, b) => a.r[coord] - b.r[coord]);
+    const first = entries[0].r[coord],
+      last = entries.at(-1).r[coord] + entries.at(-1).r[size],
+      gap =
+        (last - first - entries.reduce((s, i) => s + i.r[size], 0)) /
+        (entries.length - 1);
+    let cursor = first;
+    for (const i of entries) {
+      const g = resolve(i.element, mode).geometry;
+      setValue(
+        i.element,
+        mode,
+        "geometry",
+        coord,
+        g[coord] + cursor - i.r[coord],
+      );
+      cursor += i.r[size] + gap;
+    }
+    changed();
+  }
+  async function action(key) {
+    flushField();
+    $("#zero-context").hidden = true;
+    if (key === "save") {
+      await save();
+      return;
+    }
+    if (key === "rebase") {
+      await rebase();
+      return;
+    }
+    if (key === "close") {
+      await save();
+      if (dirty && !window.confirm("Изменения не сохранены. Закрыть окно?"))
+        return;
+      window.close();
+      return;
+    }
+    if (key === "undo" || key === "redo") {
+      data = history[key]();
+      selection = new Set([...selection].filter((id) => findElement(data, id)));
+      dirty = JSON.stringify(data) !== JSON.stringify(baseData);
+      clearTimeout(timer);
+      if (!conflict) timer = setTimeout(save, 1200);
+      render();
+      return;
+    }
+    if (key === "copy") {
+      clipboard = selected().map((i) => copy(i.element));
+      return;
+    }
+    if (key === "paste") {
+      const count = (el) =>
+        1 + (el.children || []).reduce((n, c) => n + count(c), 0);
+      if (
+        flatten(data).length + clipboard.reduce((n, c) => n + count(c), 0) >
+        300
+      ) {
+        status("Не более 300 элементов.");
+        return;
+      }
+      selection = new Set();
+      for (const original of clipboard) {
+        const el = copy(original),
+          rename = (e) => {
+            e.id = newId();
+            for (const c of e.children || []) rename(c);
+          };
+        rename(el);
+        data.elements.push(el);
+        selection.add(el.id);
+      }
+      changed();
+      return;
+    }
+    if (key === "delete") {
+      for (const i of selected().filter((i) => !i.element.locked))
+        i.list.splice(i.list.indexOf(i.element), 1);
+      selection.clear();
+      changed();
+      return;
+    }
+    if (key === "duplicate") return duplicate();
+    if (key === "group") return group();
+    if (key === "ungroup") return ungroup();
+    if (["front", "back", "forward", "backward"].includes(key))
+      return reorder(key);
+    if (key.startsWith("align-")) return align(key.slice(6));
+    if (key.startsWith("distribute-")) return distribute(key.slice(11));
+    if (key === "reset-override") {
+      for (const i of selected()) delete i.element.overrides[mode];
+      changed();
+      return;
+    }
+    if (key === "adapt") {
+      adapt(data, mode);
+      changed();
+      return;
+    }
+    if (key === "replace-image") return chooseImage(selected()[0]?.element.id);
+    if (key === "assets-close") {
+      $("#zero-assets").close();
+      return;
+    }
+    if (key === "add-menu") {
+      $(".zero-add").hidden = !$(".zero-add").hidden;
+      return;
+    }
+    if (key === "fit") {
+      const z = Math.min(
+        (workspace.clientWidth - 160) / board().width,
+        (workspace.clientHeight - 160) / board().height,
+        2,
+      );
+      zoom = [0.5, 0.75, 1, 1.5, 2].filter((v) => v <= z).at(-1) || 0.5;
+      $("#zero-zoom").value = String(zoom);
+      drawCanvas();
+      return;
+    }
+    if (key === "preview") {
+      preview = !preview;
+      render();
+      return;
+    }
+    if (key === "layers") {
+      $(".zero-layer-panel").hidden = !$(".zero-layer-panel").hidden;
+      return;
+    }
+    if (key === "export") {
+      const a = document.createElement("a"),
+        url = URL.createObjectURL(
+          new Blob([JSON.stringify(data, null, 2)], {
+            type: "application/json",
+          }),
+        );
+      a.href = url;
+      a.download = `${blockId}-local.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+    if (key === "clear-guides") {
+      board().guides = [];
+      changed();
+      return;
+    }
+    if (["snap", "grid", "guides", "rulers"].includes(key)) {
+      if (key === "snap") snap = !snap;
+      if (key === "grid") grid = !grid;
+      if (key === "guides") guides = !guides;
+      if (key === "rulers") rulers = !rulers;
+      for (const b of app.querySelectorAll(`[data-action="${key}"]`))
+        b.setAttribute(
+          "aria-pressed",
+          String({ snap, grid, guides, rulers }[key]),
+        );
+      drawCanvas();
+    }
+  }
+  app.addEventListener("click", async (event) => {
+    const target = event.target.closest("button");
+    if (!target) return;
+    if (target.dataset.action) return action(target.dataset.action);
+    if (target.dataset.add) return add(target.dataset.add);
+    if (target.dataset.mode) {
+      mode = target.dataset.mode;
+      render();
+      return;
+    }
+    if (target.dataset.select) {
+      selection = event.shiftKey
+        ? new Set([...selection, target.dataset.select])
+        : new Set([target.dataset.select]);
+      render();
+      return;
+    }
+    if (target.dataset.visibility) {
+      const el = findElement(data, target.dataset.visibility).element;
+      setValue(el, mode, null, "visible", !resolve(el, mode).visible);
+      changed();
+      return;
+    }
+    if (target.dataset.lock) {
+      const el = findElement(data, target.dataset.lock).element;
+      el.locked = !el.locked;
+      changed();
+      return;
+    }
+    if (target.dataset.anchor) {
+      const [x, y] = target.dataset.anchor.split(",").map(Number);
+      for (const i of selected())
+        setGeometry(
+          i.element,
+          anchorGeometry(
+            resolve(i.element, mode).geometry,
+            parentBoard(i),
+            { anchorX: x, anchorY: y, originX: x, originY: y },
+            !!i.parent,
+          ),
+        );
+      changed();
+      return;
+    }
+    if (target.dataset.asset) {
+      const asset = assets.find((a) => a.id === target.dataset.asset);
+      if (!asset) return;
+      const el = assetTarget
+        ? findElement(data, assetTarget)?.element
+        : createElement("image", project.settings?.designTokens);
+      if (!el) return;
+      if (!assetTarget) data.elements.push(el);
+      setValue(el, mode, null, "src", asset.url);
+      if (!el.src) el.src = asset.url;
+      setValue(el, "desktop", null, "alt", asset.name);
+      selection = new Set([el.id]);
+      $("#zero-assets").close();
+      changed();
+    }
+  });
+  function applyInput(input, commit = true) {
+    if (
+      input.type === "number" &&
+      (!input.value.trim() || !Number.isFinite(Number(input.value)))
+    )
+      return;
+    if (input.id === "zero-zoom") {
+      zoom = Number(input.value);
+      drawCanvas();
+      return;
+    }
+    if (input.dataset.board) {
+      board()[input.dataset.board] =
+        input.type === "number" ? Number(input.value) : input.value;
+      if (commit) changed();
+      else {
+        dirty = true;
+        clearTimeout(timer);
+        drawCanvas();
+      }
+      return;
+    }
+    for (const i of selected()) {
+      if (i.element.locked) continue;
+      if (input.hasAttribute("data-container")) {
+        setGeometry(
+          i.element,
+          anchorGeometry(
+            resolve(i.element, mode).geometry,
+            parentBoard(i),
+            { container: input.value },
+            !!i.parent,
+          ),
+        );
+      } else if (input.hasAttribute("data-keep-aspect"))
+        i.element.keepAspect = input.checked;
+      else if (input.hasAttribute("data-auto-height")) {
+        if (!input.checked) {
+          const el = canvas.querySelector(`[data-ze="${i.element.id}"]`);
+          if (el)
+            setValue(i.element, mode, "geometry", "height", el.offsetHeight);
+        }
+        setValue(i.element, mode, "style", "autoHeight", input.checked);
+      } else if (input.dataset.key) {
+        const val =
+          input.type === "number" || input.dataset.key.startsWith("origin")
+            ? Number(input.value)
+            : input.value;
+        if (typeof val === "number" && !Number.isFinite(val)) return;
+        if (["originX", "originY"].includes(input.dataset.key))
+          setGeometry(
+            i.element,
+            anchorGeometry(
+              resolve(i.element, mode).geometry,
+              parentBoard(i),
+              { [input.dataset.key]: val },
+              !!i.parent,
+            ),
+          );
+        else
+          setValue(
+            i.element,
+            mode,
+            input.dataset.section,
+            input.dataset.key,
+            val,
+          );
+      } else if (input.dataset.element) {
+        const key = input.dataset.element;
+        if (key === "name") i.element.name = input.value;
+        else if (input.value || !["href", "src"].includes(key)) {
+          setValue(i.element, "desktop", null, key, input.value);
+          if (key === "content") {
+            delete i.element.runs;
+            if (i.element.overrides[mode])
+              delete i.element.overrides[mode].runs;
+          }
+        } else {
+          delete i.element[key];
+          if (i.element.overrides[mode]) delete i.element.overrides[mode][key];
+        }
+      }
+    }
+    if (commit) changed();
+    else {
+      dirty = true;
+      clearTimeout(timer);
+      drawCanvas();
+      if (input.dataset.element === "name") layers();
+      status(
+        conflict
+          ? "Конфликт · локальные изменения сохранены в окне"
+          : "Изменения не сохранены",
+      );
+    }
+  }
+  app.addEventListener("change", (event) => applyInput(event.target, true));
+  app.addEventListener("input", (event) => {
+    if (
+      !event.target.matches(
+        "#zero-inspector input:not([type=checkbox]),#zero-inspector textarea",
+      )
+    )
+      return;
+    const key =
+      event.target.dataset.key ||
+      event.target.dataset.element ||
+      event.target.dataset.board;
+    if (pendingField && pendingField !== key) flushField();
+    pendingField = key;
+    applyInput(event.target, false);
+    clearTimeout(fieldTimer);
+    fieldTimer = setTimeout(() => {
+      flushField();
+      if (dirty && !conflict) timer = setTimeout(save, 800);
+    }, 500);
+  });
+  let layerDrag = null;
+  app.addEventListener("dragstart", (event) => {
+    layerDrag = event.target.closest("[data-layer]")?.dataset.layer;
+  });
+  app.addEventListener("dragover", (event) => {
+    if (event.target.closest("[data-layer]")) event.preventDefault();
+  });
+  app.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const to = event.target.closest("[data-layer]")?.dataset.layer,
+      a = findElement(data, layerDrag),
+      b = findElement(data, to);
+    if (a && b && a !== b && a.list === b.list) {
+      a.list.splice(a.list.indexOf(a.element), 1);
+      a.list.splice(a.list.indexOf(b.element), 0, a.element);
+      changed();
+    }
+    layerDrag = null;
+  });
+  function snapGeometry(item, g) {
+    if (!snap || item.parent) return g;
+    const b = board(),
+      r = rotatedBounds(g, b),
+      xTargets = [
+        0,
+        b.width / 2,
+        b.width,
+        (b.width - Math.min(b.width, b.gridWidth)) / 2,
+        (b.width + Math.min(b.width, b.gridWidth)) / 2,
+      ],
+      yTargets = [0, b.height / 2, b.height];
+    for (const guide of b.guides)
+      (guide.axis === "x" ? xTargets : yTargets).push(guide.position);
+    for (const el of data.elements) {
+      if (selection.has(el.id) || !resolve(el, mode).visible) continue;
+      const o = rotatedBounds(resolve(el, mode).geometry, b);
+      xTargets.push(o.x, o.x + o.width / 2, o.x + o.width);
+      yTargets.push(o.y, o.y + o.height / 2, o.y + o.height);
+    }
+    if (grid) {
+      const start = (b.width - Math.min(b.width, b.gridWidth)) / 2 + b.margin,
+        step = (Math.min(b.width, b.gridWidth) - 2 * b.margin + b.gutter) / 12;
+      for (let c = 0; c <= 12; c++) xTargets.push(start + c * step);
+    }
+    const nearest = (points, targets, axis) => {
+      let delta = 6 / zoom,
+        found = 0,
+        at = null;
+      for (const a of points)
+        for (const b of targets)
+          if (Math.abs(b - a) < delta) {
+            delta = Math.abs(b - a);
+            found = b - a;
+            at = b;
+          }
+      if (at !== null) smartLines.push({ axis, position: at });
+      return found;
+    };
+    smartLines = [];
+    return {
+      ...g,
+      x: g.x + nearest([r.x, r.x + r.width / 2, r.x + r.width], xTargets, "x"),
+      y:
+        g.y + nearest([r.y, r.y + r.height / 2, r.y + r.height], yTargets, "y"),
+    };
+  }
+  workspace.addEventListener("pointerdown", (event) => {
+    if (
+      event.button !== 0 ||
+      preview ||
+      event.target.closest('[contenteditable="true"]')
+    )
+      return;
+    flushField();
+    history.push(data);
+    if (space) {
+      gesture = {
+        kind: "pan",
+        x: event.clientX,
+        y: event.clientY,
+        left: workspace.scrollLeft,
+        top: workspace.scrollTop,
+      };
+      workspace.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    const ruler = event.target.closest(".zero-ruler-x,.zero-ruler-y");
+    if (ruler) {
+      const b = copy(data),
+        r = canvas.getBoundingClientRect(),
+        axis = ruler.classList.contains("zero-ruler-x") ? "x" : "y";
+      board().guides.push({
+        axis,
+        position: Math.round(
+          (axis === "x" ? event.clientX - r.left : event.clientY - r.top) /
+            zoom,
+        ),
+      });
+      gesture = {
+        kind: "guide",
+        original: copy(board().guides.at(-1)),
+        index: board().guides.length - 1,
+        x: event.clientX,
+        y: event.clientY,
+        before: b,
+      };
+      workspace.setPointerCapture(event.pointerId);
+      drawCanvas();
+      return;
+    }
+    const guide = event.target.closest("[data-guide]");
+    if (guide) {
+      gesture = {
+        kind: "guide",
+        index: Number(guide.dataset.guide),
+        x: event.clientX,
+        y: event.clientY,
+        before: copy(data),
+      };
+      workspace.setPointerCapture(event.pointerId);
+      return;
+    }
+    let node = event.target.closest("[data-ze]");
+    const handle = event.target.closest("[data-handle]")?.dataset.handle,
+      overlay = event.target.closest("[data-for]");
+    let item = overlay
+      ? findElement(data, overlay.dataset.for)
+      : node && findElement(data, node.dataset.ze);
+    if (overlay)
+      node = canvas.querySelector(`[data-ze="${overlay.dataset.for}"]`);
+    if (
+      item?.parent &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !selection.has(item.element.id)
+    ) {
+      let ancestor = item.parent;
+      while (
+        findElement(data, ancestor.id)?.parent &&
+        !selection.has(ancestor.id)
+      )
+        ancestor = findElement(data, ancestor.id).parent;
+      item = findElement(data, ancestor.id);
+      node = canvas.querySelector(`[data-ze="${ancestor.id}"]`);
+    }
+
+    if (item && !item.element.locked) {
+      if (event.shiftKey && !handle) {
+        if (selection.has(item.element.id)) selection.delete(item.element.id);
+        else selection.add(item.element.id);
+      } else if (!selection.has(item.element.id))
+        selection = new Set([item.element.id]);
+      const snapshots = selected()
+        .filter((i) => !i.element.locked)
+        .filter((i) => {
+          let p = i.parent;
+          while (p) {
+            if (selection.has(p.id)) return false;
+            p = findElement(data, p.id)?.parent;
+          }
+          return true;
+        })
+        .map((i) => ({
+          id: i.element.id,
+          g: {
+            ...copy(resolve(i.element, mode).geometry),
+            ...(resolve(i.element, mode).style.autoHeight
+              ? {
+                  height: canvas.querySelector(`[data-ze="${i.element.id}"]`)
+                    .offsetHeight,
+                }
+              : {}),
+          },
+          rotation: parentRotation(i),
+        }));
+      const box = node.getBoundingClientRect(),
+        gg = resolve(item.element, mode).geometry,
+        corner = rotatePoint(
+          (0.5 - gg.originX) * gg.width,
+          (0.5 - gg.originY) * gg.height,
+          gg.rotation + parentRotation(item),
+        ),
+        cx = box.left + box.width / 2 - corner.x * zoom,
+        cy = box.top + box.height / 2 - corner.y * zoom;
+      gesture = {
+        kind: handle === "rotate" ? "rotate" : handle ? "resize" : "drag",
+        handle,
+        x: event.clientX,
+        y: event.clientY,
+        before: copy(data),
+        snapshots,
+        cx,
+        cy,
+        angle:
+          (Math.atan2(event.clientY - cy, event.clientX - cx) * 180) / Math.PI,
+      };
+      render();
+    } else {
+      if (!event.shiftKey) selection.clear();
+      const r = canvas.getBoundingClientRect();
+      gesture = {
+        kind: "marquee",
+        x: event.clientX,
+        y: event.clientY,
+        startX: (event.clientX - r.left) / zoom,
+        startY: (event.clientY - r.top) / zoom,
+      };
+      render();
+    }
+    workspace.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  function updatePointer(event) {
+    if (!gesture) return;
+    const task = gesture;
+    const dx = event.clientX - task.x,
+      dy = event.clientY - task.y;
+    if (task.kind === "pan") {
+      workspace.scrollLeft = task.left - dx;
+      workspace.scrollTop = task.top - dy;
+      return;
+    }
+    if (task.kind === "guide") {
+      const original =
+          task.original || task.before.artboards[mode].guides[task.index],
+        g = board().guides[task.index];
+      g.position = Math.round(
+        original.position + (original.axis === "x" ? dx : dy) / zoom,
+      );
+      const line = $(`.zero-guides [data-guide="${task.index}"]`);
+      if (line) line.style[g.axis === "x" ? "left" : "top"] = g.position + "px";
+      return;
+    }
+    if (task.kind === "marquee") {
+      const box = $(".zero-marquee");
+      box.hidden = false;
+      box.style.cssText = `left:${task.startX + Math.min(0, dx / zoom)}px;top:${task.startY + Math.min(0, dy / zoom)}px;width:${Math.abs(dx / zoom)}px;height:${Math.abs(dy / zoom)}px`;
+      task.end = {
+        x: task.startX + Math.min(0, dx / zoom),
+        y: task.startY + Math.min(0, dy / zoom),
+        width: Math.abs(dx / zoom),
+        height: Math.abs(dy / zoom),
+      };
+      return;
+    }
+    for (const snapshot of task.snapshots) {
+      const item = findElement(data, snapshot.id);
+      if (!item) continue;
+      const d = screenDelta(dx, dy, zoom, snapshot.rotation);
+      let next;
+      if (task.kind === "resize") {
+        if (
+          /[ns]/.test(task.handle) &&
+          resolve(item.element, mode).style.autoHeight
+        )
+          setValue(item.element, mode, "style", "autoHeight", false);
+        next = resizeGeometry(
+          snapshot.g,
+          d.x,
+          d.y,
+          task.handle,
+          item.element.keepAspect || event.shiftKey,
+        );
+      } else if (task.kind === "rotate")
+        next = {
+          ...snapshot.g,
+          rotation:
+            snapshot.g.rotation +
+            (Math.atan2(event.clientY - task.cy, event.clientX - task.cx) *
+              180) /
+              Math.PI -
+            task.angle,
+        };
+      else
+        next = { ...snapshot.g, x: snapshot.g.x + d.x, y: snapshot.g.y + d.y };
+      if (task.kind === "drag" && !event.altKey)
+        next = snapGeometry(item, next);
+      setGeometry(item.element, next);
+      if (task.kind === "resize" && item.element.type === "group")
+        scaleGroupChildren(
+          item.element,
+          findElement(task.before, snapshot.id).element,
+          mode,
+        );
+    }
+    drawGesture(task);
+  }
+  workspace.addEventListener("pointermove", (event) => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => updatePointer(event));
+  });
+  workspace.addEventListener("pointerup", (event) => {
+    if (!gesture) return;
+    cancelAnimationFrame(frame);
+    updatePointer(event);
+    const task = gesture;
+    gesture = null;
+    if (task.kind === "marquee" && task.end) {
+      const q = task.end;
+      for (const el of data.elements) {
+        const e = resolve(el, mode),
+          r = rect(e.geometry, board());
+        if (
+          !el.locked &&
+          e.visible &&
+          r.x >= q.x &&
+          r.y >= q.y &&
+          r.x + r.width <= q.x + q.width &&
+          r.y + r.height <= q.y + q.height
+        )
+          selection.add(el.id);
+      }
+      $(".zero-marquee").hidden = true;
+      render();
+    } else if (
+      task.before &&
+      JSON.stringify(task.before) !== JSON.stringify(data)
+    ) {
+      if (task.kind === "resize")
+        for (const snapshot of task.snapshots) {
+          const item = findElement(data, snapshot.id);
+          if (item?.element.type === "group")
+            scaleGroupChildren(
+              item.element,
+              findElement(task.before, snapshot.id).element,
+              mode,
+            );
+        }
+      changed();
+    } else render();
+    if (workspace.hasPointerCapture(event.pointerId))
+      workspace.releasePointerCapture(event.pointerId);
+  });
+  workspace.addEventListener("pointercancel", () => {
+    cancelAnimationFrame(frame);
+    if (gesture?.before) data = gesture.before;
+    gesture = null;
+    render();
+  });
+  app.addEventListener("contextmenu", (event) => {
+    const node = event.target.closest("[data-ze],[data-layer],[data-for]");
+    if (!node) return;
+    const id = node.dataset.ze || node.dataset.layer || node.dataset.for;
+    event.preventDefault();
+    if (!selection.has(id)) selection = new Set([id]);
+    render();
+    const menu = $("#zero-context");
+    menu.hidden = false;
+    menu.style.left = Math.min(event.clientX, innerWidth - 180) + "px";
+    menu.style.top = Math.min(event.clientY, innerHeight - 320) + "px";
+  });
+  workspace.addEventListener("dblclick", (event) => {
+    if (event.target.closest(".zero-ruler-x,.zero-ruler-y")) {
+      const bounds = canvas.getBoundingClientRect(),
+        axis = event.target.closest(".zero-ruler-x") ? "x" : "y";
+      board().guides.push({
+        axis,
+        position: Math.round(
+          (axis === "x"
+            ? event.clientX - bounds.left
+            : event.clientY - bounds.top) / zoom,
+        ),
+      });
+      changed();
+      return;
+    }
+    const node = event.target.closest("[data-ze]"),
+      item = node && findElement(data, node.dataset.ze);
+    if (!item || item.element.locked || item.element.type !== "text" || preview)
+      return;
+    selection = new Set([item.element.id]);
+    node.querySelectorAll(".zero-handle").forEach((n) => n.remove());
+    node.contentEditable = "true";
+    node.focus();
+    node.onblur = () => {
+      const runs = [];
+      const walk = (n, marks = {}) => {
+        if (n.nodeType === 3) {
+          if (n.textContent) runs.push({ text: n.textContent, ...marks });
+          return;
+        }
+        const tag = n.tagName?.toLowerCase();
+        if (tag === "br") {
+          runs.push({ text: "\n" });
+          return;
+        }
+        const next = {
+          ...marks,
+          ...(["b", "strong"].includes(tag) ? { bold: true } : {}),
+          ...(["i", "em"].includes(tag) ? { italic: true } : {}),
+          ...(tag === "u" ? { underline: true } : {}),
+        };
+        for (const child of n.childNodes) walk(child, next);
+        if (["div", "p"].includes(tag)) runs.push({ text: "\n" });
+      };
+      for (const child of node.childNodes) walk(child);
+      setValue(item.element, "desktop", null, "runs", runs);
+      setValue(item.element, "desktop", null, "content", node.innerText);
+      changed();
+    };
+  });
+  $(".zero-brand").onclick = async (event) => {
+    event.preventDefault();
+    await save();
+    if (
+      dirty &&
+      !window.confirm("Изменения не сохранены. Вернуться к странице?")
+    )
+      return;
+    location.assign(`/projects/${projectId}/pages/${pageId}/edit`);
+  };
+  const onKey = (event) => {
+    const editing =
+      event.target instanceof Element &&
+      event.target.closest('input,textarea,select,[contenteditable="true"]');
+    if (editing) return;
+    const mod = event.metaKey || event.ctrlKey,
+      key = event.key.toLowerCase();
+    if (event.code === "Space") {
+      space = true;
+      event.preventDefault();
+      return;
+    }
+    if (key === "escape") {
+      if (gesture?.before) data = gesture.before;
+      gesture = null;
+      selection.clear();
+      $("#zero-context").hidden = true;
+      render();
+      return;
+    }
+    const shortcut = mod
+      ? {
+          z: event.shiftKey ? "redo" : "undo",
+          y: "redo",
+          s: "save",
+          c: "copy",
+          v: "paste",
+          d: "duplicate",
+          g: event.shiftKey ? "ungroup" : "group",
+        }[key]
+      : null;
+    if (shortcut) {
+      event.preventDefault();
+      action(shortcut);
+      return;
+    }
+    if (mod && key === "a") {
+      event.preventDefault();
+      selection = new Set(
+        data.elements.filter((el) => !el.locked).map((el) => el.id),
+      );
+      render();
+      return;
+    }
+    if (["delete", "backspace"].includes(key)) {
+      event.preventDefault();
+      action("delete");
+      return;
+    }
+    if (["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key)) {
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      for (const i of selected()) {
+        if (i.element.locked) continue;
+        const g = resolve(i.element, mode).geometry,
+          k = ["arrowleft", "arrowright"].includes(key) ? "x" : "y";
+        setValue(
+          i.element,
+          mode,
+          "geometry",
+          k,
+          g[k] + (["arrowleft", "arrowup"].includes(key) ? -step : step),
+        );
+      }
+      changed();
+    }
+  };
+  const onUp = (event) => {
+      if (event.code === "Space") space = false;
+    },
+    beforeUnload = (e) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+  document.addEventListener("keydown", onKey);
+  document.addEventListener("keyup", onUp);
+  window.addEventListener("beforeunload", beforeUnload);
+  window.addEventListener(
+    "pagehide",
+    () => {
+      destroyed = true;
+      clearTimeout(timer);
+      clearTimeout(fieldTimer);
+      cancelAnimationFrame(frame);
+      channel.close();
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keyup", onUp);
+      window.removeEventListener("beforeunload", beforeUnload);
+    },
+    { once: true },
+  );
+  channel.onmessage = (event) => {
+    if (
+      event.data?.type === "zero:saved" &&
+      event.data.blockId === blockId &&
+      event.data.version > version
+    ) {
+      conflict = true;
+      clearTimeout(timer);
+      $('[data-action="rebase"]').hidden = false;
+      status("Zero Block сохранён в другом окне · проверьте конфликт");
+    }
+  };
+  const fit = Math.min(
+    (workspace.clientWidth - 160) / board().width,
+    (workspace.clientHeight - 160) / board().height,
+    1,
+  );
+  zoom = [0.5, 0.75, 1].filter((v) => v <= fit).at(-1) || 0.5;
+  $("#zero-zoom").value = String(zoom);
+  render();
+}

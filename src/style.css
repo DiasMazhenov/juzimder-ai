@@ -169,3 +169,7 @@
 .block-list .block-media svg{width:40px;height:40px;max-width:100%;fill:currentColor}
 .block-list .block-media svg.tabler-editor-icon{fill:none}
 #custom-code-dialog{max-width:900px;width:min(900px,calc(100% - 32px));max-height:92dvh;overflow-y:auto}#custom-code-dialog textarea{width:100%;min-height:120px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;tab-size:2;resize:vertical}#custom-code-dialog label{margin:16px 0}#custom-code-preview-frame{background:#fff}#edit-custom-code{width:calc(100% - 32px);margin:12px 16px}
+
+#quick-edit[data-zero="true"] > :not(#edit-zero-block):not(#zero-info){display:none}
+
+.editor-shell[data-zero-selected="true"] #styles,.editor-shell[data-zero-selected="true"] #traits,.editor-shell[data-zero-selected="true"] #ai-component-editor{display:none}

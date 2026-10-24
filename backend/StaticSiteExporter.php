@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Juzimder;
+require_once __DIR__ . '/ZeroBlockRenderer.php';
 
 final class StaticSiteExporter {
     private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','time'];
@@ -83,6 +84,7 @@ final class StaticSiteExporter {
             $html = str_replace('url(&quot;'.$path.'&quot;)', 'url(&quot;data:'.$asset['mime'].';base64,'.base64_encode($asset['content']).'&quot;)', $html);
             $html = str_replace('url("'.$path.'")', 'url("data:'.$asset['mime'].';base64,'.base64_encode($asset['content']).'")', $html);
             $html = str_replace('src="' . self::escape($path) . '"', 'src="data:' . $asset['mime'] . ';base64,' . base64_encode($asset['content']) . '"', $html);
+            $html = str_replace('srcset="' . self::escape($path) . '"', 'srcset="data:' . $asset['mime'] . ';base64,' . base64_encode($asset['content']) . '"', $html);
         }
         return $html;
     }
@@ -155,6 +157,7 @@ final class StaticSiteExporter {
     private static function renderComponent(mixed $component, int $depth, array $assetPaths = [], ?string $nonce = null): string {
         if (!$component instanceof \stdClass || $depth > 35) throw new Problem(422, 'Невозможно экспортировать дерево компонентов.');
         $type = is_string($component->type ?? null) ? $component->type : '';
+        if ($type === 'zero-block') return ZeroBlockRenderer::render($component->zeroData, $component->attributes->id);
         if (in_array($type, ['head'], true)) return '';
         if ($type === 'textnode') return self::escape(is_string($component->content ?? null) ? $component->content : '');
         if (in_array($type, ['custom-code','countdown'], true)) {

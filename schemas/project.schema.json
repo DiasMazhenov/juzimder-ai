@@ -47,9 +47,10 @@
     "component": {
       "type": "object",
       "properties": {
+        "zeroData": { "$ref": "#/$defs/zeroData" },
         "type": {
           "type": "string",
-          "enum": ["", "default", "wrapper", "text", "textnode", "image", "link", "link-block", "head", "form", "input", "textarea", "select", "option", "checkbox", "radio", "button", "label", "custom-code", "countdown"]
+          "enum": ["", "default", "wrapper", "text", "textnode", "image", "link", "link-block", "head", "form", "input", "textarea", "select", "option", "checkbox", "radio", "button", "label", "custom-code", "countdown", "zero-block"]
         },
         "tagName": {
           "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label", "form", "input", "textarea", "select", "option", "details", "summary", "time"]
@@ -69,7 +70,910 @@
         },
         "head": { "$ref": "#/$defs/component" },
         "docEl": { "$ref": "#/$defs/component" }
+      },
+      "allOf": [{"if": {"properties": {"type": {"const": "zero-block"}}, "required": ["type"]}, "then": {"required": ["zeroData", "attributes"], "properties": {"attributes": {"required": ["id"]}, "components": {"maxItems": 0}, "content": {"const": ""}}}, "else": {"not": {"required": ["zeroData"]}}}]
+    },
+    "zeroGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": -20000,
+          "maximum": 20000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -20000,
+          "maximum": 20000
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": -20000,
+          "maximum": 20000
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "anchorX": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "anchorY": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "originX": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "originY": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "container": {
+          "enum": [
+            "grid",
+            "window"
+          ]
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "rotation",
+        "width",
+        "height",
+        "anchorX",
+        "anchorY",
+        "originX",
+        "originY",
+        "container"
+      ]
+    },
+    "zeroGeometryOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": -20000,
+          "maximum": 20000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -20000,
+          "maximum": 20000
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": -20000,
+          "maximum": 20000
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "anchorX": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "anchorY": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "originX": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "originY": {
+          "enum": [
+            0,
+            0.5,
+            1
+          ]
+        },
+        "container": {
+          "enum": [
+            "grid",
+            "window"
+          ]
+        }
       }
+    },
+    "zeroStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "fontWeight": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 900
+        },
+        "lineHeight": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 5
+        },
+        "letterSpacing": {
+          "type": "number",
+          "minimum": -30,
+          "maximum": 100
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "shadowBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "shadowX": {
+          "type": "number",
+          "minimum": -200,
+          "maximum": 200
+        },
+        "shadowY": {
+          "type": "number",
+          "minimum": -200,
+          "maximum": 200
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+        },
+        "shadowColor": {
+          "type": "string",
+          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+        },
+        "hoverFill": {
+          "type": "string",
+          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+        },
+        "hoverColor": {
+          "type": "string",
+          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+        },
+        "fontFamily": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[a-zA-Z0-9 ,'-]+$"
+        },
+        "textAlign": {
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "justify"
+          ]
+        },
+        "textDecoration": {
+          "enum": [
+            "none",
+            "underline",
+            "line-through"
+          ]
+        },
+        "objectFit": {
+          "enum": [
+            "cover",
+            "contain",
+            "fill",
+            "none"
+          ]
+        },
+        "objectPosition": {
+          "enum": [
+            "center",
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        },
+        "autoHeight": {
+          "type": "boolean"
+        }
+      }
+    },
+    "zeroElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ze-[a-zA-Z0-9_-]{1,80}$"
+        },
+        "type": {
+          "enum": [
+            "text",
+            "image",
+            "rectangle",
+            "ellipse",
+            "line",
+            "button",
+            "group"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "geometry": {
+          "$ref": "#/$defs/zeroGeometry"
+        },
+        "style": {
+          "$ref": "#/$defs/zeroStyle"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "tag": {
+          "enum": [
+            "p",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6"
+          ]
+        },
+        "src": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$"
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "href": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|#[a-zA-Z0-9_-]*|mailto:[a-zA-Z0-9@._+-]+|tel:[+0-9 -]+)$"
+        },
+        "target": {
+          "enum": [
+            "_self",
+            "_blank"
+          ]
+        },
+        "runs": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": 10000
+              },
+              "bold": {
+                "type": "boolean"
+              },
+              "italic": {
+                "type": "boolean"
+              },
+              "underline": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "text"
+            ]
+          }
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "laptop": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "geometry": {
+                  "$ref": "#/$defs/zeroGeometryOverride"
+                },
+                "style": {
+                  "$ref": "#/$defs/zeroStyle"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "src": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$"
+                }
+              }
+            },
+            "tablet": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "geometry": {
+                  "$ref": "#/$defs/zeroGeometryOverride"
+                },
+                "style": {
+                  "$ref": "#/$defs/zeroStyle"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "src": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$"
+                }
+              }
+            },
+            "landscape": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "geometry": {
+                  "$ref": "#/$defs/zeroGeometryOverride"
+                },
+                "style": {
+                  "$ref": "#/$defs/zeroStyle"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "src": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$"
+                }
+              }
+            },
+            "mobile": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "geometry": {
+                  "$ref": "#/$defs/zeroGeometryOverride"
+                },
+                "style": {
+                  "$ref": "#/$defs/zeroStyle"
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "src": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$"
+                }
+              }
+            }
+          }
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 300,
+          "items": {
+            "$ref": "#/$defs/zeroElement"
+          }
+        },
+        "keepAspect": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name",
+        "geometry",
+        "style",
+        "overrides",
+        "visible",
+        "locked"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "src"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "group"
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "children"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "zeroData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "artboards": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "desktop": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "height": {
+                  "type": "number",
+                  "minimum": 40,
+                  "maximum": 20000
+                },
+                "gridWidth": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 2400
+                },
+                "margin": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "gutter": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "width": {
+                  "const": 1200
+                },
+                "background": {
+                  "type": "string",
+                  "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+                },
+                "overflow": {
+                  "enum": [
+                    "hidden",
+                    "visible"
+                  ]
+                },
+                "guides": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "axis": {
+                        "enum": [
+                          "x",
+                          "y"
+                        ]
+                      },
+                      "position": {
+                        "type": "number",
+                        "minimum": -20000,
+                        "maximum": 20000
+                      }
+                    },
+                    "required": [
+                      "axis",
+                      "position"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "height",
+                "gridWidth",
+                "margin",
+                "gutter",
+                "width",
+                "background",
+                "overflow",
+                "guides"
+              ]
+            },
+            "laptop": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "height": {
+                  "type": "number",
+                  "minimum": 40,
+                  "maximum": 20000
+                },
+                "gridWidth": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 2400
+                },
+                "margin": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "gutter": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "width": {
+                  "const": 980
+                },
+                "background": {
+                  "type": "string",
+                  "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+                },
+                "overflow": {
+                  "enum": [
+                    "hidden",
+                    "visible"
+                  ]
+                },
+                "guides": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "axis": {
+                        "enum": [
+                          "x",
+                          "y"
+                        ]
+                      },
+                      "position": {
+                        "type": "number",
+                        "minimum": -20000,
+                        "maximum": 20000
+                      }
+                    },
+                    "required": [
+                      "axis",
+                      "position"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "height",
+                "gridWidth",
+                "margin",
+                "gutter",
+                "width",
+                "background",
+                "overflow",
+                "guides"
+              ]
+            },
+            "tablet": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "height": {
+                  "type": "number",
+                  "minimum": 40,
+                  "maximum": 20000
+                },
+                "gridWidth": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 2400
+                },
+                "margin": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "gutter": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "width": {
+                  "const": 640
+                },
+                "background": {
+                  "type": "string",
+                  "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+                },
+                "overflow": {
+                  "enum": [
+                    "hidden",
+                    "visible"
+                  ]
+                },
+                "guides": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "axis": {
+                        "enum": [
+                          "x",
+                          "y"
+                        ]
+                      },
+                      "position": {
+                        "type": "number",
+                        "minimum": -20000,
+                        "maximum": 20000
+                      }
+                    },
+                    "required": [
+                      "axis",
+                      "position"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "height",
+                "gridWidth",
+                "margin",
+                "gutter",
+                "width",
+                "background",
+                "overflow",
+                "guides"
+              ]
+            },
+            "landscape": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "height": {
+                  "type": "number",
+                  "minimum": 40,
+                  "maximum": 20000
+                },
+                "gridWidth": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 2400
+                },
+                "margin": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "gutter": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "width": {
+                  "const": 480
+                },
+                "background": {
+                  "type": "string",
+                  "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+                },
+                "overflow": {
+                  "enum": [
+                    "hidden",
+                    "visible"
+                  ]
+                },
+                "guides": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "axis": {
+                        "enum": [
+                          "x",
+                          "y"
+                        ]
+                      },
+                      "position": {
+                        "type": "number",
+                        "minimum": -20000,
+                        "maximum": 20000
+                      }
+                    },
+                    "required": [
+                      "axis",
+                      "position"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "height",
+                "gridWidth",
+                "margin",
+                "gutter",
+                "width",
+                "background",
+                "overflow",
+                "guides"
+              ]
+            },
+            "mobile": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "height": {
+                  "type": "number",
+                  "minimum": 40,
+                  "maximum": 20000
+                },
+                "gridWidth": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 2400
+                },
+                "margin": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "gutter": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 200
+                },
+                "width": {
+                  "const": 360
+                },
+                "background": {
+                  "type": "string",
+                  "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+                },
+                "overflow": {
+                  "enum": [
+                    "hidden",
+                    "visible"
+                  ]
+                },
+                "guides": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "axis": {
+                        "enum": [
+                          "x",
+                          "y"
+                        ]
+                      },
+                      "position": {
+                        "type": "number",
+                        "minimum": -20000,
+                        "maximum": 20000
+                      }
+                    },
+                    "required": [
+                      "axis",
+                      "position"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "height",
+                "gridWidth",
+                "margin",
+                "gutter",
+                "width",
+                "background",
+                "overflow",
+                "guides"
+              ]
+            }
+          },
+          "required": [
+            "desktop",
+            "laptop",
+            "tablet",
+            "landscape",
+            "mobile"
+          ]
+        },
+        "elements": {
+          "type": "array",
+          "maxItems": 300,
+          "items": {
+            "$ref": "#/$defs/zeroElement"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "artboards",
+        "elements"
+      ]
     }
   }
 }

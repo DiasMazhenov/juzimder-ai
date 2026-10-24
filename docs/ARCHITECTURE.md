@@ -18,3 +18,8 @@ API: GET session, POST register/login/logout, GET/POST projects, GET/PUT project
 Обычное сохранение не меняет опубликованный сайт. Preview редактора остаётся sandbox iframe; для media preview встраивает авторизованные растровые байты как data URLs. JSON export — переносимый документ с проектными ссылками на изображения. Явный publish рендерит static HTML/CSS и сохраняет используемые изображения в base64-виде внутри immutable snapshot; public router не запускает admin session и отдаёт только главную, page slugs, общий CSS и опубликованные media paths.
 
 GrapesJS API сверены с официальными docs: https://grapesjs.com/docs/modules/Storage.html и https://grapesjs.com/docs/api/editor.html , Context7 /grapesjs/grapesjs и исходники установленной 0.23.8. Для сохранения используется полный Project Data, а не getHtml/getCss. HTML/CSS показываются в sandbox preview; при подтверждённом AI-импорте Core преобразует проверенный HTML/CSS в editable component models и project style rules, которые сохраняются в том же Project Data envelope.
+
+
+## Absolute Zero Block · 00.00.098
+
+Zero Block расширяет Core компонентом и одним каноническим zeroData; отдельная страница Zero Editor использует обычный session/API. backend/ZeroBlock.php отвечает за policy/scoped replacement; ZeroBlockRenderer.php — static HTML/CSS. Сохранение проходит через прежний Store::save/CAS/revisions, а экспорт/публикация — через StaticSiteExporter. JS-модули src/zero разделяют модель, affine transforms, group operations, renderer, Inspector и editor lifecycle. BroadcastChannel только уведомляет; сохранённый серверный документ остаётся authority. Контракт, формулы и границы приёмки — ZERO_BLOCK.md.

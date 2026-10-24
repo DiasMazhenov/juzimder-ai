@@ -5,6 +5,7 @@ require_once __DIR__ . '/ProjectSettings.php';
 require_once __DIR__ . '/IconCatalogue.php';
 require_once __DIR__ . '/BackgroundImage.php';
 require_once __DIR__ . '/CustomCode.php';
+require_once __DIR__ . '/ZeroBlock.php';
 
 final class Problem extends \RuntimeException {
     public function __construct(public int $status, string $message) { parent::__construct($message); }
@@ -13,7 +14,7 @@ final class Document {
     public const MAX_PAGES = 30;
     public const MAX_PAGE_ID_LENGTH = 128;
     public const FRAMES_PER_PAGE = 1;
-    public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head','form','input','textarea','select','option','checkbox','radio','button','label','custom-code','countdown'];
+    public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head','form','input','textarea','select','option','checkbox','radio','button','label','custom-code','countdown','zero-block'];
     public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','time'];
     public static function empty(): array {
         return ['schemaVersion' => 1, 'engine' => 'grapesjs', 'data' => ['assets' => [], 'styles' => [], 'pages' => [['id' => 'home', 'name' => 'Главная', 'frames' => [['component' => ['type' => 'wrapper', 'style' => ['display' => 'flex', 'flex-direction' => 'column'], 'components' => []]]]]]]];
@@ -40,6 +41,12 @@ final class Document {
             $ids[$pageId] = true;
             self::component($frame['component'], 0);
         }
+        $zeroIds = [];
+        $checkZeroIds = function($node) use (&$checkZeroIds, &$zeroIds): void {
+            if (is_string($node->attributes->id ?? null)) { $id=$node->attributes->id;$isZero=($node->type??null)==='zero-block';if(isset($zeroIds[$id])&&($zeroIds[$id]||$isZero))throw new Problem(422,'Стабильные ID Zero Block должны быть уникальны.');$zeroIds[$id]=$isZero; }
+            foreach ($node->components ?? [] as $child) $checkZeroIds($child);
+        };
+        foreach ($pages as $page) { $p=self::objectFields($page);$f=self::objectFields($p['frames'][0]);if($f['component'] instanceof \stdClass)$checkZeroIds($f['component']); }
         $count = 0;
         self::walk($data, 0, $count);
     }
@@ -53,6 +60,11 @@ final class Document {
         foreach (['attributes','style'] as $field) if (array_key_exists($field, $fields) && self::objectFields($fields[$field]) === null) throw new Problem(422,'Некорректное свойство компонента: ' . $field . '.');
         if (array_key_exists('content', $fields) && !is_string($fields['content'])) throw new Problem(422,'Некорректный текст компонента.');
         if (array_key_exists('type', $fields) && (!is_string($fields['type']) || !in_array($fields['type'], self::COMPONENT_TYPES, true))) throw new Problem(422,'Недопустимый тип компонента.');
+        if (($fields['type'] ?? null) === 'zero-block') {
+            $attributes = self::objectFields($fields['attributes'] ?? null) ?? [];
+            if (!is_string($attributes['id'] ?? null) || !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,127}$/D', $attributes['id']) || !empty($fields['components']) || !empty($fields['content'])) throw new Problem(422, 'Zero Block должен иметь стабильный ID и единственный zeroData.');
+            ZeroBlock::validate($fields['zeroData'] ?? null);
+        } elseif (array_key_exists('zeroData', $fields)) throw new Problem(422, 'zeroData допустим только у Zero Block.');
         if (($fields['type'] ?? null) === 'custom-code') {
             if (!is_string($fields['content'] ?? null) || (isset($fields['components']) && $fields['components'] !== [])) throw new Problem(422, 'Custom Code должен хранить только изолированный блок HTML, CSS и JavaScript.');
             CustomCode::decode($fields['content']);

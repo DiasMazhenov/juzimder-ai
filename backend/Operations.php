@@ -4,7 +4,7 @@ namespace Juzimder;
 
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
-    private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','style','components'];
+    private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','style','components','zeroData'];
     private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby'];
     private const STYLE_FIELDS = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
@@ -108,6 +108,11 @@ final class ProjectOperations {
             case 'create_component':
                 self::fields($operation, ['operation','parentId','component','index'], ['operation','parentId','component']);
                 self::create($document, self::identifier($operation->parentId), $operation->component, $operation->index ?? null);
+                return;
+            case 'update_zero_block':
+                self::fields($operation,['operation','pageId','componentId','zeroData'],['operation','pageId','componentId','zeroData']);
+                $draft = ZeroBlock::updated($document,self::identifier($operation->pageId),self::identifier($operation->componentId),$operation->zeroData);
+                $document->data = $draft->data;
                 return;
             case 'update_content':
                 self::fields($operation, ['operation','componentId','content'], ['operation','componentId','content']);

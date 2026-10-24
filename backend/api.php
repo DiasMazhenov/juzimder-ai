@@ -405,6 +405,13 @@ try {
             throw new Problem(502,$failure->userMessage());
         }
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/pages/([A-Za-z0-9_-]{1,128})/zero/([A-Za-z][A-Za-z0-9_-]{0,127})$~D', $path, $zeroMatch) && $method === 'PUT') {
+        if (array_diff(array_keys($body), ['version','zeroData']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию Zero Block.');
+        $project = $store->owned($zeroMatch[1], $user);
+        $document = \Juzimder\ZeroBlock::updated($project['document'], $zeroMatch[2], $zeroMatch[3], $body['zeroData'] ?? null);
+        $saved = $store->save($zeroMatch[1], $user, $body['version'], $document);
+        result(['version'=>$saved['version'], 'zeroData'=>$body['zeroData']]);
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/operations$~D', $path, $operationMatch) && $method === 'POST') {
         if (array_diff(array_keys($body), ['version','operations']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Укажите текущую версию и список операций.');
         $projectId = $operationMatch[1];

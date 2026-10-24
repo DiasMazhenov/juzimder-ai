@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "artboards": {
+    "desktop": {
+      "width": 1200,
+      "height": 650,
+      "background": "#ffffff",
+      "gridWidth": 1200,
+      "margin": 20,
+      "gutter": 20,
+      "overflow": "hidden",
+      "guides": []
+    },
+    "laptop": {
+      "width": 980,
+      "height": 650,
+      "background": "#ffffff",
+      "gridWidth": 980,
+      "margin": 20,
+      "gutter": 20,
+      "overflow": "hidden",
+      "guides": []
+    },
+    "tablet": {
+      "width": 640,
+      "height": 650,
+      "background": "#ffffff",
+      "gridWidth": 640,
+      "margin": 20,
+      "gutter": 20,
+      "overflow": "hidden",
+      "guides": []
+    },
+    "landscape": {
+      "width": 480,
+      "height": 650,
+      "background": "#ffffff",
+      "gridWidth": 480,
+      "margin": 20,
+      "gutter": 20,
+      "overflow": "hidden",
+      "guides": []
+    },
+    "mobile": {
+      "width": 360,
+      "height": 650,
+      "background": "#ffffff",
+      "gridWidth": 360,
+      "margin": 20,
+      "gutter": 20,
+      "overflow": "hidden",
+      "guides": []
+    }
+  },
+  "elements": [
+    {
+      "id": "ze-title",
+      "type": "text",
+      "name": "Текст",
+      "geometry": {
+        "container": "grid",
+        "anchorX": 0,
+        "anchorY": 0,
+        "originX": 0,
+        "originY": 0,
+        "x": 100,
+        "y": 120,
+        "width": 420,
+        "height": 110,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "transparent",
+        "color": "#183e31",
+        "fontSize": 40,
+        "fontFamily": "Arial, sans-serif",
+        "fontWeight": 500,
+        "lineHeight": 1.2,
+        "radius": 0,
+        "opacity": 1,
+        "strokeWidth": 0,
+        "textAlign": "left"
+      },
+      "overrides": {
+        "mobile": {
+          "geometry": {
+            "x": 20,
+            "y": 80,
+            "width": 320,
+            "height": 160
+          },
+          "style": {
+            "fontSize": 34
+          }
+        }
+      },
+      "visible": true,
+      "locked": false,
+      "content": "Hello & Zero"
+    },
+    {
+      "id": "ze-photo",
+      "type": "image",
+      "name": "Фото",
+      "geometry": {
+        "container": "grid",
+        "anchorX": 0,
+        "anchorY": 0,
+        "originX": 0,
+        "originY": 0,
+        "x": 450,
+        "y": 50,
+        "width": 360,
+        "height": 240,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "transparent",
+        "color": "#183e31",
+        "fontSize": 16,
+        "fontFamily": "Arial, sans-serif",
+        "fontWeight": 500,
+        "lineHeight": 1.2,
+        "radius": 0,
+        "opacity": 1,
+        "strokeWidth": 0,
+        "textAlign": "left",
+        "objectFit": "cover"
+      },
+      "overrides": {
+        "mobile": {
+          "geometry": {
+            "x": 20,
+            "y": 300,
+            "width": 320,
+            "height": 200
+          },
+          "src": "https://example.test/mobile.jpg"
+        }
+      },
+      "visible": true,
+      "locked": false,
+      "content": "",
+      "src": "https://example.test/photo.jpg"
+    },
+    {
+      "id": "ze-group",
+      "type": "group",
+      "name": "Группа",
+      "geometry": {
+        "container": "grid",
+        "anchorX": 0,
+        "anchorY": 0,
+        "originX": 0,
+        "originY": 0,
+        "x": 80,
+        "y": 350,
+        "width": 400,
+        "height": 300,
+        "rotation": 0
+      },
+      "style": {
+        "fill": "transparent",
+        "color": "#183e31",
+        "fontSize": 16,
+        "fontFamily": "Arial, sans-serif",
+        "fontWeight": 500,
+        "lineHeight": 1.2,
+        "radius": 0,
+        "opacity": 1,
+        "strokeWidth": 0,
+        "textAlign": "left"
+      },
+      "overrides": {},
+      "visible": true,
+      "locked": false,
+      "children": [
+        {
+          "id": "ze-child",
+          "type": "rectangle",
+          "name": "Прямоугольник",
+          "geometry": {
+            "container": "grid",
+            "anchorX": 0.5,
+            "anchorY": 0,
+            "originX": 0.5,
+            "originY": 0,
+            "x": -20,
+            "y": 10,
+            "width": 240,
+            "height": 180,
+            "rotation": 0
+          },
+          "style": {
+            "fill": "#245b46",
+            "color": "#183e31",
+            "fontSize": 16,
+            "fontFamily": "Arial, sans-serif",
+            "fontWeight": 500,
+            "lineHeight": 1.2,
+            "radius": 0,
+            "opacity": 1,
+            "strokeWidth": 0,
+            "textAlign": "left"
+          },
+          "overrides": {},
+          "visible": true,
+          "locked": false,
+          "content": ""
+        }
+      ]
+    }
+  ]
+}

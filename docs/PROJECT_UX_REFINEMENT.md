@@ -31,3 +31,8 @@ The persistent left column is replaced by one floating Layers/Sections control a
 3. Implement form delivery with server-side validation, rate limits, and SSRF-safe webhook handling before presenting a working form integration.
 4. Add custom code and AI profile management only with isolated preview/security boundaries and server-side secret handling.
 5. Add domain verification and publication routing after the public renderer exists.
+
+
+## Zero Editor · запрос 24.10.2026
+
+Zero Block — отдельная карточка и самостоятельная секция обычной страницы. Внутренние элементы непрозрачны для GrapesJS handles; кнопка «Редактировать Zero Block» открывает специализированный editor на том же origin/8080. Геометрия только absolute; Grid — координатная область. Основное окно обновляется по сохранённой ревизии, несохранённые изменения не заменяются. Во время QA максимум две вкладки (main + Zero/saved view). Полная функциональная спецификация и текущие ограничения — ZERO_BLOCK.md.
