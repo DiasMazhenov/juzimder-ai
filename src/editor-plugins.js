@@ -1,3 +1,4 @@
+import { blockMedia } from './block-media.js';
 import forms from 'grapesjs-plugin-forms';
 import basic from 'grapesjs-blocks-basic';
 import flexbox from 'grapesjs-blocks-flexbox';
@@ -21,8 +22,10 @@ export function exposePluginBlocks(editor,container) {
   for(const id of ['column1','column2','column3','column3-7','flexbox','form','input','textarea','select','checkbox','radio','label']) {
     const block=editor.Blocks.get(id);if(!block)continue;
     const button=document.createElement('button');button.type='button';button.className='block-card';const formBlock=['form','input','textarea','select','checkbox','radio','label'].includes(id);button.dataset.category=formBlock?'Формы':'Компоновка';button.dataset.pluginBlock=id;
+    const media=document.createElement('div');media.className='block-media';media.setAttribute('aria-hidden','true');media.innerHTML=blockMedia(id);button.append(media);
     const title=document.createElement('strong');title.textContent=String(block.getLabel()).replace(/<[^>]*>/g,'');button.append(title);
     const description=document.createElement('small');description.textContent=formBlock?'Поля формы · отправка не подключена':'Редактируемая компоновка GrapesJS';button.append(description);
+    button.title=title.textContent+' — '+description.textContent;
     button.onclick=()=>{const components=editor.addComponents(block.getContent());editor.select(components[0]);};container.append(button);
   }
   const sector=editor.StyleManager.getSectors().find(item=>item.get('name')==='Оформление');

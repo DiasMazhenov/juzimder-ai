@@ -156,3 +156,15 @@
 #image-dialog .asset-card{display:flex;flex-direction:column;align-items:stretch;text-align:left;padding:6px;gap:8px;border:1px solid #3b493e;background:#202823;cursor:pointer}#image-dialog .asset-card[aria-pressed=true]{border:2px solid var(--accent);padding:5px;background:#2b3c30}#image-dialog .asset-card>img{width:100%;height:110px;object-fit:cover;border-radius:5px}#image-dialog .asset-card-info{padding:0 4px 5px}#image-dialog .asset-card-info strong{font-size:11px}#image-dialog .asset-card-info small{font-size:10px}.asset-library-empty{grid-column:1/-1;display:grid;place-items:center;text-align:center;padding:30px;color:var(--muted);font-size:13px;border:1px solid var(--line);border-radius:10px}
 .image-picker-footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.image-picker-footer label{display:block}.image-picker-footer input{width:100%;margin-top:7px}.image-picker-actions{display:flex;align-items:center;gap:10px;margin-top:16px}.image-picker-actions>span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%}.image-picker-actions button{font-size:12px;padding:11px 16px}#image-dialog #image-form{min-height:180px;padding:14px 0;border:0}#image-dialog #image-form input{width:100%}
 @media(max-width:650px){#image-dialog{padding:16px}.asset-upload-zone{align-items:stretch;flex-direction:column;padding:16px}#image-dialog .asset-library{grid-template-columns:repeat(2,minmax(0,1fr));max-height:260px}.image-picker-actions{flex-wrap:wrap}.image-picker-actions>span{flex-basis:100%;max-width:100%}.image-picker-actions button{flex:1}}
+
+/* Compact block catalogue; native plugin artwork stays separate from page content. */
+.block-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+.block-list .block-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;aspect-ratio:1;min-width:0;width:100%;height:auto;margin:0;padding:12px 8px;text-align:center;position:relative;border:1px solid var(--border,#344239);border-radius:10px;background:transparent;overflow:hidden}
+.block-list .block-card[hidden]{display:none}
+.block-list .block-card:hover{background:#26392e;border-color:#9fd2b5}
+.block-list .block-card:focus-visible{outline:2px solid #9fd2b5;outline-offset:2px}
+.block-list .block-card strong{font-size:12px;line-height:1.35;white-space:normal;max-width:100%;margin:0}
+.block-list .block-card small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.block-list .block-media{display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:#a9cfb8;flex:none}
+.block-list .block-media svg{width:40px;height:40px;max-width:100%;fill:currentColor}
+.block-list .block-media svg.tabler-editor-icon{fill:none}
