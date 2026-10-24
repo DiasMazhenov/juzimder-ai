@@ -21,6 +21,7 @@ import {
   suggestBreakpointWidth,
   resolve,
   setValue,
+  findElement,
   rect,
   anchorGeometry,
   rotatePoint,
@@ -35,6 +36,7 @@ import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
 import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
+import { moveLayer } from "../src/zero/model/operations.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
 );
@@ -494,4 +496,75 @@ test("group and ungroup preserve rotated world matrices across all five modes", 
       worldMatrix(d, id, mode).forEach((v, i) =>
         epsilon(v, transformed[mode][id][i]),
       );
+});
+
+test("moving layers between root and groups preserves absolute placement at every breakpoint", () => {
+  const d = structuredClone(fixture);
+  d.elements[0].geometry.rotation = 19;
+  d.elements[2].geometry.rotation = -23;
+  const modes = Object.keys(d.artboards),
+    ids = ["ze-title", "ze-child"],
+    capture = () =>
+      Object.fromEntries(
+        modes.map((mode) => [
+          mode,
+          Object.fromEntries(ids.map((id) => [id, worldMatrix(d, id, mode)])),
+        ]),
+      ),
+    assertSame = (before) => {
+      for (const mode of modes)
+        for (const id of ids)
+          worldMatrix(d, id, mode).forEach((value, index) =>
+            epsilon(value, before[mode][id][index]),
+          );
+    };
+
+  let before = capture();
+  assert.equal(moveLayer(d, "ze-title", "ze-group", 1), true);
+  assert.equal(findElement(d, "ze-title").parent.id, "ze-group");
+  assertSame(before);
+
+  before = capture();
+  assert.equal(moveLayer(d, "ze-child", null, 1), true);
+  assert.equal(findElement(d, "ze-child").parent, null);
+  assertSame(before);
+});
+
+test("layer move supports sibling reordering and rejects cycles, locked ancestors, and excessive nesting", () => {
+  const d = structuredClone(fixture),
+    photo = d.elements[1],
+    group = d.elements[2];
+  assert.equal(moveLayer(d, photo.id, "ze-group", 0), true);
+  assert.deepEqual(
+    group.children.map((element) => element.id),
+    ["ze-photo", "ze-child"],
+  );
+  assert.equal(moveLayer(d, "ze-child", "ze-group", 0), true);
+  assert.deepEqual(
+    group.children.map((element) => element.id),
+    ["ze-child", "ze-photo"],
+  );
+  assert.throws(
+    () => moveLayer(d, "ze-group", "ze-group", 0),
+    /самой себя/,
+  );
+  group.locked = true;
+  assert.throws(
+    () => moveLayer(d, "ze-child", null, 0),
+    /Разблокируйте/,
+  );
+  group.locked = false;
+  const sourceGroup = createElement("group");
+  d.elements.push(sourceGroup);
+  let parent = group;
+  for (let depth = 0; depth < 7; depth++) {
+    const nested = createElement("group");
+    nested.id = `ze-nested-${depth}`;
+    parent.children.push(nested);
+    parent = nested;
+  }
+  assert.throws(
+    () => moveLayer(d, sourceGroup.id, parent.id, 0),
+    /восьми уровней/,
+  );
 });

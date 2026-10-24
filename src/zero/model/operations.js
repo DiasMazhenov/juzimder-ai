@@ -7,12 +7,121 @@ import {
   flatten,
   rotatePoint,
 } from "./model.js";
-import { rotatedBounds } from "./transforms.js";
+import { multiply, rotatedBounds, worldMatrix } from "./transforms.js";
 const selected = (data, ids) =>
   ids.map((id) => findElement(data, id)).filter(Boolean);
+const identity = [1, 0, 0, 1, 0, 0];
+function invert(matrix) {
+  const [a, b, c, d, e, f] = matrix,
+    determinant = a * d - b * c;
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-9)
+    throw new Error("Нельзя переместить слой в вырожденную систему координат.");
+  return [
+    d / determinant,
+    -b / determinant,
+    -c / determinant,
+    a / determinant,
+    (c * f - d * e) / determinant,
+    (b * e - a * f) / determinant,
+  ];
+}
+function nestedGroupDepth(element) {
+  if (element.type !== "group") return 0;
+  return 1 + Math.max(0, ...(element.children || []).map(nestedGroupDepth));
+}
+function localGeometry(data, element, parent, mode, world, parentWorld) {
+  const g = resolve(element, mode).geometry,
+    local = parent ? multiply(invert(parentWorld), world) : world,
+    rotation = Math.atan2(local[1], local[0]),
+    cosine = Math.cos(rotation),
+    sine = Math.sin(rotation),
+    originX = g.originX * g.width,
+    originY = g.originY * g.height,
+    x = local[4] - originX + cosine * originX - sine * originY,
+    y = local[5] - originY + sine * originX + cosine * originY,
+    pg = parent && resolve(parent, mode).geometry,
+    board = parent
+      ? { width: pg.width, height: pg.height }
+      : data.artboards[mode],
+    regionWidth = parent
+      ? board.width
+      : g.container === "grid"
+        ? Math.min(board.width, board.gridWidth)
+        : board.width,
+    start = parent || g.container === "window"
+      ? 0
+      : (board.width - regionWidth) / 2,
+    round = (value) => Math.round(value * 1e6) / 1e6;
+  return {
+    ...g,
+    x: round(x - start - g.anchorX * regionWidth + originX),
+    y: round(y - g.anchorY * board.height + originY),
+    rotation: round((rotation * 180) / Math.PI),
+  };
+}
 function writeGeometry(element, mode, geometry) {
   if (mode === "desktop") element.geometry = geometry;
   else element.overrides[mode] = { ...element.overrides[mode], geometry };
+}
+export function moveLayer(data, id, parentId, index) {
+  const source = findElement(data, id),
+    destination = parentId ? findElement(data, parentId) : null;
+  if (!source) throw new Error("Слой для перемещения не найден.");
+  if (parentId && destination?.element.type !== "group")
+    throw new Error("Слой можно поместить только в группу.");
+  if (source.element.locked)
+    throw new Error("Разблокируйте слой и его группу перед перемещением.");
+  if (destination?.element.locked)
+    throw new Error("Разблокируйте целевую группу перед перемещением.");
+  let ancestor = destination?.element || null,
+    destinationDepth = 0;
+  while (ancestor) {
+    if (ancestor.id === id)
+      throw new Error("Нельзя поместить группу внутрь самой себя.");
+    if (ancestor.locked)
+      throw new Error("Разблокируйте целевую группу перед перемещением.");
+    destinationDepth++;
+    ancestor = findElement(data, ancestor.id)?.parent || null;
+  }
+  if (destinationDepth + nestedGroupDepth(source.element) > 8)
+    throw new Error("Не более восьми уровней групп.");
+  const nextList = destination ? destination.element.children : data.elements;
+  if (!Array.isArray(nextList)) throw new Error("У целевой группы нет списка слоёв.");
+  const oldIndex = source.list.indexOf(source.element),
+    boundedIndex = Math.max(0, Math.min(nextList.length, Math.trunc(index))),
+    nextIndex = source.list === nextList && oldIndex < boundedIndex
+      ? boundedIndex - 1
+      : boundedIndex;
+  if (source.list === nextList && oldIndex === nextIndex) return false;
+  let sourceAncestor = source.parent;
+  while (sourceAncestor) {
+    if (sourceAncestor.locked)
+      throw new Error("Разблокируйте слой и его группу перед перемещением.");
+    sourceAncestor = findElement(data, sourceAncestor.id)?.parent || null;
+  }
+  const modes = Object.keys(data.artboards),
+    matrices = new Map(
+      modes.map((mode) => [
+        mode,
+        {
+          world: worldMatrix(data, id, mode),
+          parent: destination
+            ? worldMatrix(data, destination.element.id, mode)
+            : identity,
+        },
+      ]),
+    );
+  source.list.splice(oldIndex, 1);
+  nextList.splice(nextIndex, 0, source.element);
+  for (const mode of modes) {
+    const { world, parent } = matrices.get(mode);
+    writeGeometry(
+      source.element,
+      mode,
+      localGeometry(data, source.element, destination?.element, mode, world, parent),
+    );
+  }
+  return true;
 }
 export function groupElements(data, ids, mode) {
   if (mode !== "desktop")

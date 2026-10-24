@@ -1,5 +1,5 @@
 import { renderInspector } from "../ui/inspector.js";
-import { groupElements, ungroupElements } from "../model/operations.js";
+import { groupElements, moveLayer, ungroupElements } from "../model/operations.js";
 import {
   worldMatrix,
   rotatedBounds,
@@ -1476,24 +1476,89 @@ export async function openZeroEditor({
       if (dirty && !conflict) timer = setTimeout(save, 800);
     }, 500);
   });
-  let layerDrag = null;
+  let layerDrag = null,
+    layerDrop = null;
+  function clearLayerDrop() {
+    for (const row of $("#zero-layers").querySelectorAll(".zero-layer"))
+      row.classList.remove("drop-before", "drop-after", "drop-inside");
+    $("#zero-layers").classList.remove("drop-root");
+    layerDrop = null;
+  }
+  function layerDropAt(row, event) {
+    const targetId = row.dataset.layer,
+      target = findElement(data, targetId);
+    if (!target || targetId === layerDrag) return null;
+    const bounds = row.getBoundingClientRect(),
+      ratio = bounds.height ? (event.clientY - bounds.top) / bounds.height : 0.5;
+    if (
+      target.element.type === "group" &&
+      ratio >= 0.24 &&
+      ratio <= 0.76
+    )
+      return {
+        parentId: targetId,
+        index: target.element.children?.length || 0,
+        kind: "inside",
+        targetId,
+      };
+    const before = ratio < 0.5;
+    return {
+      parentId: target.parent?.id || null,
+      index: target.list.indexOf(target.element) + (before ? 1 : 0),
+      kind: before ? "before" : "after",
+      targetId,
+    };
+  }
   app.addEventListener("dragstart", (event) => {
-    layerDrag = event.target.closest("[data-layer]")?.dataset.layer;
+    const row = event.target.closest("[data-layer]");
+    if (!row) return;
+    layerDrag = row.dataset.layer;
+    event.dataTransfer?.setData("text/plain", layerDrag);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+    row.classList.add("is-dragging");
   });
   app.addEventListener("dragover", (event) => {
-    if (event.target.closest("[data-layer]")) event.preventDefault();
+    if (!layerDrag) return;
+    const row = event.target.closest("#zero-layers [data-layer]");
+    clearLayerDrop();
+    if (row) {
+      const intent = layerDropAt(row, event);
+      if (!intent) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      layerDrop = intent;
+      row.classList.add(
+        intent.kind === "inside" ? "drop-inside" : `drop-${intent.kind}`,
+      );
+      return;
+    }
+    if (event.target.closest("#zero-layers")) {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      layerDrop = { parentId: null, index: 0, kind: "root", targetId: null };
+      $("#zero-layers").classList.add("drop-root");
+    }
   });
   app.addEventListener("drop", (event) => {
+    if (!layerDrag || !layerDrop) return;
     event.preventDefault();
-    const to = event.target.closest("[data-layer]")?.dataset.layer,
-      a = findElement(data, layerDrag),
-      b = findElement(data, to);
-    if (a && b && a !== b && a.list === b.list) {
-      a.list.splice(a.list.indexOf(a.element), 1);
-      a.list.splice(a.list.indexOf(b.element), 0, a.element);
-      changed();
+    const id = layerDrag,
+      intent = layerDrop;
+    try {
+      if (moveLayer(data, id, intent.parentId, intent.index)) {
+        selection = new Set([id]);
+        changed();
+      }
+    } catch (error) {
+      status(error.message || "Не удалось переместить слой.");
     }
     layerDrag = null;
+    clearLayerDrop();
+  });
+  app.addEventListener("dragend", (event) => {
+    event.target.closest("[data-layer]")?.classList.remove("is-dragging");
+    layerDrag = null;
+    clearLayerDrop();
   });
   function snapGeometry(item, g) {
     if (!snap || item.parent) return g;
