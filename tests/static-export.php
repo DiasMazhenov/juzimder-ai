@@ -52,6 +52,11 @@ $captionProject['document']->data->pages[0]->frames[0]->component->components[] 
 $captionFiles = StaticSiteExporter::files($captionProject);
 exportCheck(str_contains($captionFiles['index.html'],'position:absolute;left:0px;right:0px;bottom:0px;font-size:8px'), 'Photo caption offsets and small text survive saved HTML export');
 
+$filterProject=$project;
+$filterProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$filterProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['tagName'=>'div','style'=>(object)['filter'=>'blur(2px) grayscale(50%)'],'components'=>[]];
+exportCheck(str_contains(StaticSiteExporter::files($filterProject)['index.html'],'filter:blur(2px) grayscale(50%)'),'Native filter style survives saved page export');
+
 $assetProject = $project;
 $assetProject['id'] = str_repeat('a', 24);
 $assetId = str_repeat('b', 24);

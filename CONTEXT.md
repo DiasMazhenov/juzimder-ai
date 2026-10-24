@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.078 (npm SemVer 0.1.78). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.079 (npm SemVer 0.1.79). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -557,3 +557,7 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 00.00.077: Eye «Просмотр» перенесён в top-actions непосредственно перед «Сохранить», размер 38×38 px; target/rel и маршрут сохранённой страницы сохранены.
 
 00.00.078: небольшой opt-in ai-hero-split в существующем GeneratedDesignDefaults. Только Hero с двумя direct children (copy с h1 + image slot) получает предсказуемые колонки, compact CTA и mobile text-first. Background/unmarked/сложные структуры не переписываются. Canonical Project Data не меняется. Радиус Hero выбирается дизайном; rounded Hero clips contents, явный радиус фото приоритетен над родительским. Проверка PHP tests и browser fixture 1100/375; новая LLM generation и полный import/save/Undo для этой композиции NOT RUN.
+
+00.00.079: первая часть запроса всех плагинов — basic columns/Flex, gradient/filter inputs, touch plugin. Остальные зависимости закреплены, но ещё не включены; точная матрица docs/PLUGIN_INTEGRATION.md. CSP, backend запрет script/event handlers и исполнение PHP не ослаблены. Предложенное широкое CSP изменение отклонено automatic approval review; требуется узкая hash/nonce + sandbox схема. Полная интеграция всех плагинов НЕ завершена.
+
+Проверка .079: npm test/build/PHP lint PASS; npm audit после совместимого обновления fast-uri: 0 vulnerabilities. Browser QA в отдельной базе: пять plugin layout cards, вставка 2 columns, сохранение ревизии 11, reload, gradient/filter присутствуют в Оформлении. Physical touch, фактическое редактирование gradient/filter, ZIP/public visual каждого plugin — NOT RUN.

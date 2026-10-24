@@ -503,3 +503,12 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 
 - [x] 00.00.078: opt-in split Hero через существующие DOM/CSS, без новой схемы; responsive fixture и отдельный радиус контейнера.
 - [ ] Реальная LLM-генерация выбранной композиции с native import/save/reopen/Undo и визуальной приёмкой.
+
+## Полная интеграция плагинов · запрос 24.10.2026
+
+- [x] Закрепить зависимости запрошенных действующих плагинов; Aviary заменить TOAST UI.
+- [x] Подключить basic columns, flexbox, gradient/filter controls; touch plugin (физическая проверка pending).
+- [ ] Изолированный runtime с точными hash/nonce без ослабления editor CSP.
+- [ ] Forms, navbar, countdown, tabs, slider, tooltip: backend contract + preview/ZIP/public runtime.
+- [ ] Filestack settings/import; TOAST image edit/save; CKEditor license/runtime; custom code sandbox.
+- [ ] Приёмка каждого плагина: edit/save/reopen/Undo/preview/ZIP/publish.
