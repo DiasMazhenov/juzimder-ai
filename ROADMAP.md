@@ -61,8 +61,10 @@
 - [x] Начальные Z2–Z5 инструменты: typed элементы, Inspector/Layers, Pointer drag/8 resize handles/rotate, zoom/pan, history, grid/rulers/guides/snap, 5 режимов и overrides/reset.
 - [x] 00.00.102: клик и двойной клик по элементу не перемещают его и не запускают snap; перемещение начинается после фактического drag.
 - [x] 00.00.103: двойной клик включает rich-text editing даже при pointer capture; ввод, сохранение, Undo и повторное открытие проверены на QA-странице.
+- [x] 00.00.104: вложенные повёрнутые группы, drag/resize локальной композиции, точная отмена Undo и совпадение HTML-рендера с холстом проверены на QA-странице.
+- [x] 00.00.104: направляющая создаётся с линейки; Snap к ней проверен на 50% и 200%, тестовые изменения отменены и сохранены.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
-- [ ] Autoscale, полная визуальная матрица промежуточных ширин, nested transforms и ручная browser QA публикации/ZIP.
+- [ ] Autoscale, полная визуальная матрица промежуточных ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
 - [x] Z6 revision restore and conflict reload keep the active page selected when it exists; browser acceptance on the dedicated Zero QA page.
 - [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
@@ -136,7 +138,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.103; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.104; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -561,6 +563,6 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [ ] 00.00.097: отдельная Browser QA Undo, взаимодействия Tabs в публичном preview, ZIP и публикации; автоматические static-export/API тесты уже проходят. Это Core-native эквиваленты, upstream runtime плагинов не подключён.
 
 
-## Zero Block · 00.00.103
+## Zero Block · 00.00.104
 
-Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Начальные Z2–Z5 controls реализованы; финальная Z6-приёмка остаётся открытой. В 00.00.102 исправлено смещение при клике: snap больше не меняет геометрию, пока пользователь не начал drag. В 00.00.103 восстановлено rich-text редактирование двойным кликом при захвате указателя холстом: 50% zoom, `contenteditable`, ввод, Save, Undo, повторное сохранение и reload подтверждены на QA-странице до ревизии 161. Также проверены восемь resize handles при zoom 50% с Undo после каждой ручки, rotation и порядок слоёв; клик не меняет геометрию, реальный drag и его Undo/reload работают. Ранее проверены Drag 50/100/200%, отрицательные координаты, Lock, Duplicate/Delete, anchors, Group/Ungroup, пять режимов после reopen. Остались nested rotated groups, ruler/snap combos, все промежуточные ширины, performance, публичная визуальная проверка ZIP/public и полная restore/conflict visual matrix. Подробности и evidence в docs/ZERO_BLOCK.md.
+Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Начальные Z2–Z5 controls реализованы; финальная Z6-приёмка остаётся открытой. В 00.00.102 исправлено смещение при клике: snap не меняет геометрию до реального drag. В 00.00.103 восстановлено rich-text редактирование двойным кликом при захвате указателя холстом: ввод, Save, Undo и reload подтверждены на QA-странице. В 00.00.104 проверены вложенные повёрнутые группы до трёх уровней, независимый drag/resize вложенной композиции и точный Undo; сохранённый HTML визуально совпал с холстом. Snap к направляющей проверен на 50% и 200%, временная направляющая и сдвиги отменены. Остаются полная визуальная матрица промежуточных ширин, performance, публичная визуальная проверка ZIP/public и полная restore/conflict visual matrix. Подробности и evidence в docs/ZERO_BLOCK.md.
