@@ -92,4 +92,4 @@ Browser QA also restored a historical revision and returned to the latest Zero c
 
 Conflict recovery in the main GrapesJS editor now retains the active page when loading the server version, matching revision restore. Unsaved local changes remain available until the user explicitly chooses this action.
 
-Browser conflict acceptance: a temporary local GrapesJS text change remained in the editor when the Zero window saved; normal Save was disabled, an explicit server reload discarded only that temporary edit, kept the Zero QA page selected, and synced the restored white artboard without a redundant revision. Final QA revision: 151.
+Browser conflict acceptance: a temporary local GrapesJS text change remained in the editor when the Zero window saved; normal Save was disabled, an explicit server reload discarded only that temporary edit, kept the Zero QA page selected, and synced the restored white artboard without a redundant revision. Final QA revision: 153. A mouse rotation was observed at 13.62 degrees and undone to zero; Bring Forward reordered a sibling layer and Undo restored the initial z-order.
