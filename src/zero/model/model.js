@@ -20,6 +20,16 @@ export function breakpointMediaMax(data, mode) {
     index = entries.findIndex(([id]) => id === mode);
   return index <= 0 ? null : entries[index - 1][1].width - 1;
 }
+export function breakpointForViewport(data, viewportWidth) {
+  const entries = breakpointEntries(data),
+    width = Number(viewportWidth);
+  if (!Number.isFinite(width) || !entries.length) return entries[0]?.[0] || "desktop";
+  if (width >= entries[0][1].width) return entries[0][0];
+  const index = entries.findIndex(
+    ([, board], i) => i > 0 && width >= board.width && width < entries[i - 1][1].width,
+  );
+  return index > 0 ? entries[index][0] : entries.at(-1)[0];
+}
 export function breakpointName(mode, width) {
   const standard = {
     desktop: 1200,

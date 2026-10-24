@@ -36,11 +36,13 @@ export function renderZero(data, blockId, activeMode = null) {
   const modes = breakpointEntries(data).map(([id]) => id),
     sourceModes = [...modes].reverse().filter((mode) => mode !== "desktop");
   let css =
-    `.${scope}{position:relative!important;display:block!important;width:100%;box-sizing:border-box;isolation:isolate}.` +
+    `.${scope}{position:relative!important;display:block!important;width:${activeMode ? `${data.artboards[activeMode].width}px` : "100%"}!important;box-sizing:border-box;isolation:isolate}.` +
     scope +
     " .jz-zero-element{margin:0;padding:0;white-space:pre-wrap;min-width:0;min-height:0;max-width:none;font-family:inherit;overflow-wrap:anywhere}." +
     scope +
     " a.jz-zero-element{padding:12px 16px;text-align:center;text-decoration:none}." +
+    scope +
+    " a.jz-zero-button{align-items:center;justify-content:center;text-align:center}." +
     scope +
     " [data-zero-image]{padding:0}";
   const wrap = (mode, rule) =>
@@ -69,14 +71,21 @@ export function renderZero(data, blockId, activeMode = null) {
               !activeMode &&
               board.scaleGrid === "autoscale" &&
               gridAttached,
-            sel = `.${scope} [data-ze="${el.id}"]`,
+            sel =
+              el.type === "button"
+                ? `.${scope} a.jz-zero-button[data-ze="${el.id}"]`
+                : `.${scope} [data-ze="${el.id}"]`,
+            appearance =
+              el.type === "button"
+                ? appearanceCSS({ ...s, textAlign: "center" }, board, autoScale)
+                : appearanceCSS(s, board, autoScale),
             buttonPadding =
               autoScale && el.type === "button"
                 ? `padding:${scaledGridLength(12, board, true)} ${scaledGridLength(16, board, true)};`
                 : "";
           css += wrap(
             mode,
-            `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearanceCSS(s, board, autoScale)}${buttonPadding}z-index:${index + 1};display:${e.visible ? "block" : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
+            `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
           );
         }
         const childGrid = Object.fromEntries(
@@ -107,7 +116,7 @@ export function renderZero(data, blockId, activeMode = null) {
             .join("");
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
-        return `<${tag} class="jz-zero-element" data-ze="${escapeHTML(el.id)}"${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);

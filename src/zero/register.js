@@ -1,6 +1,8 @@
 import { tablerIcon } from "../editor-icons.js";
 import { createZeroData } from "./model/model.js";
+import { editorMode } from "./editor-mode.js";
 import { renderZero } from "./render.js";
+
 export function registerZero(
   editor,
   { projectId, beforeOpen, isClean, onRemote, notify },
@@ -61,9 +63,11 @@ export function registerZero(
         );
       },
       onRender() {
+        const data = this.model.get("zeroData");
         this.el.innerHTML = renderZero(
-          this.model.get("zeroData"),
+          data,
           this.model.getAttributes().id,
+          editorMode(editor, data),
         );
         this.el.querySelector(".jz-zero-block").style.pointerEvents = "none";
       },
@@ -104,6 +108,14 @@ export function registerZero(
     edit.hidden = true;
     info.hidden = true;
   });
+  const refreshZeroViews = () => {
+    const visit = (component) => {
+      if (component.get("type") === "zero-block") component.getView()?.render();
+      component.components().each(visit);
+    };
+    visit(editor.getWrapper());
+  };
+  editor.on("device:select", refreshZeroViews);
   const channel = new BroadcastChannel(`jz-zero-${projectId}`);
   channel.onmessage = (event) => {
     const m = event.data;

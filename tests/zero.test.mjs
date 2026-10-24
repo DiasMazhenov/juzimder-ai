@@ -13,6 +13,7 @@ import {
   createElement,
   breakpointEntries,
   breakpointMediaMax,
+  breakpointForViewport,
   breakpointName,
   validateBreakpoints,
   addBreakpoint,
@@ -32,6 +33,7 @@ import {
 } from "../src/zero/model/model.js";
 import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
+import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
@@ -166,6 +168,9 @@ test("breakpoints can be added and removed while preserving per-mode layout and 
   assert.match(custom, /^bp-/);
   assert.equal(resolve(element, custom).geometry.x, 220);
   assert.equal(breakpointMediaMax(d, custom), 979);
+  assert.equal(breakpointForViewport(d, 1200), "desktop");
+  assert.equal(breakpointForViewport(d, 768), custom);
+  assert.equal(breakpointForViewport(d, 500), "landscape");
   assert.equal(breakpointName(custom, 768), "Custom breakpoint");
   assert.equal(breakpointEntries(d, "asc").at(-1)[0], "desktop");
   validateBreakpoints(d);
@@ -180,6 +185,18 @@ test("breakpoints can be added and removed while preserving per-mode layout and 
   assert.equal(resolve(element, "desktop").geometry.x, 220);
   assert.equal(element.overrides?.laptop, undefined);
   validateBreakpoints(d);
+});
+test("main GrapesJS device selection maps to the corresponding Zero Block artboard", () => {
+  const data = createZeroData(),
+    fakeEditor = (name, width) => ({
+      getDevice: () => name,
+      Devices: { get: () => ({ get: () => `${width}px` }) },
+    });
+  assert.equal(editorMode(fakeEditor("Desktop", 0), data), "desktop");
+  assert.equal(editorMode(fakeEditor("Tablet", 768), data), "tablet");
+  assert.equal(editorMode(fakeEditor("Mobile", 375), data), "mobile");
+  const custom = addBreakpoint(data, 768);
+  assert.equal(editorMode(fakeEditor("Tablet", 768), data), custom);
 });
 test("adding a wider breakpoint snapshots the prior base without shifting it", () => {
   const d = createZeroData(),
@@ -289,6 +306,26 @@ test("the exported frontend renderer contains no layout flow or editor UI and sc
   assert.doesNotMatch(html, /zero-handle|zero-ruler|display:flex|display:grid/);
   assert.notEqual(html, other);
   assert.match(html, /Hello &amp; Zero/);
+});
+test("Zero Block buttons use flex centering and keep the label centered", () => {
+  const data = createZeroData(),
+    button = createElement("button");
+  button.id = "ze-button-center";
+  button.style.textAlign = "left";
+  data.elements.push(button);
+  const html = renderZero(data, "button-center");
+  assert.match(html, /class="jz-zero-element jz-zero-button"/);
+  assert.match(
+    html,
+    /a\.jz-zero-button\[data-ze="ze-button-center"\]\{[^}]*display:flex;/,
+  );
+  assert.match(
+    html,
+    /a\.jz-zero-button\[data-ze="ze-button-center"\]\{[^}]*text-align:center;/,
+  );
+  assert.match(renderZero(fixture, "zero-mode", "desktop"), /height:650px/);
+  assert.match(renderZero(fixture, "zero-mode", "desktop"), /width:1200px!important/);
+  assert.doesNotMatch(renderZero(fixture, "zero-mode", "desktop"), /@media\(/);
 });
 test("Project Data schema carries one strict zeroData contract and rejects second trees", () => {
   const schema = JSON.parse(

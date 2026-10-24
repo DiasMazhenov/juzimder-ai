@@ -70,6 +70,7 @@
 - [x] 00.00.108: Zero Block breakpoint widths are dynamic; modes can be added, removed, and resized, with Tabler device icons, safe base promotion, and width-derived media ranges in both renderers.
 - [ ] 00.00.108: Codex Browser persistence acceptance for saving/reopening custom widths; panel and draft add/remove were visually checked in the existing editor tab and canceled without changing QA content.
 - [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. Unsupported element types remain visibly disabled until their safe renderer exists.
+- [x] 00.00.110: Zero Block in the main editor follows its selected device mode even when the responsive iframe falls below the desktop breakpoint; buttons center labels on both axes in the Zero Editor and static renderer.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale browser acceptance на разных ширинах, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
@@ -145,7 +146,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.109; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.110; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -583,3 +584,7 @@ Breakpoint manager now supports editable widths, adding and removing modes, and 
 ## Zero Block · 00.00.109
 
 The former sidebar element list is now a Tilda-style floating palette anchored below a round plus button. Text, image, shapes and buttons remain immediately addable; shape variants expand to rectangle, ellipse and line. Shortcut chips are live for T, Shift+I, R and B. Additional vector, video, HTML, tooltip, form and gallery types are visible but disabled until their safe renderers are implemented. The palette closes on item selection, Escape and outside pointer. It uses local Tabler Outline SVG assets; no CDN is involved.
+
+## Zero Block · 00.00.110
+
+The main editor now maps its selected Desktop/Tablet/Mobile device to an explicit Zero Block artboard mode and rerenders on GrapesJS `device:select`. Desktop preview uses the selected artboard's actual pixel width, so a fluid 1184 px iframe no longer applies a narrow override or shifts center-anchored elements. Normal media-query output remains unchanged for saved preview, ZIP, and publication. Zero Block buttons use `display:flex`, centered alignment on both axes, and a forced centered label in both JavaScript and PHP output. Full JS/PHP tests and build pass. Existing-tab Browser QA on QA revision 195 compared all 10 elements in the main editor and Zero Editor: width/height, coordinates, typography, and transforms match. Tablet/Mobile switching was checked and Desktop restored; Project Data stayed at revision 195.
