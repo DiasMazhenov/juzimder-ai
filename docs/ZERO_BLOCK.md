@@ -1,6 +1,6 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.104. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.105. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
 
 ## Architecture decision (Z0)
 
@@ -61,7 +61,7 @@ BroadcastChannel messages contain project/page/block IDs and revision only. The 
 - Shapes, strokes, shadows, buttons with links/targets and hover colours.
 - Alignment/distribution, grouping, nested groups, duplicate/copy/paste, layer order, Undo/Redo and keyboard shortcuts. Input/contenteditable fields retain normal keyboard editing.
 - Five modes, overrides/reset, artboard settings, twelve-column grid, rulers, draggable guides, smart alignment guides and zoom-adjusted snapping.
-- Camera zoom 50/75/100/150/200%, Fit, Space+Drag pan, preview, save and close.
+- Camera zoom 25–300%, anchored at the cursor or two-finger touch midpoint; supports touchscreen pinch and Ctrl/Cmd+wheel trackpads, plus 50/75/100/150/200% presets, Fit and Space+Drag pan. Zoom changes editor camera only; saved element geometry is unchanged.
 
 ## Validation and acceptance
 
@@ -100,3 +100,5 @@ Browser conflict acceptance: a temporary local GrapesJS text change remained in 
 00.00.103 text-edit acceptance: text editing no longer depends solely on a bubbling `dblclick`, which did not start text mode in the current pointer-capture canvas interaction. Two pointer presses on the same text layer within 600 ms/6 CSS px now enter rich-text mode; native `dblclick` also resolves the element beneath the pointer. On the isolated Zero QA page at 50% zoom, Codex Browser confirmed `contenteditable=true`, keyboard input changed the heading, Save persisted it as revision 160, Undo restored the original text, then Save and reload confirmed the original text at revision 161. Current QA state is clean. `npm test`, `npm run build`, and `git diff --check` pass; Vite reports its existing >500 kB GrapesJS chunk warning. This closes text-edit smoke acceptance, not the remaining Z6 matrix.
 
 00.00.104 nested group and snap acceptance: On the isolated Zero QA page, created three nested group levels and rotated the outer/middle/inner groups by +15°/-10°/+8°. At 50% zoom, dragging the innermost group moved its children by the expected screen delta while ancestors stayed fixed; inspector local coordinates updated under both rotated ancestors. Undo restored the exact pre-drag child rects. Resizing the nested group changed its child geometry proportionally; Undo restored the original rects. After save/reopen at revision 171, the dedicated saved HTML view retained the same relative composition and transforms as the editor. A vertical guide was created from the ruler at X=500. With Snap enabled, a root line dragged at 50% aligned its right edge to X=500. At 200%, with Grid disabled, a small move outside the zoom-adjusted snap threshold did not snap; moving within the threshold aligned it to X=500. Undo restored the line's original X=100; the temporary guide was removed, Grid restored, and the clean fixture saved at revision 181. This was browser-only acceptance; no product code changed. Public-host and ZIP visual acceptance remains open.
+
+00.00.105 camera zoom: added touchscreen two-pointer pinch and Ctrl/Cmd+wheel trackpad zoom, with the point under the gesture anchored while the camera moves. Supported gesture zoom is 25–300%; the existing 50/75/100/150/200% selector and Fit remain available. Zoom changes only editor camera state. The camera expands leading or trailing stage padding when scroll limits would otherwise move the anchor. Automated tests cover anchor invariance, edge padding, and min/max clamping. Browser confirmed the 50%/200% controls leave revision 181 unchanged. Physical multi-touch acceptance is NOT RUN because Codex Browser input does not provide a two-pointer gesture; verify on a touchscreen before claiming device acceptance.

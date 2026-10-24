@@ -231,6 +231,78 @@ export function resizeGeometry(g, dx, dy, handle, keepAspect = false) {
 export function screenDelta(dx, dy, zoom, parentRotation = 0) {
   return rotatePoint(dx / zoom, dy / zoom, -parentRotation);
 }
+export function zoomCameraAtPoint({
+  zoom,
+  nextZoom,
+  scrollLeft = 0,
+  scrollTop = 0,
+  pointX = 0,
+  pointY = 0,
+  documentX,
+  documentY,
+  planeOffsetX = 80,
+  planeOffsetY = 80,
+  stagePaddingRight = 80,
+  stagePaddingBottom = 80,
+  viewportWidth = 0,
+  viewportHeight = 0,
+  boardWidth = 0,
+  boardHeight = 0,
+  minZoom = 0.25,
+  maxZoom = 3,
+}) {
+  const currentZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
+    requested = Number.isFinite(nextZoom) ? nextZoom : currentZoom,
+    targetZoom =
+      Math.round(Math.min(maxZoom, Math.max(minZoom, requested)) * 100) / 100,
+    anchorX = Number.isFinite(documentX)
+      ? documentX
+      : (scrollLeft + pointX - planeOffsetX) / currentZoom,
+    anchorY = Number.isFinite(documentY)
+      ? documentY
+      : (scrollTop + pointY - planeOffsetY) / currentZoom;
+  let nextOffsetX = planeOffsetX,
+    nextOffsetY = planeOffsetY,
+    nextScrollLeft = nextOffsetX + anchorX * targetZoom - pointX,
+    nextScrollTop = nextOffsetY + anchorY * targetZoom - pointY;
+  if (nextScrollLeft < 0) {
+    nextOffsetX -= nextScrollLeft;
+    nextScrollLeft = 0;
+  }
+  if (nextScrollTop < 0) {
+    nextOffsetY -= nextScrollTop;
+    nextScrollTop = 0;
+  }
+  let nextPaddingRight = Math.max(80, stagePaddingRight),
+    nextPaddingBottom = Math.max(80, stagePaddingBottom),
+    maxScrollLeft = Math.max(
+      0,
+      nextOffsetX + boardWidth * targetZoom + nextPaddingRight - viewportWidth,
+    ),
+    maxScrollTop = Math.max(
+      0,
+      nextOffsetY + boardHeight * targetZoom + nextPaddingBottom - viewportHeight,
+    );
+  if (nextScrollLeft > maxScrollLeft) {
+    nextPaddingRight += nextScrollLeft - maxScrollLeft;
+    maxScrollLeft = nextScrollLeft;
+  }
+  if (nextScrollTop > maxScrollTop) {
+    nextPaddingBottom += nextScrollTop - maxScrollTop;
+    maxScrollTop = nextScrollTop;
+  }
+  return {
+    zoom: targetZoom,
+    planeOffsetX: nextOffsetX,
+    planeOffsetY: nextOffsetY,
+    stagePaddingRight: nextPaddingRight,
+    stagePaddingBottom: nextPaddingBottom,
+    documentX: anchorX,
+    documentY: anchorY,
+    scrollLeft: Math.min(maxScrollLeft, nextScrollLeft),
+    scrollTop: Math.min(maxScrollTop, nextScrollTop),
+  };
+}
 export function geometryCSS(g, board, nested = false) {
   const offset = g.x;
   let left = `calc(${g.anchorX * 100}% + ${offset}px)`;

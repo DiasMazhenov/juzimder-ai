@@ -18,6 +18,7 @@ import {
   rotatePoint,
   resizeGeometry,
   screenDelta,
+  zoomCameraAtPoint,
   geometryCSS,
   History,
   adapt,
@@ -89,6 +90,48 @@ test("50/100/200% zoom does not change document geometry; resize keeps opposite 
   assert.equal(next.height, g.height - 30);
   assert.equal(next.x, g.x + 10);
   assert.equal(next.y, g.y + 15);
+});
+test("pinch zoom keeps the document point under the gesture and clamps camera scale", () => {
+  const start = {
+    zoom: 0.5,
+    scrollLeft: 140,
+    scrollTop: 80,
+    pointX: 260,
+    pointY: 190,
+    planeOffsetX: 80,
+    planeOffsetY: 80,
+    stagePaddingRight: 80,
+    stagePaddingBottom: 80,
+    viewportWidth: 770,
+    viewportHeight: 500,
+    boardWidth: 1200,
+    boardHeight: 650,
+  };
+  for (const nextZoom of [0.25, 0.75, 1, 2, 3]) {
+    const result = zoomCameraAtPoint({ ...start, nextZoom });
+    epsilon(
+      (result.scrollLeft + start.pointX - result.planeOffsetX) / result.zoom,
+      (start.scrollLeft + start.pointX - 80) / start.zoom,
+    );
+    epsilon(
+      (result.scrollTop + start.pointY - result.planeOffsetY) / result.zoom,
+      (start.scrollTop + start.pointY - 80) / start.zoom,
+    );
+  }
+  assert.equal(zoomCameraAtPoint({ ...start, nextZoom: 4 }).zoom, 3);
+  assert.equal(zoomCameraAtPoint({ ...start, nextZoom: 0.1 }).zoom, 0.25);
+  const rightEdge = zoomCameraAtPoint({
+    ...start,
+    zoom: 0.5,
+    scrollLeft: 470,
+    pointX: 170,
+    nextZoom: 3,
+  });
+  epsilon(
+    (rightEdge.scrollLeft + 170 - rightEdge.planeOffsetX) / rightEdge.zoom,
+    (470 + 170 - 80) / 0.5,
+  );
+  assert.ok(rightEdge.stagePaddingRight > 80);
 });
 test("responsive overrides are independent; auto-adapt never overwrites manual work", () => {
   const d = structuredClone(fixture),

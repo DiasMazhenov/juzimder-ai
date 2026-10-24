@@ -16,6 +16,7 @@ import {
   rect,
   anchorGeometry,
   screenDelta,
+  zoomCameraAtPoint,
   resizeGeometry,
   rotatePoint,
   geometryCSS,
@@ -60,6 +61,7 @@ export async function openZeroEditor({
     conflict = false,
     timer,
     space = false,
+    touchPointers = new Map(),
     clipboard = [],
     gesture = null,
     lastTextPointer = null,
@@ -136,6 +138,15 @@ export async function openZeroEditor({
     status = (message) => {
       $("#zero-status").textContent = message;
     };
+  let planeOffsetX = 80,
+    planeOffsetY = 80,
+    stagePaddingRight = 80,
+    stagePaddingBottom = 80;
+  $("#zero-zoom").setAttribute(
+    "aria-label",
+    "Масштаб холста; можно менять жестом щипка или Ctrl/Cmd + колесо",
+  );
+  $("#zero-zoom").title = "Жест щипка на тачпаде/экране или Ctrl/Cmd + колесо";
   const selected = () =>
     [...selection].map((id) => findElement(data, id)).filter(Boolean);
   const board = () => data.artboards[mode];
@@ -205,14 +216,67 @@ export async function openZeroEditor({
       project,
     });
   }
+  function syncZoomControl() {
+    const select = $("#zero-zoom"),
+      custom = select.querySelector("option[data-zoom-custom]"),
+      preset = [...select.options].find(
+        (option) => !option.dataset.zoomCustom && Number(option.value) === zoom,
+      );
+    if (preset) {
+      custom?.remove();
+      select.value = preset.value;
+      return;
+    }
+    const option = custom || document.createElement("option");
+    if (!custom) option.dataset.zoomCustom = "true";
+    option.value = String(zoom);
+    option.textContent = `${Math.round(zoom * 100)}%`;
+    if (!option.isConnected) select.append(option);
+    select.value = option.value;
+  }
+  function zoomAt(nextZoom, clientX, clientY, documentAnchor = null) {
+    const bounds = workspace.getBoundingClientRect(),
+      result = zoomCameraAtPoint({
+        zoom,
+        nextZoom,
+        scrollLeft: workspace.scrollLeft,
+        scrollTop: workspace.scrollTop,
+        pointX: clientX - bounds.left,
+        pointY: clientY - bounds.top,
+        documentX: documentAnchor?.x,
+        documentY: documentAnchor?.y,
+        planeOffsetX,
+        planeOffsetY,
+        stagePaddingRight,
+        stagePaddingBottom,
+        viewportWidth: workspace.clientWidth,
+        viewportHeight: workspace.clientHeight,
+        boardWidth: board().width,
+        boardHeight: board().height,
+      });
+    zoom = result.zoom;
+    planeOffsetX = result.planeOffsetX;
+    planeOffsetY = result.planeOffsetY;
+    stagePaddingRight = result.stagePaddingRight;
+    stagePaddingBottom = result.stagePaddingBottom;
+    drawCanvas();
+    workspace.scrollLeft = result.scrollLeft;
+    workspace.scrollTop = result.scrollTop;
+    return { x: result.documentX, y: result.documentY };
+  }
   function drawCanvas() {
     canvas.innerHTML = renderZero(data, blockId, mode);
     const b = board();
     plane.style.width = b.width + "px";
     plane.style.height = b.height + "px";
+    plane.style.left = `${planeOffsetX}px`;
+    plane.style.top = `${planeOffsetY}px`;
     plane.style.transform = `scale(${zoom})`;
-    $(".zero-stage").style.width = b.width * zoom + 160 + "px";
-    $(".zero-stage").style.height = b.height * zoom + 160 + "px";
+    $(".zero-stage").style.width =
+      b.width * zoom + planeOffsetX + stagePaddingRight + "px";
+    $(".zero-stage").style.height =
+      b.height * zoom + planeOffsetY + stagePaddingBottom + "px";
+    syncZoomControl();
     for (const el of canvas.querySelectorAll("[data-ze]")) {
       const item = findElement(data, el.dataset.ze);
       if (item?.element.locked) el.dataset.locked = "true";
@@ -699,8 +763,10 @@ export async function openZeroEditor({
         2,
       );
       zoom = [0.5, 0.75, 1, 1.5, 2].filter((v) => v <= z).at(-1) || 0.5;
+      planeOffsetX = planeOffsetY = stagePaddingRight = stagePaddingBottom = 80;
       $("#zero-zoom").value = String(zoom);
       drawCanvas();
+      workspace.scrollLeft = workspace.scrollTop = 0;
       return;
     }
     if (key === "preview") {
@@ -810,8 +876,12 @@ export async function openZeroEditor({
     )
       return;
     if (input.id === "zero-zoom") {
-      zoom = Number(input.value);
-      drawCanvas();
+      const bounds = plane.getBoundingClientRect();
+      zoomAt(
+        Number(input.value),
+        bounds.left + bounds.width / 2,
+        bounds.top + bounds.height / 2,
+      );
       return;
     }
     if (input.dataset.board) {
@@ -1018,7 +1088,46 @@ export async function openZeroEditor({
       changed();
     };
   }
+  function beginPinch(event) {
+    const pointerIds = [...touchPointers.keys()].slice(0, 2),
+      [a, b] = pointerIds.map((id) => touchPointers.get(id));
+    if (!a || !b) return;
+    if (gesture?.before) data = gesture.before;
+    gesture = null;
+    render();
+    const bounds = workspace.getBoundingClientRect(),
+      center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    gesture = {
+      kind: "pinch",
+      pointerIds,
+      startDistance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      startZoom: zoom,
+      anchor: {
+        x:
+          (workspace.scrollLeft + center.x - bounds.left - planeOffsetX) / zoom,
+        y:
+          (workspace.scrollTop + center.y - bounds.top - planeOffsetY) / zoom,
+      },
+    };
+    workspace.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
   workspace.addEventListener("pointerdown", (event) => {
+    if (
+      event.pointerType === "touch" &&
+      !preview &&
+      !event.target.closest('[contenteditable="true"]')
+    ) {
+      touchPointers.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+      if (touchPointers.size === 2) {
+        beginPinch(event);
+        return;
+      }
+      if (touchPointers.size > 2) return;
+    }
     if (
       event.button !== 0 ||
       preview ||
@@ -1184,9 +1293,45 @@ export async function openZeroEditor({
     workspace.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
+  workspace.addEventListener(
+    "wheel",
+    (event) => {
+      if (
+        (!event.ctrlKey && !event.metaKey) ||
+        preview ||
+        event.target.closest('[contenteditable="true"],input,select,textarea')
+      )
+        return;
+      event.preventDefault();
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? workspace.clientHeight
+            : 1;
+      zoomAt(
+        zoom * Math.exp(-event.deltaY * unit * 0.002),
+        event.clientX,
+        event.clientY,
+      );
+    },
+    { passive: false },
+  );
   function updatePointer(event) {
     if (!gesture) return;
     const task = gesture;
+    if (task.kind === "pinch") {
+      const [a, b] = task.pointerIds.map((id) => touchPointers.get(id));
+      if (!a || !b) return;
+      zoomAt(
+        task.startZoom *
+          (Math.hypot(a.x - b.x, a.y - b.y) / task.startDistance),
+        (a.x + b.x) / 2,
+        (a.y + b.y) / 2,
+        task.anchor,
+      );
+      return;
+    }
     const dx = event.clientX - task.x,
       dy = event.clientY - task.y;
     if (["drag", "resize", "rotate"].includes(task.kind) && !task.moved) {
@@ -1267,10 +1412,24 @@ export async function openZeroEditor({
     drawGesture(task);
   }
   workspace.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch" && touchPointers.has(event.pointerId))
+      touchPointers.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => updatePointer(event));
   });
   workspace.addEventListener("pointerup", (event) => {
+    if (event.pointerType === "touch") touchPointers.delete(event.pointerId);
+    if (gesture?.kind === "pinch") {
+      if (!gesture.pointerIds.includes(event.pointerId)) return;
+      cancelAnimationFrame(frame);
+      gesture = null;
+      if (workspace.hasPointerCapture(event.pointerId))
+        workspace.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (!gesture) return;
     cancelAnimationFrame(frame);
     updatePointer(event);
@@ -1312,8 +1471,13 @@ export async function openZeroEditor({
     if (workspace.hasPointerCapture(event.pointerId))
       workspace.releasePointerCapture(event.pointerId);
   });
-  workspace.addEventListener("pointercancel", () => {
+  workspace.addEventListener("pointercancel", (event) => {
+    if (event.pointerType === "touch") touchPointers.delete(event.pointerId);
     cancelAnimationFrame(frame);
+    if (gesture?.kind === "pinch") {
+      if (gesture.pointerIds.includes(event.pointerId)) gesture = null;
+      return;
+    }
     if (gesture?.before) data = gesture.before;
     gesture = null;
     render();
