@@ -36,7 +36,7 @@ import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
 import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
-import { moveLayer } from "../src/zero/model/operations.js";
+import { layerDropIntent, moveLayer } from "../src/zero/model/operations.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
 );
@@ -528,6 +528,53 @@ test("moving layers between root and groups preserves absolute placement at ever
   assert.equal(moveLayer(d, "ze-child", null, 1), true);
   assert.equal(findElement(d, "ze-child").parent, null);
   assertSame(before);
+});
+
+test("layer drop zones map visual row edges to sibling z-order and group centers to children", () => {
+  const d = structuredClone(fixture);
+  assert.deepEqual(layerDropIntent(d, "ze-title", "ze-photo", 0.1), {
+    parentId: null,
+    index: 2,
+    kind: "before",
+    targetId: "ze-photo",
+  });
+  assert.deepEqual(layerDropIntent(d, "ze-title", "ze-photo", 0.9), {
+    parentId: null,
+    index: 1,
+    kind: "after",
+    targetId: "ze-photo",
+  });
+  assert.deepEqual(layerDropIntent(d, "ze-title", "ze-group", 0.5), {
+    parentId: "ze-group",
+    index: 1,
+    kind: "inside",
+    targetId: "ze-group",
+  });
+  assert.deepEqual(layerDropIntent(d, "ze-title", "ze-group", 0.1), {
+    parentId: null,
+    index: 3,
+    kind: "before",
+    targetId: "ze-group",
+  });
+  assert.deepEqual(layerDropIntent(d, "ze-title", "ze-group", 0.9), {
+    parentId: null,
+    index: 2,
+    kind: "after",
+    targetId: "ze-group",
+  });
+  assert.deepEqual(layerDropIntent(d, "ze-title", "ze-child", 0.9), {
+    parentId: "ze-group",
+    index: 0,
+    kind: "after",
+    targetId: "ze-child",
+  });
+  assert.deepEqual(layerDropIntent(d, "ze-title", null), {
+    parentId: null,
+    index: 0,
+    kind: "root",
+    targetId: null,
+  });
+  assert.equal(layerDropIntent(d, "ze-title", "ze-title", 0.2), null);
 });
 
 test("layer move supports sibling reordering and rejects cycles, locked ancestors, and excessive nesting", () => {

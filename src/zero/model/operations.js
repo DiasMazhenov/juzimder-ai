@@ -63,6 +63,34 @@ function writeGeometry(element, mode, geometry) {
   if (mode === "desktop") element.geometry = geometry;
   else element.overrides[mode] = { ...element.overrides[mode], geometry };
 }
+export function layerDropIntent(data, sourceId, targetId, verticalRatio = null) {
+  if (!findElement(data, sourceId)) return null;
+  if (targetId === null)
+    return { parentId: null, index: 0, kind: "root", targetId: null };
+  const target = findElement(data, targetId);
+  if (!target || targetId === sourceId) return null;
+  const ratio = Number.isFinite(verticalRatio)
+    ? Math.max(0, Math.min(1, verticalRatio))
+    : 0.5;
+  if (
+    target.element.type === "group" &&
+    ratio >= 0.24 &&
+    ratio <= 0.76
+  )
+    return {
+      parentId: targetId,
+      index: target.element.children?.length || 0,
+      kind: "inside",
+      targetId,
+    };
+  const before = ratio < 0.5;
+  return {
+    parentId: target.parent?.id || null,
+    index: target.list.indexOf(target.element) + (before ? 1 : 0),
+    kind: before ? "before" : "after",
+    targetId,
+  };
+}
 export function moveLayer(data, id, parentId, index) {
   const source = findElement(data, id),
     destination = parentId ? findElement(data, parentId) : null;

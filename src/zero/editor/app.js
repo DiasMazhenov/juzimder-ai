@@ -1,5 +1,10 @@
 import { renderInspector } from "../ui/inspector.js";
-import { groupElements, moveLayer, ungroupElements } from "../model/operations.js";
+import {
+  groupElements,
+  layerDropIntent,
+  moveLayer,
+  ungroupElements,
+} from "../model/operations.js";
 import {
   worldMatrix,
   rotatedBounds,
@@ -1485,29 +1490,9 @@ export async function openZeroEditor({
     layerDrop = null;
   }
   function layerDropAt(row, event) {
-    const targetId = row.dataset.layer,
-      target = findElement(data, targetId);
-    if (!target || targetId === layerDrag) return null;
     const bounds = row.getBoundingClientRect(),
       ratio = bounds.height ? (event.clientY - bounds.top) / bounds.height : 0.5;
-    if (
-      target.element.type === "group" &&
-      ratio >= 0.24 &&
-      ratio <= 0.76
-    )
-      return {
-        parentId: targetId,
-        index: target.element.children?.length || 0,
-        kind: "inside",
-        targetId,
-      };
-    const before = ratio < 0.5;
-    return {
-      parentId: target.parent?.id || null,
-      index: target.list.indexOf(target.element) + (before ? 1 : 0),
-      kind: before ? "before" : "after",
-      targetId,
-    };
+    return layerDropIntent(data, layerDrag, row.dataset.layer, ratio);
   }
   app.addEventListener("dragstart", (event) => {
     const row = event.target.closest("[data-layer]");
@@ -1533,9 +1518,11 @@ export async function openZeroEditor({
       return;
     }
     if (event.target.closest("#zero-layers")) {
+      const intent = layerDropIntent(data, layerDrag, null);
+      if (!intent) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-      layerDrop = { parentId: null, index: 0, kind: "root", targetId: null };
+      layerDrop = intent;
       $("#zero-layers").classList.add("drop-root");
     }
   });
