@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.090 (npm SemVer 0.1.90). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 22.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.091 (npm SemVer 0.1.91). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
 
 Версия 00.00.012 добавляет per-page SEO metadata в settings schema v4: заголовок, описание, robots и HTTPS social image сохраняются в ревизиях после server validation. В .012 приложение ещё не обслуживало публичные страницы.
 
@@ -583,3 +583,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 00.00.089: ещё 8 native секций: квалификация, партнёры, социальные каналы, способы оплаты, география работы, показатели с указанием источника, тематический FAQ и сравнение изображений. Библиотека достигла 100 карточек. Все определения прошли PHP Document validation; npm test/build и PHP lint PASS. Изолированная browser QA: 100 карточек в панели и вставка блока квалификации; screenshot desktop. Остальные 7 новых presets отдельно визуально NOT RUN.
 
 00.00.090: ещё 8 native presets: филиалы, календарь событий, отзывы с источником, награды с подтверждениями, email updates/contact, accessibility info, участие в сообществе, newsletter contact. Всего 108 карточек. PHP validation всех definitions, npm test/build и PHP lint PASS. Изолированная browser QA: библиотека count 108; branch-locations desktop/mobile (365px, одна колонка без overflow), save/reopen, поиск/вставка review-sources и Undo. Остальные 7 presets отдельно визуально NOT RUN.
+
+00.00.091: ещё 8 native presets: breadcrumbs, author byline, release notes, product variants, feature comparison, onboarding checklist, support expectations, privacy contacts. Всего 116 карточек. PHP validation all blocks, npm test/build и PHP lint PASS. Изолированная browser QA: 116 карточек, вставка author byline, mobile layout (viewport365, без горизонтального overflow), save/reopen; поиск breadcrumbs и undo проверены. Остальные 6 новых presets отдельно визуально NOT RUN.
