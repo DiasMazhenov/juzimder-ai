@@ -62,6 +62,7 @@ export async function openZeroEditor({
     space = false,
     clipboard = [],
     gesture = null,
+    lastTextPointer = null,
     frame = 0,
     fieldTimer,
     pendingField = null,
@@ -985,6 +986,38 @@ export async function openZeroEditor({
         g.y + nearest([r.y, r.y + r.height / 2, r.y + r.height], yTargets, "y"),
     };
   }
+  function beginTextEditing(item, node) {
+    if (!node || node.isContentEditable) return;
+    lastTextPointer = null;
+    node.contentEditable = "true";
+    node.focus();
+    node.onblur = () => {
+      const runs = [];
+      const walk = (n, marks = {}) => {
+        if (n.nodeType === 3) {
+          if (n.textContent) runs.push({ text: n.textContent, ...marks });
+          return;
+        }
+        const tag = n.tagName?.toLowerCase();
+        if (tag === "br") {
+          runs.push({ text: "\n" });
+          return;
+        }
+        const next = {
+          ...marks,
+          ...(["b", "strong"].includes(tag) ? { bold: true } : {}),
+          ...(["i", "em"].includes(tag) ? { italic: true } : {}),
+          ...(tag === "u" ? { underline: true } : {}),
+        };
+        for (const child of n.childNodes) walk(child, next);
+        if (["div", "p"].includes(tag)) runs.push({ text: "\n" });
+      };
+      for (const child of node.childNodes) walk(child);
+      setValue(item.element, "desktop", null, "runs", runs);
+      setValue(item.element, "desktop", null, "content", node.innerText);
+      changed();
+    };
+  }
   workspace.addEventListener("pointerdown", (event) => {
     if (
       event.button !== 0 ||
@@ -1066,6 +1099,25 @@ export async function openZeroEditor({
       node = canvas.querySelector(`[data-ze="${ancestor.id}"]`);
     }
 
+    if (item?.element.type === "text" && !item.element.locked && !handle) {
+      const now = performance.now(),
+        repeated =
+          lastTextPointer?.id === item.element.id &&
+          now - lastTextPointer.time <= 600 &&
+          Math.hypot(
+            event.clientX - lastTextPointer.x,
+            event.clientY - lastTextPointer.y,
+          ) <= 6;
+      lastTextPointer = repeated
+        ? null
+        : { id: item.element.id, time: now, x: event.clientX, y: event.clientY };
+      if (repeated) {
+        selection = new Set([item.element.id]);
+        beginTextEditing(item, canvas.querySelector(`[data-ze="${item.element.id}"]`));
+        return;
+      }
+    } else lastTextPointer = null;
+
     if (item && !item.element.locked) {
       if (event.shiftKey && !handle) {
         if (selection.has(item.element.id)) selection.delete(item.element.id);
@@ -1142,6 +1194,7 @@ export async function openZeroEditor({
       // drag: snapGeometry can otherwise move an element simply on selection.
       if (Math.hypot(dx, dy) < 1.5) return;
       task.moved = true;
+      lastTextPointer = null;
     }
     if (task.kind === "pan") {
       workspace.scrollLeft = task.left - dx;
@@ -1292,40 +1345,20 @@ export async function openZeroEditor({
       changed();
       return;
     }
-    const node = event.target.closest("[data-ze]"),
-      item = node && findElement(data, node.dataset.ze);
-    if (!item || item.element.locked || item.element.type !== "text" || preview)
+    const node =
+      event.target.closest("[data-ze]") ||
+      document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-ze]");
+    const item = node && findElement(data, node.dataset.ze);
+    if (
+      !item ||
+      item.element.locked ||
+      item.element.type !== "text" ||
+      preview ||
+      node.isContentEditable
+    )
       return;
     selection = new Set([item.element.id]);
-    node.querySelectorAll(".zero-handle").forEach((n) => n.remove());
-    node.contentEditable = "true";
-    node.focus();
-    node.onblur = () => {
-      const runs = [];
-      const walk = (n, marks = {}) => {
-        if (n.nodeType === 3) {
-          if (n.textContent) runs.push({ text: n.textContent, ...marks });
-          return;
-        }
-        const tag = n.tagName?.toLowerCase();
-        if (tag === "br") {
-          runs.push({ text: "\n" });
-          return;
-        }
-        const next = {
-          ...marks,
-          ...(["b", "strong"].includes(tag) ? { bold: true } : {}),
-          ...(["i", "em"].includes(tag) ? { italic: true } : {}),
-          ...(tag === "u" ? { underline: true } : {}),
-        };
-        for (const child of n.childNodes) walk(child, next);
-        if (["div", "p"].includes(tag)) runs.push({ text: "\n" });
-      };
-      for (const child of node.childNodes) walk(child);
-      setValue(item.element, "desktop", null, "runs", runs);
-      setValue(item.element, "desktop", null, "content", node.innerText);
-      changed();
-    };
+    beginTextEditing(item, node);
   });
   $(".zero-brand").onclick = async (event) => {
     event.preventDefault();
