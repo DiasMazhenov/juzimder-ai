@@ -25,6 +25,7 @@ import {
 } from "../src/zero/model/model.js";
 import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
+import { renderInspector } from "../src/zero/ui/inspector.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
 );
@@ -175,6 +176,56 @@ test("JS and PHP renderers use the same absolute geometry at every breakpoint an
       true,
     ),
   );
+  assert.equal(
+    result.autoscale,
+    geometryCSS(fixture.elements[0].geometry, fixture.artboards.desktop, false, true),
+  );
+  assert.equal(
+    result.windowAutoscale,
+    geometryCSS(
+      { ...fixture.elements[1].geometry, container: "window" },
+      fixture.artboards.desktop,
+    ),
+  );
+});
+test("Autoscale scales Grid geometry per breakpoint and leaves Window geometry fixed", () => {
+  const data = structuredClone(fixture);
+  data.artboards.desktop.scaleGrid = "autoscale";
+  data.artboards.mobile.scaleGrid = "autoscale";
+  data.elements[1].geometry.container = "window";
+  const html = renderZero(data, "auto");
+  assert.match(html, /height:54\.1667vw/);
+  assert.match(
+    html,
+    /\[data-ze="ze-title"\]\{position:absolute;box-sizing:border-box;left:calc\(50% - 50vw \+ 8\.3333vw\);top:calc\(0% \+ 10vw\);width:35vw;height:9\.1667vw/,
+  );
+  assert.match(html, /\[data-ze="ze-title"\]\{[^}]*font-size:3\.3333vw/);
+  assert.match(html, /\[data-ze="ze-child"\]\{[^}]*width:20vw;height:15vw/);
+  assert.match(
+    html,
+    /@media\(max-width:479px\)\{\.jz-zero-auto\{height:180\.5556vw/,
+  );
+  assert.match(
+    html,
+    /\[data-ze="ze-photo"\]\{position:absolute;box-sizing:border-box;left:calc\(0% \+ 450px\);top:calc\(0% \+ 50px\);width:360px;height:240px/,
+  );
+  const authoringCanvas = renderZero(data, "auto", "desktop");
+  assert.match(authoringCanvas, /height:650px/);
+  assert.match(authoringCanvas, /width:420px/);
+});
+test("Autoscale control is scoped to an artboard and new boards default to fixed", () => {
+  const data = createZeroData();
+  for (const board of Object.values(data.artboards))
+    assert.equal(board.scaleGrid, "fixed");
+  const markup = renderInspector({
+    items: [],
+    mode: "mobile",
+    board: data.artboards.mobile,
+    project: {},
+  });
+  assert.match(markup, /data-board="scaleGrid"/);
+  assert.match(markup, /value="autoscale"[^>]*>Autoscale к ширине окна/);
+  assert.match(markup, /только на этом режиме/);
 });
 test("the exported frontend renderer contains no layout flow or editor UI and scopes block copies", () => {
   const html = renderZero(fixture, "zero-one"),
@@ -220,6 +271,11 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
     };
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
   const root = doc.data.pages[0].frames[0].component.components[0];
+  root.zeroData.artboards.desktop.scaleGrid = "autoscale";
+  assert.equal(validate(doc), true, JSON.stringify(validate.errors));
+  root.zeroData.artboards.desktop.scaleGrid = "stretch";
+  assert.equal(validate(doc), false);
+  delete root.zeroData.artboards.desktop.scaleGrid;
   root.components = [{ type: "text", content: "duplicate" }];
   assert.equal(validate(doc), false);
   root.components = [];

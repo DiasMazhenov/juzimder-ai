@@ -1,6 +1,6 @@
 # План Juzimder AI
 
-Обновлено 24.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
+Обновлено 25.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
 
 ## Phase 0 — аудит и архитектура
 
@@ -66,8 +66,9 @@
 - [x] 00.00.105: pinch-жест на сенсорном холсте и Ctrl/Cmd+колесо для трекпада масштабируют вокруг жеста; диапазон 25–300%, координаты элементов не меняются.
 - [x] 00.00.105: камера получает дополнительное поле при необходимости, поэтому при zoom-out у верхнего/левого края точка под жестом не смещается из-за нулевого scroll.
 - [x] 00.00.106: Zero Editor вписывает артборд в доступное место при открытии; адаптивная панель и overlay drawers проверены на 360, 390, 480, 520, 640, 720, 768, 900, 901 и 1024 px без изменения QA-ревизии.
+- [x] 00.00.107: per-breakpoint Grid Autoscale: пропорциональная геометрия, типографика и высота секции; Window Container остаётся фиксированным. Схема, backend validator и JS/PHP renderer согласованы.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
-- [ ] Autoscale геометрии элементов, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
+- [ ] Autoscale browser acceptance на разных ширинах, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
 - [x] Z6 revision restore and conflict reload keep the active page selected when it exists; browser acceptance on the dedicated Zero QA page.
 - [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
@@ -141,7 +142,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.106; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.107; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -566,6 +567,8 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [ ] 00.00.097: отдельная Browser QA Undo, взаимодействия Tabs в публичном preview, ZIP и публикации; автоматические static-export/API тесты уже проходят. Это Core-native эквиваленты, upstream runtime плагинов не подключён.
 
 
-## Zero Block · 00.00.106
+## Zero Block · 00.00.107
 
-Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Начальные Z2–Z5 controls реализованы; финальная Z6-приёмка остаётся открытой. В 00.00.102 исправлено смещение при клике: snap не меняет геометрию до реального drag. В 00.00.103 восстановлено rich-text редактирование двойным кликом при захвате указателя холстом: ввод, Save, Undo и reload подтверждены на QA-странице. В 00.00.104 проверены вложенные повёрнутые группы до трёх уровней, независимый drag/resize вложенной композиции и точный Undo; сохранённый HTML визуально совпал с холстом. Snap к направляющей проверен на 50% и 200%, временная направляющая и сдвиги отменены. В 00.00.105 добавлены anchored pinch и Ctrl/Cmd+wheel для камеры с диапазоном 25–300%; геометрия Project Data не меняется. Stage padding сохраняет якорь у всех границ прокрутки. В 00.00.106 исправлен начальный zoom: артборд помещается по доступной ширине/высоте с 12px полями; мобильные панели элементов/слоёв и инспектора открываются как переключаемые выдвижные панели; compact toolbar работает до 1100px. Визуально проверены 360, 390, 480, 520, 640, 720, 768, 900, 901 и 1024px; на QA revision181 изменений данных не было. Physical pinch acceptance remains NOT RUN; browser QA uses viewport emulation. Остаются полная матрица ориентаций/ширин, Autoscale геометрии, performance, публичная визуальная проверка ZIP/public и полная restore/conflict visual matrix. Подробности и evidence в docs/ZERO_BLOCK.md.
+00.00.107 implements optional per-artboard Grid Autoscale. Grid coordinates, dimensions, typography, stroke/radius/shadow and artboard height scale proportionally to the window width; Window Container stays fixed, and legacy data defaults to fixed mode. Schema, backend validation and JavaScript/PHP renderers are covered by unit/integration tests. Saved/public browser visual acceptance for enabled Autoscale remains open.
+
+Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Начальные Z2–Z5 controls реализованы; финальная Z6-приёмка остаётся открытой. В 00.00.102 исправлено смещение при клике: snap не меняет геометрию до реального drag. В 00.00.103 восстановлено rich-text редактирование двойным кликом при захвате указателя холстом: ввод, Save, Undo и reload подтверждены на QA-странице. В 00.00.104 проверены вложенные повёрнутые группы до трёх уровней, независимый drag/resize вложенной композиции и точный Undo; сохранённый HTML визуально совпал с холстом. Snap к направляющей проверен на 50% и 200%, временная направляющая и сдвиги отменены. В 00.00.105 добавлены anchored pinch и Ctrl/Cmd+wheel для камеры с диапазоном 25–300%; геометрия Project Data не меняется. Stage padding сохраняет якорь у всех границ прокрутки. В 00.00.106 исправлен начальный zoom: артборд помещается по доступной ширине/высоте с 12px полями; мобильные панели элементов/слоёв и инспектора открываются как переключаемые выдвижные панели; compact toolbar работает до 1100px. Визуально проверены 360, 390, 480, 520, 640, 720, 768, 900, 901 и 1024px; на QA revision181 изменений данных не было. В 00.00.107 реализован per-breakpoint Grid Autoscale; его browser acceptance на включённом режиме остаётся открытым. Physical pinch acceptance remains NOT RUN; browser QA uses viewport emulation. Остаются полная матрица ориентаций/ширин, performance, публичная визуальная проверка ZIP/public и полная restore/conflict visual matrix. Подробности и evidence в docs/ZERO_BLOCK.md.

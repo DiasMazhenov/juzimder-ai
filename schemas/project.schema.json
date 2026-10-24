@@ -619,6 +619,9 @@
                     "visible"
                   ]
                 },
+                "scaleGrid": {
+                  "enum": ["fixed", "autoscale"]
+                },
                 "guides": {
                   "type": "array",
                   "maxItems": 100,
@@ -692,6 +695,9 @@
                     "hidden",
                     "visible"
                   ]
+                },
+                "scaleGrid": {
+                  "enum": ["fixed", "autoscale"]
                 },
                 "guides": {
                   "type": "array",
@@ -767,6 +773,9 @@
                     "visible"
                   ]
                 },
+                "scaleGrid": {
+                  "enum": ["fixed", "autoscale"]
+                },
                 "guides": {
                   "type": "array",
                   "maxItems": 100,
@@ -841,6 +850,9 @@
                     "visible"
                   ]
                 },
+                "scaleGrid": {
+                  "enum": ["fixed", "autoscale"]
+                },
                 "guides": {
                   "type": "array",
                   "maxItems": 100,
@@ -914,6 +926,9 @@
                     "hidden",
                     "visible"
                   ]
+                },
+                "scaleGrid": {
+                  "enum": ["fixed", "autoscale"]
                 },
                 "guides": {
                   "type": "array",

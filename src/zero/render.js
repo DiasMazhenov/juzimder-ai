@@ -1,4 +1,10 @@
-import { MODES, resolve, geometryCSS, appearanceCSS } from "./model/model.js";
+import {
+  MODES,
+  resolve,
+  geometryCSS,
+  appearanceCSS,
+  scaledGridLength,
+} from "./model/model.js";
 export const escapeHTML = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -40,23 +46,44 @@ export function renderZero(data, blockId, activeMode = null) {
       : `@media(max-width:${{ laptop: 1199, tablet: 979, landscape: 639, mobile: 479 }[mode]}px){${rule}}`;
   for (const mode of activeMode ? [activeMode] : Object.keys(MODES)) {
     const b = data.artboards[mode];
+    const autoScale = !activeMode && b.scaleGrid === "autoscale";
     css += wrap(
       mode,
-      `.${scope}{height:${b.height}px;background:${b.background};overflow:${b.overflow}}`,
+      `.${scope}{height:${autoScale ? scaledGridLength(b.height, b, true) : `${b.height}px`};background:${b.background};overflow:${b.overflow}}`,
     );
   }
-  const walk = (list, nested = false) =>
+  const walk = (list, nested = false, inheritedGrid = {}) =>
     list
       .map((el, index) => {
         for (const mode of activeMode ? [activeMode] : Object.keys(MODES)) {
           const e = resolve(el, mode),
             s = e.style,
-            sel = `.${scope} [data-ze="${el.id}"]`;
+            board = data.artboards[mode],
+            gridAttached = nested
+              ? inheritedGrid[mode]
+              : e.geometry.container === "grid",
+            autoScale =
+              !activeMode &&
+              board.scaleGrid === "autoscale" &&
+              gridAttached,
+            sel = `.${scope} [data-ze="${el.id}"]`,
+            buttonPadding =
+              autoScale && el.type === "button"
+                ? `padding:${scaledGridLength(12, board, true)} ${scaledGridLength(16, board, true)};`
+                : "";
           css += wrap(
             mode,
-            `${sel}{${geometryCSS(e.geometry, data.artboards[mode], nested)}${appearanceCSS(s)}z-index:${index + 1};display:${e.visible ? "block" : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
+            `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearanceCSS(s, board, autoScale)}${buttonPadding}z-index:${index + 1};display:${e.visible ? "block" : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
           );
         }
+        const childGrid = Object.fromEntries(
+          Object.keys(MODES).map((mode) => [
+            mode,
+            nested
+              ? inheritedGrid[mode]
+              : resolve(el, mode).geometry.container === "grid",
+          ]),
+        );
         const e = resolve(el, activeMode || "desktop"),
           tag =
             el.type === "text"
@@ -64,7 +91,10 @@ export function renderZero(data, blockId, activeMode = null) {
               : el.type === "button" || (el.type === "image" && e.href)
                 ? "a"
                 : "div";
-        let body = elementHTML(e, el.children ? walk(el.children, true) : "");
+        let body = elementHTML(
+          e,
+          el.children ? walk(el.children, true, childGrid) : "",
+        );
         if (el.type === "image" && !activeMode) {
           const sources = ["mobile", "landscape", "tablet", "laptop"]
             .map(

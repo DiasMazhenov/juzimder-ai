@@ -22,6 +22,7 @@ export function createZeroData() {
           margin: 20,
           gutter: 20,
           overflow: "hidden",
+          scaleGrid: "fixed",
           guides: [],
         },
       ]),
@@ -303,17 +304,30 @@ export function zoomCameraAtPoint({
     scrollTop: Math.min(maxScrollTop, nextScrollTop),
   };
 }
-export function geometryCSS(g, board, nested = false) {
-  const offset = g.x;
-  let left = `calc(${g.anchorX * 100}% + ${offset}px)`;
-  if (!nested && g.container === "grid")
-    left =
-      g.anchorX === 0.5
-        ? `calc(50% + ${offset}px)`
-        : `calc(50% ${g.anchorX === 0 ? "-" : "+"} min(50%, ${board.gridWidth / 2}px) + ${offset}px)`;
-  return `position:absolute;box-sizing:border-box;left:${left};top:calc(${g.anchorY * 100}% + ${g.y}px);width:${g.width}px;height:${g.height}px;transform:translate(${-g.originX * 100}%,${-g.originY * 100}%) rotate(${g.rotation}deg);transform-origin:${g.originX * 100}% ${g.originY * 100}%;`;
+export function scaledGridLength(value, board, autoScale = false) {
+  if (!autoScale) return `${value}px`;
+  return `${Number(((value * 100) / board.gridWidth).toFixed(4))}vw`;
 }
-export function appearanceCSS(s) {
+export function geometryCSS(g, board, nested = false, autoScale = false) {
+  const scale = autoScale && (nested || g.container === "grid"),
+    length = (value) => scaledGridLength(value, board, scale);
+  const offset = g.x;
+  let left = `calc(${g.anchorX * 100}% + ${length(offset)})`;
+  if (!nested && g.container === "grid") {
+    if (scale)
+      left =
+        g.anchorX === 0.5
+          ? `calc(50% + ${length(offset)})`
+          : `calc(50% ${g.anchorX === 0 ? "-" : "+"} 50vw + ${length(offset)})`;
+    else
+      left =
+        g.anchorX === 0.5
+          ? `calc(50% + ${length(offset)})`
+          : `calc(50% ${g.anchorX === 0 ? "-" : "+"} min(50%, ${board.gridWidth / 2}px) + ${length(offset)})`;
+  }
+  return `position:absolute;box-sizing:border-box;left:${left};top:calc(${g.anchorY * 100}% + ${length(g.y)});width:${length(g.width)};height:${length(g.height)};transform:translate(${-g.originX * 100}%,${-g.originY * 100}%) rotate(${g.rotation}deg);transform-origin:${g.originX * 100}% ${g.originY * 100}%;`;
+}
+export function appearanceCSS(s, board = null, autoScale = false) {
   const map = {
     fontSize: "font-size",
     fontWeight: "font-weight",
@@ -330,12 +344,26 @@ export function appearanceCSS(s) {
     objectPosition: "object-position",
   };
   let css = "";
+  const lengths = new Set([
+      "fontSize",
+      "letterSpacing",
+      "radius",
+      "strokeWidth",
+      "shadowX",
+      "shadowY",
+      "shadowBlur",
+    ]),
+    dimension = (key, value) =>
+      autoScale && board
+        ? scaledGridLength(value, board, true)
+        : `${String(value).replace(/[;{}<>]/g, "")}px`;
   for (const [key, prop] of Object.entries(map))
     if (s[key] !== undefined)
-      css += `${prop}:${String(s[key]).replace(/[;{}<>]/g, "")}${["fontSize", "letterSpacing", "radius"].includes(key) ? "px" : ""};`;
-  css += `border:${s.strokeWidth || 0}px solid ${s.stroke || "transparent"};`;
+      css += `${prop}:${lengths.has(key) ? dimension(key, s[key]) : String(s[key]).replace(/[;{}<>]/g, "")};`;
+  const strokeWidth = dimension("strokeWidth", s.strokeWidth || 0);
+  css += `border:${strokeWidth} solid ${s.stroke || "transparent"};`;
   if (s.shadowBlur !== undefined)
-    css += `box-shadow:${s.shadowX || 0}px ${s.shadowY || 0}px ${s.shadowBlur}px ${s.shadowColor || "#000000"};`;
+    css += `box-shadow:${dimension("shadowX", s.shadowX || 0)} ${dimension("shadowY", s.shadowY || 0)} ${dimension("shadowBlur", s.shadowBlur)} ${s.shadowColor || "#000000"};`;
   if (s.autoHeight) css += "height:auto;";
   return css;
 }
