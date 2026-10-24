@@ -517,3 +517,5 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 
 - [x] 00.00.081: native конструктор форм и 7 карточек полей; schema/backend/save/export без разрешения scripts/actions.
 - [ ] Обработчик заявок и интеграция отправки формы (пока явно отключена).
+
+- [x] 00.00.082: единое окно фото, upload с компьютера, личная библиотека сайта, поиск/выбор/alt и native replacement; реальный upload/save/reopen QA.
