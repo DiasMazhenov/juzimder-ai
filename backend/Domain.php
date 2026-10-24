@@ -4,6 +4,7 @@ namespace Juzimder;
 require_once __DIR__ . '/ProjectSettings.php';
 require_once __DIR__ . '/IconCatalogue.php';
 require_once __DIR__ . '/BackgroundImage.php';
+require_once __DIR__ . '/CustomCode.php';
 
 final class Problem extends \RuntimeException {
     public function __construct(public int $status, string $message) { parent::__construct($message); }
@@ -12,8 +13,8 @@ final class Document {
     public const MAX_PAGES = 30;
     public const MAX_PAGE_ID_LENGTH = 128;
     public const FRAMES_PER_PAGE = 1;
-    public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head','form','input','textarea','select','option','checkbox','radio','button','label'];
-    public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option'];
+    public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head','form','input','textarea','select','option','checkbox','radio','button','label','custom-code','countdown'];
+    public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','time'];
     public static function empty(): array {
         return ['schemaVersion' => 1, 'engine' => 'grapesjs', 'data' => ['assets' => [], 'styles' => [], 'pages' => [['id' => 'home', 'name' => 'Главная', 'frames' => [['component' => ['type' => 'wrapper', 'style' => ['display' => 'flex', 'flex-direction' => 'column'], 'components' => []]]]]]]];
     }
@@ -45,9 +46,21 @@ final class Document {
     private static function component(mixed $node, int $depth): void {
         $fields = self::objectFields($node);
         if ($fields === null || $depth > 35) throw new Problem(422,'Некорректное дерево компонентов.');
-        foreach (['attributes','style'] as $field) if (array_key_exists($field, $fields) && self::objectFields($fields[$field]) === null) throw new Problem(422,'Некорректные свойства компонента.');
+        if (($fields['style'] ?? null) === '' && $node instanceof \stdClass) {
+            $node->style = new \stdClass();
+            $fields['style'] = $node->style;
+        }
+        foreach (['attributes','style'] as $field) if (array_key_exists($field, $fields) && self::objectFields($fields[$field]) === null) throw new Problem(422,'Некорректное свойство компонента: ' . $field . '.');
         if (array_key_exists('content', $fields) && !is_string($fields['content'])) throw new Problem(422,'Некорректный текст компонента.');
         if (array_key_exists('type', $fields) && (!is_string($fields['type']) || !in_array($fields['type'], self::COMPONENT_TYPES, true))) throw new Problem(422,'Недопустимый тип компонента.');
+        if (($fields['type'] ?? null) === 'custom-code') {
+            if (!is_string($fields['content'] ?? null) || (isset($fields['components']) && $fields['components'] !== [])) throw new Problem(422, 'Custom Code должен хранить только изолированный блок HTML, CSS и JavaScript.');
+            CustomCode::decode($fields['content']);
+        }
+        if (($fields['type'] ?? null) === 'countdown') {
+            $attributes = self::objectFields($fields['attributes'] ?? null) ?? [];
+            CustomCode::countdownPayload($attributes['data-countdown-end'] ?? null);
+        }
         if (array_key_exists('components', $fields)) {
             if (!is_array($fields['components']) || !array_is_list($fields['components'])) throw new Problem(422,'Дочерние компоненты должны быть списком.');
             foreach ($fields['components'] as $child) self::component($child, $depth+1);

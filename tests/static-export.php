@@ -119,6 +119,25 @@ exportCheck(str_contains($nativeFiles['assets/site.css'],'.ai-title.highlight:ho
 exportCheck(str_contains($nativeFiles['assets/site.css'],'@media (max-width: 768px){.ai-scope-native h2{font-size:28px}}'),'Responsive native selectorsAdd rules survive export');
 exportCheck(!str_contains($nativeFiles['assets/site.css'],'body{color:red}') && str_contains($nativeFiles['assets/site.css'],'.safe{color:#ffffff}'),'Invalid selector fragments cannot inject stylesheet text');
 
+$sandboxProject=$project;
+$sandboxProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$sandboxProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['type'=>'custom-code','tagName'=>'div','name'=>'Sandbox QA','content'=>\Juzimder\CustomCode::encode(['html'=>'<h2>Isolated preview</h2>','css'=>'h2{color:#123456}','js'=>'document.body.dataset.ready="yes";const escaped="</script>";'])];
+$sandboxFiles=StaticSiteExporter::files($sandboxProject);
+$sandboxHtml=$sandboxFiles['index.html'];
+$nonce=StaticSiteExporter::runtimeNonce($sandboxHtml);
+exportCheck(is_string($nonce)&&preg_match('~script-src &#39;nonce-' . preg_quote($nonce,'~') . '&#39;~',$sandboxHtml)===1,'Custom Code export grants only a per-document script nonce');
+exportCheck(str_contains($sandboxHtml,'sandbox="allow-scripts"')&&str_contains($sandboxHtml,'srcdoc="&lt;!doctype html'),'Exported user code is nested in an opaque sandboxed iframe');
+exportCheck(str_contains($sandboxHtml,'connect-src &#39;none&#39;')&&str_contains($sandboxHtml,'frame-src &#39;self&#39; data:'),'Custom Code output keeps the page network policy closed');
+exportCheck(!preg_match('~<script\b|</script>~i',$sandboxHtml),'User JavaScript is base64-transported and never becomes a script in the parent document');
+exportCheck(!str_contains(StaticSiteExporter::pageSecurityPolicy($sandboxHtml),'sandbox '),'Preview/public headers must not sandbox the complete page');
+$countdownProject=$project;
+$countdownProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$countdownProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['type'=>'countdown','tagName'=>'div','attributes'=>(object)['data-countdown-end'=>'2027-01-01T00:00:00Z']];
+$countdownHtml=StaticSiteExporter::files($countdownProject)['index.html'];
+exportCheck(str_contains($countdownHtml,'Обратный отсчёт')&&str_contains($countdownHtml,'sandbox="allow-scripts"'),'Countdown exports a live isolated timer instead of a static label');
+exportRejects(fn()=>\Juzimder\CustomCode::countdownPayload('2027-13-99T99:99:99Z'),422,'Countdown rejects invalid dates');
+exportRejects(fn()=>\Juzimder\CustomCode::decode(\Juzimder\CustomCode::encode(['html'=>'','css'=>'</style><script>bad</script>','js'=>''])),422,'Custom Code CSS cannot escape its style boundary');
+
 $nativeDoc['data']['pages'][0]['frames'][0]['component']['classes']=['page-theme'];
 $rootFiles=StaticSiteExporter::files(['name'=>'Root CSS','document'=>json_decode(json_encode($nativeDoc))]);
 exportCheck(str_contains($rootFiles['index.html'],'<body class="page-theme"'),'Native wrapper classes also reach the exported body');

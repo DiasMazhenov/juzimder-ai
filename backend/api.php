@@ -10,7 +10,7 @@ require_once __DIR__ . '/SkillAnalyzer.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
-use Juzimder\{Store, Problem};
+use Juzimder\{Store, Problem, CustomCode};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
 $databasePath = getenv('JUZIMDER_DB') ?: __DIR__.'/../var/app.sqlite';
@@ -28,17 +28,23 @@ function expireLocalSession(): void { $_SESSION=[]; session_regenerate_id(true);
 try {
     $store = new Store($databasePath);
     $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);
+    $sandboxRequest = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox$~D', $path) === 1;
+    $sandboxPreviewRequest = $method === 'GET' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox/[a-f0-9]{64}$~D', $path) === 1;
     $assetUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/assets$~D', $path) === 1;
     $body = [];
     if ($method !== 'GET') {
-        if (!hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
-        $bodyLimit = $assetUpload ? 4194304 : 2100000;
+        if (!$sandboxRequest && !hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
+        $bodyLimit = $assetUpload ? 4194304 : ($sandboxRequest ? 100000 : 2100000);
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $bodyLimit) throw new Problem(413,'Запрос слишком большой.');
         $raw = file_get_contents('php://input',false,null,0,$bodyLimit+1);
         if (!is_string($raw) || strlen($raw)>$bodyLimit) throw new Problem(413,'Запрос слишком большой.');
         if ($assetUpload) {
             if (!str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'application/octet-stream')) throw new Problem(415,'Передайте файл изображения как двоичные данные.');
             $body['_assetBinary'] = $raw;
+        } elseif ($sandboxRequest) {
+            if (!str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'application/x-www-form-urlencoded')) throw new Problem(415,'Передайте данные Custom Code как форму.');
+            parse_str($raw, $body);
+            if (!hash_equals($_SESSION['csrf'], is_string($body['csrf'] ?? null) ? $body['csrf'] : '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
         } else {
             try { $decodedBody = json_decode($raw,false,64,JSON_THROW_ON_ERROR); } catch (JsonException) { throw new Problem(422,'Некорректный JSON.'); }
             if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
@@ -86,6 +92,31 @@ try {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
     }
+    if ($sandboxRequest && preg_match('~^/api/projects/([a-f0-9]{24})/custom-code/sandbox$~D', $path, $sandboxMatch)) {
+        $store->owned($sandboxMatch[1], $user);
+        $kind = $body['kind'] ?? '';
+        if (array_diff(array_keys($body), ['csrf','kind','html','css','js','deadline']) || !is_string($kind)) throw new Problem(422,'Некорректные параметры песочницы.');
+        $payload = match ($kind) {
+            'custom-code' => CustomCode::decode(CustomCode::encode(['html'=>$body['html'] ?? null,'css'=>$body['css'] ?? null,'js'=>$body['js'] ?? null])),
+            'countdown' => CustomCode::countdownPayload($body['deadline'] ?? null),
+            default => throw new Problem(422,'Неизвестный тип песочницы.')
+        };
+        foreach ($_SESSION['custom_code_previews'] ?? [] as $token=>$preview) if (!is_array($preview) || ($preview['expires'] ?? 0) < time()) unset($_SESSION['custom_code_previews'][$token]);
+        $token = bin2hex(random_bytes(32));
+        $_SESSION['custom_code_previews'][$token] = ['projectId'=>$sandboxMatch[1],'payload'=>$payload,'expires'=>time()+60];
+        result(['url'=>'/api/projects/'.$sandboxMatch[1].'/custom-code/sandbox/'.$token]);
+    }
+    if ($sandboxPreviewRequest && preg_match('~^/api/projects/([a-f0-9]{24})/custom-code/sandbox/([a-f0-9]{64})$~D', $path, $sandboxPreviewMatch)) {
+        $store->owned($sandboxPreviewMatch[1], $user);
+        $preview = $_SESSION['custom_code_previews'][$sandboxPreviewMatch[2]] ?? null;
+        unset($_SESSION['custom_code_previews'][$sandboxPreviewMatch[2]]);
+        if (!is_array($preview) || ($preview['projectId'] ?? null) !== $sandboxPreviewMatch[1] || ($preview['expires'] ?? 0) < time() || !is_array($preview['payload'] ?? null)) throw new Problem(404,'Предпросмотр истёк. Запустите его снова.');
+        $nonce = bin2hex(random_bytes(16));
+        header_remove('X-Frame-Options'); header('X-Frame-Options: SAMEORIGIN');
+        header('Content-Type: text/html; charset=utf-8'); header('Cache-Control: no-store');
+        header("Content-Security-Policy: sandbox allow-scripts; default-src 'none'; script-src 'nonce-" . $nonce . "'; connect-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; navigate-to 'none'; frame-ancestors 'self'");
+        echo CustomCode::sandboxDocument($preview['payload'], $nonce); exit;
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/assets(?:/([a-f0-9]{24})/file)?$~D', $path, $assetMatch)) {
         $projectId = $assetMatch[1]; $assetId = $assetMatch[2] ?? '';
         if ($method === 'GET' && $assetId === '') result($store->listAssets($projectId, $user));
@@ -129,7 +160,7 @@ try {
         $html=Juzimder\StaticSiteExporter::inlineAssets($html,$assets,$viewMatch[1],$isHome);
         $html=preg_replace_callback('~<link rel="stylesheet"[^>]*>~',static fn()=>'<style>'.$css.'</style>',$html);
         header('Content-Type: text/html; charset=utf-8');
-        header("Content-Security-Policy: sandbox; default-src 'none'; script-src 'none'; connect-src 'none'; style-src 'unsafe-inline'; img-src https: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+        header('Content-Security-Policy: ' . Juzimder\StaticSiteExporter::pageSecurityPolicy($html));
         header('Cross-Origin-Opener-Policy: same-origin');
         echo $html;exit;
     }

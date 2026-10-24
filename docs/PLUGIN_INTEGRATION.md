@@ -1,4 +1,4 @@
-# Plugin integration status · 00.00.079
+# Plugin integration status · 00.00.097
 
 The user requested the whole supplied list. Installation is not acceptance.
 
@@ -14,18 +14,18 @@ The user requested the whole supplied list. Installation is not acceptance.
 | plugin-ckeditor | Pinned; editor dependency, licensing and RTE acceptance pending |
 | tui-image-editor | Pinned; editor dependency and managed save pending |
 | plugin-forms | Structural form designer connected in 00.00.081; native tags/fields persist and export. Actions/scripts remain prohibited; no submission endpoint yet. |
-| navbar | Pinned; reviewed component runtime pending |
-| component-countdown | Pinned; reviewed component runtime pending |
-| lory-slider | Pinned; local Lory dependency and runtime pending |
-| tabs | Pinned; runtime and persisted attributes pending |
-| tooltip | Pinned; generated CSS export acceptance pending |
-| custom-code | Pinned; isolated custom-code execution pending |
+| navbar | Core-native responsive header/navigation block; editable links and static export |
+| component-countdown | Core component with validated UTC deadline; generated timer runs only in the isolated sandbox |
+| lory-slider | Core-native scroll-snap carousel; no upstream Lory runtime executes |
+| tabs | Core block using accessible native radio controls and CSS-only panel switching |
+| tooltip | Core button using the browser's native `title` tooltip |
+| custom-code | Core HTML/CSS/JS editor, stored in Project Data and rendered only in a per-block opaque sandbox iframe |
 | aviary | Retired; use TOAST UI replacement |
 
 ## Execution boundary
 
-Core component scripts execute in the canvas. `allowScripts:false` only blocks parsed HTML script tags, not native component scripts. Do not remove the backend script prohibition without a reviewed boundary. Current scripts, event handlers, external loaders, form actions and server execution remain prohibited.
+Core component scripts execute in the canvas. `allowScripts:false` only blocks parsed HTML script tags, not native component scripts. Do not remove the backend script prohibition without a reviewed boundary. Scripts, event handlers, external loaders, form actions and server execution remain prohibited in Project Data. The six entries above use Core-native components; Custom Code is bounded data served only by the authenticated sandbox route. Its `allow-scripts` permission applies to the child iframe only. Editor, saved preview and published pages keep their own DOM and nonce CSP; the code frame's CSP restricts script, network and embedded-resource capabilities.
 
 A broad CSP relaxation to unsafe-inline/self was rejected by automatic approval review. Required alternative: exact reviewed runtime hashes/nonces, unchanged editor-origin CSP, opaque sandbox without allow-same-origin for owner custom code, no editor cookies/API access, no PHP/server evaluation. Plugin code and user code need separate paths. Validate the exact pinned component code server-side and serialize props as JSON, never concatenate owner input into JavaScript.
 
-Release acceptance per plugin: native insert/edit, full Project Data validation, save/reopen, Undo/Redo, preview, ZIP and published output. Optional services need configured credentials; do not pretend they work before configuration.
+Release acceptance per plugin: native insert/edit, full Project Data validation, save/reopen, Undo/Redo, preview, ZIP and published output. This Core-native implementation does not claim to be a 1:1 port of each pinned upstream plugin. Optional services need configured credentials; do not pretend they work before configuration.

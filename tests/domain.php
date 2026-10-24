@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../backend/Domain.php';
-use Juzimder\{Document, Store, Problem};
+use Juzimder\{Document, Store, Problem, CustomCode};
 function check(bool $ok,string $message): void { if (!$ok) throw new RuntimeException($message); echo "PASS $message\n"; }
 function rejects(callable $fn,int $status,string $message=''): void { try {$fn();} catch (Problem $e) {check($e->status===$status,'Reject '.$status.($message ? ': '.$message : ''));return;} throw new RuntimeException('Expected rejection'.($message ? ': '.$message : '')); }
 function sameJson(mixed $left,mixed $right): bool { return json_encode($left,JSON_THROW_ON_ERROR)===json_encode($right,JSON_THROW_ON_ERROR); }
@@ -13,6 +13,10 @@ $empty=Document::empty()['data']['pages'][0]['frames'][0]['component'];check($em
 rejects(fn()=>$s->owned($id,'b'),404);rejects(fn()=>$s->save($id,'b',0,Document::empty()),404);
 Document::validate(json_decode(file_get_contents(__DIR__.'/grapesjs-0.23.8.fixture.json'),false,64,JSON_THROW_ON_ERROR));
 check(true,'Real GrapesJS 0.23.8 fixture');
+$emptyStyleDocument=json_decode(json_encode(Document::empty(),JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$emptyStyleDocument->data->pages[0]->frames[0]->component->components=[(object)['type'=>'custom-code','tagName'=>'div','content'=>CustomCode::encode(['html'=>'<p>Preview</p>','css'=>'','js'=>'' ]),'style'=>'']];
+Document::validate($emptyStyleDocument);
+check($emptyStyleDocument->data->pages[0]->frames[0]->component->components[0]->style instanceof stdClass&&get_object_vars($emptyStyleDocument->data->pages[0]->frames[0]->component->components[0]->style)===[],'Normalize GrapesJS empty style strings before persistence');
 $invalidFixtures=json_decode(file_get_contents(__DIR__.'/fixtures/invalid-documents.json'),false,64,JSON_THROW_ON_ERROR);
 foreach($invalidFixtures as $fixture) rejects(fn()=>Document::validate($fixture->document),422,$fixture->case);
 $d=Document::empty();$d['data']['pages'][0]['frames'][0]['component']['style']=['--juzimder-color-ink'=>'#102030','--juzimder-radius'=>'12px'];$d['data']['pages'][0]['frames'][0]['component']['components']=[['type'=>'text','tagName'=>'h1','content'=>'Persistent heading','attributes'=>['id'=>'heading-stable'],'ai'=>['origin'=>'manual']]];

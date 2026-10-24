@@ -1,5 +1,6 @@
 import { libraryPresets } from './library-presets.js';
 import { tokenValue } from './design-tokens.js';
+import { DEFAULT_CUSTOM_CODE, DEFAULT_TABS_CODE, encodeCustomCode } from './custom-code.js';
 
 const palette = Object.freeze({
   ink: tokenValue('ink'),
@@ -245,6 +246,34 @@ export const blocks = [
       content: 'Нажмите здесь',
       style: { padding: '12px 18px', 'background-color': palette.forest, color: '#fff', 'border': '0', 'border-radius': palette.radius, 'font-family': palette.font, 'font-size': '14px', cursor: 'pointer' }
     })
+  },
+  {
+    id: 'navbar', label: 'Navbar', category: 'Навигация', description: 'Адаптивная шапка с редактируемыми ссылками',
+    content: () => ({tagName:'header',name:'Navbar',attributes:{role:'banner'},style:{display:'flex','align-items':'center','justify-content':'space-between','flex-wrap':'wrap',gap:'16px',padding:'18px 6%','background-color':palette.paper,color:palette.ink,'font-family':palette.font},components:[
+      text('strong','Название сайта',{color:palette.ink,'font-size':'18px'}),
+      {tagName:'nav',name:'Навигация',attributes:{'aria-label':'Основная навигация'},style:{display:'flex','align-items':'center','flex-wrap':'wrap',gap:'16px'},components:[link('О проекте','#about',{color:palette.body,'text-decoration':'none'}),link('Услуги','#services',{color:palette.body,'text-decoration':'none'}),link('Контакты','#contact',{color:palette.body,'text-decoration':'none'})]},
+      link('Связаться','#contact',{padding:'10px 16px','background-color':palette.forest,color:'#fff','border-radius':palette.radius,'text-decoration':'none'})
+    ]})
+  },
+  {
+    id: 'countdown', label: 'Countdown', category: 'Интерактивные', description: 'Живой отсчёт в отдельной песочнице без доступа к странице',
+    content: () => ({type:'countdown',tagName:'div',name:'Countdown',attributes:{class:'jz-countdown','data-countdown-end':'2027-01-01T00:00:00Z'},style:{width:'100%','min-height':'72px'}})
+  },
+  {
+    id: 'slider', label: 'Slider', category: 'Интерактивные', description: 'Лента карточек с прокруткой и привязкой к слайдам',
+    content: () => ({tagName:'section',name:'Slider',style:{display:'flex','flex-direction':'column',gap:'18px',padding:'32px 6%','font-family':palette.font},components:[text('h2','Избранное',{color:palette.ink,'font-size':palette.h2}),{tagName:'div',name:'Слайды',attributes:{'aria-label':'Слайды; прокручивайте по горизонтали'},style:{display:'flex',gap:'16px','overflow-x':'auto','scroll-snap-type':'x mandatory','padding-bottom':'12px'},components:[1,2,3].map((number)=>({tagName:'article',name:'Слайд '+number,style:{display:'flex','flex-direction':'column',gap:'10px','flex':'0 0 min(82%, 420px)','scroll-snap-align':'start',padding:'24px',border:'1px solid '+palette.line,'border-radius':palette.radius,'background-color':palette.paper},components:[text('p','0'+number,{color:palette.forest,'font-size':'12px'}),text('h3','Заголовок слайда '+number,{color:palette.ink,'font-size':palette.h3}),text('p','Добавьте описание и замените этот текст своим содержанием.',{color:palette.muted,'font-size':palette.bodySize})]}))}]})
+  },
+  {
+    id: 'tabs', label: 'Tabs', category: 'Интерактивные', description: 'Переключаемые панели на radio и CSS без JavaScript',
+    content: () => ({type:'custom-code',tagName:'div',name:'Tabs',content:encodeCustomCode(DEFAULT_TABS_CODE),attributes:{class:'jz-tabs-block'},style:{width:'100%','min-height':'180px'}})
+  },
+  {
+    id: 'tooltip', label: 'Tooltip', category: 'Интерактивные', description: 'Подсказка браузера при наведении или фокусе',
+    content: () => ({type:'button',tagName:'button',name:'Tooltip',content:'Наведите курсор или перейдите клавиатурой',attributes:{type:'button',title:'Текст всплывающей подсказки'},style:{display:'inline-flex',width:'fit-content',padding:'12px 16px',border:'1px solid '+palette.line,'border-radius':palette.radius,color:palette.ink,'font-family':palette.font,'text-decoration':'none'}})
+  },
+  {
+    id: 'custom-code', label: 'Custom Code', category: 'Интерактивные', description: 'HTML, CSS и JavaScript в изолированной песочнице',
+    content: () => ({type:'custom-code',tagName:'div',name:'Custom Code',content:encodeCustomCode(DEFAULT_CUSTOM_CODE),attributes:{class:'jz-custom-code'},style:{width:'100%','min-height':'180px'}})
   },
   ...libraryPresets
 ];

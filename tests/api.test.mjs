@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { blocks } from '../src/blocks.js';
+import { encodeCustomCode } from '../src/custom-code.js';
 import { AI_SECTION_TEXT_FIELDS, buildDesignPlanOperations } from '../src/ai-plan.js';
 let server, devServer, dir, devDir, testDbPath;
 const base='http://127.0.0.1:18081';
@@ -14,11 +15,12 @@ class Client {
   constructor(url=base){this.url=url;}
   cookie=''; csrf='';
   async call(path,method='GET',body,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method,headers:{Cookie:this.cookie,'Content-Type':'application/json','X-CSRF-Token':token},...(body?{body:JSON.stringify(body)}:{})});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];const data=await r.json();if(data?.csrf)this.csrf=data.csrf;return {status:r.status,data};}
-  async download(path){const r=await fetch(this.url+'/api'+path,{headers:{Cookie:this.cookie}});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,type:r.headers.get('content-type'),body:Buffer.from(await r.arrayBuffer())};}
+  async download(path){const r=await fetch(this.url+'/api'+path,{headers:{Cookie:this.cookie}});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,type:r.headers.get('content-type'),csp:r.headers.get('content-security-policy'),body:Buffer.from(await r.arrayBuffer())};}
   async upload(path,bytes,name,token=this.csrf){const r=await fetch(this.url+'/api'+path,{method:'POST',headers:{Cookie:this.cookie,'Content-Type':'application/octet-stream','X-CSRF-Token':token,'X-Asset-Name':encodeURIComponent(name)},body:bytes});const cookie=r.headers.get('set-cookie');if(cookie)this.cookie=cookie.split(';')[0];return {status:r.status,data:await r.json()};}
+  async sandbox(path,fields,token=this.csrf){const body=new URLSearchParams({csrf:token,...Object.fromEntries(Object.entries(fields).map(([key,value])=>[key,String(value)]))});const r=await fetch(this.url+'/api'+path,{method:'POST',headers:{Cookie:this.cookie,'Content-Type':'application/x-www-form-urlencoded'},body});return {status:r.status,type:r.headers.get('content-type'),data:await r.json()};}
 }
-async function publicCall(projectId,path='/',method='GET'){
-  const endpoint=new URL(base);
+async function publicCall(projectId,path='/',method='GET',serverUrl=base){
+  const endpoint=new URL(serverUrl);
   return new Promise((resolve,reject)=>{
     const request=httpRequest({hostname:endpoint.hostname,port:endpoint.port,path,method,headers:{Host:`${projectId}.juzimder-ai.localhost:18081`}},response=>{
       const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks).toString('utf8')}));
@@ -429,4 +431,33 @@ const formView=await owner.download(path),html=formView.body.toString();assert.e
 const protectedView=await fetch(devBase+'/api'+path,{headers:{Cookie:owner.cookie}});assert.match(protectedView.headers.get('content-security-policy'),/form-action 'none'/);assert.match(protectedView.headers.get('content-security-policy'),/script-src 'none'/);await protectedView.arrayBuffer();
 for(const attributes of [{action:'https://example.test/submit'},{formaction:'https://example.test/submit'},{onsubmit:'alert(1)'}]){const bad=structuredClone(persisted.document);bad.data.pages[0].frames[0].component.components[1].attributes=attributes;assert.equal((await owner.call(`/projects/${project.id}`,'PUT',{version:2,document:bad})).status,422);}
 
+});
+
+test('Navbar runtime blocks, Countdown and Custom Code use an opaque network-denied sandbox',async()=>{
+const owner=new Client(devBase),other=new Client(devBase),anonymous=new Client(devBase);
+for(const [client,email] of [[owner,'custom-code-owner@example.test'],[other,'custom-code-other@example.test']]){await client.call('/session');assert.equal((await client.call('/register','POST',{email,password:'local-custom-code-password'})).status,200);}
+await anonymous.call('/session');
+const project=(await owner.call('/projects','POST',{name:'Isolated code QA'})).data,path=`/projects/${project.id}/custom-code/sandbox`;
+const sandboxFields={kind:'custom-code',html:'<h2>Sandbox output</h2>',css:'h2{color:#123456}',js:'document.body.dataset.ready="yes";'};
+assert.equal((await anonymous.sandbox(path,sandboxFields)).status,401,'Sandbox preview requires an authenticated owner');
+assert.equal((await owner.sandbox(path,sandboxFields,'invalid')).status,403,'Sandbox form validates the CSRF token');
+assert.equal((await other.sandbox(path,sandboxFields)).status,404,'Sandbox preview enforces project ownership');
+const sandbox=await owner.sandbox(path,sandboxFields);
+assert.equal(sandbox.status,200);assert.match(sandbox.type,/application\/json/);assert.match(sandbox.data.url,/^\/api\/projects\/[a-f0-9]{24}\/custom-code\/sandbox\/[a-f0-9]{64}$/,'Sandbox returns a short-lived one-time preview route');
+const sandboxResponse=await fetch(owner.url+sandbox.data.url,{headers:{Cookie:owner.cookie}}),sandboxBody=await sandboxResponse.text(),sandboxCsp=sandboxResponse.headers.get('content-security-policy');
+assert.equal(sandboxResponse.status,200);assert.match(sandboxCsp,/sandbox allow-scripts/);assert.match(sandboxCsp,/connect-src 'none'/);assert.match(sandboxCsp,/img-src data: blob:/);assert.equal(sandboxResponse.headers.get('x-frame-options'),'SAMEORIGIN');
+assert.match(sandboxBody,/<h2>Sandbox output<\/h2>/);assert.match(sandboxBody,/createElement\("script"\)/);assert.doesNotMatch(sandboxBody,/document\.body\.dataset\.ready/,'Owner JavaScript is transported as data and runs only in the sandbox document');
+const replay=await fetch(owner.url+sandbox.data.url,{headers:{Cookie:owner.cookie}});assert.equal(replay.status,404,'Preview payload tokens can only be consumed once');
+assert.equal((await owner.sandbox(path,{...sandboxFields,css:'</style><script>bad</script>'})).status,422,'CSS cannot escape its sandbox style boundary');
+assert.equal((await owner.sandbox(path,{...sandboxFields,js:'x'.repeat(17000)})).status,422,'Sandbox source size remains bounded');
+const state=(await owner.call(`/projects/${project.id}`)).data;
+state.document.data.pages[0].frames[0].component.components=[
+  {type:'custom-code',tagName:'div',name:'Saved custom block',content:encodeCustomCode(sandboxFields),attributes:{class:'jz-custom-code'}},
+  {type:'countdown',tagName:'div',attributes:{'data-countdown-end':'2027-01-01T00:00:00Z'}}
+];
+assert.equal((await owner.call(`/projects/${project.id}`,'PUT',{version:0,document:state.document})).status,200,'Encoded code remains valid versioned Project Data');
+const view=await owner.download(`/projects/${project.id}/pages/home/view`),html=view.body.toString();
+assert.equal(view.status,200);assert.doesNotMatch(view.csp,/\bsandbox\b/,'the top-level preview must keep its own DOM; only each custom-code iframe is sandboxed');assert.match(view.csp,/script-src 'nonce-[a-f0-9]{32}'/);assert.match(html,/sandbox="allow-scripts"/);assert.match(html,/name="jz-custom-code-nonce"/);assert.match(html,/Обратный отсчёт/);
+const publication=await owner.call(`/projects/${project.id}/publish`,'POST',{version:1});assert.equal(publication.status,200);
+const published=await publicCall(project.id,'/','GET',devBase);assert.equal(published.status,200);assert.doesNotMatch(published.headers['content-security-policy'],/\bsandbox\b/);assert.match(published.headers['content-security-policy'],/script-src 'nonce-[a-f0-9]{32}'/);assert.match(published.body,/sandbox="allow-scripts"/);assert.match(published.body,/name="jz-custom-code-nonce"/);
 });

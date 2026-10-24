@@ -34,6 +34,10 @@ if ($publicProjectId !== null) {
     header('Content-Type: ' . ($publishedFile['mime'] ?? 'text/html; charset=utf-8'));
     header('Content-Length: ' . strlen($publishedFile['content']));
     header('ETag: "pub-' . $publishedFile['version'] . '-' . hash('sha256', $publishedFile['content']) . '"');
+    if (str_starts_with((string)($publishedFile['mime'] ?? ''), 'text/html')) {
+        require_once __DIR__ . '/../backend/StaticSiteExporter.php';
+        header('Content-Security-Policy: ' . Juzimder\StaticSiteExporter::pageSecurityPolicy($publishedFile['content']));
+    }
     if ($method !== 'HEAD') echo $publishedFile['content'];
     return true;
 }

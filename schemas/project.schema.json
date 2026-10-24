@@ -48,10 +48,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "enum": ["", "default", "wrapper", "text", "textnode", "image", "link", "link-block", "head", "form", "input", "textarea", "select", "option", "checkbox", "radio", "button", "label"]
+          "type": "string",
+          "enum": ["", "default", "wrapper", "text", "textnode", "image", "link", "link-block", "head", "form", "input", "textarea", "select", "option", "checkbox", "radio", "button", "label", "custom-code", "countdown"]
         },
         "tagName": {
-          "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label", "form", "input", "textarea", "select", "option"]
+          "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label", "form", "input", "textarea", "select", "option", "details", "summary", "time"]
         },
         "attributes": {
           "type": "object",

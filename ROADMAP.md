@@ -1,6 +1,6 @@
 # План Juzimder AI
 
-Обновлено 22.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
+Обновлено 24.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
 
 ## Phase 0 — аудит и архитектура
 
@@ -509,9 +509,9 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [x] Закрепить зависимости запрошенных действующих плагинов; Aviary заменить TOAST UI.
 - [x] Подключить basic columns, flexbox, gradient/filter controls; touch plugin (физическая проверка pending).
 - [ ] Изолированный runtime с точными hash/nonce без ослабления editor CSP.
-- [ ] Forms, navbar, countdown, tabs, slider, tooltip: backend contract + preview/ZIP/public runtime.
-- [ ] Filestack settings/import; TOAST image edit/save; CKEditor license/runtime; custom code sandbox.
-- [ ] Приёмка каждого плагина: edit/save/reopen/Undo/preview/ZIP/publish.
+- [x] 00.00.097: Core-native Navbar, Countdown, Slider, CSS Tabs, Tooltip и Custom Code; backend contract ограничивает исполнение пользовательского кода отдельной sandbox-средой.
+- [ ] Приёмка шести блоков в browser: edit/save/reopen/Undo/preview/ZIP/publish; upstream plugin runtime отдельно не подключён.
+- [ ] Filestack settings/import; TOAST image edit/save; CKEditor license/runtime.
 
 - [x] 00.00.080: расширить библиотеку до 37 позиций с 20 дополнительными native presets и тематическими категориями; PNG placeholders, gallery Undo/Redo/save QA.
 
@@ -547,3 +547,7 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [x] 00.00.095: ещё 8 секций для размеров и происхождения товара, проживания, бронирования, доступности событий, инцидентов, security disclosure и участия; библиотека 148 позиций.
 
 - [x] 00.00.096: ещё 8 секций для восстановления доступа, плановых работ, совместимости, миграции данных, API, ролей, пробного периода и показателей сервиса; библиотека 156 позиций.
+
+
+- [x] 00.00.097: изолированная Browser QA вставки Navbar, Countdown, Slider, Tabs, Tooltip и Custom Code; сохранение/перезагрузка, все шесть в дереве слоёв, поле даты и live Countdown, Custom Code HTML/CSS/JS в opaque sandbox.
+- [ ] 00.00.097: отдельная Browser QA Undo, взаимодействия Tabs в публичном preview, ZIP и публикации; автоматические static-export/API тесты уже проходят. Это Core-native эквиваленты, upstream runtime плагинов не подключён.

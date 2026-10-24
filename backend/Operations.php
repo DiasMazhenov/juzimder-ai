@@ -7,7 +7,7 @@ final class ProjectOperations {
     private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','style','components'];
     private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby'];
     private const STYLE_FIELDS = [
-        'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
+        'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
         'background-image','background-size','background-position','background-repeat','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
         'line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity'

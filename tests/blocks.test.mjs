@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { blocks } from '../src/blocks.js';
+import { decodeCustomCode } from '../src/custom-code.js';
 import { DEFAULT_DESIGN_TOKENS, designTokensToStyle } from '../src/design-tokens.js';
 
 test('section and element library has unique ids and complete labels', () => {
@@ -87,4 +88,23 @@ test('expanded section presets keep badges compact and responsive grids',()=>{
     const visit=node=>{if(!node||typeof node!=='object')return;if(node.style?.display==='grid')assert.match(node.style['grid-template-columns'],/auto-fit.*min\(100%/,id+' grid must collapse');for(const child of node.components||[])visit(child);assert.ok(!node.script,id+' cannot depend on scripts');};
     visit(root);
   }
+});
+
+test('Navbar, Countdown, Slider, Tabs, Tooltip and Custom Code are registered as native blocks',()=>{
+  const byId=new Map(blocks.map(block=>[block.id,block]));
+  for(const id of ['navbar','countdown','slider','tabs','tooltip','custom-code'])assert.ok(byId.has(id),`${id} should be in the editor library`);
+  assert.equal(byId.get('navbar').content().tagName,'header');
+  assert.equal(byId.get('countdown').content().type,'countdown');
+  const slider=byId.get('slider').content();
+  assert.equal(slider.components[1].style['scroll-snap-type'],'x mandatory');
+  assert.equal(slider.components[1].components.length,3);
+  const tabs=byId.get('tabs').content();
+  assert.equal(tabs.type,'custom-code');
+  const tabsCode=decodeCustomCode(tabs.content);
+  assert.equal((tabsCode.html.match(/type="radio"/g)||[]).length,3);
+  assert.match(tabsCode.html,/class="jz-tab-panels"/);
+  assert.match(tabsCode.css,/\.jz-tab-toggle:nth-of-type\(3\):checked/);
+  assert.equal(tabsCode.js,'','Tabs must not add executable JavaScript');
+  assert.ok(byId.get('tooltip').content().attributes.title);
+  assert.match(byId.get('custom-code').content().content,/^jzcc1\./);
 });
