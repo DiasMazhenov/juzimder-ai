@@ -462,7 +462,7 @@ export async function openZeroEditor({
             button: "link",
             group: "stack-2",
           }[el.type];
-        return `<div class="zero-layer ${selection.has(el.id) ? "selected" : ""} ${el.type === "group" ? "is-group" : ""} ${el.locked ? "is-locked" : ""}"${hidden ? " hidden" : ""} draggable="true" data-layer="${esc(el.id)}" data-layer-parent="${esc(parentId)}" data-layer-depth="${depth}" style="padding-left:${depth * 3}px">${disclosure}<button class="zero-layer-name" data-select="${esc(el.id)}" aria-label="Слой ${esc(el.name)}" title="${esc(el.name)}"><span class="zero-layer-icon" aria-hidden="true">${tablerIcon(typeIcon)}</span><span class="zero-layer-label">${esc(el.name)}</span>${groupBadge}</button><button class="zero-layer-lock" data-lock="${esc(el.id)}" title="Блокировка" aria-label="Блокировка ${esc(el.name)}">${tablerIcon(el.locked ? "lock" : "lock-open")}</button><button class="zero-layer-visibility" data-visibility="${esc(el.id)}" title="Видимость" aria-label="Видимость ${esc(el.name)}">${tablerIcon(resolve(el, mode).visible ? "eye" : "eye-off")}</button></div>`;
+        return `<div class="zero-layer ${selection.has(el.id) ? "selected" : ""} ${el.type === "group" ? "is-group" : ""} ${el.locked ? "is-locked" : ""}"${hidden ? " hidden" : ""} data-layer="${esc(el.id)}" data-layer-parent="${esc(parentId)}" data-layer-depth="${depth}" style="padding-left:${depth * 3}px">${disclosure}<button class="zero-layer-name" data-select="${esc(el.id)}" aria-label="Слой ${esc(el.name)}" title="${esc(el.name)}"><span class="zero-layer-icon" aria-hidden="true">${tablerIcon(typeIcon)}</span><span class="zero-layer-label">${esc(el.name)}</span>${groupBadge}</button><button class="zero-layer-lock" data-lock="${esc(el.id)}" title="Блокировка" aria-label="Блокировка ${esc(el.name)}">${tablerIcon(el.locked ? "lock" : "lock-open")}</button><button class="zero-layer-visibility" data-visibility="${esc(el.id)}" title="Видимость" aria-label="Видимость ${esc(el.name)}">${tablerIcon(resolve(el, mode).visible ? "eye" : "eye-off")}</button></div>`;
       })
       .join("");
   }
@@ -1278,6 +1278,13 @@ export async function openZeroEditor({
   app.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
     if (!target) return;
+    if (
+      target.matches(".zero-layer-name[data-select]") &&
+      performance.now() < suppressLayerClickUntil
+    ) {
+      event.preventDefault();
+      return;
+    }
     if (target.dataset.toggleGroup) {
       toggleLayerGroup(target.dataset.toggleGroup);
       return;
@@ -1481,70 +1488,99 @@ export async function openZeroEditor({
       if (dirty && !conflict) timer = setTimeout(save, 800);
     }, 500);
   });
-  let layerDrag = null,
-    layerDrop = null;
+  let layerPointer = null,
+    layerDrop = null,
+    suppressLayerClickUntil = 0;
   function clearLayerDrop() {
     for (const row of $("#zero-layers").querySelectorAll(".zero-layer"))
       row.classList.remove("drop-before", "drop-after", "drop-inside");
     $("#zero-layers").classList.remove("drop-root");
     layerDrop = null;
   }
-  function layerDropAt(row, event) {
+  function layerDropAt(row, event, sourceId = layerPointer?.id) {
     const bounds = row.getBoundingClientRect(),
       ratio = bounds.height ? (event.clientY - bounds.top) / bounds.height : 0.5;
-    return layerDropIntent(data, layerDrag, row.dataset.layer, ratio);
+    return layerDropIntent(data, sourceId, row.dataset.layer, ratio);
   }
-  app.addEventListener("dragstart", (event) => {
-    const row = event.target.closest("[data-layer]");
-    if (!row) return;
-    layerDrag = row.dataset.layer;
-    event.dataTransfer?.setData("text/plain", layerDrag);
-    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
-    row.classList.add("is-dragging");
-  });
-  app.addEventListener("dragover", (event) => {
-    if (!layerDrag) return;
-    const row = event.target.closest("#zero-layers [data-layer]");
+  function updateLayerDrop(event, sourceId) {
     clearLayerDrop();
+    const pointed = document.elementFromPoint(event.clientX, event.clientY),
+      row = pointed?.closest("#zero-layers [data-layer]");
     if (row) {
-      const intent = layerDropAt(row, event);
-      if (!intent) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      const intent = layerDropAt(row, event, sourceId);
+      if (!intent) return null;
       layerDrop = intent;
       row.classList.add(
         intent.kind === "inside" ? "drop-inside" : `drop-${intent.kind}`,
       );
-      return;
+      return intent;
     }
-    if (event.target.closest("#zero-layers")) {
-      const intent = layerDropIntent(data, layerDrag, null);
-      if (!intent) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    if (pointed?.closest("#zero-layers")) {
+      const intent = layerDropIntent(data, sourceId, null);
+      if (!intent) return null;
       layerDrop = intent;
       $("#zero-layers").classList.add("drop-root");
+      return intent;
     }
-  });
-  app.addEventListener("drop", (event) => {
-    if (!layerDrag || !layerDrop) return;
-    event.preventDefault();
-    const id = layerDrag,
-      intent = layerDrop;
+    return null;
+  }
+  function finishLayerDrop(id) {
+    const intent = layerDrop;
     try {
-      if (moveLayer(data, id, intent.parentId, intent.index)) {
+      if (intent && moveLayer(data, id, intent.parentId, intent.index)) {
         selection = new Set([id]);
         changed();
       }
     } catch (error) {
       status(error.message || "Не удалось переместить слой.");
     }
-    layerDrag = null;
     clearLayerDrop();
+  }
+  app.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.isPrimary === false) return;
+    const name = event.target.closest(".zero-layer-name[data-select]"),
+      row = name?.closest("#zero-layers [data-layer]");
+    if (!row) return;
+    layerPointer = {
+      id: row.dataset.layer,
+      row,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      dragging: false,
+    };
+    suppressLayerClickUntil = 0;
   });
-  app.addEventListener("dragend", (event) => {
-    event.target.closest("[data-layer]")?.classList.remove("is-dragging");
-    layerDrag = null;
+  app.addEventListener("pointermove", (event) => {
+    if (!layerPointer || event.pointerId !== layerPointer.pointerId) return;
+    if (!layerPointer.dragging) {
+      if (
+        Math.hypot(event.clientX - layerPointer.x, event.clientY - layerPointer.y) <
+        4
+      )
+        return;
+      layerPointer.dragging = true;
+      layerPointer.row.classList.add("is-dragging");
+    }
+    event.preventDefault();
+    updateLayerDrop(event, layerPointer.id);
+  });
+  app.addEventListener("pointerup", (event) => {
+    if (!layerPointer || event.pointerId !== layerPointer.pointerId) return;
+    const current = layerPointer;
+    layerPointer = null;
+    if (current.dragging) {
+      event.preventDefault();
+      suppressLayerClickUntil = performance.now() + 250;
+      updateLayerDrop(event, current.id);
+      finishLayerDrop(current.id);
+    }
+    current.row.classList.remove("is-dragging");
+  });
+  app.addEventListener("pointercancel", (event) => {
+    if (!layerPointer || event.pointerId !== layerPointer.pointerId) return;
+    layerPointer.row.classList.remove("is-dragging");
+    layerPointer = null;
     clearLayerDrop();
   });
   function snapGeometry(item, g) {

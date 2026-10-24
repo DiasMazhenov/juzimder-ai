@@ -577,6 +577,16 @@ test("layer drop zones map visual row edges to sibling z-order and group centers
   assert.equal(layerDropIntent(d, "ze-title", "ze-title", 0.2), null);
 });
 
+test("dropping a root sibling before another visible row changes its visual order", () => {
+  const d = structuredClone(fixture),
+    intent = layerDropIntent(d, "ze-title", "ze-photo", 0.1);
+  assert.equal(moveLayer(d, "ze-title", intent.parentId, intent.index), true);
+  assert.deepEqual(
+    d.elements.map((element) => element.id),
+    ["ze-photo", "ze-title", "ze-group"],
+  );
+});
+
 test("layer move supports sibling reordering and rejects cycles, locked ancestors, and excessive nesting", () => {
   const d = structuredClone(fixture),
     photo = d.elements[1],
