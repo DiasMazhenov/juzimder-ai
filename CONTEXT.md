@@ -608,3 +608,6 @@ Browser QA на отдельной странице Zero Engine QA — 00.00.098
 
 
 00.00.099 — Revision restore UX: сохранять текущий page ID при восстановлении Project Data, если эта страница присутствует в восстановленной версии. Browser QA обнаружил, что восстановление возвращало снимок верно, но сбрасывало выбранную QA-страницу на «Главная». Browser QA подтвердил: после restore страницы Zero Engine QA остаётся выбранной и рендерит целевую ревизию; проверены переход на двухблочную ревизию и возврат к одноблочному состоянию, редактор затем перезагружен на актуальной ревизии 146. Автоматические тесты и build прошли.
+
+
+00.00.100 — Conflict recovery UX: confirmed that a Zero save in another window leaves unsaved GrapesJS edits intact, disables regular Save and exposes explicit server reload. The subsequent reload now preserves the active page ID when available, just like revision restore. Browser QA on Zero Engine QA confirmed same-page reload, explicit discard of the temporary local text edit, and clean cross-window sync after restoring the white artboard background (revision 151).

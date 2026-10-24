@@ -89,3 +89,7 @@ References: https://help.tilda.cc/zero , https://help.tilda.cc/zero/advanced , h
 
 Revision restore through the project history preserves the selected page ID when it exists in the restored snapshot. This avoids navigating to Home after restoring a Zero QA page.
 Browser QA also restored a historical revision and returned to the latest Zero composition while keeping the Zero QA page selected. The editor reopened at the current revision afterward.
+
+Conflict recovery in the main GrapesJS editor now retains the active page when loading the server version, matching revision restore. Unsaved local changes remain available until the user explicitly chooses this action.
+
+Browser conflict acceptance: a temporary local GrapesJS text change remained in the editor when the Zero window saved; normal Save was disabled, an explicit server reload discarded only that temporary edit, kept the Zero QA page selected, and synced the restored white artboard without a redundant revision. Final QA revision: 151.

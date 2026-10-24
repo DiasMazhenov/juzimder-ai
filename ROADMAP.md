@@ -62,7 +62,7 @@
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale, полная визуальная матрица всех инструментов/промежуточных ширин, nested transforms и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
-- [x] Z6 revision restore: после восстановления сохраняется выбранная страница, если она есть в снимке; проверка на отдельной Zero QA-странице.
+- [x] Z6 revision restore and conflict reload keep the active page selected when it exists; browser acceptance on the dedicated Zero QA page.
 - [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
 
 Предыдущее ограничение «только архитектура после остальных P0/P1» заменено прямым новым требованием владельца. Для обычных секций Flex/Grid сохраняются; внутри Zero расположение исключительно absolute.

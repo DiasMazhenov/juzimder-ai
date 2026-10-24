@@ -739,7 +739,7 @@ async function openEditor(id,pageId=null) {
   $('#save').onclick=()=>saveDocument(false);
   $('#reload-server').onclick=async()=>{
     if(!await askConfirmation('Локальные несохранённые изменения будут заменены серверной версией. Сначала можно скачать их через «Экспорт JSON». Продолжить?','Загрузить версию'))return;
-    try{const latest=await api(`/projects/${current.id}`);current=latest;loading=true;editor.loadProjectData(latest.document.data);editor.clearDirtyCount();savedEditorSnapshot=JSON.stringify(editor.getProjectData());dirty=false;loading=false;conflicted=false;$('#reload-server').hidden=true;$('#save').disabled=false;refreshPages();syncThemeForm();$('#save-status').textContent=`Ревизия ${current.version} · Загружено с сервера`;notify('Серверная версия загружена');}
+    try{const selectedPageId=editor.Pages.getSelected()?.get('id');const latest=await api(`/projects/${current.id}`);current=latest;loading=true;editor.loadProjectData(latest.document.data);if(selectedPageId&&editor.Pages.getAll().some(page=>page.get('id')===selectedPageId))editor.Pages.select(selectedPageId);editor.clearDirtyCount();savedEditorSnapshot=JSON.stringify(editor.getProjectData());dirty=false;loading=false;conflicted=false;$('#reload-server').hidden=true;$('#save').disabled=false;refreshPages();syncThemeForm();$('#save-status').textContent=`Ревизия ${current.version} · Загружено с сервера`;notify('Серверная версия загружена');}
     catch(error){loading=false;notify(error.message,true);}
   };
   const renderHistory=async()=>{
