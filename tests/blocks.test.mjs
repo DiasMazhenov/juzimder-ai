@@ -77,3 +77,14 @@ test('new library families are present and image placeholders are explicitly tru
   assert.equal(images.length,4);
   for(const image of images){assert.ok(image.attributes.src.startsWith('data:image/png;base64,'));assert.equal(image.type,'image');}
 });
+
+test('expanded section presets keep badges compact and responsive grids',()=>{
+  const ids=['about-split','services-list','benefits-split','portfolio-grid','case-study','faq-grid','price-list','event-program','team-profile','cta-split'];
+  for(const id of ids){
+    const root=blocks.find(block=>block.id===id).content();
+    assert.equal(root.tagName,'section');
+    assert.equal(root.components[0].style.width,'fit-content',id+' badge must not stretch');
+    const visit=node=>{if(!node||typeof node!=='object')return;if(node.style?.display==='grid')assert.match(node.style['grid-template-columns'],/auto-fit.*min\(100%/,id+' grid must collapse');for(const child of node.components||[])visit(child);assert.ok(!node.script,id+' cannot depend on scripts');};
+    visit(root);
+  }
+});
