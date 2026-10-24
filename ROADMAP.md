@@ -71,6 +71,7 @@
 - [ ] 00.00.108: Codex Browser persistence acceptance for saving/reopening custom widths; panel and draft add/remove were visually checked in the existing editor tab and canceled without changing QA content.
 - [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. Unsupported element types remain visibly disabled until their safe renderer exists.
 - [x] 00.00.110: Zero Block in the main editor follows its selected device mode even when the responsive iframe falls below the desktop breakpoint; buttons center labels on both axes in the Zero Editor and static renderer.
+- [x] 00.00.111: Zero Editor chrome follows Juzimder colors and text scale; toolbar icons share centered alignment, and breakpoint settings sit beside the device selectors.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale browser acceptance на разных ширинах, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
@@ -146,7 +147,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.110; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.111; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -588,3 +589,7 @@ The former sidebar element list is now a Tilda-style floating palette anchored b
 ## Zero Block · 00.00.110
 
 The main editor now maps its selected Desktop/Tablet/Mobile device to an explicit Zero Block artboard mode and rerenders on GrapesJS `device:select`. Desktop preview uses the selected artboard's actual pixel width, so a fluid 1184 px iframe no longer applies a narrow override or shifts center-anchored elements. Normal media-query output remains unchanged for saved preview, ZIP, and publication. Zero Block buttons use `display:flex`, centered alignment on both axes, and a forced centered label in both JavaScript and PHP output. Full JS/PHP tests and build pass. Existing-tab Browser QA on QA revision 195 compared all 10 elements in the main editor and Zero Editor: width/height, coordinates, typography, and transforms match. Tablet/Mobile switching was checked and Desktop restored; Project Data stayed at revision 195.
+
+## Zero Block · 00.00.111
+
+Zero Editor chrome now inherits Juzimder's global font family, 12 px base size and dark green surface/line/accent tokens. The floating element palette no longer copies the reference's gray/orange colors or oversized labels; keyboard hints and breakpoint widths use the app's compact text scale. Toolbar actions use flex alignment for centered Tabler icons and labels. Breakpoint settings are grouped beside the device icons with the popover anchored to that group. Browser QA found and fixed a startup TDZ caused by invoking the breakpoint manager before initialization. Both existing editor tabs now show version 00.00.111; computed styles confirm Avenir Next 12 px, centered Preview/Save/Close controls, and the device/settings control order. The add menu and breakpoint popover were visually checked; QA Project Data remained at revision 195. `npm test`, `npm run build`, and `git diff --check` pass; Vite retains the existing >500 kB GrapesJS chunk warning. No backend files changed.

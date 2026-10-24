@@ -139,6 +139,14 @@ export async function openZeroEditor({
     };
   const addTrigger = $('[data-action="add-menu"]');
   $(".zero-top").prepend(addTrigger);
+  const deviceControls = document.createElement("div"),
+    modeButtons = $(".zero-modes"),
+    breakpointsButton = $('[data-action="breakpoints"]');
+  deviceControls.className = "zero-device-controls";
+  deviceControls.setAttribute("role", "group");
+  deviceControls.setAttribute("aria-label", "Размеры экрана и брейкпоинты");
+  modeButtons.before(deviceControls);
+  deviceControls.append(modeButtons, breakpointsButton, $("#zero-breakpoint-manager"));
   addTrigger.classList.add("zero-add-trigger");
   addTrigger.setAttribute("aria-expanded", "false");
   addTrigger.setAttribute("aria-haspopup", "menu");

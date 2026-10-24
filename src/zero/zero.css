@@ -2,22 +2,22 @@
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: #161c19;
-  color: #e3eee7;
+  background: #161918;
+  color: #e9edeb;
   display: flex;
   flex-direction: column;
-  font:
-    13px/1.4 Arial,
-    sans-serif;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .zero-app button,
 .zero-app select,
 .zero-app input,
 .zero-app textarea {
   font: inherit;
-  border: 1px solid #39463d;
-  border-radius: 6px;
-  background: #202a24;
+  border: 1px solid var(--line, #303632);
+  border-radius: var(--radius, 7px);
+  background: var(--surface, #1d211f);
   color: inherit;
   padding: 7px 9px;
   min-width: 0;
@@ -27,12 +27,13 @@
 }
 .zero-app button:hover,
 .zero-app button[aria-pressed="true"] {
-  background: #324d3d;
-  border-color: #7dbb96;
+  background: #2b332e;
+  border-color: var(--accent, #a2d4b5);
 }
 .zero-app button.primary {
-  background: #add7ba;
-  color: #172e20;
+  background: var(--accent, #a2d4b5);
+  border-color: var(--accent, #a2d4b5);
+  color: #183426;
 }
 .zero-app h2 {
   font-size: 13px;
@@ -68,7 +69,34 @@
   height: 58px;
   flex-shrink: 0;
   padding: 8px 14px;
-  border-bottom: 1px solid #344038;
+  border-bottom: 1px solid var(--line, #303632);
+}
+.zero-top > button,
+.zero-bottom button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1.2;
+  font-size: 11px;
+}
+.zero-top > button:not(.zero-add-trigger) {
+  min-height: 34px;
+  padding: 7px 9px;
+}
+.zero-top button > .tabler-editor-icon,
+.zero-bottom button > .tabler-editor-icon {
+  display: block;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  vertical-align: middle;
+}
+.zero-top button > span,
+.zero-bottom button > span {
+  margin: 0;
+  line-height: 1.2;
 }
 .zero-mobile-inspector-toggle {
   display: none;
@@ -84,7 +112,7 @@
   padding: 3px 5px;
   border: 1px solid #6c997e;
   border-radius: 4px;
-  color: #acd4b9;
+  color: var(--accent, #a2d4b5);
 }
 .zero-title {
   margin-left: 10px;
@@ -99,10 +127,30 @@
 .zero-modes {
   display: flex;
   gap: 3px;
-  margin: auto;
   max-width: min(520px, 50vw);
   overflow-x: auto;
   scrollbar-width: thin;
+}
+.zero-device-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: auto;
+}
+.zero-device-controls > .zero-modes {
+  margin: 0;
+}
+.zero-device-controls > [data-action="breakpoints"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  min-height: 34px;
+  padding: 5px;
 }
 .zero-modes button {
   display: inline-flex;
@@ -132,14 +180,16 @@
   position: absolute;
   z-index: 10002;
   top: calc(100% + 8px);
-  right: 54px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   width: min(330px, calc(100vw - 20px));
   max-height: min(78vh, 640px);
   overflow: auto;
   padding: 14px;
-  border: 1px solid #45564a;
-  border-radius: 10px;
-  background: #202824;
+  border: 1px solid var(--line, #303632);
+  border-radius: 8px;
+  background: var(--surface, #1d211f);
   box-shadow: 0 12px 36px #0009;
 }
 .zero-breakpoint-heading {
@@ -147,7 +197,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
-  color: #a7b9ad;
+  color: var(--muted, #929e96);
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -184,7 +234,7 @@
   border-color: transparent transparent #3a463e;
   border-radius: 0;
   background: transparent;
-  font-size: 17px;
+  font-size: 12px;
   text-align: center;
 }
 .zero-breakpoint-row input:focus {
@@ -230,7 +280,7 @@
 .zero-left {
   width: 190px;
   flex-shrink: 0;
-  border-right: 1px solid #344038;
+  border-right: 1px solid var(--line, #303632);
   padding: 10px;
   overflow: auto;
 }
@@ -244,13 +294,13 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #f06446;
-  color: #fff;
+  background: var(--accent, #a2d4b5);
+  color: #183426;
 }
 .zero-app button.zero-add-trigger:hover,
 .zero-app button.zero-add-trigger[aria-expanded="true"] {
-  background: #ff7558;
-  border-color: transparent;
+  background: #b7e2c7;
+  border-color: #b7e2c7;
 }
 .zero-add-trigger .tabler-editor-icon {
   width: 30px;
@@ -265,10 +315,10 @@
   max-height: min(72vh, 640px);
   overflow: auto;
   padding: 10px;
-  border: 1px solid #454545;
-  border-radius: 10px;
-  background: #303030;
-  color: #f2f2f2;
+  border: 1px solid var(--line, #303632);
+  border-radius: 8px;
+  background: var(--surface, #1d211f);
+  color: #e9edeb;
   box-shadow: 0 14px 38px #0008;
   scrollbar-width: thin;
 }
@@ -279,79 +329,83 @@
 .zero-app button.zero-element-item {
   display: flex;
   width: 100%;
-  min-height: 48px;
+  min-height: 40px;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: 10px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: inherit;
   text-align: left;
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 500;
 }
 .zero-app button.zero-element-item:not(:disabled):hover,
 .zero-app button.zero-element-item:focus-visible {
-  background: #414141;
+  background: #2b332e;
   outline: none;
 }
 .zero-element-icon {
   display: inline-flex;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
   align-items: center;
   justify-content: center;
 }
 .zero-element-icon .tabler-editor-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 .zero-element-label {
   flex: 1;
 }
 .zero-element-item kbd {
   display: inline-flex;
-  min-width: 34px;
+  min-width: 26px;
   justify-content: center;
-  padding: 4px 7px;
+  padding: 4px 6px;
   border: 0;
-  border-radius: 5px;
-  background: #484848;
-  color: #bcbcbc;
-  font: 600 13px/1.2 Arial, sans-serif;
+  border-radius: 4px;
+  background: var(--line, #303632);
+  color: var(--muted, #929e96);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 .zero-element-item > .tabler-editor-icon {
   width: 16px;
   height: 16px;
-  color: #aaa;
+  color: var(--muted, #929e96);
 }
 .zero-element-separator {
   height: 1px;
   margin: 8px 0;
-  background: #484848;
+  background: var(--line, #303632);
 }
 .zero-element-caption {
   padding: 5px 12px;
-  color: #a1a1a1;
+  color: var(--muted, #929e96);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .zero-app button.zero-element-item.is-planned {
-  min-height: 44px;
+  min-height: 36px;
   opacity: 0.52;
   cursor: not-allowed;
 }
 .zero-element-planned {
-  color: #aaa;
-  font-size: 11px;
+  color: var(--muted, #929e96);
+  font-size: 10px;
 }
 .zero-element-note {
   margin: 8px 12px 4px;
-  color: #aaa;
-  font-size: 11px;
+  color: var(--muted, #929e96);
+  font-size: 10px;
 }
 .zero-shape-menu {
   display: grid;
@@ -359,9 +413,9 @@
   padding: 2px 0 4px;
 }
 .zero-app button.zero-shape-choice {
-  min-height: 40px;
+  min-height: 34px;
   padding-left: 48px;
-  font-size: 14px;
+  font-size: 11px;
 }
 .zero-app button.zero-shape-choice .zero-element-icon {
   width: 20px;
@@ -380,7 +434,7 @@
   min-height: 35px;
 }
 .zero-layer.selected {
-  background: #304a3a;
+  background: #28332b;
 }
 .zero-layer button {
   border: 0;
@@ -421,7 +475,7 @@
   width: 270px;
   flex-shrink: 0;
   overflow: auto;
-  border-left: 1px solid #344038;
+  border-left: 1px solid var(--line, #303632);
   padding: 14px;
 }
 .zero-fields {
@@ -438,7 +492,7 @@
 }
 .zero-eyebrow {
   font-size: 10px;
-  color: #add7ba;
+  color: var(--accent, #a2d4b5);
   letter-spacing: 0.08em;
 }
 .zero-overridden > span {
@@ -471,7 +525,7 @@
   gap: 8px;
   min-height: 42px;
   padding: 5px 14px;
-  border-top: 1px solid #344038;
+  border-top: 1px solid var(--line, #303632);
 }
 .zero-bottom label {
   flex-direction: row;
@@ -488,7 +542,7 @@
 }
 .zero-top button > span,
 .zero-bottom button > span {
-  margin-left: 4px;
+  margin-left: 0;
 }
 .zero-bottom #zero-status {
   margin-left: auto;
@@ -638,7 +692,7 @@
 .zero-app dialog {
   width: min(760px, 90vw);
   max-height: 85vh;
-  background: #19221c;
+  background: #1d211f;
   border: 1px solid #4e6c58;
   border-radius: 14px;
   color: inherit;
@@ -682,7 +736,7 @@
   width: 180px;
   margin: 0;
   padding: 6px;
-  background: #1b2a20;
+  background: #28332b;
   border: 1px solid #5e7c68;
   border-radius: 8px;
   box-shadow: 0 8px 25px #0008;
@@ -762,7 +816,9 @@
 
 @media (max-width: 720px) {
   .zero-breakpoint-manager {
-    right: 6px;
+    left: 0;
+    right: auto;
+    transform: none;
     width: min(330px, calc(100vw - 20px));
   }
   .zero-main {
@@ -782,18 +838,18 @@
     z-index: 5;
     max-height: 100%;
     overflow: auto;
-    background: #161c19;
+    background: #161918;
     box-shadow: 0 8px 28px #0008;
   }
   .zero-left {
     left: 0;
     width: min(86vw, 320px);
-    border-right: 1px solid #344038;
+    border-right: 1px solid var(--line, #303632);
   }
   .zero-inspector {
     right: 0;
     width: min(90vw, 340px);
-    border-left: 1px solid #344038;
+    border-left: 1px solid var(--line, #303632);
   }
   .zero-app.zero-left-open .zero-left,
   .zero-app.zero-inspector-open .zero-inspector {
@@ -834,12 +890,17 @@
     display: inline-flex;
   }
   .zero-modes {
-    order: 10;
-    flex: 0 0 auto;
+    max-width: none;
+    flex: 0 1 auto;
     justify-content: flex-start;
     gap: 2px;
     margin: 0;
+  }
+  .zero-device-controls {
+    order: 10;
+    flex: 0 1 auto;
     max-width: calc(100vw - 110px);
+    margin: 0;
   }
   .zero-top [data-action="preview"],
   .zero-top [data-action="save"],
@@ -935,8 +996,10 @@
 .zero-ruler-x span,
 .zero-ruler-y span {
   position: absolute;
-  color: #9eb6a7;
-  font: 10px/16px Arial;
+  color: var(--muted, #929e96);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 16px;
 }
 .zero-ruler-y span {
   writing-mode: vertical-rl;
