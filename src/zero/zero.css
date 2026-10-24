@@ -284,13 +284,16 @@
   padding: 10px;
   overflow: auto;
 }
+.zero-app:not(.zero-layers-open) .zero-left {
+  display: none;
+}
 .zero-app button.zero-add-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  flex: 0 0 56px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -303,8 +306,8 @@
   border-color: #b7e2c7;
 }
 .zero-add-trigger .tabler-editor-icon {
-  width: 30px;
-  height: 30px;
+  width: 16px;
+  height: 16px;
 }
 .zero-element-menu {
   position: absolute;
@@ -429,24 +432,85 @@
 .zero-layer {
   display: flex;
   align-items: center;
-  gap: 3px;
-  border-radius: 5px;
-  min-height: 35px;
+  gap: 2px;
+  min-height: 25px;
+  border-bottom: 1px solid #252b27;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 1.2;
 }
 .zero-layer.selected {
   background: #28332b;
 }
+.zero-layer.is-group {
+  font-weight: 550;
+}
 .zero-layer button {
+  display: inline-flex;
+  flex: 0 0 19px;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  min-height: 19px;
   border: 0;
-  padding: 5px;
+  padding: 2px;
   background: transparent;
 }
+.zero-layer .tabler-editor-icon {
+  display: block;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  margin: 0;
+}
+.zero-layer-disclosure-spacer {
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
+}
+.zero-layer-count {
+  flex: 0 0 auto;
+  min-width: 13px;
+  padding: 1px 3px;
+  border-radius: 8px;
+  background: #28332b;
+  color: var(--muted, #929e96);
+  font-size: 8px;
+  text-align: center;
+}
 .zero-layer-name {
-  flex: 1;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0;
+  gap: 4px;
+  justify-content: flex-start !important;
+  padding: 2px 4px !important;
+  font: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
+}
+.zero-layer-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 16px;
+  color: #a2d4b5;
+}
+.zero-layer-icon .tabler-editor-icon {
+  width: 14px;
+  height: 14px;
+  flex-basis: 14px;
+}
+.zero-layer-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .zero-workspace {
   position: relative;
@@ -840,6 +904,9 @@
     overflow: auto;
     background: #161918;
     box-shadow: 0 8px 28px #0008;
+  }
+  .zero-app:not(.zero-left-open) .zero-left {
+    display: none;
   }
   .zero-left {
     left: 0;

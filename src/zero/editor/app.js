@@ -137,7 +137,12 @@ export async function openZeroEditor({
     status = (message) => {
       $("#zero-status").textContent = message;
     };
-  const addTrigger = $('[data-action="add-menu"]');
+  const addTrigger = $('[data-action="add-menu"]'),
+    layerToggle = $('[data-action="layers"]'),
+    mobilePanelQuery = matchMedia("(max-width: 720px)");
+  let layerPanelOpen = !mobilePanelQuery.matches;
+  zeroRoot.classList.toggle("zero-layers-open", layerPanelOpen);
+  layerToggle.setAttribute("aria-pressed", String(layerPanelOpen));
   $(".zero-top").prepend(addTrigger);
   const deviceControls = document.createElement("div"),
     modeButtons = $(".zero-modes"),
@@ -188,13 +193,28 @@ export async function openZeroEditor({
   compactVersion.className = "zero-version-footer";
   compactVersion.textContent = `Версия ${packageInfo.productVersion}`;
   $("#zero-status").before(compactVersion);
-  function closeMobilePanels({ restoreSections = true } = {}) {
+  function syncLayerToggle() {
+    const isOpen = mobilePanelQuery.matches
+      ? zeroRoot.classList.contains("zero-left-open") &&
+        zeroRoot.dataset.mobilePanel === "layers"
+      : zeroRoot.classList.contains("zero-layers-open");
+    layerToggle.setAttribute("aria-pressed", String(isOpen));
+  }
+  function closeMobilePanels({
+    restoreSections = true,
+    preserveLayerPreference = false,
+  } = {}) {
+    const wasLayerDrawerOpen =
+      zeroRoot.classList.contains("zero-left-open") &&
+      zeroRoot.dataset.mobilePanel === "layers";
     zeroRoot.classList.remove("zero-left-open", "zero-inspector-open");
     $(".zero-panel-backdrop").hidden = true;
+    if (!preserveLayerPreference && wasLayerDrawerOpen) layerPanelOpen = false;
     if (restoreSections) {
       $(".zero-layer-panel").hidden = false;
       delete zeroRoot.dataset.mobilePanel;
     }
+    syncLayerToggle();
   }
   function toggleMobilePanel(panel, mode = "") {
     const className = panel === "left" ? "zero-left-open" : "zero-inspector-open";
@@ -209,10 +229,20 @@ export async function openZeroEditor({
     if (panel === "left") {
       $(".zero-layer-panel").hidden = mode !== "layers";
       zeroRoot.dataset.mobilePanel = mode;
+      layerPanelOpen = mode === "layers";
     }
     zeroRoot.classList.add(className);
     $(".zero-panel-backdrop").hidden = false;
+    syncLayerToggle();
   }
+  mobilePanelQuery.addEventListener("change", () => {
+    closeMobilePanels({ preserveLayerPreference: true });
+    zeroRoot.classList.toggle(
+      "zero-layers-open",
+      !mobilePanelQuery.matches && layerPanelOpen,
+    );
+    syncLayerToggle();
+  });
   $("#zero-zoom").setAttribute(
     "aria-label",
     "Масштаб холста; можно менять жестом щипка или Ctrl/Cmd + колесо",
@@ -268,15 +298,53 @@ export async function openZeroEditor({
     if (!conflict) timer = setTimeout(save, 1200);
     render();
   }
+  const collapsedLayerGroups = new Set();
   function layers() {
-    const root = $("#zero-layers");
-    root.innerHTML = flatten(data)
-      .slice()
-      .reverse()
-      .map(
-        ({ element: el, depth }) =>
-          `<div class="zero-layer ${selection.has(el.id) ? "selected" : ""}" draggable="true" data-layer="${el.id}" style="padding-left:${10 + depth * 14}px"><button data-visibility="${el.id}" title="Видимость" aria-label="Видимость ${esc(el.name)}">${tablerIcon(resolve(el, mode).visible ? "eye" : "eye-off")}</button><button class="zero-layer-name" data-select="${el.id}"><span aria-hidden="true">${tablerIcon({ text: "typography", image: "photo", rectangle: "square", ellipse: "circle", line: "minus", button: "link", group: "stack-2" }[el.type])}</span> ${esc(el.name)}</button><button data-lock="${el.id}" title="Блокировка" aria-label="Блокировка ${esc(el.name)}">${tablerIcon(el.locked ? "lock" : "lock-open")}</button></div>`,
-      )
+    const root = $("#zero-layers"),
+      entries = [],
+      groups = new Set(
+        flatten(data)
+          .filter(({ element }) => element.type === "group")
+          .map(({ element }) => element.id),
+      );
+    const visit = (items, depth = 0) => {
+      for (const el of [...items].reverse()) {
+        entries.push({ element: el, depth });
+        if (el.type !== "group") continue;
+        if (el.children?.length && !collapsedLayerGroups.has(el.id))
+          visit(el.children, depth + 1);
+      }
+    };
+    visit(data.elements);
+    for (const id of collapsedLayerGroups)
+      if (!groups.has(id)) collapsedLayerGroups.delete(id);
+    const descendantCount = (el) =>
+      (el.children || []).reduce(
+        (count, child) => count + 1 + descendantCount(child),
+        0,
+      );
+    root.innerHTML = entries
+      .map(({ element: el, depth }) => {
+        const hasChildren = el.type === "group" && !!el.children?.length,
+          collapsed = collapsedLayerGroups.has(el.id),
+          disclosure = hasChildren
+            ? `<button class="zero-layer-disclosure" data-toggle-group="${esc(el.id)}" aria-expanded="${String(!collapsed)}" aria-label="${collapsed ? "Раскрыть" : "Свернуть"} группу ${esc(el.name)}" title="${collapsed ? "Раскрыть" : "Свернуть"} группу">${tablerIcon(collapsed ? "chevron-right" : "chevron-down")}</button>`
+            : '<span class="zero-layer-disclosure-spacer" aria-hidden="true"></span>',
+          groupBadge =
+            collapsed && hasChildren
+              ? `<span class="zero-layer-count" aria-label="${descendantCount(el)} вложенных элементов">${descendantCount(el)}</span>`
+              : "",
+          typeIcon = {
+            text: "typography",
+            image: "photo",
+            rectangle: "square",
+            ellipse: "circle",
+            line: "minus",
+            button: "link",
+            group: "stack-2",
+          }[el.type];
+        return `<div class="zero-layer ${selection.has(el.id) ? "selected" : ""} ${el.type === "group" ? "is-group" : ""}" draggable="true" data-layer="${esc(el.id)}" data-layer-depth="${depth}" style="padding-left:${4 + depth * 11}px">${disclosure}<button class="zero-layer-visibility" data-visibility="${esc(el.id)}" title="Видимость" aria-label="Видимость ${esc(el.name)}">${tablerIcon(resolve(el, mode).visible ? "eye" : "eye-off")}</button><button class="zero-layer-name" data-select="${esc(el.id)}" title="${esc(el.name)}"><span class="zero-layer-icon" aria-hidden="true">${tablerIcon(typeIcon)}</span><span class="zero-layer-label">${esc(el.name)}</span>${groupBadge}</button><button class="zero-layer-lock" data-lock="${esc(el.id)}" title="Блокировка" aria-label="Блокировка ${esc(el.name)}">${tablerIcon(el.locked ? "lock" : "lock-open")}</button></div>`;
+      })
       .join("");
   }
   function inspector() {
@@ -970,7 +1038,9 @@ export async function openZeroEditor({
         toggleMobilePanel("left", "layers");
         return;
       }
-      $(".zero-layer-panel").hidden = !$(".zero-layer-panel").hidden;
+      layerPanelOpen = !zeroRoot.classList.contains("zero-layers-open");
+      zeroRoot.classList.toggle("zero-layers-open", layerPanelOpen);
+      syncLayerToggle();
       return;
     }
     if (key === "export") {
@@ -1007,6 +1077,13 @@ export async function openZeroEditor({
   app.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
     if (!target) return;
+    if (target.dataset.toggleGroup) {
+      const id = target.dataset.toggleGroup;
+      if (collapsedLayerGroups.has(id)) collapsedLayerGroups.delete(id);
+      else collapsedLayerGroups.add(id);
+      layers();
+      return;
+    }
     if (target.dataset.removeBreakpoint)
       return removeBreakpointFromManager(target.dataset.removeBreakpoint);
     if (target.dataset.action) return action(target.dataset.action);

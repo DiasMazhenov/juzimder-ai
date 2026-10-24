@@ -72,6 +72,7 @@
 - [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. Unsupported element types remain visibly disabled until their safe renderer exists.
 - [x] 00.00.110: Zero Block in the main editor follows its selected device mode even when the responsive iframe falls below the desktop breakpoint; buttons center labels on both axes in the Zero Editor and static renderer.
 - [x] 00.00.111: Zero Editor chrome follows Juzimder colors and text scale; toolbar icons share centered alignment, and breakpoint settings sit beside the device selectors.
+- [x] 00.00.112: Layers button hides the full sidebar when off; grouped layers have compact icons/text and expandable nested contents; Add Element control is half-size.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale browser acceptance на разных ширинах, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
@@ -147,7 +148,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.111; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.112; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -593,3 +594,7 @@ The main editor now maps its selected Desktop/Tablet/Mobile device to an explici
 ## Zero Block · 00.00.111
 
 Zero Editor chrome now inherits Juzimder's global font family, 12 px base size and dark green surface/line/accent tokens. The floating element palette no longer copies the reference's gray/orange colors or oversized labels; keyboard hints and breakpoint widths use the app's compact text scale. Toolbar actions use flex alignment for centered Tabler icons and labels. Breakpoint settings are grouped beside the device icons with the popover anchored to that group. Browser QA found and fixed a startup TDZ caused by invoking the breakpoint manager before initialization. Both existing editor tabs now show version 00.00.111; computed styles confirm Avenir Next 12 px, centered Preview/Save/Close controls, and the device/settings control order. The add menu and breakpoint popover were visually checked; QA Project Data remained at revision 195. `npm test`, `npm run build`, and `git diff --check` pass; Vite retains the existing >500 kB GrapesJS chunk warning. No backend files changed.
+
+## Zero Block · 00.00.112
+
+The Layers toggle now hides the entire desktop sidebar, and its pressed state remains in sync with the mobile drawer across viewport changes. Layer rows render as a real parent-first tree instead of a flat reversed list. Group disclosure buttons expand/collapse children without selecting the group; the group row still selects it, and collapsed rows show the hidden descendant count. Layer controls, icons, and labels are reduced for a denser tree. The floating Add Element button is exactly half its previous width/height, with its plus icon scaled accordingly. Colors remain Juzimder tokens; only the grouping interaction follows the reference. Browser QA in the existing Zero tab verified sidebar open/close and aria-pressed state, 28×28 px add button, and nested groups at depths 0–3. Expanding the root group exposed its children; opening the next nested group exposed further descendants; collapsing restored the hidden-count badge. The panel was left closed and QA Project Data remained at revision 198. `npm test`, production build, `node --check src/zero/editor/app.js`, PHP syntax checks, and `git diff --check` pass. Vite retains its existing >500 kB GrapesJS chunk warning.
