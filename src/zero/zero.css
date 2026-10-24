@@ -480,6 +480,9 @@
   font-size: 10px;
   line-height: 1.2;
 }
+.zero-layer[hidden] {
+  display: none;
+}
 .zero-layer.selected {
   background: #28332b;
 }
@@ -561,6 +564,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
+}
+.zero-layer-rename {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  height: 21px;
+  padding: 2px 4px !important;
+  border-color: var(--accent, #a2d4b5) !important;
+  border-radius: 3px !important;
+  outline: 0;
+  font: inherit;
 }
 .zero-layer-icon {
   display: inline-flex;
