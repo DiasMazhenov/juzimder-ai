@@ -754,8 +754,9 @@ async function openEditor(id,pageId=null) {
           if(!await askConfirmation(`Восстановить ревизию ${revision.version}? Это действие создаст новую ревизию, сохранив текущее состояние в истории.`,'Восстановить'))return;
           try {
             if(dirty){await saveDocument(false);if(dirty||conflicted)throw new Error('Текущие изменения не сохранены. Разрешите конфликт и попробуйте снова.');}
+            const selectedPageId=editor.Pages.getSelected()?.get('id');
             const restored=await api(`/projects/${current.id}/revisions/restore`,'POST',{currentVersion:current.version,targetVersion:revision.version});
-            current=restored;loading=true;editor.loadProjectData(restored.document.data);editor.clearDirtyCount();savedEditorSnapshot=JSON.stringify(editor.getProjectData());loading=false;dirty=false;conflicted=false;$('#reload-server').hidden=true;$('#save').disabled=false;refreshPages();syncThemeForm();$('#save-status').textContent=`Восстановлена ревизия ${revision.version} · новая ревизия ${current.version}`;$('#history-dialog').close();notify('Ревизия восстановлена');
+            current=restored;loading=true;editor.loadProjectData(restored.document.data);if(selectedPageId&&editor.Pages.getAll().some(page=>page.get('id')===selectedPageId))editor.Pages.select(selectedPageId);editor.clearDirtyCount();savedEditorSnapshot=JSON.stringify(editor.getProjectData());loading=false;dirty=false;conflicted=false;$('#reload-server').hidden=true;$('#save').disabled=false;refreshPages();syncThemeForm();$('#save-status').textContent=`Восстановлена ревизия ${revision.version} · новая ревизия ${current.version}`;$('#history-dialog').close();notify('Ревизия восстановлена');
           }catch(error){loading=false;if(error.status===409){conflicted=true;$('#reload-server').hidden=false;$('#save').disabled=true;$('#save-status').textContent='Версия изменилась в другой вкладке';}notify(error.message,true);}
         };row.append(restore);}list.append(row);
       }

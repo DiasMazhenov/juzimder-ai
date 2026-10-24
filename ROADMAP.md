@@ -61,7 +61,8 @@
 - [x] Начальные Z2–Z5 инструменты: typed элементы, Inspector/Layers, Pointer drag/8 resize handles/rotate, zoom/pan, history, grid/rulers/guides/snap, 5 режимов и overrides/reset.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale, полная визуальная матрица всех инструментов/промежуточных ширин, nested transforms и ручная browser QA публикации/ZIP.
-- [ ] Z6: визуальная проверка конфликтов и restore, performance на 300 элементах и физическом мобильном устройстве.
+- [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
+- [x] Z6 revision restore: после восстановления сохраняется выбранная страница, если она есть в снимке; проверка на отдельной Zero QA-странице.
 - [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
 
 Предыдущее ограничение «только архитектура после остальных P0/P1» заменено прямым новым требованием владельца. Для обычных секций Flex/Grid сохраняются; внутри Zero расположение исключительно absolute.

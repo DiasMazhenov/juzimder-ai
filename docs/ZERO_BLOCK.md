@@ -86,3 +86,6 @@ This is a working absolute engine and Z1 vertical slice, with initial Z2–Z5 to
 References: https://help.tilda.cc/zero , https://help.tilda.cc/zero/advanced , https://help.tilda.cc/zero/grid , https://help.tilda.cc/zero/advanced-animation , https://grapesjs.com/docs/modules/Components.html . Only functional/UX principles were studied. Tilda code and brand assets were not copied. New UI icons are official Tabler Outline; MIT notices are retained in `resources/tabler-editor/LICENSE` and the added catalogue entries. No product license was selected.
 
 Финальная проверка 00.00.098: npm test и npm run build PASS; PHP syntax изменённых файлов PASS. Основной GrapesJS: дублирование Zero Block успешно сохранено отдельной ревизией, Undo вернул один блок и также сохранён. В повторно открытом Zero Editor доступно контекстное меню слоя; локальные проверки retry ограничены сетевыми/5xx ошибками, ошибки валидации не повторяются бесконечно.
+
+Revision restore through the project history preserves the selected page ID when it exists in the restored snapshot. This avoids navigating to Home after restoring a Zero QA page.
+Browser QA also restored a historical revision and returned to the latest Zero composition while keeping the Zero QA page selected. The editor reopened at the current revision afterward.
