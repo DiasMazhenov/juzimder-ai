@@ -1,3 +1,4 @@
+import forms from 'grapesjs-plugin-forms';
 import basic from 'grapesjs-blocks-basic';
 import flexbox from 'grapesjs-blocks-flexbox';
 import gradient from 'grapesjs-style-gradient';
@@ -9,14 +10,19 @@ const invoke=(module,...args)=>{while(typeof module!=='function'&&module?.defaul
 export function editorPlugins(editor) {
   invoke(basic,editor,{blocks:['column1','column2','column3','column3-7'],flexGrid:true,labelColumn1:'Одна колонка',labelColumn2:'Две колонки',labelColumn3:'Три колонки',labelColumn37:'Колонки 3/7'});
   invoke(flexbox,editor,{labelRow:'Строка',labelColumn:'Колонка',flexboxBlock:{label:'Flex-контейнер'}});
+  invoke(forms,editor,{category:'Формы'});
+  editor.Components.addType('form',{model:{defaults:{traits:[]}}});
+  const labels={form:'Форма',input:'Текстовое поле',textarea:'Многострочное поле',select:'Список выбора',checkbox:'Флажок',radio:'Переключатель',label:'Подпись поля'};
+  for(const [id,label] of Object.entries(labels))editor.Blocks.get(id)?.set('label',label);
+  editor.Blocks.get('form')?.set('content',{type:'form',style:{display:'flex','flex-direction':'column',gap:'16px',padding:'24px'},components:[{type:'text',tagName:'p',content:'Макет формы. Отправка заявок ещё не подключена.'},{type:'label',components:'Имя'},{type:'input',attributes:{name:'name',placeholder:'Ваше имя','aria-label':'Имя'}},{type:'label',components:'Email'},{type:'input',attributes:{name:'email',type:'email',required:true,'aria-label':'Email'}},{type:'label',components:'Сообщение'},{type:'textarea',attributes:{name:'message',rows:'4','aria-label':'Сообщение'}},{type:'button',attributes:{type:'button'},components:'Отправка не подключена'}]});
   invoke(gradient,editor,{});invoke(filter,editor,{});invoke(touch,editor,{});
 }
 export function exposePluginBlocks(editor,container) {
-  for(const id of ['column1','column2','column3','column3-7','flexbox']) {
+  for(const id of ['column1','column2','column3','column3-7','flexbox','form','input','textarea','select','checkbox','radio','label']) {
     const block=editor.Blocks.get(id);if(!block)continue;
-    const button=document.createElement('button');button.type='button';button.className='block-card';button.dataset.category='Компоновка';button.dataset.pluginBlock=id;
+    const button=document.createElement('button');button.type='button';button.className='block-card';const formBlock=['form','input','textarea','select','checkbox','radio','label'].includes(id);button.dataset.category=formBlock?'Формы':'Компоновка';button.dataset.pluginBlock=id;
     const title=document.createElement('strong');title.textContent=String(block.getLabel()).replace(/<[^>]*>/g,'');button.append(title);
-    const description=document.createElement('small');description.textContent='Редактируемая компоновка GrapesJS';button.append(description);
+    const description=document.createElement('small');description.textContent=formBlock?'Поля формы · отправка не подключена':'Редактируемая компоновка GrapesJS';button.append(description);
     button.onclick=()=>{const components=editor.addComponents(block.getContent());editor.select(components[0]);};container.append(button);
   }
   const sector=editor.StyleManager.getSectors().find(item=>item.get('name')==='Оформление');

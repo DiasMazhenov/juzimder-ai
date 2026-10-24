@@ -12,8 +12,8 @@ final class Document {
     public const MAX_PAGES = 30;
     public const MAX_PAGE_ID_LENGTH = 128;
     public const FRAMES_PER_PAGE = 1;
-    public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head'];
-    public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label'];
+    public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head','form','input','textarea','select','option','checkbox','radio','button','label'];
+    public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option'];
     public static function empty(): array {
         return ['schemaVersion' => 1, 'engine' => 'grapesjs', 'data' => ['assets' => [], 'styles' => [], 'pages' => [['id' => 'home', 'name' => 'Главная', 'frames' => [['component' => ['type' => 'wrapper', 'style' => ['display' => 'flex', 'flex-direction' => 'column'], 'components' => []]]]]]]];
     }

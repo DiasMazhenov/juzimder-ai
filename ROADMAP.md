@@ -514,3 +514,6 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [ ] Приёмка каждого плагина: edit/save/reopen/Undo/preview/ZIP/publish.
 
 - [x] 00.00.080: расширить библиотеку до 37 позиций с 20 дополнительными native presets и тематическими категориями; PNG placeholders, gallery Undo/Redo/save QA.
+
+- [x] 00.00.081: native конструктор форм и 7 карточек полей; schema/backend/save/export без разрешения scripts/actions.
+- [ ] Обработчик заявок и интеграция отправки формы (пока явно отключена).

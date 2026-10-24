@@ -3,9 +3,9 @@ declare(strict_types=1);
 namespace Juzimder;
 
 final class StaticSiteExporter {
-    private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label'];
-    private const VOID_TAGS = ['img','br','hr'];
-    private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby'];
+    private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option'];
+    private const VOID_TAGS = ['img','br','hr','input'];
+    private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','for','min','max','step','minlength','maxlength','pattern','autocomplete'];
     private const STYLE_PROPERTIES = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
@@ -138,7 +138,7 @@ final class StaticSiteExporter {
         if (in_array($type, ['head'], true)) return '';
         if ($type === 'textnode') return self::escape(is_string($component->content ?? null) ? $component->content : '');
         $tag = is_string($component->tagName ?? null) ? strtolower($component->tagName) : match ($type) {
-            'image' => 'img', 'link', 'link-block' => 'a', 'wrapper' => 'div', default => 'div'
+            'form'=>'form','input','checkbox','radio'=>'input','textarea'=>'textarea','select'=>'select','option'=>'option','button'=>'button','label'=>'label', 'image' => 'img', 'link', 'link-block' => 'a', 'wrapper' => 'div', default => 'div'
         };
         if (!in_array($tag, self::TAGS, true)) throw new Problem(422, 'Статический экспорт встретил неподдерживаемый HTML-тег.');
         $attributes = self::renderAttributes(self::componentAttributes($component), $component->style ?? null, $assetPaths);
@@ -166,6 +166,7 @@ final class StaticSiteExporter {
         $targetBlank = $attributes instanceof \stdClass && ($attributes->target ?? null) === '_blank';
         $hasRel = false;
         if ($attributes instanceof \stdClass) foreach (get_object_vars($attributes) as $name => $value) {
+            if(in_array($name,['multiple','required','checked','selected','disabled'],true)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
             if (!in_array($name, self::ATTRIBUTES, true) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
             if ($name === 'id' && !preg_match('/^[A-Za-z][A-Za-z0-9_:-]{0,127}$/D', $value)) continue;
             if ($name === 'class' && !preg_match('/^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/D', $value)) continue;

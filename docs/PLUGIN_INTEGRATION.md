@@ -13,7 +13,7 @@ The user requested the whole supplied list. Installation is not acceptance.
 | plugin-filestack | Pinned; credentials/site settings and managed import pending |
 | plugin-ckeditor | Pinned; editor dependency, licensing and RTE acceptance pending |
 | tui-image-editor | Pinned; editor dependency and managed save pending |
-| plugin-forms | Pinned; native tags, validation, submission policy pending |
+| plugin-forms | Structural form designer connected in 00.00.081; native tags/fields persist and export. Actions/scripts remain prohibited; no submission endpoint yet. |
 | navbar | Pinned; reviewed component runtime pending |
 | component-countdown | Pinned; reviewed component runtime pending |
 | lory-slider | Pinned; local Lory dependency and runtime pending |
