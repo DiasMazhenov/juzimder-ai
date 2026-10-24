@@ -173,3 +173,27 @@
 #quick-edit[data-zero="true"] > :not(#edit-zero-block):not(#zero-info){display:none}
 
 .editor-shell[data-zero-selected="true"] #styles,.editor-shell[data-zero-selected="true"] #traits,.editor-shell[data-zero-selected="true"] #ai-component-editor{display:none}
+
+/* Readable project page switcher with inline rename. */
+.page-switcher{position:relative;flex:0 1 auto;min-width:0}
+.page-switcher-trigger{width:min(260px,24vw);min-width:150px;max-width:260px;min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:#202722;color:#e3ebe5;display:inline-flex;align-items:center;justify-content:space-between;gap:12px;text-align:left}
+.page-switcher-trigger:hover,.page-switcher-trigger[aria-expanded="true"]{border-color:#607467;background:#242d27}
+.page-switcher-trigger #page-switcher-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.page-switcher-chevron,.page-switcher-chevron .tabler-editor-icon{width:16px;height:16px;flex:0 0 16px}
+.page-switcher-menu{position:absolute;z-index:90;left:0;top:calc(100% + 7px);width:min(340px,calc(100vw - 32px));max-height:min(65vh,460px);overflow:auto;padding:6px;border:1px solid #3b4840;border-radius:9px;background:#1d241f;color:#e3ebe5;box-shadow:0 16px 36px #0008}
+.page-switcher-menu[hidden]{display:none}
+.page-switcher-option{position:relative;display:flex;align-items:center;gap:10px;min-height:38px;padding:7px 10px;border-radius:6px;color:#d6e0d9;font-size:11px;line-height:1.35;cursor:pointer;outline:none}
+.page-switcher-option:hover,.page-switcher-option:focus-visible{background:#29342d;color:#f1f5f2}
+.page-switcher-option[aria-selected="true"]{background:#293b30;color:#f1f5f2}
+.page-switcher-option[aria-selected="true"]:before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:var(--accent)}
+.page-switcher-option-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.page-switcher-current{flex:none;color:#9fceb1;font-size:9px}
+.page-switcher-option.is-renaming{flex-wrap:wrap;background:#29342d;cursor:default}
+.page-switcher-rename-input{flex:1;min-width:90px;width:100%;height:32px;padding:6px 8px;border:1px solid #526459;border-radius:5px;background:#151b17;color:#f1f5f2;font:inherit;outline:none}
+.page-switcher-rename-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #a3d5b633}
+.page-rename-action{width:30px;height:30px;padding:6px;border:1px solid #3b4840;border-radius:5px;background:#202722;color:#dce9df;display:inline-flex;align-items:center;justify-content:center}
+.page-rename-action:hover{border-color:#72927c;color:var(--accent)}
+.page-rename-action .tabler-editor-icon{width:16px;height:16px}
+.page-rename-error{flex-basis:100%;color:#ef9a8f;font-size:10px}
+@media(max-width:800px){.page-switcher-trigger{width:min(230px,34vw);min-width:120px}}
+@media(max-width:480px){.page-switcher-trigger{width:min(190px,37vw);min-width:100px;min-height:32px;padding:5px 7px}.page-switcher-menu{top:calc(100% + 5px);max-height:60vh}.page-switcher-option{min-height:36px}}

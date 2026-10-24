@@ -21,6 +21,7 @@
 - [x] Project Pages Dashboard: отдельные URL управления проектом и editor pages.
 - [x] Разделы настроек сайта находятся в боковой панели проекта; на узких экранах используют горизонтальную прокрутку.
 - [x] Server-authoritative page create/rename/duplicate/delete, unique route slugs, home selection и revision restore.
+- [x] 00.00.113: Читаемое тёмное меню страниц в основном редакторе и inline-переименование по двойному щелчку с CAS/version precondition.
 - [x] Отдельный settings navigation shell; незапущенные backend-функции честно обозначены.
 - [x] Явно показывать текущую версию продукта в dashboard и editor из `productVersion`.
 - [x] GrapesJS Core: слои, traits, inspector, секции, pages/devices.
@@ -148,7 +149,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.112; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.113; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -598,3 +599,8 @@ Zero Editor chrome now inherits Juzimder's global font family, 12 px base size a
 ## Zero Block · 00.00.112
 
 The Layers toggle now hides the entire desktop sidebar, and its pressed state remains in sync with the mobile drawer across viewport changes. Layer rows render as a real parent-first tree instead of a flat reversed list. Group disclosure buttons expand/collapse children without selecting the group; the group row still selects it, and collapsed rows show the hidden descendant count. Layer controls, icons, and labels are reduced for a denser tree. The floating Add Element button is exactly half its previous width/height, with its plus icon scaled accordingly. Colors remain Juzimder tokens; only the grouping interaction follows the reference. Browser QA in the existing Zero tab verified sidebar open/close and aria-pressed state, 28×28 px add button, and nested groups at depths 0–3. Expanding the root group exposed its children; opening the next nested group exposed further descendants; collapsing restored the hidden-count badge. The panel was left closed and QA Project Data remained at revision 198. `npm test`, production build, `node --check src/zero/editor/app.js`, PHP syntax checks, and `git diff --check` pass. Vite retains its existing >500 kB GrapesJS chunk warning.
+
+
+## Страницы редактора · 00.00.113
+
+Native page selector replaced by an accessible dark listbox styled with Juzimder surfaces and readable contrast. It supports selection, arrow-key navigation, Enter, Escape, and inline rename by double-click (F2 is an accessible keyboard equivalent). Rename uses the existing authenticated server page operation, expected version, and revision save; page IDs and slugs remain unchanged. Codex Browser confirmed the dark readable list, double-click inline editor, Escape cancel, server save and restoration of the original QA name (revisions 199–200; page content and slug unchanged). npm run build, full npm test, JS syntax and git diff --check pass; the existing GrapesJS chunk-size warning remains.
