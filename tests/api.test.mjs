@@ -464,11 +464,12 @@ const published=await publicCall(project.id,'/','GET',devBase);assert.equal(publ
 });
 
 
-test('Zero Block scoped save enforces owner, CSRF, version, assets and keeps siblings',async()=>{
+test('Zero Block scoped save preserves custom breakpoints after reload and enforces owner, CSRF, version, assets and siblings',async()=>{
 const owner=new Client(devBase),other=new Client(devBase),anon=new Client(devBase);
 for(const [c,email] of [[owner,'zero-owner@example.test'],[other,'zero-other@example.test']]){await c.call('/session');await c.call('/register','POST',{email,password:'local-zero-test-password'});}
 await anon.call('/session');const p=(await owner.call('/projects','POST',{name:'Zero Engine QA'})).data;
 const zeroData=JSON.parse(await readFile(new URL('./zero.fixture.json',import.meta.url),'utf8'));
+const customMode='bp-abcdef12';zeroData.artboards[customMode]={...structuredClone(zeroData.artboards.laptop),width:768};zeroData.elements[0].overrides[customMode]={geometry:{x:222,width:520},style:{fontSize:31}};
 const zeroPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6J8AAAAASUVORK5CYII=','base64');const zeroAsset=await owner.upload(`/projects/${p.id}/assets`,zeroPng,'zero.png');assert.equal(zeroAsset.status,201);zeroData.elements[1].src=zeroAsset.data.url;zeroData.elements[1].overrides.mobile.src=zeroAsset.data.url;
 const state=(await owner.call(`/projects/${p.id}`)).data;state.document.data.pages[0].frames[0].component.components=[{type:'zero-block',attributes:{id:'zero-api'},zeroData,components:[]},{type:'text',content:'Keep sibling'}];
 assert.equal((await owner.call(`/projects/${p.id}`,'PUT',{version:0,document:state.document})).status,200);
@@ -481,6 +482,7 @@ const changed=structuredClone(zeroData);changed.elements[0].geometry.x=-90;
 const saved=await owner.call(path,'PUT',{version:1,zeroData:changed});assert.equal(saved.status,200);assert.equal(saved.data.version,2);
 assert.equal((await owner.call(path,'PUT',{version:1,zeroData})).status,409);
 const latest=(await owner.call(`/projects/${p.id}`)).data;assert.equal(latest.document.data.pages[0].frames[0].component.components[1].content,'Keep sibling');assert.equal(latest.document.data.pages[0].frames[0].component.components[0].zeroData.elements[0].geometry.x,-90);
+const reopenedZero=latest.document.data.pages[0].frames[0].component.components[0].zeroData;assert.equal(reopenedZero.artboards[customMode].width,768);assert.equal(reopenedZero.elements[0].overrides[customMode].geometry.x,222);assert.equal(reopenedZero.elements[0].overrides[customMode].style.fontSize,31);
 const bad=structuredClone(changed);bad.elements[1].src=`/api/projects/${'a'.repeat(24)}/assets/${'b'.repeat(24)}/file`;assert.equal((await owner.call(path,'PUT',{version:2,zeroData:bad})).status,422);
 const view=await owner.download(`/projects/${p.id}/pages/home/view`);assert.equal(view.status,200);assert.match(view.body.toString(),/data-zero-id="zero-api"/);assert.match(view.body.toString(),/position:absolute/);assert.match(view.body.toString(),/Hello &amp; Zero/);assert.match(view.body.toString(),/srcset="data:image\/png;base64,/,'responsive private images are inlined in saved preview');
 const archive=await owner.download(`/projects/${p.id}/export/static`);assert.equal(archive.status,200);const archivePath=join(devDir,'zero-export.zip');await writeFile(archivePath,archive.body);const zipHtml=execFileSync('php',['-r','$z=new ZipArchive();$z->open($argv[1]);echo $z->getFromName("index.html");',archivePath],{encoding:'utf8'});assert.match(zipHtml,/data-zero-id="zero-api"/);assert.match(zipHtml,/srcset="media\//);assert.doesNotMatch(zipHtml,/src="\/api\//);
