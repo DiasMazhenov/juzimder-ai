@@ -413,6 +413,26 @@ final class Store {
         try { $this->query('INSERT INTO projects(id,owner_id,name,settings_payload) VALUES(?,?,?,?)',[$id,$user,$name,$settings]); $this->query('INSERT INTO documents(project_id,payload) VALUES(?,?)',[$id,$payload]); $this->db->commit(); } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         return $this->owned($id,$user);
     }
+    public function renameProject(string $id, string $user, int $version, string $expectedName, string $name): array {
+        $expectedName = trim($expectedName);
+        $name = trim($name);
+        if ($expectedName === '' || mb_strlen($expectedName, 'UTF-8') > 100 || $name === '' || mb_strlen($name, 'UTF-8') > 100) throw new Problem(422, 'Название: от 1 до 100 символов.');
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $row = $this->query('SELECT p.name,d.version FROM projects p JOIN documents d ON p.id=d.project_id WHERE p.id=? AND p.owner_id=?', [$id,$user])->fetch();
+            if (!$row) throw new Problem(404, 'Проект не найден.');
+            if ((int)$row['version'] !== $version || !hash_equals((string)$row['name'], $expectedName)) throw new Problem(409, 'Проект изменился в другой вкладке. Обновите страницу перед переименованием.');
+            if ($name !== $row['name']) {
+                $stmt = $this->query('UPDATE projects SET name=? WHERE id=? AND owner_id=? AND name=?', [$name,$id,$user,$expectedName]);
+                if ($stmt->rowCount() !== 1) throw new Problem(409, 'Название проекта изменилось в другой вкладке. Обновите страницу и повторите попытку.');
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+        return $this->owned($id,$user);
+    }
     public function save(string $id,string $user,int $version,mixed $doc,?array $settingsOverride=null): array {
         $current = $this->owned($id,$user); Document::validate($doc); $this->assertDocumentAssets($id,$doc);
         if ($current['version'] !== $version) throw new Problem(409,'На сервере есть новая версия. Экспортируйте свои изменения и откройте проект заново.');

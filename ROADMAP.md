@@ -22,6 +22,7 @@
 - [x] Разделы настроек сайта находятся в боковой панели проекта; на узких экранах используют горизонтальную прокрутку.
 - [x] Server-authoritative page create/rename/duplicate/delete, unique route slugs, home selection и revision restore.
 - [x] 00.00.113: Читаемое тёмное меню страниц в основном редакторе и inline-переименование по двойному щелчку с CAS/version precondition.
+- [x] 00.00.114: Двойной щелчок по названию проекта в шапке основного редактора открывает inline-поле; сохранение авторизовано и проверяет CSRF, ожидаемую версию и прежнее имя.
 - [x] Отдельный settings navigation shell; незапущенные backend-функции честно обозначены.
 - [x] Явно показывать текущую версию продукта в dashboard и editor из `productVersion`.
 - [x] GrapesJS Core: слои, traits, inspector, секции, pages/devices.
@@ -149,7 +150,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.113; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.114; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -604,3 +605,8 @@ The Layers toggle now hides the entire desktop sidebar, and its pressed state re
 ## Страницы редактора · 00.00.113
 
 Native page selector replaced by an accessible dark listbox styled with Juzimder surfaces and readable contrast. It supports selection, arrow-key navigation, Enter, Escape, and inline rename by double-click (F2 is an accessible keyboard equivalent). Rename uses the existing authenticated server page operation, expected version, and revision save; page IDs and slugs remain unchanged. Codex Browser confirmed the dark readable list, double-click inline editor, Escape cancel, server save and restoration of the original QA name (revisions 199–200; page content and slug unchanged). npm run build, full npm test, JS syntax and git diff --check pass; the existing GrapesJS chunk-size warning remains.
+
+
+## Переименование проекта из шапки · 00.00.114
+
+Название проекта рядом с логотипом в основном редакторе открывает inline-редактирование двойным щелчком (Enter/Space/F2 — клавиатурный эквивалент). Enter или потеря фокуса сохраняют изменение, Escape отменяет. Сервер проверяет owner, CSRF, текущую версию Project Data и ожидаемое прежнее название. Меняется только metadata `projects.name`, содержимое проекта и его ревизии не затрагиваются. Переименование страниц в списке страниц остаётся отдельным сценарием. Codex Browser подтвердил открытие по двойному щелчку, сохранение Enter, повторное открытие и восстановление исходного имени; после reload оно осталось прежним, ревизия содержимого — 200. Полный npm test, сборка, JS/PHP syntax и diff check пройдены.

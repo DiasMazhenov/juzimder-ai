@@ -472,6 +472,10 @@ try {
         if ($method === 'GET') result($store->query('SELECT p.id,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC',[$user])->fetchAll());
         if ($method === 'POST') { if (!is_string($body['name'] ?? null)) throw new Problem(422,'Укажите название.'); result($store->create($user,$body['name']),201); }
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/name$~D', $path, $renameMatch) && $method === 'PUT') {
+        if (array_diff(array_keys($body), ['version','expectedName','name']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['expectedName'] ?? null) || !is_string($body['name'] ?? null)) throw new Problem(422, 'Укажите актуальное название и версию проекта.');
+        result($store->renameProject($renameMatch[1], $user, $body['version'], $body['expectedName'], $body['name']));
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})(/revisions(?:/restore)?)?$~D',$path,$match)) {
         $id=$match[1]; $store->owned($id,$user);
         if (($match[2] ?? '') === '/revisions' && $method === 'GET') result($store->query('SELECT version,created_at FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 50',[$id])->fetchAll());
