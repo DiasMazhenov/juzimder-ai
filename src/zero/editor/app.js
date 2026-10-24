@@ -88,7 +88,7 @@ export async function openZeroEditor({
   const history = new History(data);
   const channel = new BroadcastChannel(`jz-zero-${projectId}`),
     $ = (s) => app.querySelector(s);
-  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" title="Слои">Слои</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes">${Object.entries(
+  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" aria-label="Слои" title="Слои">${tablerIcon("stack-2")}</button><button class="zero-mobile-inspector-toggle" data-action="inspector" aria-label="Инспектор" title="Инспектор">${tablerIcon("settings")}</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes">${Object.entries(
     MODES,
   )
     .map(
@@ -97,7 +97,7 @@ export async function openZeroEditor({
     )
     .join(
       "",
-    )}</div><button data-action="preview">Просмотр</button><button class="primary" data-action="save">Сохранить</button><button data-action="close">Закрыть</button></header><div class="zero-main"><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
+    )}</div><button data-action="preview" aria-label="Просмотр" title="Просмотр">${tablerIcon("eye")}<span>Просмотр</span></button><button class="primary" data-action="save" aria-label="Сохранить" title="Сохранить">${tablerIcon("device-floppy")}<span>Сохранить</span></button><button data-action="close" aria-label="Закрыть" title="Закрыть">${tablerIcon("x")}<span>Закрыть</span></button></header><div class="zero-main"><button class="zero-panel-backdrop" data-action="panel-close" aria-label="Закрыть панель" hidden></button><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
     ["text", "Текст"],
     ["image", "Фото"],
     ["rectangle", "Прямоугольник"],
@@ -108,7 +108,7 @@ export async function openZeroEditor({
     .map(([type, label]) => `<button data-add="${type}">${label}</button>`)
     .join(
       "",
-    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label>Zoom <select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>${[
+    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label><span>Zoom</span><select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>${[
     ["snap", "Snap"],
     ["grid", "Grid"],
     ["guides", "Guides"],
@@ -116,11 +116,11 @@ export async function openZeroEditor({
   ]
     .map(
       ([key, label]) =>
-        `<button data-action="${key}" aria-pressed="true">${label}</button>`,
+        `<button data-action="${key}" aria-label="${label}" title="${label}" aria-pressed="true">${tablerIcon({ snap: "arrows-move", grid: "layout-grid", guides: "selector", rulers: "baseline" }[key])}<span>${label}</span></button>`,
     )
     .join(
       "",
-    )}<button data-action="fit">Вписать</button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export">Скачать JSON</button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><menu id="zero-context" hidden>${[
+    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><menu id="zero-context" hidden>${[
     ["copy", "Копировать"],
     ["paste", "Вставить"],
     ["duplicate", "Дублировать"],
@@ -132,7 +132,8 @@ export async function openZeroEditor({
   ]
     .map(([key, label]) => `<button data-action="${key}">${label}</button>`)
     .join("")}</menu></main>`;
-  const workspace = $(".zero-workspace"),
+  const zeroRoot = $(".zero-app"),
+    workspace = $(".zero-workspace"),
     canvas = $("#zero-canvas"),
     plane = $(".zero-plane"),
     status = (message) => {
@@ -142,6 +143,37 @@ export async function openZeroEditor({
     planeOffsetY = 80,
     stagePaddingRight = 80,
     stagePaddingBottom = 80;
+  const compactVersion = document.createElement("span");
+  compactVersion.className = "zero-version-footer";
+  compactVersion.textContent = `Версия ${packageInfo.productVersion}`;
+  $("#zero-status").before(compactVersion);
+  function closeMobilePanels({ restoreSections = true } = {}) {
+    zeroRoot.classList.remove("zero-left-open", "zero-inspector-open");
+    $(".zero-panel-backdrop").hidden = true;
+    if (restoreSections) {
+      $(".zero-add").hidden = false;
+      $(".zero-layer-panel").hidden = false;
+      delete zeroRoot.dataset.mobilePanel;
+    }
+  }
+  function toggleMobilePanel(panel, mode = "") {
+    const className = panel === "left" ? "zero-left-open" : "zero-inspector-open";
+    if (
+      zeroRoot.classList.contains(className) &&
+      (panel !== "left" || zeroRoot.dataset.mobilePanel === mode)
+    ) {
+      closeMobilePanels();
+      return;
+    }
+    closeMobilePanels({ restoreSections: false });
+    if (panel === "left") {
+      $(".zero-add").hidden = mode === "layers";
+      $(".zero-layer-panel").hidden = mode === "add";
+      zeroRoot.dataset.mobilePanel = mode;
+    }
+    zeroRoot.classList.add(className);
+    $(".zero-panel-backdrop").hidden = false;
+  }
   $("#zero-zoom").setAttribute(
     "aria-label",
     "Масштаб холста; можно менять жестом щипка или Ctrl/Cmd + колесо",
@@ -752,18 +784,31 @@ export async function openZeroEditor({
       $("#zero-assets").close();
       return;
     }
+    if (key === "panel-close") {
+      closeMobilePanels();
+      return;
+    }
+    if (key === "inspector") {
+      if (matchMedia("(max-width: 720px)").matches)
+        toggleMobilePanel("inspector");
+      return;
+    }
     if (key === "add-menu") {
+      if (matchMedia("(max-width: 720px)").matches) {
+        toggleMobilePanel("left", "add");
+        return;
+      }
       $(".zero-add").hidden = !$(".zero-add").hidden;
       return;
     }
     if (key === "fit") {
       const z = Math.min(
-        (workspace.clientWidth - 160) / board().width,
-        (workspace.clientHeight - 160) / board().height,
+        (workspace.clientWidth - 24) / board().width,
+        (workspace.clientHeight - 24) / board().height,
         2,
       );
-      zoom = [0.5, 0.75, 1, 1.5, 2].filter((v) => v <= z).at(-1) || 0.5;
-      planeOffsetX = planeOffsetY = stagePaddingRight = stagePaddingBottom = 80;
+      zoom = Math.round(Math.min(2, Math.max(0.25, z)) * 100) / 100;
+      planeOffsetX = planeOffsetY = stagePaddingRight = stagePaddingBottom = 12;
       $("#zero-zoom").value = String(zoom);
       drawCanvas();
       workspace.scrollLeft = workspace.scrollTop = 0;
@@ -775,6 +820,10 @@ export async function openZeroEditor({
       return;
     }
     if (key === "layers") {
+      if (matchMedia("(max-width: 720px)").matches) {
+        toggleMobilePanel("left", "layers");
+        return;
+      }
       $(".zero-layer-panel").hidden = !$(".zero-layer-panel").hidden;
       return;
     }
@@ -813,7 +862,10 @@ export async function openZeroEditor({
     const target = event.target.closest("button");
     if (!target) return;
     if (target.dataset.action) return action(target.dataset.action);
-    if (target.dataset.add) return add(target.dataset.add);
+    if (target.dataset.add) {
+      closeMobilePanels();
+      return add(target.dataset.add);
+    }
     if (target.dataset.mode) {
       mode = target.dataset.mode;
       render();
@@ -1113,6 +1165,12 @@ export async function openZeroEditor({
     event.preventDefault();
   }
   workspace.addEventListener("pointerdown", (event) => {
+    if (
+      matchMedia("(max-width: 720px)").matches &&
+      (zeroRoot.classList.contains("zero-left-open") ||
+        zeroRoot.classList.contains("zero-inspector-open"))
+    )
+      closeMobilePanels();
     if (
       event.pointerType === "touch" &&
       !preview &&
@@ -1640,11 +1698,12 @@ export async function openZeroEditor({
     }
   };
   const fit = Math.min(
-    (workspace.clientWidth - 160) / board().width,
-    (workspace.clientHeight - 160) / board().height,
+    (workspace.clientWidth - 24) / board().width,
+    (workspace.clientHeight - 24) / board().height,
     1,
   );
-  zoom = [0.5, 0.75, 1].filter((v) => v <= fit).at(-1) || 0.5;
+  zoom = Math.round(Math.min(1, Math.max(0.25, fit)) * 100) / 100;
+  planeOffsetX = planeOffsetY = stagePaddingRight = stagePaddingBottom = 12;
   $("#zero-zoom").value = String(zoom);
   render();
 }
