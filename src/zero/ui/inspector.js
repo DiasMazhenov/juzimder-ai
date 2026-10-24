@@ -1,12 +1,6 @@
-import { resolve } from "../model/model.js";
+import { breakpointName, resolve } from "../model/model.js";
 import { escapeHTML as esc } from "../render.js";
-const MODE_NAMES = {
-  desktop: "Desktop",
-  laptop: "Laptop",
-  tablet: "Tablet",
-  landscape: "Mobile landscape",
-  mobile: "Mobile",
-};
+const MODE_NAMES = {};
 const GEOMETRY = ["x", "y", "width", "height", "rotation"];
 const LABELS = {
   x: "X",
@@ -39,6 +33,7 @@ const LABELS = {
 };
 
 export function renderInspector({ items, mode, board, project }) {
+  MODE_NAMES[mode] = breakpointName(mode, board.width);
   function field(
     section,
     key,

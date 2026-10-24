@@ -6,7 +6,12 @@ import {
   scaleGroupChildren,
 } from "../model/transforms.js";
 import {
-  MODES,
+  breakpointEntries,
+  breakpointName,
+  validateBreakpoints,
+  addBreakpoint,
+  removeBreakpoint,
+  suggestBreakpointWidth,
   copy,
   createElement,
   resolve,
@@ -29,13 +34,13 @@ import { renderZero, escapeHTML as esc } from "../render.js";
 import { tablerIcon } from "../../editor-icons.js";
 import packageInfo from "../../../package.json";
 import "../zero.css";
-const MODE_NAMES = {
-  desktop: "Desktop",
-  laptop: "Laptop",
-  tablet: "Tablet",
-  landscape: "Mobile landscape",
-  mobile: "Mobile",
-};
+function breakpointIcon(width) {
+  if (width <= 430) return { name: "device-mobile", orientation: "portrait" };
+  if (width <= 560) return { name: "device-mobile", orientation: "rotated" };
+  if (width <= 820) return { name: "device-tablet", orientation: "portrait" };
+  if (width <= 1024) return { name: "device-tablet", orientation: "rotated" };
+  return { name: "device-desktop", orientation: "landscape" };
+}
 export async function openZeroEditor({
   projectId,
   pageId,
@@ -68,6 +73,7 @@ export async function openZeroEditor({
     frame = 0,
     fieldTimer,
     pendingField = null,
+    breakpointDraft = null,
     smartLines = [],
     preview = false,
     destroyed = false;
@@ -88,16 +94,7 @@ export async function openZeroEditor({
   const history = new History(data);
   const channel = new BroadcastChannel(`jz-zero-${projectId}`),
     $ = (s) => app.querySelector(s);
-  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" aria-label="Слои" title="Слои">${tablerIcon("stack-2")}</button><button class="zero-mobile-inspector-toggle" data-action="inspector" aria-label="Инспектор" title="Инспектор">${tablerIcon("settings")}</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes">${Object.entries(
-    MODES,
-  )
-    .map(
-      ([id, w]) =>
-        `<button data-mode="${id}" title="${MODE_NAMES[id]}" aria-pressed="${id === mode}">${w}</button>`,
-    )
-    .join(
-      "",
-    )}</div><button data-action="preview" aria-label="Просмотр" title="Просмотр">${tablerIcon("eye")}<span>Просмотр</span></button><button class="primary" data-action="save" aria-label="Сохранить" title="Сохранить">${tablerIcon("device-floppy")}<span>Сохранить</span></button><button data-action="close" aria-label="Закрыть" title="Закрыть">${tablerIcon("x")}<span>Закрыть</span></button></header><div class="zero-main"><button class="zero-panel-backdrop" data-action="panel-close" aria-label="Закрыть панель" hidden></button><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
+  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" aria-label="Слои" title="Слои">${tablerIcon("stack-2")}</button><button class="zero-mobile-inspector-toggle" data-action="inspector" aria-label="Инспектор" title="Инспектор">${tablerIcon("settings")}</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes" aria-label="Размеры экрана"></div><button data-action="breakpoints" aria-expanded="false" aria-controls="zero-breakpoint-manager" aria-label="Настроить брейкпоинты" title="Настроить брейкпоинты">${tablerIcon("settings")}</button><section id="zero-breakpoint-manager" class="zero-breakpoint-manager" hidden aria-label="Настройки брейкпоинтов"></section><button data-action="preview" aria-label="Просмотр" title="Просмотр">${tablerIcon("eye")}<span>Просмотр</span></button><button class="primary" data-action="save" aria-label="Сохранить" title="Сохранить">${tablerIcon("device-floppy")}<span>Сохранить</span></button><button data-action="close" aria-label="Закрыть" title="Закрыть">${tablerIcon("x")}<span>Закрыть</span></button></header><div class="zero-main"><button class="zero-panel-backdrop" data-action="panel-close" aria-label="Закрыть панель" hidden></button><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
     ["text", "Текст"],
     ["image", "Фото"],
     ["rectangle", "Прямоугольник"],
@@ -247,6 +244,83 @@ export async function openZeroEditor({
       board: board(),
       project,
     });
+  }
+  const breakpointManager = () => $(".zero-breakpoint-manager");
+  function renderBreakpointManager() {
+    if (!breakpointDraft) return;
+    const entries = breakpointEntries(breakpointDraft, "asc");
+    breakpointManager().innerHTML = `<div class="zero-breakpoint-heading"><span>Брейкпоинты, px</span><button data-action="breakpoints-cancel" aria-label="Закрыть без сохранения" title="Закрыть">${tablerIcon("x")}</button></div><div class="zero-breakpoint-rows">${entries
+      .map(([id, item]) => {
+        const icon = breakpointIcon(item.width),
+          label = `${breakpointName(id, item.width)} · ${item.width} px`;
+        return `<div class="zero-breakpoint-row"><span class="zero-mode-icon" data-orientation="${icon.orientation}" aria-hidden="true">${tablerIcon(icon.name)}</span><label class="zero-breakpoint-width"><span class="zero-sr-only">Ширина ${esc(breakpointName(id, item.width))}</span><input data-breakpoint-width="${esc(id)}" type="number" min="320" max="2400" step="1" value="${item.width}" aria-label="${esc(label)}"></label><button data-remove-breakpoint="${esc(id)}" aria-label="Удалить ${esc(label)}" title="Удалить брейкпоинт" ${entries.length === 1 ? "disabled" : ""}>${tablerIcon("x")}</button></div>`;
+      })
+      .join("")}</div><div class="zero-breakpoint-actions"><button data-action="breakpoints-add">${tablerIcon("plus")} Добавить брейкпоинт</button><button class="primary" data-action="breakpoints-save">Сохранить</button></div><p class="zero-help">Минимум 320 px, максимум 2400 px. Самый широкий режим задаёт базовую сетку.</p>`;
+  }
+  function readBreakpointWidths() {
+    if (!breakpointDraft) return false;
+    const inputs = [...breakpointManager().querySelectorAll("[data-breakpoint-width]")],
+      values = inputs.map((input) => Number(input.value));
+    if (
+      inputs.some((input) => !input.value.trim()) ||
+      values.some((width) => !Number.isInteger(width) || width < 320 || width > 2400) ||
+      new Set(values).size !== values.length
+    ) {
+      status("Ширины должны быть целыми, уникальными значениями от 320 до 2400 px.");
+      return false;
+    }
+    inputs.forEach((input, index) => {
+      breakpointDraft.artboards[input.dataset.breakpointWidth].width = values[index];
+    });
+    try {
+      validateBreakpoints(breakpointDraft);
+      return true;
+    } catch (error) {
+      status(error.message);
+      return false;
+    }
+  }
+  function openBreakpointManager() {
+    breakpointDraft = copy(data);
+    breakpointManager().hidden = false;
+    $('[data-action="breakpoints"]').setAttribute("aria-expanded", "true");
+    renderBreakpointManager();
+  }
+  function addBreakpointFromManager() {
+    if (!readBreakpointWidths()) return;
+    const width = suggestBreakpointWidth(breakpointDraft);
+    if (width === null) {
+      status("Нет свободного диапазона для нового брейкпоинта.");
+      return;
+    }
+    try {
+      const id = addBreakpoint(breakpointDraft, width);
+      renderBreakpointManager();
+      breakpointManager()
+        .querySelector(`[data-breakpoint-width="${id}"]`)
+        ?.focus();
+    } catch (error) {
+      status(error.message);
+    }
+  }
+  function removeBreakpointFromManager(id) {
+    if (!readBreakpointWidths()) return;
+    try {
+      removeBreakpoint(breakpointDraft, id);
+      renderBreakpointManager();
+    } catch (error) {
+      status(error.message);
+    }
+  }
+  async function saveBreakpointManager() {
+    if (!readBreakpointWidths()) return;
+    data = breakpointDraft;
+    breakpointDraft = null;
+    breakpointManager().hidden = true;
+    $('[data-action="breakpoints"]').setAttribute("aria-expanded", "false");
+    if (!data.artboards[mode]) mode = "desktop";
+    changed();
+    await save();
   }
   function syncZoomControl() {
     const select = $("#zero-zoom"),
@@ -424,8 +498,13 @@ export async function openZeroEditor({
     drawCanvas();
     layers();
     inspector();
-    for (const button of app.querySelectorAll("[data-mode]"))
-      button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+    $(".zero-modes").innerHTML = breakpointEntries(data, "asc")
+      .map(([id, item]) => {
+        const icon = breakpointIcon(item.width),
+          label = `${breakpointName(id, item.width)} · ${item.width} px`;
+        return `<button data-mode="${esc(id)}" title="${esc(label)}" aria-label="${esc(label)}" aria-pressed="${id === mode}"><span class="zero-mode-icon" data-orientation="${icon.orientation}" aria-hidden="true">${tablerIcon(icon.name)}</span></button>`;
+      })
+      .join("");
     app.querySelector(".zero-app").classList.toggle("zero-preview", preview);
   }
   async function save() {
@@ -703,6 +782,22 @@ export async function openZeroEditor({
   async function action(key) {
     flushField();
     $("#zero-context").hidden = true;
+    if (key === "breakpoints") {
+      if (breakpointDraft) {
+        breakpointDraft = null;
+        breakpointManager().hidden = true;
+        $('[data-action="breakpoints"]').setAttribute("aria-expanded", "false");
+      } else openBreakpointManager();
+      return;
+    }
+    if (key === "breakpoints-add") return addBreakpointFromManager();
+    if (key === "breakpoints-save") return saveBreakpointManager();
+    if (key === "breakpoints-cancel") {
+      breakpointDraft = null;
+      breakpointManager().hidden = true;
+      $('[data-action="breakpoints"]').setAttribute("aria-expanded", "false");
+      return;
+    }
     if (key === "save") {
       await save();
       return;
@@ -861,6 +956,8 @@ export async function openZeroEditor({
   app.addEventListener("click", async (event) => {
     const target = event.target.closest("button");
     if (!target) return;
+    if (target.dataset.removeBreakpoint)
+      return removeBreakpointFromManager(target.dataset.removeBreakpoint);
     if (target.dataset.action) return action(target.dataset.action);
     if (target.dataset.add) {
       closeMobilePanels();
@@ -1021,7 +1118,10 @@ export async function openZeroEditor({
       );
     }
   }
-  app.addEventListener("change", (event) => applyInput(event.target, true));
+  app.addEventListener("change", (event) => {
+    if (event.target.matches("[data-breakpoint-width]")) return;
+    applyInput(event.target, true);
+  });
   app.addEventListener("input", (event) => {
     if (
       !event.target.matches(

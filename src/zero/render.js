@@ -1,5 +1,6 @@
 import {
-  MODES,
+  breakpointEntries,
+  breakpointMediaMax,
   resolve,
   geometryCSS,
   appearanceCSS,
@@ -32,6 +33,8 @@ export function elementHTML(el, children = "") {
 }
 export function renderZero(data, blockId, activeMode = null) {
   const scope = "jz-zero-" + String(blockId).replace(/[^a-zA-Z0-9_-]/g, "");
+  const modes = breakpointEntries(data).map(([id]) => id),
+    sourceModes = [...modes].reverse().filter((mode) => mode !== "desktop");
   let css =
     `.${scope}{position:relative!important;display:block!important;width:100%;box-sizing:border-box;isolation:isolate}.` +
     scope +
@@ -43,8 +46,8 @@ export function renderZero(data, blockId, activeMode = null) {
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
-      : `@media(max-width:${{ laptop: 1199, tablet: 979, landscape: 639, mobile: 479 }[mode]}px){${rule}}`;
-  for (const mode of activeMode ? [activeMode] : Object.keys(MODES)) {
+      : `@media(max-width:${breakpointMediaMax(data, mode)}px){${rule}}`;
+  for (const mode of activeMode ? [activeMode] : modes) {
     const b = data.artboards[mode];
     const autoScale = !activeMode && b.scaleGrid === "autoscale";
     css += wrap(
@@ -55,7 +58,7 @@ export function renderZero(data, blockId, activeMode = null) {
   const walk = (list, nested = false, inheritedGrid = {}) =>
     list
       .map((el, index) => {
-        for (const mode of activeMode ? [activeMode] : Object.keys(MODES)) {
+        for (const mode of activeMode ? [activeMode] : modes) {
           const e = resolve(el, mode),
             s = e.style,
             board = data.artboards[mode],
@@ -77,7 +80,7 @@ export function renderZero(data, blockId, activeMode = null) {
           );
         }
         const childGrid = Object.fromEntries(
-          Object.keys(MODES).map((mode) => [
+          modes.map((mode) => [
             mode,
             nested
               ? inheritedGrid[mode]
@@ -96,10 +99,10 @@ export function renderZero(data, blockId, activeMode = null) {
           el.children ? walk(el.children, true, childGrid) : "",
         );
         if (el.type === "image" && !activeMode) {
-          const sources = ["mobile", "landscape", "tablet", "laptop"]
+          const sources = sourceModes
             .map(
               (m) =>
-                `<source media="(max-width:${{ mobile: 479, landscape: 639, tablet: 979, laptop: 1199 }[m]}px)" srcset="${escapeHTML(resolve(el, m).src.replace(/,/g, "%2C"))}">`,
+                `<source media="(max-width:${breakpointMediaMax(data, m)}px)" srcset="${escapeHTML(resolve(el, m).src.replace(/,/g, "%2C"))}">`,
             )
             .join("");
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;

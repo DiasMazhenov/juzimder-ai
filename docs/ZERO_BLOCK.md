@@ -1,12 +1,12 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.107. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.108. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
 
 ## Architecture decision (Z0)
 
 A `zero-block` is one normal GrapesJS section with a stable `attributes.id`, an empty `components` collection and one `zeroData` object. There is no second project, database table, DOM component tree, AI document or publication pipeline. The additive component contract keeps the outer `{schemaVersion:1,engine:"grapesjs",data:ProjectData}` envelope. `zeroData.version=1` is mandatory; unknown versions fail closed. A future incompatible change must supply an explicit version migration. Existing non-Zero documents require no migration.
 
-`zeroData` contains five artboards and a bounded tree of typed elements. Types: text, image, rectangle, ellipse, line, button and group. Text is plain text or an array of safe marked runs (`text`, boolean `bold/italic/underline`), not HTML. Groups alone can have children. IDs are unique within each block and renderer CSS is scoped by the containing component ID, so whole-block copies remain isolated.
+`zeroData` contains 1–10 artboards and a bounded tree of typed elements. New blocks start with five default artboards; users may add or remove modes and choose unique widths from 320 to 2400 px. The widest mode remains the base (`desktop` identity); deleting it promotes the next widest mode and materializes its resolved element values into the base without changing layout. Adding a new mode copies the nearest wider mode. Adding above the current base snapshots the old base into a generated `bp-*` mode. Types: text, image, rectangle, ellipse, line, button and group. Text is plain text or an array of safe marked runs (`text`, boolean `bold/italic/underline`), not HTML. Groups alone can have children. IDs are unique within each block and renderer CSS is scoped by the containing component ID, so whole-block copies remain isolated.
 
 Authoritative validation: `backend/ZeroBlock.php`, called by `Document::validate`. JSON Schema mirrors the structural contract in `schemas/project.schema.json`; runtime validation also enforces uniqueness, total node count, depth, URL parsing, finite numbers and byte limits. Limits: 300 elements, eight group levels, 256 KiB per block, coordinates/rotation within ±20000, positive sizes up to 20000. The existing project-wide 2 MB and complexity limits still apply. Style keys, colours, font names, anchors, containers, tags and URL schemes are allowlisted. Arbitrary SVG, scripts, HTML embeds and animation payloads are not accepted as Zero elements.
 
@@ -30,7 +30,7 @@ JS geometry: `src/zero/model/model.js`; affine matrices and group scaling: `tran
 
 ## Responsive contract
 
-| Mode | Reference width | Published media range |
+| Default mode | Reference width | Default published range |
 |---|---:|---|
 | desktop | 1200 | 1200 and wider |
 | laptop | 980 | 980–1199 |
@@ -38,7 +38,7 @@ JS geometry: `src/zero/model/model.js`; affine matrices and group scaling: `tran
 | landscape | 480 | 480–639 |
 | mobile | 360 | below 480 |
 
-Reference widths are not media boundaries. Desktop properties form the base; each other mode overlays only its own geometry/style/visibility/source properties. Overrides do not cascade through another smaller mode. Artboards independently store height, background, grid width, margin, gutter, overflow and guides. Content, rich text and links are shared; image source, visual styles and geometry can differ by mode. `<picture>` handles responsive source selection in static output.
+Reference widths are not media boundaries. With custom widths, modes are ordered by width and each non-base mode ends one pixel below the next wider mode. The toolbar displays each mode as a Tabler device icon; the settings popover lists the same icons, editable widths, add/remove actions and Save. Widths must be unique; the base remains widest; at least one and at most ten modes are allowed. Desktop properties form the base; each other mode overlays only its own geometry/style/visibility/source properties. Overrides do not cascade through another smaller mode. Artboards independently store height, background, grid width, margin, gutter, overflow and guides. Content, rich text and links are shared; image source, visual styles and geometry can differ by mode. `<picture>` handles responsive source selection in static output.
 
 Inspector markers: `↳` inherited, `•` overridden. Reset removes the current element's mode override. Initial adaptation scales only elements without an existing override, preserving existing values. Group/ungroup materializes per-mode geometry to preserve placement; users can reset an override before requesting initial adaptation. Mobile never becomes a vertical Flex layout.
 
@@ -60,7 +60,7 @@ BroadcastChannel messages contain project/page/block IDs and revision only. The 
 - Existing project raster library/upload; alt/link, fit/position, radius, opacity, aspect ratio. It uses the existing authenticated asset API.
 - Shapes, strokes, shadows, buttons with links/targets and hover colours.
 - Alignment/distribution, grouping, nested groups, duplicate/copy/paste, layer order, Undo/Redo and keyboard shortcuts. Input/contenteditable fields retain normal keyboard editing.
-- Five modes, overrides/reset, artboard settings, twelve-column grid, rulers, draggable guides, smart alignment guides and zoom-adjusted snapping.
+- Dynamic breakpoints (add/remove/edit width), device icons, overrides/reset, artboard settings, twelve-column grid, rulers, draggable guides, smart alignment guides and zoom-adjusted snapping.
 - Camera zoom 25–300%, anchored at the cursor or two-finger touch midpoint; supports touchscreen pinch and Ctrl/Cmd+wheel trackpads, plus 50/75/100/150/200% presets, Fit and Space+Drag pan. Zoom changes editor camera only; saved element geometry is unchanged.
 
 ## Validation and acceptance
@@ -80,6 +80,7 @@ This is a working absolute engine and Z1 vertical slice, with initial Z2–Z5 to
 - Z2–Z5 controls listed above are implemented. Codex Browser verified all eight resize handles at 50% zoom; Undo after each handle restored the exact starting X/Y/W/H and rotation. Rotation and sibling layer ordering also passed with Undo.
 - A click or double-click used to select/edit text must not invoke snap. The pointer gesture now waits for 1.5 CSS px of movement before applying drag/resize/rotation; smaller pointer jitter remains a click. Rich-text editing starts from a repeated pointer press or the native double-click path; text entry, save, Undo, and reload are verified on the isolated QA page. Nested rotated groups and ruler/snap combinations passed the browser checks recorded below. Product 00.00.106 visually checked responsive layouts at 360, 390, 480, 520, 640, 720, 768, 900, 901, and 1024px, including mobile panel switching and initial artboard fit; the full orientation/width matrix remains open.
 - Artboard Autoscale scales Grid Container geometry, typography, and section height proportionally to window width, independently per breakpoint. Window Container elements stay fixed; older zeroData without `scaleGrid` retains fixed sizing. Live browser acceptance for enabled Autoscale remains open. Percent/relative authored units, advanced SVG/video/gallery/forms/embed elements, animation and AI generation are intentionally not declared implemented. Fixed pixel geometry is the v1 authoring contract.
+- 00.00.108 added editable custom breakpoint widths, icon-only device selectors, and add/remove controls. JS model, schema, PHP validation, preview and static export derive media boundaries from artboard widths. Automated tests cover custom width ranges, base promotion, and layout preservation. Existing-tab Browser QA visually confirmed the settings panel and transient add/remove of a 768 px mode; the draft was canceled and QA revision 181 stayed unchanged. Persisted custom-width save/reopen acceptance remains NOT RUN.
 - Layer drag reorder currently operates among siblings; structural nesting uses Group/Ungroup. Clipboard is internal to the Zero Editor.
 - Z6 remains open: full conflict/revision-restore visual matrix, browser public-host/ZIP acceptance, 300-node performance measurement and real mobile-device authoring. API/static tests do not substitute for these visual checks.
 - Basic/step-by-step animation is future work, after geometry/persistence/publication acceptance; any future runtime must respect reduced motion and the existing CSP.

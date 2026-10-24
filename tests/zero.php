@@ -18,6 +18,9 @@ $reject(fn($d)=>$d->elements[0]->content='<script>alert(1)</script>','HTML rejec
 $reject(fn($d)=>$d->elements[1]->src='https://user:secret@example.test/a','credential URLs rejected');
 $reject(fn($d)=>$d->elements[1]->src='javascript:alert(1)','script URLs rejected');
 $reject(fn($d)=>$d->elements[0]->overrides->mobile->geometry->position='fixed','unknown geometry rejected');
+$dynamic=unserialize(serialize($fixture));$dynamic->artboards->{'bp-abcdef12'}=unserialize(serialize($fixture->artboards->tablet));$dynamic->artboards->{'bp-abcdef12'}->width=768;$dynamic->elements[0]->overrides->{'bp-abcdef12'}=(object)['geometry'=>(object)['x'=>222]];ZeroBlock::validate($dynamic);$dynamicHtml=ZeroBlockRenderer::render($dynamic,'zero-dynamic');zeroCheck(str_contains($dynamicHtml,'@media(max-width:979px)')&&str_contains($dynamicHtml,'222px'),'custom breakpoint is validated and rendered at its computed width range');
+$reject(fn($d)=>$d->artboards->{'bp-abcdef12'}=unserialize(serialize($d->artboards->laptop)),'duplicate breakpoint widths rejected');
+$reject(fn($d)=>$d->artboards->desktop->width=600,'base breakpoint must remain the widest');
 $reject(fn($d)=>$d->elements[0]->children=[],'children require a group');
 $reject(function($d){$el=$d->elements[2];for($i=0;$i<10;$i++){$child=unserialize(serialize($el));$child->id='ze-nest-'.$i;$child->children=[];$el->children=[$child];$el=$child;}},'group nesting bounded');
 $reject(function($d)use($fixture){$d->elements=[];for($i=0;$i<301;$i++){$el=unserialize(serialize($fixture->elements[0]));$el->id='ze-'.$i;$d->elements[]=$el;}},'element quota enforced');

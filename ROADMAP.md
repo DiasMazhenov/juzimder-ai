@@ -67,6 +67,8 @@
 - [x] 00.00.105: камера получает дополнительное поле при необходимости, поэтому при zoom-out у верхнего/левого края точка под жестом не смещается из-за нулевого scroll.
 - [x] 00.00.106: Zero Editor вписывает артборд в доступное место при открытии; адаптивная панель и overlay drawers проверены на 360, 390, 480, 520, 640, 720, 768, 900, 901 и 1024 px без изменения QA-ревизии.
 - [x] 00.00.107: per-breakpoint Grid Autoscale: пропорциональная геометрия, типографика и высота секции; Window Container остаётся фиксированным. Схема, backend validator и JS/PHP renderer согласованы.
+- [x] 00.00.108: Zero Block breakpoint widths are dynamic; modes can be added, removed, and resized, with Tabler device icons, safe base promotion, and width-derived media ranges in both renderers.
+- [ ] 00.00.108: Codex Browser persistence acceptance for saving/reopening custom widths; panel and draft add/remove were visually checked in the existing editor tab and canceled without changing QA content.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [ ] Autoscale browser acceptance на разных ширинах, полная визуальная матрица ориентаций/ширин и ручная browser QA публикации/ZIP.
 - [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
@@ -142,7 +144,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.107; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.108; остальные пункты выше имеют собственные актуальные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
@@ -572,3 +574,7 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 00.00.107 implements optional per-artboard Grid Autoscale. Grid coordinates, dimensions, typography, stroke/radius/shadow and artboard height scale proportionally to the window width; Window Container stays fixed, and legacy data defaults to fixed mode. Schema, backend validation and JavaScript/PHP renderers are covered by unit/integration tests. Saved/public browser visual acceptance for enabled Autoscale remains open.
 
 Z0 завершён; Z1 работает от добавления блока до сохранённого серверного HTML/CSS. Начальные Z2–Z5 controls реализованы; финальная Z6-приёмка остаётся открытой. В 00.00.102 исправлено смещение при клике: snap не меняет геометрию до реального drag. В 00.00.103 восстановлено rich-text редактирование двойным кликом при захвате указателя холстом: ввод, Save, Undo и reload подтверждены на QA-странице. В 00.00.104 проверены вложенные повёрнутые группы до трёх уровней, независимый drag/resize вложенной композиции и точный Undo; сохранённый HTML визуально совпал с холстом. Snap к направляющей проверен на 50% и 200%, временная направляющая и сдвиги отменены. В 00.00.105 добавлены anchored pinch и Ctrl/Cmd+wheel для камеры с диапазоном 25–300%; геометрия Project Data не меняется. Stage padding сохраняет якорь у всех границ прокрутки. В 00.00.106 исправлен начальный zoom: артборд помещается по доступной ширине/высоте с 12px полями; мобильные панели элементов/слоёв и инспектора открываются как переключаемые выдвижные панели; compact toolbar работает до 1100px. Визуально проверены 360, 390, 480, 520, 640, 720, 768, 900, 901 и 1024px; на QA revision181 изменений данных не было. В 00.00.107 реализован per-breakpoint Grid Autoscale; его browser acceptance на включённом режиме остаётся открытым. Physical pinch acceptance remains NOT RUN; browser QA uses viewport emulation. Остаются полная матрица ориентаций/ширин, performance, публичная визуальная проверка ZIP/public и полная restore/conflict visual matrix. Подробности и evidence в docs/ZERO_BLOCK.md.
+
+## Zero Block · 00.00.108
+
+Breakpoint manager now supports editable widths, adding and removing modes, and Tabler device icons in the toolbar and settings panel. Dynamic ranges are calculated as the next wider width minus one. Deleting the base promotes the widest remaining artboard and materializes its resolved geometry/style/visibility/source to preserve composition; adding a mode copies the nearest wider mode. JSON Schema, PHP validation and both renderers accept the bounded dynamic mode set. `npm test` and `npm run build` pass. Existing-tab QA confirmed the visual panel and transient add/remove of 768 px; the draft was canceled with the existing Zero page still at revision 181. Persisted custom-width save/reopen remains open.

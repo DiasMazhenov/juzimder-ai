@@ -60,6 +60,7 @@
   display: none !important;
 }
 .zero-top {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -98,9 +99,127 @@
   display: flex;
   gap: 3px;
   margin: auto;
+  max-width: min(520px, 50vw);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .zero-modes button {
-  padding: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 5px;
+}
+.zero-modes .zero-mode-icon,
+.zero-breakpoint-row .zero-mode-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  color: #b5c4ba;
+}
+.zero-mode-icon > .tabler-editor-icon {
+  width: 22px;
+  height: 22px;
+}
+.zero-mode-icon[data-orientation="rotated"] > .tabler-editor-icon {
+  transform: rotate(90deg);
+}
+.zero-breakpoint-manager {
+  position: absolute;
+  z-index: 10002;
+  top: calc(100% + 8px);
+  right: 54px;
+  width: min(330px, calc(100vw - 20px));
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid #45564a;
+  border-radius: 10px;
+  background: #202824;
+  box-shadow: 0 12px 36px #0009;
+}
+.zero-breakpoint-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #a7b9ad;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.zero-breakpoint-heading button,
+.zero-breakpoint-row > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 5px;
+}
+.zero-breakpoint-rows {
+  display: grid;
+  gap: 5px;
+}
+.zero-breakpoint-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+.zero-breakpoint-row .zero-mode-icon {
+  justify-self: center;
+}
+.zero-breakpoint-row .zero-breakpoint-width {
+  margin: 0;
+}
+.zero-breakpoint-row input {
+  width: 100%;
+  height: 36px;
+  border-color: transparent transparent #3a463e;
+  border-radius: 0;
+  background: transparent;
+  font-size: 17px;
+  text-align: center;
+}
+.zero-breakpoint-row input:focus {
+  border-color: #8dc4a1;
+  outline: none;
+}
+.zero-breakpoint-row > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.zero-breakpoint-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.zero-breakpoint-actions button {
+  min-height: 38px;
+}
+.zero-breakpoint-actions .tabler-editor-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+}
+.zero-breakpoint-manager .zero-help {
+  margin: 10px 0 0;
+}
+.zero-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .zero-main {
   flex: 1;
@@ -517,6 +636,10 @@
 }
 
 @media (max-width: 720px) {
+  .zero-breakpoint-manager {
+    right: 6px;
+    width: min(330px, calc(100vw - 20px));
+  }
   .zero-main {
     position: relative;
     overflow: hidden;
@@ -586,6 +709,7 @@
     justify-content: flex-start;
     gap: 2px;
     margin: 0;
+    max-width: calc(100vw - 110px);
   }
   .zero-top [data-action="preview"],
   .zero-top [data-action="save"],

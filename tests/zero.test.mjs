@@ -11,6 +11,13 @@ import Ajv2020 from "ajv/dist/2020.js";
 import {
   createZeroData,
   createElement,
+  breakpointEntries,
+  breakpointMediaMax,
+  breakpointName,
+  validateBreakpoints,
+  addBreakpoint,
+  removeBreakpoint,
+  suggestBreakpointWidth,
   resolve,
   setValue,
   rect,
@@ -148,6 +155,44 @@ test("responsive overrides are independent; auto-adapt never overwrites manual w
   delete el.overrides.mobile;
   assert.equal(resolve(el, "mobile").geometry.x, desktop.x);
 });
+test("breakpoints can be added and removed while preserving per-mode layout and base geometry", () => {
+  const d = createZeroData(),
+    element = createElement("text");
+  element.geometry.x = 100;
+  setValue(element, "laptop", "geometry", "x", 220);
+  d.elements.push(element);
+
+  const custom = addBreakpoint(d, 768);
+  assert.match(custom, /^bp-/);
+  assert.equal(resolve(element, custom).geometry.x, 220);
+  assert.equal(breakpointMediaMax(d, custom), 979);
+  assert.equal(breakpointName(custom, 768), "Custom breakpoint");
+  assert.equal(breakpointEntries(d, "asc").at(-1)[0], "desktop");
+  validateBreakpoints(d);
+  assert.match(renderZero(d, "dynamic"), /@media\(max-width:979px\)/);
+
+  removeBreakpoint(d, custom);
+  assert.equal(element.overrides[custom], undefined);
+  assert.equal(Object.hasOwn(d.artboards, custom), false);
+  removeBreakpoint(d, "desktop");
+  assert.equal(d.artboards.desktop.width, 980);
+  assert.equal(element.geometry.x, 220);
+  assert.equal(resolve(element, "desktop").geometry.x, 220);
+  assert.equal(element.overrides?.laptop, undefined);
+  validateBreakpoints(d);
+});
+test("adding a wider breakpoint snapshots the prior base without shifting it", () => {
+  const d = createZeroData(),
+    element = createElement("text");
+  element.geometry.x = 100;
+  d.elements.push(element);
+  const custom = addBreakpoint(d, 1440);
+  assert.equal(d.artboards.desktop.width, 1440);
+  assert.equal(resolve(element, custom).geometry.x, 100);
+  assert.equal(resolve(element, "desktop").geometry.x, 100);
+  assert.equal(breakpointMediaMax(d, custom), 1439);
+  assert.throws(() => addBreakpoint(d, 1200), /свободную ширину/);
+});
 test("one completed drag corresponds to one history record and Undo/Redo restores overrides", () => {
   const d = structuredClone(fixture),
     h = new History(d);
@@ -226,6 +271,13 @@ test("Autoscale control is scoped to an artboard and new boards default to fixed
   assert.match(markup, /data-board="scaleGrid"/);
   assert.match(markup, /value="autoscale"[^>]*>Autoscale к ширине окна/);
   assert.match(markup, /только на этом режиме/);
+  const customMarkup = renderInspector({
+    items: [],
+    mode: "bp-12345678",
+    board: { ...data.artboards.tablet, width: 768 },
+    project: {},
+  });
+  assert.match(customMarkup, /АРТБОРД · Custom breakpoint/);
 });
 test("the exported frontend renderer contains no layout flow or editor UI and scopes block copies", () => {
   const html = renderZero(fixture, "zero-one"),
@@ -270,6 +322,14 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
       },
     };
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
+  const custom = structuredClone(doc);
+  custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
+    "bp-12345678"
+  ] = { ...structuredClone(fixture.artboards.laptop), width: 768 };
+  custom.data.pages[0].frames[0].component.components[0].zeroData.elements[0].overrides[
+    "bp-12345678"
+  ] = { geometry: { x: -20 } };
+  assert.equal(validate(custom), true, JSON.stringify(validate.errors));
   const root = doc.data.pages[0].frames[0].component.components[0];
   root.zeroData.artboards.desktop.scaleGrid = "autoscale";
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));

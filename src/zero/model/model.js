@@ -8,6 +8,165 @@ export const MODES = Object.freeze({
 export const LIMITS = Object.freeze({ elements: 300, depth: 8 });
 export const copy = (value) => structuredClone(value);
 export const newId = () => `ze-${crypto.randomUUID()}`;
+const BREAKPOINT_ID = /^(?:desktop|laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$/;
+export function breakpointEntries(data, order = "desc") {
+  const entries = Object.entries(data.artboards).sort(
+    ([, left], [, right]) => right.width - left.width,
+  );
+  return order === "asc" ? entries.reverse() : entries;
+}
+export function breakpointMediaMax(data, mode) {
+  const entries = breakpointEntries(data),
+    index = entries.findIndex(([id]) => id === mode);
+  return index <= 0 ? null : entries[index - 1][1].width - 1;
+}
+export function breakpointName(mode, width) {
+  const standard = {
+    desktop: 1200,
+    laptop: 980,
+    tablet: 640,
+    landscape: 480,
+    mobile: 360,
+  };
+  return standard[mode] === width
+    ? {
+        desktop: "Desktop",
+        laptop: "Laptop",
+        tablet: "Tablet",
+        landscape: "Mobile landscape",
+        mobile: "Mobile",
+      }[mode]
+    : "Custom breakpoint";
+}
+export function validateBreakpoints(data) {
+  const entries = breakpointEntries(data),
+    ids = new Set(),
+    widths = new Set();
+  if (
+    entries.length < 1 ||
+    entries.length > 10 ||
+    !data.artboards.desktop ||
+    entries[0][0] !== "desktop"
+  )
+    throw new Error("Нужен один широчайший базовый брейкпоинт и не более 10 режимов.");
+  for (const [id, board] of entries) {
+    if (!BREAKPOINT_ID.test(id))
+      throw new Error("Не удалось распознать ID брейкпоинта.");
+    if (
+      !Number.isInteger(board.width) ||
+      board.width < 320 ||
+      board.width > 2400 ||
+      ids.has(id) ||
+      widths.has(board.width)
+    )
+      throw new Error("Ширины брейкпоинтов должны быть уникальными от 320 до 2400 px.");
+    ids.add(id);
+    widths.add(board.width);
+  }
+  return entries;
+}
+function eachElement(elements, callback) {
+  for (const element of elements) {
+    callback(element);
+    if (element.children) eachElement(element.children, callback);
+  }
+}
+function resolvedOverride(element, mode) {
+  const value = resolve(element, mode),
+    override = {
+      geometry: copy(value.geometry),
+      style: copy(value.style),
+      visible: value.visible,
+    };
+  if (element.type === "image" && value.src !== undefined)
+    override.src = value.src;
+  return override;
+}
+export function suggestBreakpointWidth(data) {
+  const used = new Set(breakpointEntries(data).map(([, board]) => board.width));
+  if (!used.has(768)) return 768;
+  const bounds = [2401, ...[...used].sort((a, b) => b - a), 319];
+  let candidate = null,
+    widestGap = 0;
+  for (let index = 0; index < bounds.length - 1; index++) {
+    const high = bounds[index],
+      low = bounds[index + 1],
+      gap = high - low - 1;
+    if (gap > widestGap) {
+      widestGap = gap;
+      candidate = Math.floor((high + low) / 2);
+    }
+  }
+  return candidate;
+}
+export function addBreakpoint(data, width) {
+  validateBreakpoints(data);
+  if (
+    Object.keys(data.artboards).length >= 10 ||
+    !Number.isInteger(width) ||
+    width < 320 ||
+    width > 2400 ||
+    Object.values(data.artboards).some((board) => board.width === width)
+  )
+    throw new Error("Выберите свободную ширину от 320 до 2400 px (не более 10 режимов).");
+
+  const id = `bp-${crypto.randomUUID()}`,
+    entries = breakpointEntries(data),
+    highest = entries[0];
+  if (width > highest[1].width) {
+    const previousWidth = highest[1].width,
+      previousBoard = copy(data.artboards.desktop);
+    previousBoard.width = previousWidth;
+    data.artboards.desktop.width = width;
+    data.artboards[id] = previousBoard;
+    eachElement(data.elements, (element) => {
+      element.overrides ??= {};
+      element.overrides[id] = resolvedOverride(element, "desktop");
+    });
+  } else {
+    const larger = entries.filter(([, board]) => board.width > width).at(-1),
+      board = copy(data.artboards[larger[0]]);
+    board.width = width;
+    data.artboards[id] = board;
+    eachElement(data.elements, (element) => {
+      element.overrides ??= {};
+      element.overrides[id] = resolvedOverride(element, larger[0]);
+    });
+  }
+  return id;
+}
+export function removeBreakpoint(data, id) {
+  const entries = validateBreakpoints(data);
+  if (!data.artboards[id]) throw new Error("Брейкпоинт уже удалён.");
+  if (entries.length === 1)
+    throw new Error("В Zero Block должен оставаться хотя бы один брейкпоинт.");
+
+  if (id === "desktop") {
+    const promotedId = entries[1][0],
+      promotedBoard = copy(data.artboards[promotedId]);
+    eachElement(data.elements, (element) => {
+      const value = resolve(element, promotedId);
+      element.geometry = copy(value.geometry);
+      element.style = copy(value.style);
+      element.visible = value.visible;
+      if (element.type === "image" && value.src !== undefined)
+        element.src = value.src;
+      delete element.overrides?.[promotedId];
+      delete element.overrides?.desktop;
+      if (element.overrides && !Object.keys(element.overrides).length)
+        delete element.overrides;
+    });
+    delete data.artboards.desktop;
+    delete data.artboards[promotedId];
+    data.artboards.desktop = promotedBoard;
+  } else {
+    delete data.artboards[id];
+    eachElement(data.elements, (element) => {
+      delete element.overrides?.[id];
+    });
+  }
+  return data;
+}
 export function createZeroData() {
   return {
     version: 1,

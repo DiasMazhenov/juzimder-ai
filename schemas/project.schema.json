@@ -215,6 +215,20 @@
         }
       }
     },
+    "zeroBreakpointOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "geometry": { "$ref": "#/$defs/zeroGeometryOverride" },
+        "style": { "$ref": "#/$defs/zeroStyle" },
+        "visible": { "type": "boolean" },
+        "src": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:https://[^\\s<>\"\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$"
+        }
+      }
+    },
     "zeroStyle": {
       "type": "object",
       "additionalProperties": false,
@@ -434,6 +448,14 @@
         "overrides": {
           "type": "object",
           "additionalProperties": false,
+          "propertyNames": {
+            "pattern": "^(?:laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$"
+          },
+          "patternProperties": {
+            "^(?:laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$": {
+              "$ref": "#/$defs/zeroBreakpointOverride"
+            }
+          },
           "properties": {
             "laptop": {
               "type": "object",
@@ -581,6 +603,16 @@
         "artboards": {
           "type": "object",
           "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 10,
+          "propertyNames": {
+            "pattern": "^(?:desktop|laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$"
+          },
+          "patternProperties": {
+            "^(?:desktop|laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$": {
+              "$ref": "#/$defs/zeroData/properties/artboards/properties/desktop"
+            }
+          },
           "properties": {
             "desktop": {
               "type": "object",
@@ -607,7 +639,9 @@
                   "maximum": 200
                 },
                 "width": {
-                  "const": 1200
+                  "type": "integer",
+                  "minimum": 320,
+                  "maximum": 2400
                 },
                 "background": {
                   "type": "string",
@@ -684,7 +718,9 @@
                   "maximum": 200
                 },
                 "width": {
-                  "const": 980
+                  "type": "integer",
+                  "minimum": 320,
+                  "maximum": 2400
                 },
                 "background": {
                   "type": "string",
@@ -761,7 +797,9 @@
                   "maximum": 200
                 },
                 "width": {
-                  "const": 640
+                  "type": "integer",
+                  "minimum": 320,
+                  "maximum": 2400
                 },
                 "background": {
                   "type": "string",
@@ -838,7 +876,9 @@
                   "maximum": 200
                 },
                 "width": {
-                  "const": 480
+                  "type": "integer",
+                  "minimum": 320,
+                  "maximum": 2400
                 },
                 "background": {
                   "type": "string",
@@ -915,7 +955,9 @@
                   "maximum": 200
                 },
                 "width": {
-                  "const": 360
+                  "type": "integer",
+                  "minimum": 320,
+                  "maximum": 2400
                 },
                 "background": {
                   "type": "string",
@@ -969,11 +1011,7 @@
             }
           },
           "required": [
-            "desktop",
-            "laptop",
-            "tablet",
-            "landscape",
-            "mobile"
+            "desktop"
           ]
         },
         "elements": {
