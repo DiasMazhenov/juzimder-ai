@@ -79,7 +79,7 @@ test('new library families are present and image placeholders are explicitly tru
 });
 
 test('expanded section presets keep badges compact and responsive grids',()=>{
-  const ids=['about-split','services-list','benefits-split','portfolio-grid','case-study','faq-grid','price-list','event-program','team-profile','cta-split'];
+  const ids=['product-catalog','product-detail','restaurant-menu','weekly-schedule','document-links','service-detail','delivery-info','location-card','editorial-intro','gallery-captions','about-split','services-list','benefits-split','portfolio-grid','case-study','faq-grid','price-list','event-program','team-profile','cta-split'];
   for(const id of ids){
     const root=blocks.find(block=>block.id===id).content();
     assert.equal(root.tagName,'section');
