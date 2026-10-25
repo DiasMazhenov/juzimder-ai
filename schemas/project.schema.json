@@ -53,7 +53,7 @@
           "enum": ["", "default", "wrapper", "text", "textnode", "image", "link", "link-block", "head", "form", "input", "textarea", "select", "option", "checkbox", "radio", "button", "label", "custom-code", "countdown", "zero-block"]
         },
         "tagName": {
-          "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label", "form", "input", "textarea", "select", "option", "details", "summary", "time"]
+          "enum": ["html", "head", "body", "div", "section", "header", "footer", "nav", "main", "article", "aside", "h1", "h2", "h3", "h4", "p", "span", "a", "img", "button", "ul", "ol", "li", "strong", "em", "b", "i", "br", "hr", "label", "form", "input", "textarea", "select", "option", "details", "summary", "figure", "figcaption", "time"]
         },
         "attributes": {
           "type": "object",
@@ -71,7 +71,7 @@
         "head": { "$ref": "#/$defs/component" },
         "docEl": { "$ref": "#/$defs/component" }
       },
-      "allOf": [{"if": {"properties": {"type": {"const": "zero-block"}}, "required": ["type"]}, "then": {"required": ["zeroData", "attributes"], "properties": {"attributes": {"required": ["id"]}, "components": {"maxItems": 0}, "content": {"const": ""}}}, "else": {"not": {"required": ["zeroData"]}}}]
+      "allOf": [{"if": {"properties": {"type": {"const": "zero-block"}}, "required": ["type"]}, "then": {"required": ["zeroData", "attributes"], "properties": {"attributes": {"required": ["id"]}, "components": {"maxItems": 0}, "content": {"const": ""}}}, "else": {"not": {"required": ["zeroData"]}}}, {"if": {"properties": {"tagName": {"const": "figcaption"}}, "required": ["tagName"]}, "then": {"required": ["type", "content"], "properties": {"type": {"const": "text"}, "content": {"type": "string", "maxLength": 500}, "components": {"maxItems": 0}}}}]
     },
     "zeroGeometry": {
       "type": "object",
@@ -501,7 +501,11 @@
         },
         "alt": {
           "type": "string",
-          "maxLength": 10000
+          "maxLength": 300
+        },
+        "copyright": {
+          "type": "string",
+          "maxLength": 500
         },
         "href": {
           "type": "string",
@@ -688,6 +692,11 @@
             "required": [
               "src"
             ]
+          },
+          "else": {
+            "not": {
+              "required": ["copyright"]
+            }
           }
         },
         {

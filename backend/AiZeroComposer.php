@@ -141,16 +141,10 @@ final class AiZeroComposer {
             if($type==='button'){$element->href='#';$element->target='_self';}
             if($type==='vector')$element->icon=$item['icon'];
             if($type==='image'){
-                $photo=$photos[$assignments['slot-'.$index]];$element->src=$photo['url'];$element->alt=mb_substr($photo['name'].' — Photo by '.$photo['author'].', '.$photo['license'].', Wikimedia Commons',0,300);$element->href=$photo['sourceUrl'];$style->objectFit='cover';$style->objectPosition='center';
+                $photo=$photos[$assignments['slot-'.$index]];$element->src=$photo['url'];$description=trim((string)($photo['description']??''));if($description==='')$description=trim(preg_replace('/[_-]+/u',' ',pathinfo((string)($photo['name']??'Фотография'),PATHINFO_FILENAME))??'Фотография');$element->alt=mb_substr($description,0,300,'UTF-8');$element->copyright=self::photoCreditText($photo);$element->href=$photo['sourceUrl'];$style->objectFit='cover';$style->objectPosition='center';
             }
             self::addResponsiveOverrides($element,$zeroData,$mobileStack[$index]??[]);
             $elements[]=$element;
-            if($type==='image'){
-                $photo=$photos[$assignments['slot-'.$index]];
-                $credit=(object)['id'=>'ze-ai-'.bin2hex(random_bytes(8)),'type'=>'text','name'=>'Фото · автор и лицензия','geometry'=>(object)['container'=>'grid','anchorX'=>0,'anchorY'=>0,'originX'=>0,'originY'=>0,'x'=>$geometry->x,'y'=>$geometry->y+$geometry->height-16,'width'=>$geometry->width,'height'=>16,'rotation'=>0],'style'=>(object)['fill'=>'#222629','color'=>'#ffffff','stroke'=>'transparent','strokeWidth'=>0,'radius'=>0,'opacity'=>0.88,'fontSize'=>8,'fontWeight'=>500,'fontFamily'=>'system-ui, sans-serif','lineHeight'=>1,'letterSpacing'=>0,'textAlign'=>'right'],'overrides'=>new \stdClass(),'visible'=>true,'locked'=>false,'keepAspect'=>false,'content'=>'Фото: '.mb_substr($photo['author'],0,100).' · '.mb_substr($photo['license'],0,24).' · Wikimedia Commons'];
-                $creditOverrides=[];foreach($mobileStack[$index]??[] as $mode=>$layout)if(isset($layout['credit']))$creditOverrides[$mode]=$layout['credit'];
-                self::addResponsiveOverrides($credit,$zeroData,$creditOverrides);$elements[]=$credit;
-            }
         }
         if(count($elements)<2||count($elements)>20)throw new AiProviderFailure('Zero composition has too few usable elements.',false,'invalid_output');
         $artboardBackground=['backgroundColor'=>$decoded['artboard']['backgroundColor'],'backgroundImageMode'=>$decoded['artboard']['backgroundImageMode']];
@@ -241,7 +235,7 @@ final class AiZeroComposer {
         if(preg_match('/(?:стоматолог|зубн\w*\s+клиник|dental|dentist)/iu',$subject)===1)return 'dentist dental clinic patient consultation';
         if(preg_match('/(?:клиник|медицин|врач|доктор|здоров|больниц|поликлиник|clinic|medical|doctor|healthcare|hospital)/iu',$subject)===1)return 'modern medical clinic healthcare professional';
         if(preg_match('/(?:путешеств|туризм|отел|гостиниц|курорт|travel|tourism|hotel|resort)/iu',$subject)===1)return 'travel destination hotel landscape';
-        if(preg_match('/(?:ресторан|кафе|пекар|еда|кухн|restaurant|cafe|bakery|food|cuisine)/iu',$subject)===1)return 'restaurant fresh food dining';
+        if(preg_match('/(?:ресторан|кафе|пекар|еда|кухн|restaurant|cafe|bakery|food|cuisine)/iu',$subject)===1)return 'restaurant food dishes dining room';
         if(preg_match('/(?:косметолог|салон\s+красот|уход\s+за\s+кож|beauty|skincare|spa)/iu',$subject)===1)return 'beauty skincare treatment professional';
         if(preg_match('/(?:команд|сотрудник|специалист|team|staff|professionals)/iu',$subject)===1)return 'professional team portrait workplace';
         if(preg_match('/(?:товар|продукт|product|e-?commerce|магазин|shop|store)/iu',$subject)===1)return 'consumer product close-up';
@@ -295,7 +289,7 @@ final class AiZeroComposer {
         usort($flow,static fn(int $a,int $b):int=>((float)$items[$a]['y']<=>(float)$items[$b]['y'])?:($a<=>$b));
         foreach($flow as $index){
             $item=&$items[$index];$font=max(8,(float)($item['fontSize']??16));$type=$item['type'];$isCompactSurface=$type==='button'||((float)($item['radius']??0)>=12&&(float)($item['height']??0)<=52);
-            $minimumHeight=$isCompactSurface?(float)$item['height']:(int)ceil(self::estimatedTextLines((string)($item['content']??''),$font,max(1,(float)$item['width']))*$font*1.24+4);
+            $minimumHeight=$isCompactSurface?(float)$item['height']:(int)ceil(self::estimatedTextLines((string)($item['content']??''),$font,max(1,(float)$item['width']),$index===$headingIndex)*$font*1.24+4);
             $item['height']=max((float)$item['height'],$minimumHeight);
             $item['y']=max((float)$item['y'],$cursor);
             $cursor=(float)$item['y']+(float)$item['height']+($type==='button'?20:12);
@@ -310,9 +304,19 @@ final class AiZeroComposer {
             if($badgeIndex!==null&&isset($items[$badgeIndex])&&is_array($items[$badgeIndex]))$items[$badgeIndex]['y']=max(24.0,(float)$items[$badgeIndex]['y']-$shift);
         }
     }
-    private static function estimatedTextLines(string $content,float $fontSize,float $width): int {
+    private static function estimatedTextLines(string $content,float $fontSize,float $width,bool $heading=false): int {
         $content=trim(preg_replace('/\s+/u',' ',$content)??'');if($content==='')return 1;
-        return max(1,(int)ceil(mb_strlen($content,'UTF-8')*max(8,$fontSize)*.54/max(1,$width)));
+        $maxWidth=max(1,$width)/max(8,$fontSize);$spaceWidth=.3;$lineWidth=0.0;$lines=1;
+        foreach(preg_split('/\s+/u',$content,-1,PREG_SPLIT_NO_EMPTY)?:[] as $word){
+            $wordWidth=0.0;
+            foreach(preg_split('//u',$word,-1,PREG_SPLIT_NO_EMPTY)?:[] as $character){
+                $wordWidth+=preg_match('/^[\p{Lu}\p{N}]$/u',$character)===1?($heading?.72:.64):(preg_match('/^[\p{P}\p{S}]$/u',$character)===1?.34:($heading?.68:.54));
+            }
+            if($lineWidth>0&&$lineWidth+$spaceWidth+$wordWidth>$maxWidth){$lines++;$lineWidth=0.0;}
+            if($wordWidth>$maxWidth){$wordLines=(int)ceil($wordWidth/$maxWidth);$lines+=$wordLines-1;$lineWidth=fmod($wordWidth,$maxWidth);}
+            else $lineWidth+=($lineWidth>0?$spaceWidth:0)+$wordWidth;
+        }
+        return max(1,$lines);
     }
     private static function explicitQuotedRequirements(string $prompt): array {
         preg_match_all('/«([^»\r\n]{1,80})»|“([^”\r\n]{1,80})”|"([^"\r\n]{1,80})"/u',$prompt,$matches,PREG_SET_ORDER|PREG_OFFSET_CAPTURE);
@@ -515,6 +519,15 @@ final class AiZeroComposer {
         return $contrast('#222629',$background)>=$contrast('#ffffff',$background)?'#222629':'#ffffff';
     }
 
+    private static function photoCreditText(array $photo): string {
+        $parts=[];$author=trim((string)($photo['author']??''));$license=trim((string)($photo['license']??''));
+        if($author!=='')$parts[]='Фото: '.$author;
+        if($license!=='')$parts[]=$license;
+        $source=match($photo['kind']??null){'commons'=>'Wikimedia Commons','unsplash'=>'Unsplash','pexels'=>'Pexels',default=>''};
+        if($source!=='')$parts[]=$source;
+        return mb_substr(implode(' · ',$parts),0,500,'UTF-8');
+    }
+
     private static function mobilePhotoStack(array $items,\stdClass $data,?int $badgeIndex=null): array {
         $images=[];$copy=[];
         foreach($items as $index=>$item){
@@ -548,7 +561,7 @@ final class AiZeroComposer {
                 $isHeading=!$isButton&&((float)$item['fontSize']>=36||preg_match('/heading|title|hero|заголов|герой|название/iu',(string)$item['name'])===1);
                 $fontSize=$isBadge?max(11,min(14,(int)$item['fontSize'])):($isButton?max(14,min(18,(int)round($item['fontSize']*.55))):($isHeading?max(26,min(36,(int)round($item['fontSize']*.55))):max(15,min(20,(int)round($item['fontSize']*.7)))));
                 $textHeight=$isBadge?32:48;
-                if(!$isButton&&!$isBadge){$capacity=max(10,(int)floor($contentWidth/max(8,$fontSize*.52)));$lines=max(1,min(8,(int)ceil(mb_strlen((string)$item['content'],'UTF-8')/$capacity)));$textHeight=(int)ceil($lines*$fontSize*1.28)+4;}
+                if(!$isButton&&!$isBadge){$lines=max(1,min(8,self::estimatedTextLines((string)$item['content'],$fontSize,$contentWidth,$isHeading)));$textHeight=(int)ceil($lines*$fontSize*1.28)+4;}
                 $mobileWidth=$isBadge?min($contentWidth,max(88,(int)ceil(mb_strlen(trim((string)$item['content']),'UTF-8')*$fontSize*.62+24))):$contentWidth;
                 $geometry=(object)['x'=>$margin,'y'=>$cursor,'width'=>$mobileWidth,'height'=>$textHeight];
                 $mobileStyle=['fontSize'=>$fontSize];if($isBadge)$mobileStyle['radius']=max(14,min(50,(int)$item['radius']));
@@ -558,7 +571,6 @@ final class AiZeroComposer {
             $imageWidth=$contentWidth;$aspect=(float)$image['height']/max(1,(float)$image['width']);$maxImageHeight=min(280,max(140,(int)round($board->height*.38)));
             $imageHeight=max(120,min($maxImageHeight,(int)round($imageWidth*$aspect)));$imageY=$cursor+8;
             $result[$imageIndex][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$imageY,'width'=>$imageWidth,'height'=>$imageHeight]];
-            $result[$imageIndex][$mode]['credit']=['geometry'=>(object)['x'=>$margin,'y'=>$imageY+$imageHeight-16,'width'=>$imageWidth,'height'=>16],'style'=>(object)['fontSize'=>8]];
         }
         return $result;
     }
@@ -585,7 +597,7 @@ final class AiZeroComposer {
         $intro=[];$post=[];foreach($items as $index=>$item){if(!is_array($item)||!in_array($item['type']??null,['text','button','vector'],true)||isset($cardIndices[$index]))continue;if((float)$item['y']<$cardStart)$intro[]=$index;else$post[]=$index;}
         $result=[];
         foreach($data->artboards as $mode=>$mobileBoard){if($mode==='desktop'||$mobileBoard->width>480)continue;$margin=min(20,max(16,(int)round($mobileBoard->width*.055)));$contentWidth=max(1,(int)$mobileBoard->width-2*$margin);$cursor=max(16,(int)round($mobileBoard->height*.04));
-            foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+10;
+            foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
             foreach($active as $column){$cardTop=$cursor;$cardCursor=$cardTop+8;$content=[];$surfaces=[];foreach($column['indices'] as $index){if(($items[$index]['type']??null)==='rectangle')$surfaces[]=$index;else$content[]=$index;}usort($content,static function(int $a,int $b)use($items):int{$ay=(float)$items[$a]['y'];$by=(float)$items[$b]['y'];if(abs($ay-$by)<=8){$av=($items[$a]['type']??null)==='vector';$bv=($items[$b]['type']??null)==='vector';if($av!==$bv)return $av?-1:1;}return $ay<=>$by;});
                 foreach($content as $index){$item=$items[$index];if(($item['type']??null)==='vector'){$result[$index][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardCursor,'width'=>28,'height'=>28]];$cardCursor+=36;continue;}$cardCursor+=self::mobileFlowOverride($result,$index,$mode,$item,$margin,$cardCursor,$contentWidth,null,true)+8;}
                 $cardHeight=max(84,$cardCursor-$cardTop+8);foreach($surfaces as $index)$result[$index][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$cardHeight]];$cursor=$cardTop+$cardHeight+8;
@@ -607,7 +619,7 @@ final class AiZeroComposer {
         $intro=[];$post=[];foreach($items as $index=>$item){if($index<$surfaceCount||!is_array($item)||!in_array($item['type']??null,['text','button','vector'],true)||isset($cardIndices[$index]))continue;if((float)$item['y']<$firstCardY)$intro[]=$index;else$post[]=$index;}
         $result=[];
         foreach($data->artboards as $mode=>$board){if($mode==='desktop'||$board->width>480)continue;$margin=min(20,max(16,(int)round($board->width*.055)));$contentWidth=max(1,(int)$board->width-2*$margin);$cursor=max(16,(int)round($board->height*.04));
-            foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+10;
+            foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
             foreach($surfaces as $cardIndex=>$surface){$cardTop=$cursor;$cardCursor=$cardTop+6;$content=$members[$cardIndex];usort($content,static function(int $a,int $b)use($items):int{$ay=(float)$items[$a]['y'];$by=(float)$items[$b]['y'];if(abs($ay-$by)<=8){$av=($items[$a]['type']??null)==='vector';$bv=($items[$b]['type']??null)==='vector';if($av!==$bv)return $av?-1:1;}return $ay<=>$by;});
                 foreach($content as $index){$item=$items[$index];$cardCursor+=self::mobileFlowOverride($result,$index,$mode,$item,$margin,$cardCursor,$contentWidth,null,true)+6;}
                 $cardHeight=max(96,$cardCursor-$cardTop+6);$result[$cardIndex][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$cardHeight]];$cursor=$cardTop+$cardHeight+6;
@@ -621,7 +633,7 @@ final class AiZeroComposer {
         $type=$item['type'];$isButton=$type==='button';$isBadge=$index===$badgeIndex;$font=(int)$item['fontSize'];$heading=!$isButton&&!$isBadge&&($font>=36||preg_match('/heading|title|hero|заголов|герой|название/iu',(string)$item['name'])===1);
         if($type==='vector'){$result[$index][$mode]=['geometry'=>(object)['x'=>$x,'y'=>$y,'width'=>28,'height'=>28]];return 36;}
         if($isBadge)$fontSize=max(11,min(14,$font));elseif($isButton)$fontSize=max(14,min(18,(int)round($font*.55)));elseif($heading)$fontSize=max(26,min(36,(int)round($font*.55)));elseif($card)$fontSize=max(15,min(20,$font));else $fontSize=max(15,min(20,(int)round($font*.7)));
-        $text=(string)($item['content']??'');$capacity=max(8,(int)floor($width/max(8,$fontSize*.52)));$lines=max(1,min(8,(int)ceil(mb_strlen($text,'UTF-8')/$capacity)));$height=$isBadge?32:($isButton?48:max((int)ceil($fontSize*1.25),(int)ceil($lines*$fontSize*1.28)+4));$actualWidth=$isBadge?min($width,max(88,(int)ceil(mb_strlen(trim($text),'UTF-8')*$fontSize*.62+24))):$width;$style=['fontSize'=>$fontSize];if($isBadge)$style['radius']=max(14,min(50,(int)$item['radius']));$result[$index][$mode]=['geometry'=>(object)['x'=>$x,'y'=>$y,'width'=>$actualWidth,'height'=>$height],'style'=>(object)$style];return $height;
+        $text=(string)($item['content']??'');$lines=max(1,min(8,self::estimatedTextLines($text,$fontSize,$width,$heading)));$height=$isBadge?32:($isButton?48:max((int)ceil($fontSize*1.25),(int)ceil($lines*$fontSize*1.28)+4));$actualWidth=$isBadge?min($width,max(88,(int)ceil(mb_strlen(trim($text),'UTF-8')*$fontSize*.62+24))):$width;$style=['fontSize'=>$fontSize];if($isBadge)$style['radius']=max(14,min(50,(int)$item['radius']));$result[$index][$mode]=['geometry'=>(object)['x'=>$x,'y'=>$y,'width'=>$actualWidth,'height'=>$height],'style'=>(object)$style];return $height;
     }
 
     private static function addResponsiveOverrides(\stdClass $element,\stdClass $data,array $mobileOverrides=[]): void {

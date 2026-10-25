@@ -52,6 +52,13 @@ $captionProject['document']->data->pages[0]->frames[0]->component->components[] 
 $captionFiles = StaticSiteExporter::files($captionProject);
 exportCheck(str_contains($captionFiles['index.html'],'position:absolute;left:0px;right:0px;bottom:0px;font-size:8px'), 'Photo caption offsets and small text survive saved HTML export');
 
+$mainPhotoProject=$project;
+$mainPhotoProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$mainPhotoProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['type'=>'wrapper','tagName'=>'figure','name'=>'Фото','style'=>(object)['display'=>'inline-flex','flex-direction'=>'column','margin'=>'0'],'components'=>[(object)['type'=>'image','tagName'=>'img','attributes'=>(object)['src'=>'https://example.test/photo.jpg','alt'=>'A portrait'],'style'=>(object)['display'=>'block','width'=>'100%']],(object)['type'=>'text','tagName'=>'figcaption','name'=>'Копирайт','content'=>'Photo & Author · CC BY-SA 4.0','style'=>(object)['font-size'=>'8px','line-height'=>'1.2','margin-top'=>'2px','width'=>'100%','text-align'=>'left','color'=>'inherit']]]];
+Document::validate($mainPhotoProject['document']);
+$mainPhotoHtml=StaticSiteExporter::files($mainPhotoProject)['index.html'];
+exportCheck(str_contains($mainPhotoHtml,'<figure')&&str_contains($mainPhotoHtml,'<figcaption style="font-size:8px;line-height:1.2;margin-top:2px;width:100%;text-align:left;color:inherit">Photo &amp; Author · CC BY-SA 4.0</figcaption>'),'Main-editor photo credit is exported as escaped 8px text below its image');
+
 $filterProject=$project;
 $filterProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
 $filterProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['tagName'=>'div','style'=>(object)['filter'=>'blur(2px) grayscale(50%)'],'components'=>[]];

@@ -1873,7 +1873,8 @@ export async function openZeroEditor({
         else if (key === "submitLabel" && i.element.type === "form")
           i.element.submitLabel = input.value.slice(0, 60);
         else if (input.value || !["href", "src"].includes(key)) {
-          setValue(i.element, "desktop", null, key, input.value);
+          const value = key === "copyright" ? input.value.slice(0, 500) : key === "alt" ? input.value.slice(0, 300) : input.value;
+          setValue(i.element, "desktop", null, key, value);
           if (key === "content") {
             delete i.element.runs;
             if (i.element.overrides[mode])

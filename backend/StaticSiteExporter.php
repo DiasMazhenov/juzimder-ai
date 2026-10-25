@@ -4,7 +4,7 @@ namespace Juzimder;
 require_once __DIR__ . '/ZeroBlockRenderer.php';
 
 final class StaticSiteExporter {
-    private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','time'];
+    private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','figure','figcaption','time'];
     private const VOID_TAGS = ['img','br','hr','input'];
     private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','for','min','max','step','minlength','maxlength','pattern','autocomplete','datetime','open'];
     private const STYLE_PROPERTIES = [

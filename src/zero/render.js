@@ -310,11 +310,14 @@ export function renderZero(
             .join("");
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
+        if (el.type === "image" && String(e.copyright || "").trim())
+          body += `<span class="jz-zero-photo-credit">${escapeHTML(e.copyright)}</span>`;
         if (el.type === "html") return body;
         return `<${tag} class="jz-zero-element${badge ? " jz-zero-badge" : ""}${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}${el.type === "form" ? " jz-zero-form" : ""}${el.type === "gallery" ? " jz-zero-gallery" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "gallery" ? ` role="group" aria-label="${escapeHTML(e.name || "Галерея")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);
+  css += `.${scope} .jz-zero-photo-credit{position:absolute;left:0;top:calc(100% + 2px);display:block;box-sizing:border-box;width:100%;height:auto;min-height:0;margin:0;padding:0;border:0;background:transparent;color:inherit;font-size:8px;line-height:1.2;font-family:inherit;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}`;
   if (animationEffects.size)
     css += `@media(prefers-reduced-motion:reduce){.${scope} .jz-zero-element{animation:none!important;translate:none!important;scale:none!important}}`;
   return `<section class="jz-zero-block ${scope}" data-zero-id="${escapeHTML(blockId)}"><style>${css}</style>${html}</section>`;

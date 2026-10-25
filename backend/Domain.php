@@ -15,7 +15,7 @@ final class Document {
     public const MAX_PAGE_ID_LENGTH = 128;
     public const FRAMES_PER_PAGE = 1;
     public const COMPONENT_TYPES = ['', 'default','wrapper','text','textnode','image','link','link-block','head','form','input','textarea','select','option','checkbox','radio','button','label','custom-code','countdown','zero-block'];
-    public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','time'];
+    public const TAG_NAMES = ['html','head','body','div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','figure','figcaption','time'];
     public static function empty(): array {
         return ['schemaVersion' => 1, 'engine' => 'grapesjs', 'data' => ['assets' => [], 'styles' => [], 'pages' => [['id' => 'home', 'name' => 'Главная', 'frames' => [['component' => ['type' => 'wrapper', 'style' => ['display' => 'flex', 'flex-direction' => 'column'], 'components' => []]]]]]]];
     }
@@ -59,6 +59,7 @@ final class Document {
         }
         foreach (['attributes','style'] as $field) if (array_key_exists($field, $fields) && self::objectFields($fields[$field]) === null) throw new Problem(422,'Некорректное свойство компонента: ' . $field . '.');
         if (array_key_exists('content', $fields) && !is_string($fields['content'])) throw new Problem(422,'Некорректный текст компонента.');
+        if (($fields['tagName'] ?? null) === 'figcaption' && (($fields['type'] ?? null) !== 'text' || !is_string($fields['content'] ?? null) || mb_strlen($fields['content'], 'UTF-8') > 500 || !empty($fields['components']))) throw new Problem(422,'Подпись фото должна быть простым текстом длиной до 500 символов.');
         if (array_key_exists('type', $fields) && (!is_string($fields['type']) || !in_array($fields['type'], self::COMPONENT_TYPES, true))) throw new Problem(422,'Недопустимый тип компонента.');
         if (($fields['type'] ?? null) === 'zero-block') {
             $attributes = self::objectFields($fields['attributes'] ?? null) ?? [];

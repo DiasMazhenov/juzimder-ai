@@ -24,4 +24,5 @@ schemaCheck($componentProperties->tagName->enum === Document::TAG_NAMES, 'Schema
 schemaCheck($componentProperties->attributes->type === 'object' && $componentProperties->style->type === 'object' && $componentProperties->content->type === 'string', 'Schema component field types are explicit');
 schemaCheck(isset($componentProperties->attributes->properties->src, $componentProperties->attributes->properties->href), 'Schema explicitly describes href and scoped managed-image references');
 schemaCheck(isset($componentProperties->components, $componentProperties->head, $componentProperties->docEl), 'Schema covers recursive Core component fields');
+schemaCheck(in_array('figure', $componentProperties->tagName->enum, true) && in_array('figcaption', $componentProperties->tagName->enum, true), 'Schema allows semantic image captions in the main editor');
 schemaCheck(!isset($schema->additionalProperties, $data->additionalProperties, $page->additionalProperties, $component->additionalProperties), 'Schema preserves forward-compatible Core metadata');
