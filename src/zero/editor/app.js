@@ -1263,7 +1263,11 @@ export async function openZeroEditor({
       aiCandidateBaseVersion = proposal.baseVersion;
       const stage = $("#zero-ai-preview"),
         candidateStatus = $("#zero-ai-candidate-status");
-      stage.innerHTML = renderZero(aiCandidateData, blockId, "desktop");
+      stage.innerHTML = renderZero(
+        aiCandidateData,
+        `${blockId}-ai-preview`,
+        "desktop",
+      );
       candidateStatus.textContent = proposal.metadata?.photoSelection === "completed"
         ? "Подобраны открытые фото с указанием автора и лицензии. Предложение не сохранено."
         : "Фото из Commons не подобраны; предложение не сохранено.";

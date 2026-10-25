@@ -1182,6 +1182,15 @@ test("Zero AI dialog changes are isolated from inspector edits", () => {
   );
   assert.match(
     editor,
+    /renderZero\(\s*aiCandidateData,\s*`\$\{blockId\}-ai-preview`,\s*"desktop",?\s*\)/,
+  );
+  const mobile = renderZero(fixture, "scope-mobile", "mobile"),
+    candidate = renderZero(fixture, "scope-mobile-ai-preview", "desktop");
+  assert.match(mobile, /jz-zero-scope-mobile\{[^}]*width:360px!important/s);
+  assert.match(candidate, /jz-zero-scope-mobile-ai-preview\{[^}]*width:1200px!important/s);
+  assert.doesNotMatch(mobile, /jz-zero-scope-mobile-ai-preview/);
+  assert.match(
+    editor,
     /if \(!event\.target\.closest\("#zero-inspector"\) && event\.target\.id !== "zero-zoom"\)\s+return;/,
   );
 });
