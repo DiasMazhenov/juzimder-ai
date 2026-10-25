@@ -34,6 +34,7 @@ import {
 } from "../src/zero/model/model.js";
 import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
+import { videoEmbedUrl } from "../src/zero/model/video.js";
 import {
   pageSandboxNonce,
   sandboxFrame,
@@ -391,7 +392,7 @@ test("Zero Tooltip renders escaped text and appears on hover or keyboard focus",
   assert.match(inspector, /Текст подсказки/);
   assert.match(inspector, /maxlength="2000"/);
   assert.match(menuSource, /\["tooltip", "Подсказка", "message"\]/);
-  assert.match(menuSource, /disabled: type !== "tooltip"/);
+  assert.match(menuSource, /disabled: !\["tooltip", "video"\]\.includes\(type\)/);
 });
 test("Zero Vector uses a curated Tabler icon with safe, accessible rendering", () => {
   const data = createZeroData(),
@@ -423,6 +424,30 @@ test("Zero Vector uses a curated Tabler icon with safe, accessible rendering", (
   const safeFallback = renderZero(data, "zero-vector-invalid-icon");
   assert.match(safeFallback, /jz-zero-vector/);
   assert.doesNotMatch(safeFallback, /onload=/);
+});
+test("Zero Video accepts only YouTube/Vimeo URLs and renders a bounded sandboxed iframe", () => {
+  assert.equal(videoEmbedUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
+  assert.equal(videoEmbedUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
+  assert.equal(videoEmbedUrl("https://vimeo.com/123456789"), "https://player.vimeo.com/video/123456789");
+  for (const url of ["http://youtu.be/dQw4w9WgXcQ", "https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ", "https://user@youtu.be/dQw4w9WgXcQ", "https://youtu.be:443/dQw4w9WgXcQ", "javascript:alert(1)", "https://youtu.be/short"]) assert.equal(videoEmbedUrl(url), null, url);
+  const data = createZeroData(), video = createElement("video");
+  video.id = "ze-safe-video";
+  video.name = "Video & title";
+  video.videoUrl = "https://youtu.be/dQw4w9WgXcQ";
+  data.elements.push(video);
+  const html = renderZero(data, "zero-video"), inspector = renderInspector({
+    items: [{ element: video }], mode: "desktop", board: data.artboards.desktop, project: {},
+  });
+  assert.match(html, /class="jz-zero-element jz-zero-video"/);
+  assert.match(html, /<iframe title="Video &amp; title" src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ"/);
+  assert.match(html, /sandbox="allow-scripts allow-same-origin allow-presentation"/);
+  assert.match(html, /referrerpolicy="no-referrer"/);
+  assert.match(inspector, /data-element="videoUrl"/);
+  assert.match(inspector, /только ссылки YouTube и Vimeo/i);
+  video.videoUrl = "https://evil.test/embed/x";
+  const fallback = renderZero(data, "zero-video-invalid");
+  assert.match(fallback, /Добавьте ссылку YouTube или Vimeo/);
+  assert.doesNotMatch(fallback, /evil\.test/);
 });
 test("Zero Block buttons use flex centering and keep the label centered", () => {
   const data = createZeroData(),
@@ -514,6 +539,19 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
   vector.type = "text";
   vector.icon = "arrow-right";
   assert.equal(validate(vectorDocument), false);
+  const videoDocument = structuredClone(doc), video = structuredClone(fixture.elements[0]);
+  video.id = "ze-schema-video";
+  video.type = "video";
+  video.videoUrl = "https://youtu.be/dQw4w9WgXcQ";
+  videoDocument.data.pages[0].frames[0].component.components[0].zeroData.elements = [video];
+  assert.equal(validate(videoDocument), true, JSON.stringify(validate.errors));
+  video.videoUrl = "https://evil.test/embed/x";
+  assert.equal(validate(videoDocument), false);
+  delete video.videoUrl;
+  assert.equal(validate(videoDocument), false);
+  video.type = "text";
+  video.videoUrl = "https://youtu.be/dQw4w9WgXcQ";
+  assert.equal(validate(videoDocument), false);
   const custom = structuredClone(doc);
   custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
     "bp-12345678"

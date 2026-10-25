@@ -114,5 +114,11 @@ export function renderInspector({ items, mode, board, project }) {
       `<h2>Вектор</h2><label>Иконка<select data-element="icon">${options}</select></label><p class="zero-help">Встроенная Tabler Outline иконка. Произвольный SVG-код не принимается.</p><h2>Действия</h2>`,
     );
   }
+  if (selected?.type === "video") {
+    return markup.replace(
+      "<h2>Действия</h2>",
+      `<h2>Видео</h2><label>Ссылка на видео<input data-element="videoUrl" type="url" value="${esc(selected.videoUrl || "")}" placeholder="https://youtu.be/..." maxlength="2048"></label><p class="zero-help">Поддерживаются только ссылки YouTube и Vimeo. Embed-код и другие сайты запрещены.</p><h2>Действия</h2>`,
+    );
+  }
   return markup;
 }

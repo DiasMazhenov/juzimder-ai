@@ -23,6 +23,21 @@ final class ZeroBlock {
     public static function color(mixed $s): void {
         if (!is_string($s)||!preg_match('/^(?:#[a-f0-9]{6}|transparent)$/iD',$s)) throw new Problem(422,'Zero Block: недопустимый цвет.');
     }
+    public static function videoEmbedUrl(mixed $value): ?string {
+        if(!is_string($value)||$value===''||strlen($value)>2048||preg_match('/[\s<>"\x00-\x20]/',$value))return null;
+        $parts=parse_url($value);
+        if(!is_array($parts)||strtolower($parts['scheme']??'')!=='https'||isset($parts['user'])||isset($parts['pass'])||isset($parts['port'])||isset($parts['fragment']))return null;
+        $host=strtolower($parts['host']??'');$path=$parts['path']??'';$query=$parts['query']??'';
+        if(in_array($host,['youtube.com','www.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'],true)){
+            if(preg_match('~^/(?:embed|shorts|live)/([A-Za-z0-9_-]{11})/?$~D',$path,$m))return 'https://www.youtube-nocookie.com/embed/'.$m[1];
+            if($path==='/watch'&&preg_match_all('~(?:^|&)v=([A-Za-z0-9_-]{11})(?:&|$)~',$query,$matches)===1)return 'https://www.youtube-nocookie.com/embed/'.$matches[1][0];
+            return null;
+        }
+        if($host==='youtu.be'&&preg_match('~^/([A-Za-z0-9_-]{11})/?$~D',$path,$m))return 'https://www.youtube-nocookie.com/embed/'.$m[1];
+        if(in_array($host,['vimeo.com','www.vimeo.com'],true)&&preg_match('~^/([0-9]{1,12})/?$~D',$path,$m))return 'https://player.vimeo.com/video/'.$m[1];
+        if($host==='player.vimeo.com'&&preg_match('~^/video/([0-9]{1,12})/?$~D',$path,$m))return 'https://player.vimeo.com/video/'.$m[1];
+        return null;
+    }
     private static function geometry(mixed $value,bool $partial=false): void {
         $keys=['x','y','width','height','rotation','originX','originY','anchorX','anchorY','container'];
         foreach(self::fields($value,$keys,$partial?[]:$keys) as $key=>$v){
@@ -53,6 +68,7 @@ final class ZeroBlock {
             $link=$key==='href'&&is_string($url)&&preg_match('~^(?:#[a-zA-Z0-9_-]*|mailto:[a-zA-Z0-9@._+-]+|tel:[+0-9 -]+)$~D',$url);
             if((!$asset&&!$https&&!$link)||strlen((string)$url)>2048)throw new Problem(422,'Zero Block: недопустимый адрес.');
         }
+        if(array_key_exists('videoUrl',$fields)&&(!is_string($fields['videoUrl'])||strlen($fields['videoUrl'])>2048||($fields['videoUrl']!==''&&self::videoEmbedUrl($fields['videoUrl'])===null)))throw new Problem(422,'Zero Block: разрешены только ссылки YouTube и Vimeo.');
         if(isset($fields['target'])&&!in_array($fields['target'],['_self','_blank'],true))throw new Problem(422,'Zero Block: неверный target.');
         if(isset($fields['runs'])){
             if(!is_array($fields['runs'])||count($fields['runs'])>200)throw new Problem(422,'Zero Block: слишком много фрагментов текста.');
@@ -85,7 +101,7 @@ final class ZeroBlock {
         $ids=[];$count=0;
         $walk=function($elements,$depth)use(&$walk,&$ids,&$count,$overrideModes){
             if(!is_array($elements)||!array_is_list($elements)||$depth>8)throw new Problem(422,'Zero Block: неверная вложенность.');
-            foreach($elements as $element){if(++$count>300)throw new Problem(422,'Zero Block: не более 300 элементов.');$e=self::fields($element,['id','type','name','geometry','style','overrides','children','content','runs','src','alt','href','target','tag','visible','locked','keepAspect','code','icon'],['id','type','name','geometry','style','overrides','visible','locked']);if(!is_string($e['id'])||!preg_match('/^ze-[a-zA-Z0-9_-]{1,80}$/D',$e['id'])||isset($ids[$e['id']]))throw new Problem(422,'Zero Block: ID элементов должны быть уникальны.');$ids[$e['id']]=true;if(!in_array($e['type'],['text','image','rectangle','ellipse','line','button','tooltip','group','html','vector'],true))throw new Problem(422,'Zero Block: неизвестный тип элемента.');if($e['type']==='vector'){if(!isset($e['icon'])||!in_array($e['icon'],self::VECTOR_ICONS,true))throw new Problem(422,'Zero Block: выберите разрешённую Tabler-иконку.');}elseif(isset($e['icon']))throw new Problem(422,'Zero Block: иконка допустима только у Vector-элемента.');self::text($e['name'],120);self::geometry($e['geometry']);self::properties($e);if($e['type']==='tooltip'){if(!isset($e['content']))throw new Problem(422,'Zero Block: подсказка требует текст.');self::text($e['content'],2000);}foreach(self::fields($e['overrides'],$overrideModes) as $override){$o=self::fields($override,['geometry','style','visible','src']);self::properties($o);}if($e['type']==='group')$walk($e['children']??[], $depth+1);elseif(isset($e['children']))throw new Problem(422,'Zero Block: дети допустимы только у группы.');if($e['type']==='image'&&!isset($e['src']))throw new Problem(422,'Zero Block: изображение требует src.');if($e['type']==='html')CustomCode::validatePayload($e['code']??null);elseif(isset($e['code']))throw new Problem(422,'Zero Block: код допустим только у HTML-элемента.');}
+            foreach($elements as $element){if(++$count>300)throw new Problem(422,'Zero Block: не более 300 элементов.');$e=self::fields($element,['id','type','name','geometry','style','overrides','children','content','runs','src','alt','href','target','tag','visible','locked','keepAspect','code','icon','videoUrl'],['id','type','name','geometry','style','overrides','visible','locked']);if(!is_string($e['id'])||!preg_match('/^ze-[a-zA-Z0-9_-]{1,80}$/D',$e['id'])||isset($ids[$e['id']]))throw new Problem(422,'Zero Block: ID элементов должны быть уникальны.');$ids[$e['id']]=true;if(!in_array($e['type'],['text','image','rectangle','ellipse','line','button','tooltip','group','html','vector','video'],true))throw new Problem(422,'Zero Block: неизвестный тип элемента.');if($e['type']==='vector'){if(!isset($e['icon'])||!in_array($e['icon'],self::VECTOR_ICONS,true))throw new Problem(422,'Zero Block: выберите разрешённую Tabler-иконку.');}elseif(isset($e['icon']))throw new Problem(422,'Zero Block: иконка допустима только у Vector-элемента.');if($e['type']==='video'){if(!array_key_exists('videoUrl',$e))throw new Problem(422,'Zero Block: у видео должно быть поле videoUrl.');}elseif(isset($e['videoUrl']))throw new Problem(422,'Zero Block: videoUrl допустим только у Video-элемента.');self::text($e['name'],120);self::geometry($e['geometry']);self::properties($e);if($e['type']==='tooltip'){if(!isset($e['content']))throw new Problem(422,'Zero Block: подсказка требует текст.');self::text($e['content'],2000);}foreach(self::fields($e['overrides'],$overrideModes) as $override){$o=self::fields($override,['geometry','style','visible','src']);self::properties($o);}if($e['type']==='group')$walk($e['children']??[], $depth+1);elseif(isset($e['children']))throw new Problem(422,'Zero Block: дети допустимы только у группы.');if($e['type']==='image'&&!isset($e['src']))throw new Problem(422,'Zero Block: изображение требует src.');if($e['type']==='html')CustomCode::validatePayload($e['code']??null);elseif(isset($e['code']))throw new Problem(422,'Zero Block: код допустим только у HTML-элемента.');}
         };$walk($fields['elements'],0);
     }
     public static function updated(mixed $document,string $pageId,string $blockId,mixed $zeroData): \stdClass {

@@ -368,7 +368,8 @@
             "tooltip",
             "group",
             "html",
-            "vector"
+            "vector",
+            "video"
           ]
         },
         "name": {
@@ -415,6 +416,11 @@
             "lock",
             "lock-open"
           ]
+        },
+        "videoUrl": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:$|https://(?:(?:www\\.)?(?:youtube\\.com|youtube-nocookie\\.com)/(?:watch\\?v=[A-Za-z0-9_-]{11}|(?:embed|shorts|live)/[A-Za-z0-9_-]{11})|youtu\\.be/[A-Za-z0-9_-]{11}|(?:www\\.)?vimeo\\.com/[0-9]{1,12}|player\\.vimeo\\.com/video/[0-9]{1,12})(?:\\?[^#\\s<>\\x22]*)?)$"
         },
         "tag": {
           "enum": [
@@ -662,6 +668,16 @@
           },
           "then": { "required": ["icon"] },
           "else": { "not": { "required": ["icon"] } }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "video" }
+            },
+            "required": ["type"]
+          },
+          "then": { "required": ["videoUrl"] },
+          "else": { "not": { "required": ["videoUrl"] } }
         }
       ]
     },

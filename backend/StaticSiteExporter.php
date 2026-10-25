@@ -96,8 +96,14 @@ final class StaticSiteExporter {
     public static function pageSecurityPolicy(string $html): string {
         $nonce = self::runtimeNonce($html);
         $scripts = $nonce === null ? "script-src 'none'" : "script-src 'nonce-" . $nonce . "'";
-        $frames = $nonce === null ? "frame-src 'none'" : "frame-src 'self' data:";
+        $frameSources = $nonce === null ? [] : ["'self'", 'data:'];
+        if (self::hasTrustedVideoFrame($html)) $frameSources = array_merge($frameSources, ['https://www.youtube-nocookie.com', 'https://player.vimeo.com']);
+        $frames = $frameSources ? 'frame-src ' . implode(' ', $frameSources) : "frame-src 'none'";
         return "default-src 'none'; " . $scripts . "; connect-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; " . $frames . "; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    }
+
+    private static function hasTrustedVideoFrame(string $html): bool {
+        return preg_match('~<iframe\b(?=[^>]*\bsrc="https://(?:www\.youtube-nocookie\.com/embed/[A-Za-z0-9_-]{11}|player\.vimeo\.com/video/[0-9]{1,12})")[^>]*>~i', $html) === 1;
     }
 
     public static function zip(array $project, array $assets = []): string {
@@ -139,11 +145,14 @@ final class StaticSiteExporter {
         $metadata .= '<meta property="og:type" content="website"><meta name="twitter:card" content="' . ($socialImage !== '' ? 'summary_large_image' : 'summary') . '">' . '<meta name="twitter:title" content="' . self::escape($socialTitle) . '">' . ($socialDescription !== '' ? '<meta name="twitter:description" content="' . self::escape($socialDescription) . '">' : '') . ($socialImage !== '' ? '<meta name="twitter:image" content="' . self::escape($socialImage) . '">' : '');
         $hasRuntime = self::containsCustomCode($root);
         $nonce = $hasRuntime ? bin2hex(random_bytes(16)) : null;
-        $contentSecurityPolicy = '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src ' . ($nonce === null ? '&#39;none&#39;' : '&#39;nonce-' . $nonce . '&#39;') . '; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; ' . ($nonce === null ? 'frame-src &#39;none&#39;' : 'frame-src &#39;self&#39; data:') . '; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
         $nonceMarker = $nonce === null ? '' : '<meta name="jz-custom-code-nonce" content="' . $nonce . '">';
         $bodyAttributes = self::renderAttributes(self::componentAttributes($root), $root->style ?? null, $assetPaths);
         $content = '';
         foreach (($root->components ?? []) as $component) $content .= self::renderComponent($component, 0, $assetPaths, $nonce);
+        $frameSources = $nonce === null ? [] : ["&#39;self&#39;", 'data:'];
+        if (self::hasTrustedVideoFrame($content)) $frameSources = array_merge($frameSources, ['https://www.youtube-nocookie.com', 'https://player.vimeo.com']);
+        $frames = $frameSources ? 'frame-src ' . implode(' ', $frameSources) : 'frame-src &#39;none&#39;';
+        $contentSecurityPolicy = '<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src ' . ($nonce === null ? '&#39;none&#39;' : '&#39;nonce-' . $nonce . '&#39;') . '; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; ' . $frames . '; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;">';
         return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' . $contentSecurityPolicy . $nonceMarker . $metadata .
             '<link rel="stylesheet" href="' . $stylesheetPath . '"></head><body' . $bodyAttributes . '>' . $content . '</body></html>';
     }

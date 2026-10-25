@@ -144,6 +144,17 @@ $zeroCodeProject['document']->data->pages[0]->frames[0]->component->components[]
 $zeroCodeFiles=StaticSiteExporter::files($zeroCodeProject);$zeroCodePage=$zeroCodeFiles['index.html'];$zeroCodeNonce=StaticSiteExporter::runtimeNonce($zeroCodePage);
 exportCheck(is_string($zeroCodeNonce)&&str_contains($zeroCodePage,'sandbox="allow-scripts"')&&str_contains($zeroCodePage,'srcdoc="&lt;!doctype html'),'Nested Zero HTML uses an opaque iframe in static export');
 exportCheck(str_contains($zeroCodePage,'script-src &#39;nonce-'.$zeroCodeNonce.'&#39;')&&str_contains(StaticSiteExporter::pageSecurityPolicy($zeroCodePage),"frame-src 'self' data:")&&!preg_match('~<script\b|</script>~i',$zeroCodePage),'Static page CSP grants only the frame nonce and never emits user JS into its own DOM');
+$zeroVideoProject=$project;
+$zeroVideoProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$zeroVideoData=json_decode(file_get_contents(__DIR__.'/zero.fixture.json'),false,64,JSON_THROW_ON_ERROR);
+$zeroVideo=clone $zeroVideoData->elements[0];$zeroVideo->id='ze-static-video';$zeroVideo->type='video';$zeroVideo->name='Safe video';$zeroVideo->videoUrl='https://youtu.be/dQw4w9WgXcQ';$zeroVideoData->elements=[$zeroVideo];
+$zeroVideoBlock=(object)['type'=>'zero-block','attributes'=>(object)['id'=>'zero-video-export'],'zeroData'=>$zeroVideoData,'components'=>[]];
+$zeroVideoProject['document']->data->pages[0]->frames[0]->component->components[]=$zeroVideoBlock;
+$zeroVideoPage=StaticSiteExporter::files($zeroVideoProject)['index.html'];$zeroVideoPolicy=StaticSiteExporter::pageSecurityPolicy($zeroVideoPage);
+exportCheck(str_contains($zeroVideoPage,'sandbox="allow-scripts allow-same-origin allow-presentation"')&&str_contains($zeroVideoPage,'src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"')&&str_contains($zeroVideoPage,'referrerpolicy="no-referrer"'),'Zero Video is rendered in a sandboxed privacy-enhanced iframe without referrer disclosure in static output');
+exportCheck(str_contains($zeroVideoPage,'frame-src https://www.youtube-nocookie.com https://player.vimeo.com'),'Static HTML CSP allows only the two video embed origins');
+exportCheck(str_contains($zeroVideoPolicy,'frame-src https://www.youtube-nocookie.com https://player.vimeo.com')&&!preg_match('~frame-src\s+https:($|;)~',$zeroVideoPolicy),'Preview CSP allows only the two video embed origins');
+exportCheck(!str_contains(StaticSiteExporter::pageSecurityPolicy($zeroCodePage),'youtube-nocookie.com')&&!str_contains(StaticSiteExporter::pageSecurityPolicy($zeroCodePage),'player.vimeo.com'),'Pages without Zero Video do not receive external frame permissions');
 exportRejects(fn()=>\Juzimder\CustomCode::countdownPayload('2027-13-99T99:99:99Z'),422,'Countdown rejects invalid dates');
 exportRejects(fn()=>\Juzimder\CustomCode::decode(\Juzimder\CustomCode::encode(['html'=>'','css'=>'</style><script>bad</script>','js'=>''])),422,'Custom Code CSS cannot escape its style boundary');
 

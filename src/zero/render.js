@@ -9,6 +9,7 @@ import {
 import { sandboxFrame } from "./sandbox.js";
 import iconCatalogue from "../../resources/tabler-editor/catalogue.json" with { type: "json" };
 import { VECTOR_ICON_NAMES } from "./model/vector-icons.js";
+import { videoEmbedUrl } from "./model/video.js";
 export const escapeHTML = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -29,6 +30,13 @@ function hasVector(elements) {
     (element) =>
       element.type === "vector" ||
       (element.children?.length && hasVector(element.children)),
+  );
+}
+function hasVideo(elements) {
+  return elements.some(
+    (element) =>
+      element.type === "video" ||
+      (element.children?.length && hasVideo(element.children)),
   );
 }
 export function elementHTML(el, children = "") {
@@ -53,6 +61,12 @@ export function elementHTML(el, children = "") {
     return VECTOR_ICON_NAMES.includes(el.icon)
       ? iconCatalogue[el.icon]
       : iconCatalogue["arrow-right"];
+  if (el.type === "video") {
+    const src = videoEmbedUrl(el.videoUrl);
+    return src
+      ? `<iframe title="${escapeHTML(el.name || "Видео")}" src="${src}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-presentation" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+      : `<span class="jz-zero-video-placeholder" role="img" aria-label="${escapeHTML(el.name || "Видео")}">Добавьте ссылку YouTube или Vimeo в настройках</span>`;
+  }
   if (el.type === "group") return children;
   return content;
 }
@@ -83,6 +97,8 @@ export function renderZero(
     css += `.${scope} .jz-zero-tooltip{overflow:visible!important;white-space:normal}.${scope} .jz-zero-tooltip-trigger{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:28px;height:28px;padding:0;border:1px solid currentColor;border-radius:50%;background:transparent;color:inherit;font:inherit;line-height:1;cursor:help}.${scope} .jz-zero-tooltip-popover{position:absolute;left:50%;top:calc(100% + 8px);z-index:10000;width:max-content;max-width:280px;box-sizing:border-box;padding:8px 12px;border:0;border-radius:8px;background:#183e31;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-50%);transition:opacity .12s ease,visibility .12s ease}.${scope} .jz-zero-tooltip:hover .jz-zero-tooltip-popover, .${scope} .jz-zero-tooltip:focus-within .jz-zero-tooltip-popover{opacity:1;visibility:visible}`;
   if (hasVector(data.elements))
     css += `.${scope} .jz-zero-vector{display:flex;align-items:center;justify-content:center}.${scope} .jz-zero-vector>svg{display:block;width:100%;height:100%;max-width:100%;max-height:100%}`;
+  if (hasVideo(data.elements))
+    css += `.${scope} .jz-zero-video{overflow:hidden;padding:0!important;background:#111}.${scope} .jz-zero-video>iframe{display:block;width:100%;height:100%;border:0}.${scope} .jz-zero-video-placeholder{display:flex;width:100%;height:100%;align-items:center;justify-content:center;padding:16px;background:#111;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}.zero-app:not(.zero-preview) .${scope} .jz-zero-video>iframe{pointer-events:none}`;
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
@@ -125,7 +141,7 @@ export function renderZero(
                 : "";
           css += wrap(
             mode,
-            `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
+              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
           );
         }
         const childGrid = Object.fromEntries(
@@ -163,7 +179,7 @@ export function renderZero(
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
         if (el.type === "html") return body;
-        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);
