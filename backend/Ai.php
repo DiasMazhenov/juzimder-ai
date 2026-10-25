@@ -63,7 +63,7 @@ final class AiProviderFailure extends \RuntimeException {
     public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider', public readonly ?string $validationRule = null) { parent::__construct($message); }
 
     public static function publicCategory(string $category): string {
-        return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit'],true)?$category:'provider';
+        return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit','photo_unavailable'],true)?$category:'provider';
     }
     public function userMessage(): string {
         return match ($this->category) {
@@ -72,6 +72,7 @@ final class AiProviderFailure extends \RuntimeException {
             'unavailable' => 'OpenRouter временно недоступен. Попробуйте позже или настройте резервную модель в «Настройки сайта → AI Engine». Проект не изменён.',
             'rate_limited' => 'Провайдер ограничил запросы к модели (HTTP 429). Попробуйте позже или выберите другой профиль в «Настройки сайта → AI Engine». Проект не изменён.',
             'credentials' => 'OpenRouter отклонил доступ. Проверьте API-ключ и выбранную модель в «Настройки сайта → AI Engine». Проект не изменён.',
+            'photo_unavailable' => 'Не удалось подобрать подходящее фото с открытой лицензией. Проект не изменён; попробуйте уточнить тему изображения или повторить запрос позже.',
             'invalid_response' => 'Модель не вернула структурированный дизайн. Проверьте поддержку JSON Schema для выбранной модели или настройте резервную модель. Проект не изменён.',
             'invalid_schema' => 'Ответ модели не соответствует формату генерации. Попробуйте ещё раз. Проект не изменён.',
             'invalid_markup' => 'Ответ модели нарушил правила допустимой HTML-разметки. Попробуйте ещё раз. Проект не изменён.',

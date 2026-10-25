@@ -10,7 +10,7 @@ final class ZeroComposerFakeProvider implements StructuredAiProvider {
     public array $calls=[];
     public function __construct(private array $responses) {}
     public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200):array {
-        $this->calls[]=['schema'=>$schema,'schemaName'=>$schemaName,'maxTokens'=>$maxTokens];
+        $this->calls[]=['schema'=>$schema,'schemaName'=>$schemaName,'maxTokens'=>$maxTokens,'systemPrompt'=>$systemPrompt,'userPrompt'=>$userPrompt];
         $content=array_shift($this->responses);
         if(!is_string($content))throw new RuntimeException('Unexpected extra AI request.');
         return ['content'=>$content,'model'=>'test/zero-model','profileName'=>'QA profile','usage'=>['promptTokens'=>32,'completionTokens'=>48,'totalTokens'=>80,'costUsd'=>0.0]];
@@ -42,4 +42,27 @@ $credits=array_values(array_filter($photoProposal['elements'],static fn($element
 zeroAiCheck(count($searchCalls)===2&&count($photos)===2,'Composer enforces a server-side maximum of two open-source photo searches');
 zeroAiCheck(count($credits)===2&&$credits[0]->style->fontSize===8&&str_contains($credits[0]->content,'Photo Author')&&str_contains($credits[0]->content,'CC BY-SA 4.0')&&str_contains($photos[0]->href,'commons.wikimedia.org'),'Each selected open photo keeps a compact visible author/licence/source credit');
 zeroAiCheck($photoProposal['metadata']['photoSelection']==='completed','Photo-selection status is returned without exposing provider keys');
+
+$requestedImageRepairProvider=new ZeroComposerFakeProvider([
+    json_encode(['elements'=>$items],JSON_THROW_ON_ERROR),
+    json_encode(['elements'=>[$photoItems[0],$items[0],$items[1]]],JSON_THROW_ON_ERROR),
+    json_encode(['selections'=>[['slotId'=>'slot-0','photoId'=>'commons:clinic']]],JSON_THROW_ON_ERROR),
+]);
+$repairSearch=static fn()=>[['id'=>'commons:clinic','name'=>'Clinic photo.jpg','url'=>'https://upload.wikimedia.org/example/clinic.jpg','author'=>'Photo Author','license'=>'CC BY-SA 4.0','sourceUrl'=>'https://commons.wikimedia.org/wiki/File:Clinic.jpg','licenseUrl'=>'https://creativecommons.org/licenses/by-sa/4.0/','kind'=>'commons']];
+$repairedPhotoProposal=AiZeroComposer::create('Create a hero with one photo of a modern clinic.',$fixture,$requestedImageRepairProvider,$repairSearch);
+$repairedImages=array_values(array_filter($repairedPhotoProposal['elements'],static fn($element)=>$element->type==='image'));
+zeroAiCheck(count($requestedImageRepairProvider->calls)===3&&$requestedImageRepairProvider->calls[1]['schemaName']==='juzimder_zero_photo_repair'&&str_contains($requestedImageRepairProvider->calls[1]['userPrompt'],'STRICT REQUIREMENT')&&str_contains($requestedImageRepairProvider->calls[0]['systemPrompt'],'include exactly one image element'),'An explicitly requested photo triggers one bounded structured repair when the first draft omits it');
+zeroAiCheck(count($repairedImages)===1&&$repairedPhotoProposal['metadata']['usage']['totalTokens']===160,'The repaired proposal includes a Commons image and combines usage from both composition calls');
+
+$missingPhotoProvider=new ZeroComposerFakeProvider([json_encode(['elements'=>$items],JSON_THROW_ON_ERROR),json_encode(['elements'=>$items],JSON_THROW_ON_ERROR)]);
+$missingPhotoRejected=false;
+try{AiZeroComposer::create('Create a hero with one photo of a modern clinic.',$fixture,$missingPhotoProvider,static fn()=>[]);}catch(\Juzimder\AiProviderFailure){$missingPhotoRejected=true;}
+zeroAiCheck($missingPhotoRejected&&count($missingPhotoProvider->calls)===2,'An explicit photo request is rejected after one repair if the model still omits imagery');
+$noOpenPhotoProvider=new ZeroComposerFakeProvider([
+    json_encode(['elements'=>$items],JSON_THROW_ON_ERROR),
+    json_encode(['elements'=>[$photoItems[0],$items[0],$items[1]]],JSON_THROW_ON_ERROR),
+]);
+$noOpenPhotoFailure=null;
+try{AiZeroComposer::create('Create a hero with one photo of a modern clinic.',$fixture,$noOpenPhotoProvider,static fn()=>[]);}catch(\Juzimder\AiProviderFailure $failure){$noOpenPhotoFailure=$failure;}
+zeroAiCheck($noOpenPhotoFailure?->category==='photo_unavailable','An explicit photo request fails closed when no suitable open-licence photo is found');
 echo "PASS: Zero AI proposal contract verified\n";

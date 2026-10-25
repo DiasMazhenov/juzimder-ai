@@ -2,6 +2,12 @@
 
 Version: zeroData v1, product 00.00.140. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
 
+00.00.145 — When a brief explicitly requests a photo, the AI composer makes one bounded structured repair if its first output omits an image. If the repair still omits it, or Commons cannot provide a usable open-licence image, the request fails closed before producing an applicable proposal. The repair usage is included in AI usage metadata. Tests cover one retry, rejection after a second omission, missing Commons matches, and no retry for briefs that do not request photos. Live acceptance of this new repair path and mobile layout remains open.
+
+00.00.145 Browser verification — the live proposal returned a Wikimedia Commons image with author/licence Paul Bryan / CC BY-SA 2.0 and the Apply → Undo → autosave → Reload path restored the original fixture at revision 307. The live response already included an image, so this did not prove the new repair branch ran. At Mobile 360, the proposal still placed text and photo in two columns despite an explicit vertical-stack request; mobile composition acceptance remains open. No candidate content was retained.
+
+00.00.144 live acceptance — In the existing Zero Editor tab, a clinic-hero candidate rendered with left-side title/copy/CTA and a Wikimedia Commons clinic photo on the right. The image carried source, author `hyolee2`, and `CC BY-SA 3.0` attribution. Apply, Undo, autosave and reload restored the original ten-layer QA composition at revision 305. A separate candidate omitted the explicitly requested photo and was cancelled; that result motivated the v00.00.145 bounded repair. No new tab was opened.
+
 00.00.140 — Zero Layers controls use plain icon/text affordances without individual button frames or hover pills. Row dividers, selection/drop feedback, keyboard focus and the locked-state marker remain. The change is scoped to editor chrome and does not affect Zero Data, artboard styling, or export.
 
 00.00.139 — Zero Editor chrome now uses the deep charcoal/lime constructor palette (`#14181B`, `#1B2125`, `#61892F`, `#86C232`) and no longer falls back to superseded graphite colors. The workspace outside the artboard follows the app surface; `#zero-canvas`, saved content, responsive geometry, and exported page styles remain authored-project data and are unchanged. Codex Browser verified the existing Zero Editor tab at saved revision 288; no Save action was triggered.
