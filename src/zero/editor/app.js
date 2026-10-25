@@ -1404,20 +1404,33 @@ export async function openZeroEditor({
       })
       .join("");
     stage.dataset.previewMode = activeMode;
-    stage.innerHTML = renderZero(
+    stage.innerHTML = `<div class="zero-ai-preview-frame">${renderZero(
       candidate,
       `${blockId}-ai-preview`,
       activeMode,
-    );
+    )}</div>`;
     requestAnimationFrame(() => {
       if (candidate !== aiCandidateData || stage.dataset.previewMode !== activeMode)
         return;
-      const section = stage.firstElementChild;
+      const frame = stage.firstElementChild,
+        section = frame?.firstElementChild;
       if (!section) return;
-      const scale = Math.min(0.72, Math.max(0.2, (stage.clientWidth - 16) / board.width));
+      const maxStageHeight =
+          Number.parseFloat(getComputedStyle(stage).maxHeight) ||
+          window.innerHeight * 0.58,
+        availableWidth = Math.max(1, stage.clientWidth - 16),
+        availableHeight = Math.max(1, maxStageHeight - 16),
+        scale = Math.max(
+          0.01,
+          Math.min(0.72, availableWidth / board.width, availableHeight / board.height),
+        ),
+        scaledWidth = Math.ceil(board.width * scale),
+        scaledHeight = Math.ceil(board.height * scale);
+      frame.style.width = `${scaledWidth}px`;
+      frame.style.height = `${scaledHeight}px`;
       section.style.transformOrigin = "top left";
       section.style.transform = `scale(${scale})`;
-      stage.style.height = `${board.height * scale}px`;
+      stage.style.height = `${scaledHeight + 16}px`;
     });
   }
   function applyAiArtboardBackground(candidate, settings) {

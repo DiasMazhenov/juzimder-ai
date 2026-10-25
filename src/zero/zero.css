@@ -1171,11 +1171,19 @@
   min-height: 80px;
   max-height: 58vh;
   margin: 12px 0;
-  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
   padding: 8px;
   box-sizing: border-box;
   background: var(--jz-ui-bg, #14181b);
   border-radius: 8px;
+}
+.zero-app #zero-ai-preview .zero-ai-preview-frame {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 .zero-app .zero-ai-candidate-actions {
   display: flex;
