@@ -31,6 +31,41 @@ export function worldMatrix(data, id, mode, dimensions = null) {
   const local = localMatrix(g, board, !!parent);
   return parent ? multiply(worldMatrix(data, parent.id, mode), local) : local;
 }
+export function documentBounds(data, mode) {
+  const board = data.artboards[mode];
+  if (!board) throw new TypeError("Unknown Zero Block artboard.");
+  const bounds = {
+    left: 0,
+    top: 0,
+    right: board.width,
+    bottom: board.height,
+  };
+  const visit = (elements, ancestorsVisible = true) => {
+    for (const element of elements || []) {
+      const resolved = resolve(element, mode),
+        visible = ancestorsVisible && resolved.visible;
+      if (visible) {
+        const matrix = worldMatrix(data, element.id, mode),
+          { width, height } = resolved.geometry;
+        for (const [x, y] of [[0, 0], [width, 0], [0, height], [width, height]]) {
+          const worldX = matrix[0] * x + matrix[2] * y + matrix[4],
+            worldY = matrix[1] * x + matrix[3] * y + matrix[5];
+          bounds.left = Math.min(bounds.left, worldX);
+          bounds.top = Math.min(bounds.top, worldY);
+          bounds.right = Math.max(bounds.right, worldX);
+          bounds.bottom = Math.max(bounds.bottom, worldY);
+        }
+      }
+      if (element.children?.length) visit(element.children, visible);
+    }
+  };
+  visit(data.elements);
+  return {
+    ...bounds,
+    width: bounds.right - bounds.left,
+    height: bounds.bottom - bounds.top,
+  };
+}
 export function rotatedBounds(g, board, nested = false) {
   const m = localMatrix(g, board, nested),
     points = [

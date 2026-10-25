@@ -7,6 +7,7 @@ import {
 } from "../model/operations.js";
 import {
   worldMatrix,
+  documentBounds,
   rotatedBounds,
   scaleGroupChildren,
 } from "../model/transforms.js";
@@ -111,7 +112,7 @@ export async function openZeroEditor({
     .map(([type, label]) => `<button data-add="${type}">${label}</button>`)
     .join(
       "",
-    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><div class="zero-left-resizer" role="separator" aria-orientation="vertical" aria-valuemin="140" aria-valuenow="190" aria-valuemax="480" aria-label="Ширина панели слоёв" tabindex="0" title="Перетащите, чтобы изменить ширину"></div><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label><span>Zoom</span><select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</select></label>${[
+    )}</section><section class="zero-layer-panel"><h2>Слои</h2><div id="zero-layers"></div></section></aside><div class="zero-left-resizer" role="separator" aria-orientation="vertical" aria-valuemin="140" aria-valuenow="190" aria-valuemax="480" aria-label="Ширина панели слоёв" tabindex="0" title="Перетащите, чтобы изменить ширину"></div><section class="zero-workspace" tabindex="0" aria-label="Холст Zero Block"><div class="zero-stage"><div class="zero-plane"><div class="zero-bleed-surface" aria-hidden="true"></div><div class="zero-ruler-x"></div><div class="zero-ruler-y"></div><div id="zero-canvas"></div><div class="zero-grid"></div><div class="zero-guides"></div><div class="zero-selection-overlays"></div><div class="zero-marquee" hidden></div></div></div></section><aside class="zero-inspector"><div id="zero-inspector"></div></aside></div><footer class="zero-bottom"><label><span>Zoom</span><select id="zero-zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.5">150%</option><option value="2">200%</select></label>${[
     ["snap", "Snap"],
     ["grid", "Grid"],
     ["guides", "Guides"],
@@ -139,6 +140,7 @@ export async function openZeroEditor({
     workspace = $(".zero-workspace"),
     canvas = $("#zero-canvas"),
     plane = $(".zero-plane"),
+    bleedSurface = $(".zero-bleed-surface"),
     status = (message) => {
       $("#zero-status").textContent = message;
     };
@@ -664,15 +666,70 @@ export async function openZeroEditor({
     if (!option.isConnected) select.append(option);
     select.value = option.value;
   }
+  function canvasDocumentBounds() {
+    const initial = documentBounds(data, mode),
+      rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height)
+      for (const element of canvas.querySelectorAll("[data-ze]")) {
+        if (!element.getClientRects().length) continue;
+        const box = element.getBoundingClientRect(),
+          left = (box.left - rect.left) / zoom,
+          top = (box.top - rect.top) / zoom,
+          right = (box.right - rect.left) / zoom,
+          bottom = (box.bottom - rect.top) / zoom;
+        initial.left = Math.min(initial.left, left);
+        initial.top = Math.min(initial.top, top);
+        initial.right = Math.max(initial.right, right);
+        initial.bottom = Math.max(initial.bottom, bottom);
+      }
+    return initial;
+  }
+  function expandedCanvasBounds(bounds = canvasDocumentBounds()) {
+    const b = board(),
+      margin = 32 / Math.max(zoom, 0.01);
+    return {
+      left: bounds.left < 0 ? bounds.left - margin : 0,
+      top: bounds.top < 0 ? bounds.top - margin : 0,
+      right: bounds.right > b.width ? bounds.right + margin : b.width,
+      bottom: bounds.bottom > b.height ? bounds.bottom + margin : b.height,
+    };
+  }
+  function fitZoom(bounds, maxZoom) {
+    const b = board(),
+      edgePaddingX = (bounds.left < 0 ? 32 : 0) + (bounds.right > b.width ? 32 : 0),
+      edgePaddingY = (bounds.top < 0 ? 32 : 0) + (bounds.bottom > b.height ? 32 : 0),
+      fit = Math.min(
+        (workspace.clientWidth - 24 - edgePaddingX) / (bounds.right - bounds.left),
+        (workspace.clientHeight - 24 - edgePaddingY) / (bounds.bottom - bounds.top),
+      );
+    return Math.round(
+      Math.min(maxZoom, Math.max(0.25, fit)) * 100,
+    ) / 100;
+  }
+  function updateStageBounds(bounds = expandedCanvasBounds()) {
+    planeOffsetX = Math.max(planeOffsetX, 12 - bounds.left * zoom);
+    planeOffsetY = Math.max(planeOffsetY, 12 - bounds.top * zoom);
+    plane.style.left = `${planeOffsetX}px`;
+    plane.style.top = `${planeOffsetY}px`;
+    bleedSurface.style.left = `${bounds.left}px`;
+    bleedSurface.style.top = `${bounds.top}px`;
+    bleedSurface.style.width = `${bounds.right - bounds.left}px`;
+    bleedSurface.style.height = `${bounds.bottom - bounds.top}px`;
+    bleedSurface.hidden = preview && board().overflow !== "visible";
+    const stage = $(".zero-stage");
+    stage.style.width = `${planeOffsetX + bounds.right * zoom + stagePaddingRight}px`;
+    stage.style.height = `${planeOffsetY + bounds.bottom * zoom + stagePaddingBottom}px`;
+  }
   function zoomAt(nextZoom, clientX, clientY, documentAnchor = null) {
-    const bounds = workspace.getBoundingClientRect(),
+    const viewport = workspace.getBoundingClientRect(),
+      content = expandedCanvasBounds(),
       result = zoomCameraAtPoint({
         zoom,
         nextZoom,
         scrollLeft: workspace.scrollLeft,
         scrollTop: workspace.scrollTop,
-        pointX: clientX - bounds.left,
-        pointY: clientY - bounds.top,
+        pointX: clientX - viewport.left,
+        pointY: clientY - viewport.top,
         documentX: documentAnchor?.x,
         documentY: documentAnchor?.y,
         planeOffsetX,
@@ -683,6 +740,10 @@ export async function openZeroEditor({
         viewportHeight: workspace.clientHeight,
         boardWidth: board().width,
         boardHeight: board().height,
+        contentLeft: content.left,
+        contentTop: content.top,
+        contentRight: content.right,
+        contentBottom: content.bottom,
       });
     zoom = result.zoom;
     planeOffsetX = result.planeOffsetX;
@@ -697,15 +758,17 @@ export async function openZeroEditor({
   function drawCanvas() {
     canvas.innerHTML = renderZero(data, blockId, mode, { runScripts: preview });
     const b = board();
+    canvas.firstElementChild?.style.setProperty(
+      "overflow",
+      preview ? b.overflow : "visible",
+      "important",
+    );
     plane.style.width = b.width + "px";
     plane.style.height = b.height + "px";
     plane.style.left = `${planeOffsetX}px`;
     plane.style.top = `${planeOffsetY}px`;
     plane.style.transform = `scale(${zoom})`;
-    $(".zero-stage").style.width =
-      b.width * zoom + planeOffsetX + stagePaddingRight + "px";
-    $(".zero-stage").style.height =
-      b.height * zoom + planeOffsetY + stagePaddingBottom + "px";
+    updateStageBounds();
     syncZoomControl();
     for (const el of canvas.querySelectorAll("[data-ze]")) {
       const item = findElement(data, el.dataset.ze);
@@ -776,6 +839,7 @@ export async function openZeroEditor({
       { length: Math.ceil(b.height / 100) },
       (_, i) => `<span style="top:${i * 100}px">${i * 100}</span>`,
     ).join("");
+    updateStageBounds();
   }
   function drawGesture(task) {
     const ids = new Set();
@@ -816,6 +880,7 @@ export async function openZeroEditor({
         el.style[g.axis === "x" ? "left" : "top"] = g.position + "px";
         $(".zero-guides").append(el);
       }
+    updateStageBounds();
   }
   function render() {
     if (destroyed) return;
@@ -1239,13 +1304,12 @@ export async function openZeroEditor({
       return;
     }
     if (key === "fit") {
-      const z = Math.min(
-        (workspace.clientWidth - 24) / board().width,
-        (workspace.clientHeight - 24) / board().height,
-        2,
-      );
-      zoom = Math.round(Math.min(2, Math.max(0.25, z)) * 100) / 100;
-      planeOffsetX = planeOffsetY = stagePaddingRight = stagePaddingBottom = 12;
+      const bounds = canvasDocumentBounds();
+      zoom = fitZoom(bounds, 2);
+      const expanded = expandedCanvasBounds(bounds);
+      planeOffsetX = 12 - expanded.left * zoom;
+      planeOffsetY = 12 - expanded.top * zoom;
+      stagePaddingRight = stagePaddingBottom = 12;
       $("#zero-zoom").value = String(zoom);
       drawCanvas();
       workspace.scrollLeft = workspace.scrollTop = 0;
@@ -2392,13 +2456,12 @@ export async function openZeroEditor({
       status("Zero Block сохранён в другом окне · проверьте конфликт");
     }
   };
-  const fit = Math.min(
-    (workspace.clientWidth - 24) / board().width,
-    (workspace.clientHeight - 24) / board().height,
-    1,
-  );
-  zoom = Math.round(Math.min(1, Math.max(0.25, fit)) * 100) / 100;
-  planeOffsetX = planeOffsetY = stagePaddingRight = stagePaddingBottom = 12;
+  const initialBounds = documentBounds(data, mode);
+  zoom = fitZoom(initialBounds, 1);
+  const initialExpandedBounds = expandedCanvasBounds(initialBounds);
+  planeOffsetX = 12 - initialExpandedBounds.left * zoom;
+  planeOffsetY = 12 - initialExpandedBounds.top * zoom;
+  stagePaddingRight = stagePaddingBottom = 12;
   $("#zero-zoom").value = String(zoom);
   render();
 }

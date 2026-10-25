@@ -453,6 +453,11 @@ export function zoomCameraAtPoint({
   viewportHeight = 0,
   boardWidth = 0,
   boardHeight = 0,
+  contentLeft = 0,
+  contentTop = 0,
+  contentRight = boardWidth,
+  contentBottom = boardHeight,
+  leadingPadding = 12,
   minZoom = 0.25,
   maxZoom = 3,
 }) {
@@ -468,7 +473,11 @@ export function zoomCameraAtPoint({
       : (scrollTop + pointY - planeOffsetY) / currentZoom;
   let nextOffsetX = planeOffsetX,
     nextOffsetY = planeOffsetY,
-    nextScrollLeft = nextOffsetX + anchorX * targetZoom - pointX,
+    nextOffsetXMin = leadingPadding - contentLeft * targetZoom,
+    nextOffsetYMin = leadingPadding - contentTop * targetZoom;
+  nextOffsetX = Math.max(nextOffsetX, nextOffsetXMin);
+  nextOffsetY = Math.max(nextOffsetY, nextOffsetYMin);
+  let nextScrollLeft = nextOffsetX + anchorX * targetZoom - pointX,
     nextScrollTop = nextOffsetY + anchorY * targetZoom - pointY;
   if (nextScrollLeft < 0) {
     nextOffsetX -= nextScrollLeft;
@@ -482,11 +491,11 @@ export function zoomCameraAtPoint({
     nextPaddingBottom = Math.max(80, stagePaddingBottom),
     maxScrollLeft = Math.max(
       0,
-      nextOffsetX + boardWidth * targetZoom + nextPaddingRight - viewportWidth,
+      nextOffsetX + Math.max(boardWidth, contentRight) * targetZoom + nextPaddingRight - viewportWidth,
     ),
     maxScrollTop = Math.max(
       0,
-      nextOffsetY + boardHeight * targetZoom + nextPaddingBottom - viewportHeight,
+      nextOffsetY + Math.max(boardHeight, contentBottom) * targetZoom + nextPaddingBottom - viewportHeight,
     );
   if (nextScrollLeft > maxScrollLeft) {
     nextPaddingRight += nextScrollLeft - maxScrollLeft;

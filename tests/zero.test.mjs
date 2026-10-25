@@ -1,5 +1,6 @@
 import {
   worldMatrix,
+  documentBounds,
   scaleGroupChildren,
   rotatedBounds,
 } from "../src/zero/model/transforms.js";
@@ -55,6 +56,31 @@ test("absolute movement does not affect siblings; negative coordinates and indep
   assert.deepEqual(d.elements[1], before);
   assert.equal(d.artboards.desktop.height, 650);
   assert.equal(rect(d.elements[0].geometry, d.artboards.desktop).x, -150);
+});
+test("editor document bounds include rotated outboard elements and nested groups", () => {
+  const d = structuredClone(fixture),
+    group = d.elements[2],
+    child = group.children[0];
+  group.geometry.x = -220;
+  group.geometry.y = -140;
+  group.geometry.rotation = 30;
+  child.geometry.x = -20;
+  const bounds = documentBounds(d, "desktop");
+  assert.ok(bounds.left < 0);
+  assert.ok(bounds.top < 0);
+  assert.equal(bounds.right, 1200);
+  assert.equal(bounds.bottom, 650);
+  child.visible = false;
+  group.visible = false;
+  const hiddenBounds = documentBounds(d, "desktop");
+  assert.deepEqual(hiddenBounds, {
+    left: 0,
+    top: 0,
+    right: 1200,
+    bottom: 650,
+    width: 1200,
+    height: 650,
+  });
 });
 test("grid and window use independent coordinate regions at intermediate widths", () => {
   const g = fixture.elements[0].geometry,
@@ -150,6 +176,36 @@ test("pinch zoom keeps the document point under the gesture and clamps camera sc
     (470 + 170 - 80) / 0.5,
   );
   assert.ok(rightEdge.stagePaddingRight > 80);
+});
+test("camera keeps outboard negative geometry inside the scrollable stage", () => {
+  const result = zoomCameraAtPoint({
+    zoom: 1,
+    nextZoom: 1.5,
+    scrollLeft: 0,
+    scrollTop: 0,
+    pointX: 100,
+    pointY: 90,
+    planeOffsetX: 12,
+    planeOffsetY: 12,
+    viewportWidth: 800,
+    viewportHeight: 600,
+    boardWidth: 1200,
+    boardHeight: 650,
+    contentLeft: -160,
+    contentTop: -80,
+    contentRight: 1500,
+    contentBottom: 900,
+  });
+  assert.ok(result.planeOffsetX + result.zoom * -160 >= 12);
+  assert.ok(result.planeOffsetY + result.zoom * -80 >= 12);
+  assert.ok(
+    result.scrollLeft <=
+      result.planeOffsetX + result.zoom * 1500 + result.stagePaddingRight - 800,
+  );
+  assert.ok(
+    result.scrollTop <=
+      result.planeOffsetY + result.zoom * 900 + result.stagePaddingBottom - 600,
+  );
 });
 test("responsive overrides are independent; auto-adapt never overwrites manual work", () => {
   const d = structuredClone(fixture),
@@ -528,6 +584,18 @@ test("Zero Block buttons use flex centering and keep the label centered", () => 
   assert.match(renderZero(fixture, "zero-mode", "desktop"), /height:650px/);
   assert.match(renderZero(fixture, "zero-mode", "desktop"), /width:1200px!important/);
   assert.doesNotMatch(renderZero(fixture, "zero-mode", "desktop"), /@media\(/);
+});
+test("editor overflow is separate from the saved-preview and publication policy", () => {
+  const editor = readFileSync(
+      new URL("../src/zero/editor/app.js", import.meta.url),
+      "utf8",
+    ),
+    hidden = renderZero(fixture, "zero-overflow-hidden", "desktop"),
+    visibleData = structuredClone(fixture);
+  visibleData.artboards.desktop.overflow = "visible";
+  assert.match(editor, /preview \? b\.overflow : "visible"/);
+  assert.match(hidden, /overflow:hidden/);
+  assert.match(renderZero(visibleData, "zero-overflow-visible", "desktop"), /overflow:visible/);
 });
 test("Project Data schema carries one strict zeroData contract and rejects second trees", () => {
   const schema = JSON.parse(

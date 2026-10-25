@@ -645,8 +645,18 @@
   top: 80px;
   transform-origin: 0 0;
   box-shadow: 0 5px 30px #0005;
-  background: white;
+  background: transparent;
   color: #183e31;
+}
+.zero-bleed-surface {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background: #e8eeea;
+}
+#zero-canvas {
+  position: relative;
+  z-index: 1;
 }
 .zero-inspector {
   width: 270px;
