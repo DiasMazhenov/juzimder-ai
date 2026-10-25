@@ -154,10 +154,19 @@ export async function openZeroEditor({
     workspace = $(".zero-workspace"),
     canvas = $("#zero-canvas"),
     plane = $(".zero-plane"),
-    bleedSurface = $(".zero-bleed-surface"),
-    status = (message) => {
+    bleedSurface = $(".zero-bleed-surface");
+  const syncSaveButtonState = () => {
+    const button = $('[data-action="save"]');
+    if (!button) return;
+    button.dataset.saveState = conflict ? "conflict" : saving ? "saving" : dirty ? "unsaved" : "saved";
+    button.setAttribute("aria-busy", String(saving));
+    button.disabled = conflict;
+  };
+  const status = (message) => {
       $("#zero-status").textContent = message;
+      syncSaveButtonState();
     };
+  syncSaveButtonState();
   const imageDialog = document.createElement("dialog");
   imageDialog.id = "image-dialog";
   zeroRoot.append(imageDialog);
@@ -1097,6 +1106,7 @@ export async function openZeroEditor({
   }
   function render() {
     if (destroyed) return;
+    syncSaveButtonState();
     drawCanvas();
     layers();
     inspector();
@@ -1148,6 +1158,7 @@ export async function openZeroEditor({
       }
     } finally {
       saving = false;
+      syncSaveButtonState();
       if (dirty && !conflict && retry) timer = setTimeout(save, 1500);
     }
   }
@@ -1966,6 +1977,7 @@ export async function openZeroEditor({
       if (commit) changed();
       else {
         dirty = true;
+        syncSaveButtonState();
         clearTimeout(timer);
         drawCanvas();
       }

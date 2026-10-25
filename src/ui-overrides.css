@@ -62,6 +62,37 @@
   background: var(--jz-ui-accent-hover);
 }
 
+#app:not(:has(.zero-app)) #save[data-save-state="unsaved"],
+#app:not(:has(.zero-app)) #save[data-save-state="saving"] {
+  border-color: var(--jz-ui-save-active);
+  background: var(--jz-ui-save-active);
+  color: var(--jz-ui-save-active-text);
+}
+
+#app:not(:has(.zero-app)) #save[data-save-state="unsaved"]:hover:not(:disabled),
+#app:not(:has(.zero-app)) #save[data-save-state="saving"]:hover:not(:disabled) {
+  border-color: var(--jz-ui-save-active);
+  background: var(--jz-ui-save-active);
+  color: var(--jz-ui-save-active-text);
+}
+
+#app:not(:has(.zero-app)) #save[data-save-state="saved"],
+#app:not(:has(.zero-app)) #save[data-save-state="conflict"] {
+  border-color: var(--jz-ui-save-saved);
+  background: var(--jz-ui-save-saved);
+  color: var(--jz-ui-save-saved-text);
+}
+
+#app:not(:has(.zero-app)) #save[data-save-state="saved"]:hover:not(:disabled) {
+  border-color: var(--jz-ui-save-saved-hover);
+  background: var(--jz-ui-save-saved-hover);
+}
+
+#app:not(:has(.zero-app)) #save[aria-busy="true"] {
+  opacity: 1;
+  cursor: progress;
+}
+
 #app:not(:has(.zero-app)) :is(.error, #create-error, #page-dialog-error, .page-rename-error, .ai-component-editor [data-status="error"]) {
   color: var(--jz-ui-error) !important;
 }

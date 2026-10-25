@@ -33,6 +33,11 @@ test('constructor theme defines the new palette in one token sheet', async () =>
     '--jz-ui-text-secondary': '#b6bec1',
     '--jz-ui-text-muted': '#929da2',
     '--jz-ui-on-accent': '#14181b',
+    '--jz-ui-save-active': '#86c232',
+    '--jz-ui-save-active-text': '#222629',
+    '--jz-ui-save-saved': '#474b4f',
+    '--jz-ui-save-saved-hover': '#6b6e70',
+    '--jz-ui-save-saved-text': '#f5f7f7',
     '--jz-ui-accent-hover': '#98d744',
     '--jz-ui-error': '#f16d6d',
     '--jz-ui-warning': '#e9b95b',
@@ -50,6 +55,9 @@ test('main text and CTA color pairs meet WCAG AA contrast', async () => {
   assert.ok(contrast('#b6bec1', '#1b2125') >= 4.5);
   assert.ok(contrast('#929da2', '#14181b') >= 4.5);
   assert.ok(contrast('#14181b', '#86c232') >= 4.5);
+  assert.ok(contrast('#222629', '#86c232') >= 4.5);
+  assert.ok(contrast('#f5f7f7', '#474b4f') >= 4.5);
+  assert.ok(contrast('#f5f7f7', '#6b6e70') >= 4.5);
   assert.match(theme, /--jz-ui-on-accent:\s*#14181b/i);
 });
 
@@ -61,6 +69,26 @@ test('interactive controls use shared theme tokens for keyboard and status state
   assert.match(overrides, /\[aria-busy="true"\], \.is-loading, \.loading\)\s*\{[^}]*cursor:\s*progress/s);
   assert.match(overrides, /\.danger-action[^}]*color:\s*var\(--jz-ui-error\)/s);
   assert.match(overrides, /button\[aria-pressed="true"\]\s*\{[^}]*var\(--jz-ui-selection-border\)/s);
+});
+
+test('save buttons share palette tokens and track saved/unsaved states in both editors', async () => {
+  const [main, zeroApp, overrides, zeroCss] = await Promise.all([
+    read('src/main.js'),
+    read('src/zero/editor/app.js'),
+    read('src/ui-overrides.css'),
+    read('src/zero/zero.css'),
+  ]);
+  assert.match(main, /function syncSaveButtonState\(\)[\s\S]*?button\.dataset\.saveState=conflicted\?'conflict':saving\?'saving':dirty\?'unsaved':'saved'/);
+  assert.match(main, /id="save" class="primary"/);
+  assert.match(main, /editor\.on\('project:loaded',[^\n]*syncSaveButtonState/);
+  assert.match(main, /syncSaveButtonState\(\);/);
+  assert.match(zeroApp, /button\.dataset\.saveState = conflict \? "conflict" : saving \? "saving" : dirty \? "unsaved" : "saved"/);
+  assert.match(overrides, /#save\[data-save-state="unsaved"\][\s\S]*?var\(--jz-ui-save-active\)/);
+  assert.match(overrides, /#save\[data-save-state="saved"\][\s\S]*?var\(--jz-ui-save-saved\)/);
+  assert.match(overrides, /#save\[data-save-state="unsaved"\]:hover[\s\S]*?var\(--jz-ui-save-active\)/);
+  assert.match(zeroCss, /\[data-action="save"\]\[data-save-state="unsaved"\][\s\S]*?var\(--jz-ui-save-active/);
+  assert.match(zeroCss, /\[data-action="save"\]\[data-save-state="saved"\][\s\S]*?var\(--jz-ui-save-saved/);
+  assert.match(zeroCss, /\[data-action="save"\]\[data-save-state="unsaved"\]:hover[\s\S]*?var\(--jz-ui-save-active/);
 });
 
 test('constructor chrome styles stay separate from user design tokens and export', async () => {
@@ -78,7 +106,10 @@ test('constructor chrome styles stay separate from user design tokens and export
   assert.match(overrides, /\.zero-app #zero-canvas \{[^}]*color-scheme:\s*normal/s);
   assert.match(overrides, /\.zero-app #zero-canvas \{[^}]*--surface:\s*#1d211f/s);
   assert.match(overrides, /\.zero-app #zero-canvas \{[^}]*--accent:\s*#a2d4b5/s);
-  assert.doesNotMatch(`${theme}\n${overrides}\n${zeroCss}`, /#(?:6b6e70|222629|474b4f)/i);
+  for (const paletteColor of ['#222629', '#474b4f', '#6b6e70']) {
+    assert.match(theme, new RegExp(paletteColor, 'i'));
+  }
+  assert.doesNotMatch(`${overrides}\n${zeroCss}`, /#(?:6b6e70|222629|474b4f)/i);
   assert.doesNotMatch(`${tokens}\n${exporter}\n${zeroRenderer}`, /--jz-ui-/);
   assert.doesNotMatch(zeroCss, /\.zero-app (?:button|input|select|textarea|label),\s*\.zero-app/);
   assert.match(theme, /--jz-ui-/);

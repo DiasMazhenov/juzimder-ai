@@ -33,6 +33,32 @@
   border-color: var(--jz-ui-accent, #86c232);
   color: var(--jz-ui-on-accent, #14181b);
 }
+#app .zero-app .zero-top [data-action="save"][data-save-state="unsaved"],
+#app .zero-app .zero-top [data-action="save"][data-save-state="saving"] {
+  background: var(--jz-ui-save-active);
+  border-color: var(--jz-ui-save-active);
+  color: var(--jz-ui-save-active-text);
+}
+#app .zero-app .zero-top [data-action="save"][data-save-state="unsaved"]:hover,
+#app .zero-app .zero-top [data-action="save"][data-save-state="saving"]:hover {
+  background: var(--jz-ui-save-active);
+  border-color: var(--jz-ui-save-active);
+  color: var(--jz-ui-save-active-text);
+}
+#app .zero-app .zero-top [data-action="save"][data-save-state="saved"],
+#app .zero-app .zero-top [data-action="save"][data-save-state="conflict"] {
+  background: var(--jz-ui-save-saved);
+  border-color: var(--jz-ui-save-saved);
+  color: var(--jz-ui-save-saved-text);
+}
+#app .zero-app .zero-top [data-action="save"][data-save-state="saved"]:hover {
+  background: var(--jz-ui-save-saved-hover);
+  border-color: var(--jz-ui-save-saved-hover);
+}
+#app .zero-app .zero-top [data-action="save"][aria-busy="true"] {
+  opacity: 1;
+  cursor: progress;
+}
 .zero-app h2 {
   font-size: 13px;
   margin: 18px 0 10px;

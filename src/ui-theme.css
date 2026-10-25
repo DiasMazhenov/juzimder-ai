@@ -12,6 +12,11 @@
   --jz-ui-accent: #86c232;
   --jz-ui-accent-secondary: #61892f;
   --jz-ui-on-accent: #14181b;
+  --jz-ui-save-active: #86c232;
+  --jz-ui-save-active-text: #222629;
+  --jz-ui-save-saved: #474b4f;
+  --jz-ui-save-saved-hover: #6b6e70;
+  --jz-ui-save-saved-text: #f5f7f7;
   --jz-ui-hover: #2b3439;
   --jz-ui-selected: rgb(134 194 50 / 14%);
   --jz-ui-selection-border: #86c232;
