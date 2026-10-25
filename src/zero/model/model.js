@@ -207,6 +207,7 @@ export function createElement(type, tokens = {}) {
     tooltip: [36, 36],
     vector: [64, 64],
     video: [560, 315],
+    form: [360, 330],
     html: [420, 260],
     group: [400, 300],
     rectangle: [240, 180],
@@ -224,6 +225,7 @@ export function createElement(type, tokens = {}) {
       tooltip: "Подсказка",
       vector: "Вектор",
       video: "Видео",
+      form: "Форма",
       html: "HTML",
       group: "Группа",
       rectangle: "Прямоугольник",
@@ -280,6 +282,16 @@ export function createElement(type, tokens = {}) {
       : {}),
     ...(type === "vector" ? { icon: "arrow-right" } : {}),
     ...(type === "video" ? { videoUrl: "" } : {}),
+    ...(type === "form"
+      ? {
+          submitLabel: "Отправить",
+          formFields: [
+            { id: "name", type: "text", label: "Ваше имя", placeholder: "Введите имя", required: false },
+            { id: "email", type: "email", label: "Email", placeholder: "name@example.com", required: true },
+            { id: "message", type: "textarea", label: "Сообщение", placeholder: "Ваш вопрос", required: false },
+          ],
+        }
+      : {}),
   };
 }
 export function resolve(element, mode) {

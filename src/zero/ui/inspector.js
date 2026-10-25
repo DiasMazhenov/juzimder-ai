@@ -120,5 +120,14 @@ export function renderInspector({ items, mode, board, project }) {
       `<h2>Видео</h2><label>Ссылка на видео<input data-element="videoUrl" type="url" value="${esc(selected.videoUrl || "")}" placeholder="https://youtu.be/..." maxlength="2048"></label><p class="zero-help">Поддерживаются только ссылки YouTube и Vimeo. Embed-код и другие сайты запрещены.</p><h2>Действия</h2>`,
     );
   }
+  if (selected?.type === "form") {
+    const fields = (selected.formFields || []).map((field) =>
+      `<fieldset class="zero-form-field-editor"><legend>${esc(field.label)}</legend><label>Подпись<input data-form-field="${esc(field.id)}" data-form-prop="label" value="${esc(field.label)}" maxlength="80"></label><label>Тип поля<select data-form-field="${esc(field.id)}" data-form-prop="type">${[["text", "Текст"], ["email", "Email"], ["tel", "Телефон"], ["textarea", "Большой текст"]].map(([value, label]) => `<option value="${value}" ${field.type === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>Подсказка<input data-form-field="${esc(field.id)}" data-form-prop="placeholder" value="${esc(field.placeholder || "")}" maxlength="120"></label><label class="zero-form-required">Обязательное<input type="checkbox" data-form-field="${esc(field.id)}" data-form-prop="required" ${field.required ? "checked" : ""}></label><button type="button" data-form-remove="${esc(field.id)}" ${selected.formFields.length <= 1 ? "disabled" : ""}>Удалить поле</button></fieldset>`
+    ).join("");
+    return markup.replace(
+      "<h2>Действия</h2>",
+      `<h2>Поля макета</h2><div class="zero-form-field-list">${fields}</div><button type="button" data-form-action="add" ${selected.formFields.length >= 8 ? "disabled" : ""}>Добавить поле</button><label>Текст кнопки<input data-element="submitLabel" value="${esc(selected.submitLabel || "Отправить")}" maxlength="60"></label><p class="zero-help">Данные не собираются и никуда не отправляются. Обработчик формы можно подключить отдельно.</p><h2>Действия</h2>`,
+    );
+  }
   return markup;
 }

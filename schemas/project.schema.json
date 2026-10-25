@@ -369,7 +369,8 @@
             "group",
             "html",
             "vector",
-            "video"
+            "video",
+            "form"
           ]
         },
         "name": {
@@ -421,6 +422,28 @@
           "type": "string",
           "maxLength": 2048,
           "pattern": "^(?:$|https://(?:(?:www\\.)?(?:youtube\\.com|youtube-nocookie\\.com)/(?:watch\\?v=[A-Za-z0-9_-]{11}|(?:embed|shorts|live)/[A-Za-z0-9_-]{11})|youtu\\.be/[A-Za-z0-9_-]{11}|(?:www\\.)?vimeo\\.com/[0-9]{1,12}|player\\.vimeo\\.com/video/[0-9]{1,12})(?:\\?[^#\\s<>\\x22]*)?)$"
+        },
+        "submitLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "formFields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+              "type": { "enum": ["text", "email", "tel", "textarea"] },
+              "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "placeholder": { "type": "string", "maxLength": 120 },
+              "required": { "type": "boolean" }
+            },
+            "required": ["id", "type", "label", "placeholder", "required"]
+          }
         },
         "tag": {
           "enum": [
@@ -678,6 +701,23 @@
           },
           "then": { "required": ["videoUrl"] },
           "else": { "not": { "required": ["videoUrl"] } }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "form" }
+            },
+            "required": ["type"]
+          },
+          "then": { "required": ["formFields", "submitLabel"] },
+          "else": {
+            "not": {
+              "anyOf": [
+                { "required": ["formFields"] },
+                { "required": ["submitLabel"] }
+              ]
+            }
+          }
         }
       ]
     },

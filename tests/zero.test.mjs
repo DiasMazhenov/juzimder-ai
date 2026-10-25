@@ -392,7 +392,7 @@ test("Zero Tooltip renders escaped text and appears on hover or keyboard focus",
   assert.match(inspector, /Текст подсказки/);
   assert.match(inspector, /maxlength="2000"/);
   assert.match(menuSource, /\["tooltip", "Подсказка", "message"\]/);
-  assert.match(menuSource, /disabled: !\["tooltip", "video"\]\.includes\(type\)/);
+  assert.match(menuSource, /disabled: !\["tooltip", "video", "form"\]\.includes\(type\)/);
 });
 test("Zero Vector uses a curated Tabler icon with safe, accessible rendering", () => {
   const data = createZeroData(),
@@ -448,6 +448,31 @@ test("Zero Video accepts only YouTube/Vimeo URLs and renders a bounded sandboxed
   const fallback = renderZero(data, "zero-video-invalid");
   assert.match(fallback, /Добавьте ссылку YouTube или Vimeo/);
   assert.doesNotMatch(fallback, /evil\.test/);
+});
+test("Zero Form renders a safe editable-field layout with submission explicitly disabled", () => {
+  const data = createZeroData(), form = createElement("form");
+  form.id = "ze-safe-form";
+  form.name = "Контакт & поддержка";
+  form.formFields[0].label = "Имя & фамилия";
+  form.formFields[0].placeholder = 'Введите "имя"';
+  form.submitLabel = "Отправить запрос";
+  data.elements.push(form);
+  const html = renderZero(data, "zero-form-test"), inspector = renderInspector({
+    items: [{ element: form }], mode: "desktop", board: data.artboards.desktop, project: {},
+  });
+  assert.match(html, /class="jz-zero-element jz-zero-form" data-ze="ze-safe-form"/);
+  assert.match(html, /role="group" aria-label="Контакт &amp; поддержка"/);
+  assert.match(html, /Имя &amp; фамилия/);
+  assert.match(html, /placeholder="Введите &quot;имя&quot;" readonly aria-readonly="true"/);
+  assert.match(html, /jz-zero-form-submit" type="button" disabled aria-disabled="true"/);
+  assert.match(html, /Отправка формы пока не подключена/);
+  assert.doesNotMatch(html, /<form\b|action=|method=|<script/i);
+  assert.match(inspector, /data-form-field="name" data-form-prop="label"/);
+  assert.match(inspector, /data-form-action="add"/);
+  assert.match(inspector, /data-element="submitLabel"/);
+  assert.match(inspector, /Данные не собираются/);
+  const menuSource = readFileSync(new URL("../src/zero/ui/element-menu.js", import.meta.url), "utf8");
+  assert.doesNotMatch(menuSource, /type: "form"[^\n]*disabled: true/);
 });
 test("Zero Block buttons use flex centering and keep the label centered", () => {
   const data = createZeroData(),
@@ -552,6 +577,24 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
   video.type = "text";
   video.videoUrl = "https://youtu.be/dQw4w9WgXcQ";
   assert.equal(validate(videoDocument), false);
+  const formDocument = structuredClone(doc), form = structuredClone(fixture.elements[0]);
+  form.id = "ze-schema-form";
+  form.type = "form";
+  form.submitLabel = "Send";
+  form.formFields = [{ id: "email", type: "email", label: "Email", placeholder: "name@example.test", required: true }];
+  formDocument.data.pages[0].frames[0].component.components[0].zeroData.elements = [form];
+  assert.equal(validate(formDocument), true, JSON.stringify(validate.errors));
+  form.formFields[0].action = "https://attacker.test/collect";
+  assert.equal(validate(formDocument), false);
+  delete form.formFields[0].action;
+  form.formFields[0].type = "hidden";
+  assert.equal(validate(formDocument), false);
+  form.formFields[0].type = "email";
+  delete form.submitLabel;
+  assert.equal(validate(formDocument), false);
+  form.type = "text";
+  form.submitLabel = "Send";
+  assert.equal(validate(formDocument), false);
   const custom = structuredClone(doc);
   custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
     "bp-12345678"

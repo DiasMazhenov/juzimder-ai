@@ -1290,6 +1290,32 @@ export async function openZeroEditor({
       toggleLayerGroup(target.dataset.toggleGroup);
       return;
     }
+    if (target.dataset.formAction || target.dataset.formRemove) {
+      flushField();
+      const form = selected().find(({ element }) => element.type === "form")?.element;
+      if (!form || form.locked) return;
+      form.formFields ??= [];
+      if (target.dataset.formAction === "add") {
+        if (form.formFields.length >= 8) {
+          status("В макете формы может быть не более 8 полей");
+          return;
+        }
+        form.formFields.push({
+          id: `field-${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`,
+          type: "text",
+          label: "Новое поле",
+          placeholder: "",
+          required: false,
+        });
+      } else if (target.dataset.formRemove) {
+        if (form.formFields.length <= 1) return;
+        form.formFields = form.formFields.filter(
+          (field) => field.id !== target.dataset.formRemove,
+        );
+      }
+      changed();
+      return;
+    }
     if (target.dataset.removeBreakpoint)
       return removeBreakpointFromManager(target.dataset.removeBreakpoint);
     if (target.dataset.action) return action(target.dataset.action);
@@ -1415,6 +1441,17 @@ export async function openZeroEditor({
       } else if (input.dataset.code) {
         i.element.code ??= { html: "", css: "", js: "" };
         i.element.code[input.dataset.code] = input.value;
+      } else if (input.dataset.formField && i.element.type === "form") {
+        const field = i.element.formFields?.find(
+          (candidate) => candidate.id === input.dataset.formField,
+        );
+        const key = input.dataset.formProp;
+        if (!field || !["label", "type", "placeholder", "required"].includes(key))
+          continue;
+        field[key] =
+          key === "required"
+            ? input.checked
+            : input.value.slice(0, key === "label" ? 80 : 120);
       } else if (input.dataset.key) {
         const val =
           input.type === "number" || input.dataset.key.startsWith("origin")
@@ -1442,6 +1479,8 @@ export async function openZeroEditor({
       } else if (input.dataset.element) {
         const key = input.dataset.element;
         if (key === "name") i.element.name = input.value;
+        else if (key === "submitLabel" && i.element.type === "form")
+          i.element.submitLabel = input.value.slice(0, 60);
         else if (input.value || !["href", "src"].includes(key)) {
           setValue(i.element, "desktop", null, key, input.value);
           if (key === "content") {
@@ -1474,6 +1513,16 @@ export async function openZeroEditor({
   }
   app.addEventListener("change", (event) => {
     if (event.target.matches("[data-breakpoint-width]")) return;
+    if (
+      event.target.dataset.formProp === "label" &&
+      !event.target.value.trim()
+    )
+      event.target.value = "Поле";
+    if (
+      event.target.dataset.element === "submitLabel" &&
+      !event.target.value.trim()
+    )
+      event.target.value = "Отправить";
     applyInput(event.target, true);
   });
   app.addEventListener("input", (event) => {
@@ -1486,6 +1535,9 @@ export async function openZeroEditor({
     const key =
       event.target.dataset.key ||
       event.target.dataset.element ||
+      (event.target.dataset.formField
+        ? `form-field:${event.target.dataset.formField}:${event.target.dataset.formProp}`
+        : "") ||
       event.target.dataset.board ||
       (event.target.dataset.code ? `code:${event.target.dataset.code}` : "");
     if (pendingField && pendingField !== key) flushField();

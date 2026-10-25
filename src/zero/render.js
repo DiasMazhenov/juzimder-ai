@@ -39,6 +39,13 @@ function hasVideo(elements) {
       (element.children?.length && hasVideo(element.children)),
   );
 }
+function hasForm(elements) {
+  return elements.some(
+    (element) =>
+      element.type === "form" ||
+      (element.children?.length && hasForm(element.children)),
+  );
+}
 export function elementHTML(el, children = "") {
   let content = escapeHTML(el.content || "");
   if (el.runs)
@@ -66,6 +73,19 @@ export function elementHTML(el, children = "") {
     return src
       ? `<iframe title="${escapeHTML(el.name || "Видео")}" src="${src}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-presentation" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
       : `<span class="jz-zero-video-placeholder" role="img" aria-label="${escapeHTML(el.name || "Видео")}">Добавьте ссылку YouTube или Vimeo в настройках</span>`;
+  }
+  if (el.type === "form") {
+    const noteId = `jz-form-note-${escapeHTML(el.id)}`;
+    const fields = (el.formFields || []).map((field) => {
+      const id = `jz-form-${escapeHTML(el.id)}-${escapeHTML(field.id)}`;
+      const label = `${escapeHTML(field.label)}${field.required ? '<span class="jz-zero-form-required" aria-hidden="true"> *</span>' : ""}`;
+      const required = field.required ? ' aria-required="true"' : "";
+      const control = field.type === "textarea"
+        ? `<textarea class="jz-zero-form-control" id="${id}" placeholder="${escapeHTML(field.placeholder)}" readonly aria-readonly="true"${required}></textarea>`
+        : `<input class="jz-zero-form-control" id="${id}" type="${escapeHTML(field.type)}" placeholder="${escapeHTML(field.placeholder)}" readonly aria-readonly="true"${required}>`;
+      return `<label class="jz-zero-form-field" for="${id}"><span>${label}</span>${control}</label>`;
+    }).join("");
+    return `<div class="jz-zero-form-fields" role="group" aria-label="${escapeHTML(el.name || "Форма")}" aria-describedby="${noteId}">${fields}<button class="jz-zero-form-submit" type="button" disabled aria-disabled="true">${escapeHTML(el.submitLabel || "Отправить")}</button><p class="jz-zero-form-note" id="${noteId}">Отправка формы пока не подключена.</p></div>`;
   }
   if (el.type === "group") return children;
   return content;
@@ -99,6 +119,8 @@ export function renderZero(
     css += `.${scope} .jz-zero-vector{display:flex;align-items:center;justify-content:center}.${scope} .jz-zero-vector>svg{display:block;width:100%;height:100%;max-width:100%;max-height:100%}`;
   if (hasVideo(data.elements))
     css += `.${scope} .jz-zero-video{overflow:hidden;padding:0!important;background:#111}.${scope} .jz-zero-video>iframe{display:block;width:100%;height:100%;border:0}.${scope} .jz-zero-video-placeholder{display:flex;width:100%;height:100%;align-items:center;justify-content:center;padding:16px;background:#111;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}.zero-app:not(.zero-preview) .${scope} .jz-zero-video>iframe{pointer-events:none}`;
+  if (hasForm(data.elements))
+    css += `.${scope} .jz-zero-form{overflow:auto;white-space:normal}.${scope} .jz-zero-form-fields{display:grid;align-content:start;gap:12px;width:100%;min-height:100%;box-sizing:border-box;font:14px/1.4 system-ui,sans-serif;white-space:normal}.${scope} .jz-zero-form-field{display:grid;gap:5px;color:inherit;font-weight:600}.${scope} .jz-zero-form-control{box-sizing:border-box;width:100%;min-height:40px;padding:9px 11px;border:1px solid rgba(24,62,49,.28);border-radius:8px;background:rgba(255,255,255,.9);color:#183e31;font:14px/1.4 system-ui,sans-serif;white-space:normal}.${scope} textarea.jz-zero-form-control{min-height:76px;resize:none}.${scope} .jz-zero-form-required{color:#b42318}.${scope} .jz-zero-form-submit{min-height:40px;padding:10px 14px;border:0;border-radius:8px;background:#245b46;color:#fff;font:600 14px/1.2 system-ui,sans-serif;opacity:.62;cursor:not-allowed}.${scope} .jz-zero-form-note{margin:0;color:rgba(24,62,49,.72);font:12px/1.4 system-ui,sans-serif}.zero-app:not(.zero-preview) .${scope} .jz-zero-form-fields{pointer-events:none}`;
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
@@ -179,7 +201,7 @@ export function renderZero(
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
         if (el.type === "html") return body;
-        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}${el.type === "form" ? " jz-zero-form" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);

@@ -37,9 +37,9 @@ export function renderZeroElementMenu() {
     ["gallery", "Галерея", "stack-2"],
   ]
     .map(([type, label, iconName]) =>
-      menuItem({ type, label, iconName, disabled: !["tooltip", "video"].includes(type) }),
+      menuItem({ type, label, iconName, disabled: !["tooltip", "video", "form"].includes(type) }),
     )
     .join("");
 
-  return `<div id="zero-element-menu" class="zero-element-menu" role="menu" aria-label="Добавить элемент" hidden><div class="zero-element-group">${primary}<button type="button" class="zero-element-item" data-action="shapes-menu" aria-expanded="false" aria-controls="zero-shape-menu"><span class="zero-element-icon">${tablerIcon("square")}</span><span class="zero-element-label">Фигура</span><kbd>R</kbd>${tablerIcon("chevron-down")}</button><div id="zero-shape-menu" class="zero-shape-menu" hidden>${shapes}</div>${menuItem({ type: "button", label: "Кнопка", iconName: "link", shortcut: "B" })}${vector}</div><div class="zero-element-separator" role="separator"></div><div class="zero-element-group"><div class="zero-element-caption">Дополнительные элементы</div>${customCode}</div><div class="zero-element-group zero-element-planned-group">${additional}</div><p class="zero-element-note">Видео встраивается только с YouTube или Vimeo. Формы и галереи появятся после добавления безопасных renderer.</p></div>`;
+  return `<div id="zero-element-menu" class="zero-element-menu" role="menu" aria-label="Добавить элемент" hidden><div class="zero-element-group">${primary}<button type="button" class="zero-element-item" data-action="shapes-menu" aria-expanded="false" aria-controls="zero-shape-menu"><span class="zero-element-icon">${tablerIcon("square")}</span><span class="zero-element-label">Фигура</span><kbd>R</kbd>${tablerIcon("chevron-down")}</button><div id="zero-shape-menu" class="zero-shape-menu" hidden>${shapes}</div>${menuItem({ type: "button", label: "Кнопка", iconName: "link", shortcut: "B" })}${vector}</div><div class="zero-element-separator" role="separator"></div><div class="zero-element-group"><div class="zero-element-caption">Дополнительные элементы</div>${customCode}</div><div class="zero-element-group zero-element-planned-group">${additional}</div><p class="zero-element-note">Форма — макет с отключённой отправкой данных. Галерея появится после добавления безопасного renderer.</p></div>`;
 }
