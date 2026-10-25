@@ -847,6 +847,7 @@
                   "type": "string",
                   "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
                 },
+                "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "backgroundImage": {
                   "type": "string",
                   "maxLength": 100,
@@ -938,6 +939,7 @@
                   "type": "string",
                   "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
                 },
+                "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "backgroundImage": {
                   "type": "string",
                   "maxLength": 100,
@@ -1029,6 +1031,7 @@
                   "type": "string",
                   "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
                 },
+                "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "backgroundImage": {
                   "type": "string",
                   "maxLength": 100,
@@ -1120,6 +1123,7 @@
                   "type": "string",
                   "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
                 },
+                "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "backgroundImage": {
                   "type": "string",
                   "maxLength": 100,
@@ -1211,6 +1215,7 @@
                   "type": "string",
                   "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
                 },
+                "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "backgroundImage": {
                   "type": "string",
                   "maxLength": 100,

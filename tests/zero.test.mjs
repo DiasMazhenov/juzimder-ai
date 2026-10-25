@@ -45,6 +45,7 @@ import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
 import { layerDropIntent, moveLayer } from "../src/zero/model/operations.js";
 import { normalizeEditorIconMarkup } from "../src/editor-icon-markup.js";
+import { hexToHsv, hsvToHex } from "../src/zero/ui/color-picker.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
 );
@@ -381,6 +382,7 @@ test("artboard background uses the project image picker and renders responsive-s
   const data = createZeroData(),
     board = data.artboards.desktop;
   board.background = "#112233";
+  board.backgroundOpacity = 0.65;
   board.backgroundImage = `/api/projects/${"a".repeat(24)}/assets/${"b".repeat(24)}/file`;
   board.backgroundImageName = "Clinic entrance.jpg";
   board.backgroundSize = "contain";
@@ -393,6 +395,7 @@ test("artboard background uses the project image picker and renders responsive-s
     inspector = renderInspector({ items: [], mode: "desktop", board, project: {} }),
     app = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8");
   assert.match(html, /background-image:linear-gradient\(180deg,rgba\(0,0,0,0\.5\),rgba\(255,255,255,0\.25\)\),url\("\/api\/projects\//);
+  assert.match(html, /background:rgba\(17,34,51,0\.65\);background-image:/);
   assert.match(html, /background-size:contain;background-position:right bottom;background-repeat:no-repeat/);
   assert.match(inspector, /data-action="background-image"/);
   assert.match(inspector, /data-board="filterStartOpacity"/);
@@ -400,6 +403,12 @@ test("artboard background uses the project image picker and renders responsive-s
   assert.match(app, /installImagePicker\([\s\S]{0,180}allowExternalUrl: false/);
   const picker = readFileSync(new URL("../src/image-picker.js", import.meta.url), "utf8");
   assert.match(picker, /const imageForm=\$\('#image-form'\);if\(imageForm\)imageForm\.onsubmit=/);
+});
+test("background color picker converts HEX/HSV and retains independent opacity", () => {
+  for (const value of ["#000000", "#ffffff", "#86c232", "#f05a45", "#183e31"])
+    assert.equal(hsvToHex(...Object.values(hexToHsv(value))), value);
+  assert.equal(createZeroData().artboards.desktop.backgroundOpacity, 1);
+  assert.match(readFileSync(new URL("../src/zero/ui/color-picker.js", import.meta.url), "utf8"), /juzimder-zero-saved-colors/);
 });
 test("Autoscale control is scoped to an artboard and new boards default to fixed", () => {
   const data = createZeroData();

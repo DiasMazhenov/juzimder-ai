@@ -93,7 +93,10 @@ export function renderInspector({ items, mode, board, project }) {
         "",
       )}</div>${mode !== "desktop" ? '<button data-action="reset-override">Сбросить override элемента</button>' : ""}`;
   }
-  const markup = inspectorMarkup();
+  const backgroundHex = /^#[a-f\d]{6}$/i.test(board.background || "") ? board.background : "#ffffff",
+    backgroundOpacity = Math.round((board.background === "transparent" ? 0 : (board.backgroundOpacity ?? 1)) * 100),
+    colorControl = `<div class="zero-background-color"><span>Цвет фона</span><button type="button" class="zero-background-color-trigger" data-action="background-color" aria-haspopup="dialog" aria-label="Настроить цвет фона"><span class="zero-background-swatch" style="background-color:${esc(backgroundHex)};opacity:${backgroundOpacity / 100}"></span><span>${esc(backgroundHex.toUpperCase())}</span></button><output>${backgroundOpacity}%</output></div>`,
+    markup = inspectorMarkup().replace(/<label>Цвет фона<input type="color" data-board="background" value="[^"]+"><\/label>/, colorControl);
   const selected = items[0]?.element;
   if (selected?.type === "tooltip") {
     const tooltipInspector = `<h2>Подсказка</h2><label>Текст подсказки<textarea data-element="content" rows="4" maxlength="2000">${esc(selected.content || "")}</textarea></label><p class="zero-help">Показывается при наведении на значок и при фокусе клавиатурой.</p>`;

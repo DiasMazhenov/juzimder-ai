@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.147 — Цвет фона настраивается через собственный picker: HSV поле, тон, alpha, HEX, browser eyedropper при поддержке и сохранённые цвета в локальном хранилище UI. Текущая фон-альфа хранится отдельно в `backgroundOpacity`; поле опционально, чтобы старые Zero Data сохраняли поведение. JS preview и статическая PHP публикация рендерят одинаковую прозрачность. Полные тесты, сборка и PHP syntax прошли. Picker визуально проверен в существующей вкладке Codex Browser и закрыт без изменений Project Data.
+
 00.00.146 — Artboard Settings переиспользуют основной image picker и библиотеку проекта для фоновой картинки; добавлены цвет фона, размер изображения, позиция и два endpoint фильтра с цветом/opacity. Параметры проходят JSON Schema/PHP validation, asset references сохраняют принадлежность и включаются в ZIP/publication, а браузерный и PHP renderer формируют одинаковую CSS background-слойность. В Codex Browser в существующей вкладке проверены настройки и открытие проектной медиатеки; изображение намеренно не применялось к QA-странице, чтобы не менять её автосохранение.
 
 Version: zeroData v1, product 00.00.140. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.

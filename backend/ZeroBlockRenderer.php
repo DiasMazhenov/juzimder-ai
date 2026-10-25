@@ -16,6 +16,9 @@ final class ZeroBlockRenderer {
     private static function length(int|float $v,\stdClass $board,bool $autoScale): string{return self::n($autoScale?$v*100/$board->gridWidth:$v).($autoScale?'vw':'px');}
     private static function artboardBackground(\stdClass $board): string {
         $color=is_string($board->background??null)&&preg_match('/^(?:#[a-f0-9]{6}|transparent)$/iD',$board->background)?$board->background:'#ffffff';
+        $alpha=is_numeric($board->backgroundOpacity??null)?max(0,min(1,(float)$board->backgroundOpacity)):($color==='transparent'?0.0:1.0);
+        if($color==='transparent')$color='#ffffff';
+        if($alpha<1){$hex=substr($color,1);$channels=[hexdec(substr($hex,0,2)),hexdec(substr($hex,2,2)),hexdec(substr($hex,4,2))];$color='rgba('.implode(',',$channels).','.self::n($alpha).')';}
         $src=$board->backgroundImage??'';
         if(!is_string($src)||!preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D',$src))return 'background:'.$color.';';
         $rgba=static function(string $color,float $opacity):string{$hex=preg_match('/^#[a-f0-9]{6}$/iD',$color)?substr($color,1):'000000';$channels=[hexdec(substr($hex,0,2)),hexdec(substr($hex,2,2)),hexdec(substr($hex,4,2))];return 'rgba('.implode(',',$channels).','.self::n(max(0,min(1,$opacity))).')';};

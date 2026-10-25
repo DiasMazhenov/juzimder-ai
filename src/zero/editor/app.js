@@ -40,6 +40,7 @@ import { renderZero, escapeHTML as esc } from "../render.js";
 import { renderZeroElementMenu } from "../ui/element-menu.js";
 import { tablerIcon } from "../../editor-icons.js";
 import { installImagePicker } from "../../image-picker.js";
+import { installZeroColorPicker } from "../ui/color-picker.js";
 import packageInfo from "../../../package.json";
 import "../../ui-theme.css";
 import "../zero.css";
@@ -161,6 +162,30 @@ export async function openZeroEditor({
       board().backgroundImage = src;
       board().backgroundImageName = assetName || description;
       changed();
+    },
+  });
+  const backgroundColorPicker = installZeroColorPicker({
+    host: zeroRoot,
+    read: () => ({ color: board().background, opacity: board().backgroundOpacity }),
+    apply: ({ color, opacity }, commit) => {
+      if (pendingField && pendingField !== "board:background") flushField();
+      pendingField = "board:background";
+      board().background = color;
+      board().backgroundOpacity = opacity;
+      if (commit) {
+        clearTimeout(fieldTimer);
+        changed();
+      } else {
+        dirty = true;
+        clearTimeout(timer);
+        drawCanvas();
+        status(conflict ? "Конфликт · локальные изменения сохранены в окне" : "Изменения не сохранены");
+        clearTimeout(fieldTimer);
+        fieldTimer = setTimeout(() => {
+          flushField();
+          if (dirty && !conflict) timer = setTimeout(save, 800);
+        }, 500);
+      }
     },
   });
   const addTrigger = $('[data-action="add-menu"]'),
@@ -1255,7 +1280,7 @@ export async function openZeroEditor({
       submit.disabled = false;
     }
   }
-  async function action(key) {
+  async function action(key, trigger = null) {
     flushField();
     $("#zero-context").hidden = true;
     if (key === "ai-zero") return openZeroAiPrompt();
@@ -1458,6 +1483,10 @@ export async function openZeroEditor({
       backgroundImagePicker.open(null, "Фоновое изображение секции", "Применить фон");
       return;
     }
+    if (key === "background-color") {
+      backgroundColorPicker.open(trigger);
+      return;
+    }
     if (key === "background-remove") {
       board().backgroundImage = "";
       board().backgroundImageName = "";
@@ -1545,7 +1574,7 @@ export async function openZeroEditor({
     }
     if (target.dataset.removeBreakpoint)
       return removeBreakpointFromManager(target.dataset.removeBreakpoint);
-    if (target.dataset.action) return action(target.dataset.action);
+    if (target.dataset.action) return action(target.dataset.action, target);
     if (target.dataset.add) {
       closeMobilePanels();
       return add(target.dataset.add);

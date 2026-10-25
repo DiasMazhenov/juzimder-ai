@@ -104,13 +104,20 @@ export function elementHTML(el, children = "") {
   return content;
 }
 function artboardBackgroundCSS(board) {
-  const color = /^(?:#[a-f\d]{6}|transparent)$/i.test(board.background || "")
+  const rawColor = /^(?:#[a-f\d]{6}|transparent)$/i.test(board.background || "")
       ? board.background
       : "#ffffff",
+    color = rawColor === "transparent" ? "#ffffff" : rawColor,
+    alpha = Number.isFinite(board.backgroundOpacity)
+      ? Math.max(0, Math.min(1, board.backgroundOpacity))
+      : rawColor === "transparent" ? 0 : 1,
+    colorCSS = alpha >= 1
+      ? color
+      : `rgba(${[1, 3, 5].map((index) => Number.parseInt(color.slice(index, index + 2), 16)).join(",")},${alpha})`,
     url = /^\/api\/projects\/[a-f\d]{24}\/assets\/[a-f\d]{24}\/file$/.test(
       board.backgroundImage || "",
     );
-  if (!url) return `background:${color};`;
+  if (!url) return `background:${colorCSS};`;
   const rgba = (key, opacityKey) => {
     const value = /^#[a-f\d]{6}$/i.test(board[key] || "") ? board[key] : "#000000",
       channels = [1, 3, 5].map((index) => Number.parseInt(value.slice(index, index + 2), 16)),
@@ -124,7 +131,7 @@ function artboardBackgroundCSS(board) {
       : "cover",
     positions = ["center center", "left top", "center top", "right top", "left center", "right center", "left bottom", "center bottom", "right bottom"],
     position = positions.includes(board.backgroundPosition) ? board.backgroundPosition : "center center";
-  return `background:${color};background-image:linear-gradient(180deg,${rgba("filterStartColor", "filterStartOpacity")},${rgba("filterEndColor", "filterEndOpacity")}),url("${board.backgroundImage}");background-size:${size};background-position:${position};background-repeat:no-repeat;`;
+  return `background:${colorCSS};background-image:linear-gradient(180deg,${rgba("filterStartColor", "filterStartOpacity")},${rgba("filterEndColor", "filterEndOpacity")}),url("${board.backgroundImage}");background-size:${size};background-position:${position};background-repeat:no-repeat;`;
 }
 export function renderZero(
   data,

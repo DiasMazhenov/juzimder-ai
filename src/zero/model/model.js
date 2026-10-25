@@ -187,6 +187,7 @@ export function createZeroData() {
           width,
           height: 650,
           background: "#ffffff",
+          backgroundOpacity: 1,
           backgroundImage: "",
           backgroundImageName: "",
           backgroundSize: "cover",
