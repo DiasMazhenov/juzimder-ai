@@ -101,6 +101,7 @@ final class AiZeroComposer {
         $generatedCardSurfaceCount=0;
         $cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);
         if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}
+        $decoded['elements']=self::normalizeNumberedProcessIcons($prompt,$decoded['elements'],(int)$board->width);
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
         $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
         $autoPhotoAdded=false;$automaticPhotoIndex=null;
@@ -110,7 +111,9 @@ final class AiZeroComposer {
         }
         self::normalizeLargeHeadingGeometry($decoded['elements'],(int)$board->width);
         $badgeIndex=self::promotePillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor']);
-        if($badgeIndex===null)$badgeIndex=self::insertPillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor']);
+        if($badgeIndex===null)$badgeIndex=self::insertPillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor'],$prompt);
+        self::normalizeGenericProcessBadge($prompt,$decoded['elements'],$badgeIndex,(int)$board->width);
+        if($badgeIndex!==null){$badgeCleanup=self::removeDuplicatePillBadgeLayers($decoded['elements'],$badgeIndex);$decoded['elements']=$badgeCleanup[0];$badgeIndex=$badgeCleanup[1];}
         $faqLayout=self::normalizeFaqDesktopLayout($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$badgeIndex);
         if($faqLayout)self::neutralizeUngroundedFaqAnswers($prompt,$decoded['elements'],$badgeIndex);
         if($generatedCardSurfaceCount===0&&($autoPhotoAdded||self::isHeroIntent($prompt)))self::normalizeHeroTextFlow($decoded['elements'],$badgeIndex,(int)$board->height);
@@ -407,17 +410,38 @@ final class AiZeroComposer {
         $item['textAlign']='center';$item['color']=self::readableTextColor((string)$item['color'],(string)$item['fill']);
         unset($item);return $index;
     }
-    private static function insertPillBadge(array &$items,int $boardWidth,string $background): ?int {
+    private static function insertPillBadge(array &$items,int $boardWidth,string $background,string $prompt=''): ?int {
         $headingIndex=null;
         foreach($items as $index=>$item)if(is_array($item)&&($item['type']??null)==='text'&&trim((string)($item['content']??''))!==''&&(float)($item['fontSize']??0)>=30&&($headingIndex===null||(float)$item['y']<(float)$items[$headingIndex]['y']))$headingIndex=$index;
         if($headingIndex===null)foreach($items as $index=>$item)if(is_array($item)&&($item['type']??null)==='text'&&trim((string)($item['content']??''))!==''&&preg_match('/(?:heading|title|hero|заголовок)/iu',(string)($item['name']??''))===1&&($headingIndex===null||(float)$item['y']<(float)$items[$headingIndex]['y']))$headingIndex=$index;
         if($headingIndex===null)return null;
         $heading=$items[$headingIndex];$words=preg_split('/\s+/u',trim((string)$heading['content']),-1,PREG_SPLIT_NO_EMPTY)?:[];if(!$words)return null;
-        $label=$words[0];if(in_array(mb_strtolower($label,'UTF-8'),['a','an','the','our','your','для','о','об','наш','наша','наше','ваш','ваша','ваше'],true)&&isset($words[1]))$label=$words[1];
+        $label=preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)===1?'Этапы работы':$words[0];if(in_array(mb_strtolower($label,'UTF-8'),['a','an','the','our','your','для','о','об','наш','наша','наше','ваш','ваша','ваше'],true)&&isset($words[1]))$label=$words[1];
         $x=max(0,min($boardWidth-1,(int)round((float)$heading['x'])));$fontSize=14;$width=min(max(1,$boardWidth-$x),max(88,(int)ceil(mb_strlen($label,'UTF-8')*$fontSize*.62+24)));
         $background=preg_match('/^#[A-Fa-f0-9]{6}$/D',$background)?$background:'#ffffff';$light=self::colorLuminance($background)>=.42;$fill=self::blendColor($background,$light?'#CFE8D0':'#FFFFFF',$light?.55:.18);$text=self::readableTextColor((string)($heading['color']??'#222629'),$fill);
         $badge=['type'=>'text','name'=>'Section badge','content'=>$label,'photoQuery'=>'','icon'=>'','x'=>$x,'y'=>max(0,(int)round((float)$heading['y']-48)),'width'=>$width,'height'=>32,'fill'=>$fill,'color'=>$text,'stroke'=>$fill,'radius'=>16,'fontSize'=>$fontSize,'fontWeight'=>700,'textAlign'=>'center'];
         array_splice($items,$headingIndex,0,[$badge]);return $headingIndex;
+    }
+
+    /** Replace question-word badges such as "Как" with a meaningful label on process sections. */
+    private static function normalizeGenericProcessBadge(string $prompt,array &$items,?int $badgeIndex,int $boardWidth): void {
+        if($badgeIndex===null||!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text'||preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1)return;
+        if(preg_match('/^(?:как|что|где|когда|почему|кто|how|what|where|when|why|who)[?!.,:;]*$/iu',trim((string)($items[$badgeIndex]['content']??'')))!==1)return;
+        $items[$badgeIndex]['content']='Этапы работы';$font=max(11,min(14,(int)($items[$badgeIndex]['fontSize']??14)));$items[$badgeIndex]['width']=min(max(1,$boardWidth-(int)$items[$badgeIndex]['x']),max(88,(int)ceil(mb_strlen('Этапы работы','UTF-8')*$font*.62+24)));
+    }
+
+    /** Keep one identical label above the section heading after model and server badge normalization. */
+    private static function removeDuplicatePillBadgeLayers(array $items,int $badgeIndex): array {
+        if(!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text')return [$items,$badgeIndex];
+        $label=mb_strtolower(trim(preg_replace('/\s+/u',' ',(string)($items[$badgeIndex]['content']??''))??''),'UTF-8');if($label==='')return [$items,$badgeIndex];
+        $headingY=PHP_FLOAT_MAX;foreach($items as $item)if(is_array($item)&&($item['type']??null)==='text'&&(float)($item['fontSize']??0)>=30)$headingY=min($headingY,(float)($item['y']??0));
+        if($headingY===PHP_FLOAT_MAX)return [$items,$badgeIndex];
+        $result=[];$nextBadgeIndex=null;
+        foreach($items as $index=>$item){$content=is_array($item)&&($item['type']??null)==='text'?mb_strtolower(trim(preg_replace('/\s+/u',' ',(string)($item['content']??''))??''),'UTF-8'):'';
+            if($index!==$badgeIndex&&$content!==''&&$content===$label&&(float)($item['y']??0)<$headingY)continue;
+            if($index===$badgeIndex)$nextBadgeIndex=count($result);$result[]=$item;
+        }
+        return [$result,$nextBadgeIndex??$badgeIndex];
     }
 
     /** Add consistent editable card surfaces when the model lays out three text-led service cards but omits their backgrounds. */
@@ -633,7 +657,9 @@ final class AiZeroComposer {
                 if($y<$bestY){$best=$index;$bestY=$y;}
             }
             if($best===null)return [];
-            $claimed[$title['index']]=true;$claimed[$best]=true;$cards[]=['number'=>$title['number'],'title'=>$title['index'],'description'=>$best,'y'=>$title['y']];
+            $icon=null;$iconDistance=PHP_FLOAT_MAX;$titleItem=$items[$title['index']];$titleLeft=(float)$titleItem['x'];$titleRight=$titleLeft+(float)$titleItem['width'];$titleTop=(float)$titleItem['y'];$titleBottom=$titleTop+(float)$titleItem['height'];
+            foreach($items as $iconIndex=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='vector'||isset($claimed[$iconIndex])||$iconIndex===$title['index']||(float)($candidate['width']??0)>120||(float)($candidate['height']??0)>120)continue;$iconLeft=(float)$candidate['x'];$iconRight=$iconLeft+(float)$candidate['width'];$iconTop=(float)$candidate['y'];$iconBottom=$iconTop+(float)$candidate['height'];$horizontalGap=max(0,max($titleLeft-$iconRight,$iconLeft-$titleRight));$verticalGap=max(0,max($titleTop-$iconBottom,$iconTop-$titleBottom));if($horizontalGap>$xTolerance||$verticalGap>max(72,(float)$titleItem['height']*1.5))continue;$distance=$horizontalGap+$verticalGap*1.5;if($distance<$iconDistance){$icon=$iconIndex;$iconDistance=$distance;}}
+            $claimed[$title['index']]=true;$claimed[$best]=true;if($icon!==null)$claimed[$icon]=true;$cards[]=['number'=>$title['number'],'title'=>$title['index'],'description'=>$best,'icon'=>$icon,'y'=>$title['y']];
         }
         usort($cards,static fn(array $a,array $b):int=>$a['number']<=>$b['number']);
         $firstStepY=min(array_column($cards,'y'));$intro=[];$post=[];$actions=[];
@@ -652,7 +678,8 @@ final class AiZeroComposer {
             foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
             foreach($cards as $card){
                 $title=$card['title'];$description=$card['description'];
-                $cursor+=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin,$cursor,$contentWidth,null,true)+3;
+                if($card['icon']!==null){$icon=$card['icon'];$result[$icon][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cursor,'width'=>28,'height'=>28]];$titleHeight=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin+36,$cursor,max(1,$contentWidth-36),null,true);$cursor+=max(28,$titleHeight)+3;}
+                else $cursor+=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin,$cursor,$contentWidth,null,true)+3;
                 $cursor+=self::mobileFlowOverride($result,$description,(string)$mode,$items[$description],$margin,$cursor,$contentWidth,null,true)+14;
             }
             foreach($post as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
@@ -660,6 +687,22 @@ final class AiZeroComposer {
             self::fitMobileCardStackToArtboard($result,(string)$mode,$board,$margin,$items);
         }
         return $result;
+    }
+
+    /** Give medical process steps distinct icons based on their editable title text. */
+    private static function normalizeNumberedProcessIcons(string $prompt,array $items,int $boardWidth): array {
+        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1||preg_match('/(?:клиник|медицин|врач|доктор|здоров|больниц|поликлиник|пациент|лечен|осмотр|диагност|clinic|medical|doctor|healthcare|hospital|patient|treat)/iu',$prompt)!==1)return $items;
+        $titles=[];$xTolerance=max(48,(int)round($boardWidth*.05));
+        foreach($items as $index=>$item)if(is_array($item)&&($item['type']??null)==='text'&&preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)===1)$titles[]=['index'=>$index,'number'=>(int)$match[1]];
+        usort($titles,static fn(array $a,array $b):int=>$a['number']<=>$b['number']);$claimed=[];
+        foreach($titles as $title){$titleItem=$items[$title['index']];$titleLeft=(float)$titleItem['x'];$titleRight=$titleLeft+(float)$titleItem['width'];$titleTop=(float)$titleItem['y'];$titleBottom=$titleTop+(float)$titleItem['height'];$best=null;$bestDistance=PHP_FLOAT_MAX;
+            foreach($items as $index=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='vector'||isset($claimed[$index])||(float)($candidate['width']??0)>120||(float)($candidate['height']??0)>120)continue;$left=(float)$candidate['x'];$right=$left+(float)$candidate['width'];$top=(float)$candidate['y'];$bottom=$top+(float)$candidate['height'];$horizontal=max(0,max($titleLeft-$right,$left-$titleRight));$vertical=max(0,max($titleTop-$bottom,$top-$titleBottom));if($horizontal>$xTolerance||$vertical>max(72,(float)$titleItem['height']*1.5))continue;$distance=$horizontal+$vertical*1.5;if($distance<$bestDistance){$best=$index;$bestDistance=$distance;}}
+            $label=mb_strtolower((string)$titleItem['content'].' '.(string)($titleItem['name']??''),'UTF-8');$iconName=match(true){preg_match('/diagnos|исслед|лаборатор|анализ|test/iu',$label)===1=>'microscope',preg_match('/осмотр|первич|консультац|при[её]м|exam|visit/iu',$label)===1=>'stethoscope',preg_match('/план|лечен|терап|treat|therapy/iu',$label)===1=>'first-aid-kit',preg_match('/поддерж|сопровожд|follow.?up|support|care/iu',$label)===1=>'plus',default=>match((int)$title['number']){1=>'stethoscope',2=>'microscope',3=>'first-aid-kit',default=>'plus'}};
+            $iconX=max(0,(int)round((float)$titleItem['x']-36));$iconY=max(0,(int)round((float)$titleItem['y']+max(0,((float)$titleItem['height']-28)/2)));
+            if($best===null){if(count($items)>=20)continue;$best=count($items);$items[]=['type'=>'vector','name'=>sprintf('AI step %02d icon',$title['number']),'content'=>'','photoQuery'=>'','icon'=>$iconName,'x'=>$iconX,'y'=>$iconY,'width'=>28,'height'=>28,'fill'=>'transparent','color'=>'#61892F','stroke'=>'transparent','radius'=>0,'fontSize'=>28,'fontWeight'=>400,'textAlign'=>'center'];}
+            $claimed[$best]=true;$items[$best]['icon']=$iconName;$items[$best]['x']=$iconX;$items[$best]['y']=$iconY;$items[$best]['width']=28;$items[$best]['height']=28;
+        }
+        return $items;
     }
 
     private static function mobileCardStack(array $items,\stdClass $data,?int $badgeIndex=null): array {
