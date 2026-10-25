@@ -1141,7 +1141,10 @@ export async function openZeroEditor({
       selection = new Set([...selection].filter((id) => findElement(data, id)));
       dirty = JSON.stringify(data) !== JSON.stringify(baseData);
       clearTimeout(timer);
-      if (!conflict) timer = setTimeout(save, 1200);
+      if (!conflict) {
+        status(dirty ? "Изменения не сохранены" : `Сохранено · ревизия ${version}`);
+        if (dirty) timer = setTimeout(save, 1200);
+      }
       render();
       return;
     }

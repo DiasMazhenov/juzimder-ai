@@ -1,6 +1,8 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.131. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.132. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.132 — Undo/Redo derives save status from the current document versus the saved base. Returning to saved content shows `Сохранено · ревизия N`; dirty changes remain marked unsaved, and conflicts retain their status. A clean state no longer schedules an unnecessary autosave. Browser acceptance on the existing Zero Editor tab verified Cmd+Z after Mobile primary adaptation; the editor showed `Сохранено · ревизия 254`. The temporary test auto-saved as revision 253 before Undo, so project history restored the original revision-252 composition as revision 254; the editor was returned to Desktop with 10 layers. `npm run build` and full `npm test` pass; Vite’s existing large GrapesJS chunk warning remains. Stale publication and responsive QA-composition findings remain open.
 
 ## Architecture decision (Z0)
 
