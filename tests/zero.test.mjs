@@ -393,6 +393,37 @@ test("Zero Tooltip renders escaped text and appears on hover or keyboard focus",
   assert.match(menuSource, /\["tooltip", "Подсказка", "message"\]/);
   assert.match(menuSource, /disabled: type !== "tooltip"/);
 });
+test("Zero Vector uses a curated Tabler icon with safe, accessible rendering", () => {
+  const data = createZeroData(),
+    vector = createElement("vector");
+  vector.id = "ze-safe-vector";
+  vector.name = 'Arrow & "mark"';
+  vector.icon = "arrow-right";
+  data.elements.push(vector);
+  const html = renderZero(data, "zero-vector"),
+    inspector = renderInspector({
+      items: [{ element: vector }],
+      mode: "desktop",
+      board: data.artboards.desktop,
+      project: {},
+    }),
+    menuSource = readFileSync(
+      new URL("../src/zero/ui/element-menu.js", import.meta.url),
+      "utf8",
+    );
+  assert.match(html, /class="jz-zero-element jz-zero-vector" data-ze="ze-safe-vector" role="img" aria-label="Arrow &amp; &quot;mark&quot;"/);
+  assert.match(html, /<svg class="tabler-editor-icon" aria-hidden="true"/);
+  assert.match(html, /\.jz-zero-vector>svg\{display:block;width:100%;height:100%/);
+  assert.match(inspector, /<select data-element="icon">/);
+  assert.match(inspector, /value="arrow-right" selected>Стрелка вправо/);
+  assert.match(inspector, /Произвольный SVG-код не принимается/);
+  assert.match(menuSource, /type: "vector"/);
+  assert.doesNotMatch(menuSource, /type: "vector",[\s\S]{0,100}disabled: true/);
+  vector.icon = "<svg onload=alert(1)>";
+  const safeFallback = renderZero(data, "zero-vector-invalid-icon");
+  assert.match(safeFallback, /jz-zero-vector/);
+  assert.doesNotMatch(safeFallback, /onload=/);
+});
 test("Zero Block buttons use flex centering and keep the label centered", () => {
   const data = createZeroData(),
     button = createElement("button");
@@ -468,6 +499,21 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
   assert.equal(validate(tooltipDocument), false);
   tooltip.content = "x".repeat(2001);
   assert.equal(validate(tooltipDocument), false);
+  const vectorDocument = structuredClone(doc),
+    vector = structuredClone(fixture.elements[0]);
+  vector.id = "ze-schema-vector";
+  vector.type = "vector";
+  vector.name = "Safe vector";
+  vector.icon = "arrow-right";
+  vectorDocument.data.pages[0].frames[0].component.components[0].zeroData.elements = [vector];
+  assert.equal(validate(vectorDocument), true, JSON.stringify(validate.errors));
+  delete vector.icon;
+  assert.equal(validate(vectorDocument), false);
+  vector.icon = "<svg onload=alert(1)>";
+  assert.equal(validate(vectorDocument), false);
+  vector.type = "text";
+  vector.icon = "arrow-right";
+  assert.equal(validate(vectorDocument), false);
   const custom = structuredClone(doc);
   custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
     "bp-12345678"

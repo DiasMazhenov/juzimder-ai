@@ -7,6 +7,8 @@ import {
   scaledGridLength,
 } from "./model/model.js";
 import { sandboxFrame } from "./sandbox.js";
+import iconCatalogue from "../../resources/tabler-editor/catalogue.json" with { type: "json" };
+import { VECTOR_ICON_NAMES } from "./model/vector-icons.js";
 export const escapeHTML = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -20,6 +22,13 @@ function hasTooltip(elements) {
     (element) =>
       element.type === "tooltip" ||
       (element.children?.length && hasTooltip(element.children)),
+  );
+}
+function hasVector(elements) {
+  return elements.some(
+    (element) =>
+      element.type === "vector" ||
+      (element.children?.length && hasVector(element.children)),
   );
 }
 export function elementHTML(el, children = "") {
@@ -40,6 +49,10 @@ export function elementHTML(el, children = "") {
     const id = `jz-tooltip-${escapeHTML(el.id)}`;
     return `<button class="jz-zero-tooltip-trigger" type="button" aria-label="Показать подсказку" aria-describedby="${id}">?</button><span class="jz-zero-tooltip-popover" id="${id}" role="tooltip">${content}</span>`;
   }
+  if (el.type === "vector")
+    return VECTOR_ICON_NAMES.includes(el.icon)
+      ? iconCatalogue[el.icon]
+      : iconCatalogue["arrow-right"];
   if (el.type === "group") return children;
   return content;
 }
@@ -68,6 +81,8 @@ export function renderZero(
     " .jz-zero-code[data-code-running=\"true\"]{pointer-events:auto}";
   if (hasTooltip(data.elements))
     css += `.${scope} .jz-zero-tooltip{overflow:visible!important;white-space:normal}.${scope} .jz-zero-tooltip-trigger{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:28px;height:28px;padding:0;border:1px solid currentColor;border-radius:50%;background:transparent;color:inherit;font:inherit;line-height:1;cursor:help}.${scope} .jz-zero-tooltip-popover{position:absolute;left:50%;top:calc(100% + 8px);z-index:10000;width:max-content;max-width:280px;box-sizing:border-box;padding:8px 12px;border:0;border-radius:8px;background:#183e31;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-50%);transition:opacity .12s ease,visibility .12s ease}.${scope} .jz-zero-tooltip:hover .jz-zero-tooltip-popover, .${scope} .jz-zero-tooltip:focus-within .jz-zero-tooltip-popover{opacity:1;visibility:visible}`;
+  if (hasVector(data.elements))
+    css += `.${scope} .jz-zero-vector{display:flex;align-items:center;justify-content:center}.${scope} .jz-zero-vector>svg{display:block;width:100%;height:100%;max-width:100%;max-height:100%}`;
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
@@ -148,7 +163,7 @@ export function renderZero(
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
         if (el.type === "html") return body;
-        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);

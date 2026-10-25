@@ -28,7 +28,6 @@ export function renderZeroElementMenu() {
     type: "vector",
     label: "Вектор",
     iconName: "vector-bezier",
-    disabled: true,
   });
   const customCode = menuItem({ type: "html", label: "HTML", iconName: "code" });
   const additional = [

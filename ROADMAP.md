@@ -78,13 +78,14 @@
 - [x] 00.00.107: per-breakpoint Grid Autoscale: пропорциональная геометрия, типографика и высота секции; Window Container остаётся фиксированным. Схема, backend validator и JS/PHP renderer согласованы.
 - [x] 00.00.108: Zero Block breakpoint widths are dynamic; modes can be added, removed, and resized, with Tabler device icons, safe base promotion, and width-derived media ranges in both renderers.
 - [x] 00.00.108: Codex Browser persistence acceptance for custom widths. Version 00.00.121 saved a 768 px breakpoint with geometry/style overrides, verified it after reload, removed it and verified the original 360/1200 configuration after another reload.
-- [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. HTML became active with its safe iframe renderer in 00.00.123; Vector, Video, Tooltip, Form and Gallery remain disabled until their renderers exist.
+- [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts.
 - [x] 00.00.110: Zero Block in the main editor follows its selected device mode even when the responsive iframe falls below the desktop breakpoint; buttons center labels on both axes in the Zero Editor and static renderer.
 - [x] 00.00.111: Zero Editor chrome follows Juzimder colors and text scale; toolbar icons share centered alignment, and breakpoint settings sit beside the device selectors.
 - [x] 00.00.112: Layers button hides the full sidebar when off; grouped layers have compact icons/text and expandable nested contents; Add Element control is half-size.
 - [x] 00.00.123: Zero HTML is an additive `zeroData v1` element with bounded payload validation, CSP-protected opaque iframe rendering, Preview-only editor execution, and no script permission when JS is empty.
 - [x] 00.00.124: Fixed editor Preview bootstrap under inherited `srcdoc` CSP by issuing a per-request nonce in the editor shell and reusing it in the isolated child frame; `script-src` still has no `unsafe-inline`. Codex Browser reloaded saved revision 229 and confirmed JavaScript execution in the sandbox, with no console errors/warnings. Full automated checks and documentation are recorded for this release; ZIP/public visual acceptance remains open.
 - [x] 00.00.125: Added a Zero Tooltip as bounded plain text rendered by both the editor and PHP exporter. The accessible question-mark trigger reveals escaped text on hover or keyboard focus; Project Data requires text up to 2,000 characters, and the element uses no JavaScript. Added menu/inspector support and preview/ZIP/public integration coverage. ZIP visual acceptance remains open.
+- [x] 00.00.126: Zero Vector is an additive typed element using a curated local Tabler SVG allowlist. Only icon keys are stored; PHP/schema reject unapproved keys and arbitrary SVG. The Inspector can change the icon; editor, saved preview, static ZIP and public render use the same safe markup. Video, Form and Gallery remain planned.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [x] Autoscale в сохранённом HTML preview: при viewport 1228 → 1440 px высота Desktop-секции масштабировалась 1023.33 → 1200 px и Grid-линия 496.55 → 582.27 px; Window Container сохранил ширину 1200 px. `fixed` восстановлен, reload подтвердил исходные 1000 px / 485.23 px в revision 225.
 - [ ] Полная визуальная матрица Autoscale для ориентаций, ширин и каждого breakpoint.
@@ -599,7 +600,7 @@ Breakpoint manager now supports editable widths, adding and removing modes, and 
 
 ## Zero Block · 00.00.109
 
-The former sidebar element list is now a Tilda-style floating palette anchored below a round plus button. Text, image, shapes and buttons remain immediately addable; shape variants expand to rectangle, ellipse and line. Shortcut chips are live for T, Shift+I, R and B. Additional vector, video, HTML, tooltip, form and gallery types are visible but disabled until their safe renderers are implemented. The palette closes on item selection, Escape and outside pointer. It uses local Tabler Outline SVG assets; no CDN is involved.
+The former sidebar element list is now a Tilda-style floating palette anchored below a round plus button. Text, image, shapes, buttons, allowlisted Tabler Vector icons, HTML and Tooltip are addable; shape variants expand to rectangle, ellipse and line. Shortcut chips are live for T, Shift+I, R and B. Video, Form and Gallery remain disabled until their safe renderers are implemented. The palette closes on item selection, Escape and outside pointer. It uses local Tabler Outline SVG assets; no CDN is involved.
 
 ## Zero Block · 00.00.110
 

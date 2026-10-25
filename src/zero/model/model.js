@@ -205,6 +205,7 @@ export function createElement(type, tokens = {}) {
     image: [360, 240],
     button: [220, 54],
     tooltip: [36, 36],
+    vector: [64, 64],
     html: [420, 260],
     group: [400, 300],
     rectangle: [240, 180],
@@ -220,6 +221,7 @@ export function createElement(type, tokens = {}) {
       image: "Фото",
       button: "Кнопка",
       tooltip: "Подсказка",
+      vector: "Вектор",
       html: "HTML",
       group: "Группа",
       rectangle: "Прямоугольник",
@@ -274,6 +276,7 @@ export function createElement(type, tokens = {}) {
     ...(type === "html"
       ? { code: { html: "", css: "", js: "" } }
       : {}),
+    ...(type === "vector" ? { icon: "arrow-right" } : {}),
   };
 }
 export function resolve(element, mode) {

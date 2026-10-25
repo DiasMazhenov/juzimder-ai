@@ -367,7 +367,8 @@
             "button",
             "tooltip",
             "group",
-            "html"
+            "html",
+            "vector"
           ]
         },
         "name": {
@@ -389,6 +390,31 @@
         "content": {
           "type": "string",
           "maxLength": 10000
+        },
+        "icon": {
+          "enum": [
+            "arrow-left",
+            "arrow-right",
+            "arrow-up",
+            "arrow-down",
+            "chevron-right",
+            "plus",
+            "minus",
+            "x",
+            "link",
+            "search",
+            "photo",
+            "eye",
+            "settings",
+            "download",
+            "copy",
+            "square",
+            "circle",
+            "menu",
+            "trash",
+            "lock",
+            "lock-open"
+          ]
         },
         "tag": {
           "enum": [
@@ -626,6 +652,16 @@
               "content": { "type": "string", "maxLength": 2000 }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "vector" }
+            },
+            "required": ["type"]
+          },
+          "then": { "required": ["icon"] },
+          "else": { "not": { "required": ["icon"] } }
         }
       ]
     },

@@ -1,4 +1,5 @@
 import { breakpointName, resolve } from "../model/model.js";
+import { VECTOR_ICONS } from "../model/vector-icons.js";
 import { escapeHTML as esc } from "../render.js";
 const MODE_NAMES = {};
 const GEOMETRY = ["x", "y", "width", "height", "rotation"];
@@ -45,7 +46,8 @@ export function renderInspector({ items, mode, board, project }) {
         mode !== "desktop" &&
         original &&
         Object.hasOwn(original.overrides?.[mode]?.[section] || {}, key);
-    return `<label class="${overridden ? "zero-overridden" : ""}"><span>${LABELS[key] || key}${mode !== "desktop" ? (overridden ? " •" : " ↳") : ""}</span>${options ? `<select data-section="${section}" data-key="${key}">${options.map((v) => `<option value="${esc(v)}" ${String(value) === String(v) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>` : `<input data-section="${section}" data-key="${key}" type="${type}" value="${esc(value)}" ${min !== null ? `min="${min}"` : ""} ${max !== null ? `max="${max}"` : ""} step="any">`}</label>`;
+    const label = original?.type === "vector" && key === "color" ? "Цвет иконки" : LABELS[key] || key;
+    return `<label class="${overridden ? "zero-overridden" : ""}"><span>${label}${mode !== "desktop" ? (overridden ? " •" : " ↳") : ""}</span>${options ? `<select data-section="${section}" data-key="${key}">${options.map((v) => `<option value="${esc(v)}" ${String(value) === String(v) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>` : `<input data-section="${section}" data-key="${key}" type="${type}" value="${esc(value)}" ${min !== null ? `min="${min}"` : ""} ${max !== null ? `max="${max}"` : ""} step="any">`}</label>`;
   }
   function inspectorMarkup() {
     const el = items[0]?.element;
@@ -92,10 +94,25 @@ export function renderInspector({ items, mode, board, project }) {
       )}</div>${mode !== "desktop" ? '<button data-action="reset-override">Сбросить override элемента</button>' : ""}`;
   }
   const markup = inspectorMarkup();
-  if (items[0]?.element?.type !== "tooltip") return markup;
-  const tooltipInspector = `<h2>Подсказка</h2><label>Текст подсказки<textarea data-element="content" rows="4" maxlength="2000">${esc(items[0].element.content || "")}</textarea></label><p class="zero-help">Показывается при наведении на значок и при фокусе клавиатурой.</p>`;
-  return markup.replace(
-    "<h2>Действия</h2>",
-    `${tooltipInspector}<h2>Действия</h2>`,
-  );
+  const selected = items[0]?.element;
+  if (selected?.type === "tooltip") {
+    const tooltipInspector = `<h2>Подсказка</h2><label>Текст подсказки<textarea data-element="content" rows="4" maxlength="2000">${esc(selected.content || "")}</textarea></label><p class="zero-help">Показывается при наведении на значок и при фокусе клавиатурой.</p>`;
+    return markup.replace(
+      "<h2>Действия</h2>",
+      `${tooltipInspector}<h2>Действия</h2>`,
+    );
+  }
+  if (selected?.type === "vector") {
+    const options = Object.entries(VECTOR_ICONS)
+      .map(
+        ([name, label]) =>
+          `<option value="${esc(name)}" ${selected.icon === name ? "selected" : ""}>${esc(label)}</option>`,
+      )
+      .join("");
+    return markup.replace(
+      "<h2>Действия</h2>",
+      `<h2>Вектор</h2><label>Иконка<select data-element="icon">${options}</select></label><p class="zero-help">Встроенная Tabler Outline иконка. Произвольный SVG-код не принимается.</p><h2>Действия</h2>`,
+    );
+  }
+  return markup;
 }
