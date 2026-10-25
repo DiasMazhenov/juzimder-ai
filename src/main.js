@@ -8,7 +8,9 @@ import { tablerIcon, tablerCoreIcons, installEditorIcons, updateFlexIcons } from
 import { backgroundValue, installBackgroundControls } from './editor-background.js';
 import { persistedComponentId } from './component-identity.js';
 import 'grapesjs/dist/css/grapes.min.css';
+import './ui-theme.css';
 import './style.css';
+import './ui-overrides.css';
 import { blocks, registerBlocks } from './blocks.js';
 import { installComponentActions } from './component-actions.js';
 import { removeUnassignedImageSlot } from './ai-image-slots.js';

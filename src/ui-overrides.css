@@ -1,0 +1,320 @@
+/* Main app screens; the Zero editor has its own scoped rules below. */
+#app:not(:has(.zero-app)) {
+  color-scheme: dark;
+  color: var(--jz-ui-text);
+  background: var(--jz-ui-bg);
+  --surface: var(--jz-ui-panel);
+  --line: var(--jz-ui-border);
+  --muted: var(--jz-ui-text-muted);
+  --accent: var(--jz-ui-accent);
+}
+
+#app:not(:has(.zero-app)) :is(button, input, select, textarea) {
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) button:hover:not(:disabled) {
+  background: var(--jz-ui-hover);
+}
+
+#app:not(:has(.zero-app)) button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+#app:not(:has(.zero-app)) :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--jz-ui-focus);
+  outline-offset: 2px;
+}
+
+#app:not(:has(.zero-app)) :is(input, textarea, select) {
+  border-color: var(--jz-ui-border);
+  background: var(--jz-ui-bg);
+}
+
+#app:not(:has(.zero-app)) :is(input, textarea)::placeholder {
+  color: var(--jz-ui-text-muted);
+  opacity: 0.82;
+}
+
+#app:not(:has(.zero-app)) :is(input, textarea, select):focus {
+  border-color: var(--jz-ui-focus);
+  box-shadow: 0 0 0 2px rgb(134 194 50 / 24%);
+}
+
+#app:not(:has(.zero-app)) :is(.primary, button.primary),
+#app:not(:has(.zero-app)) :is(.primary, button.primary):hover:not(:disabled) {
+  border-color: var(--jz-ui-accent);
+  background: var(--jz-ui-accent);
+  color: var(--jz-ui-on-accent);
+}
+
+#app:not(:has(.zero-app)) :is(.primary, button.primary):hover:not(:disabled) {
+  border-color: var(--jz-ui-accent-hover);
+  background: var(--jz-ui-accent-hover);
+}
+
+#app:not(:has(.zero-app)) :is(.error, #create-error, #page-dialog-error, .page-rename-error, .ai-component-editor [data-status="error"]) {
+  color: var(--jz-ui-error) !important;
+}
+
+#app:not(:has(.zero-app)) :is(.danger-action, .ai-profile-form .danger-action, .ai-skill-form .danger-action, .component-context-menu .danger-action) {
+  color: var(--jz-ui-error);
+}
+
+#app:not(:has(.zero-app)) :is(.danger-action, .ai-profile-form .danger-action, .ai-skill-form .danger-action, .component-context-menu .danger-action):hover {
+  border-color: var(--jz-ui-error);
+  background: var(--jz-ui-error-surface);
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) dialog {
+  border-color: var(--jz-ui-border);
+  background: var(--jz-ui-panel);
+  color: var(--jz-ui-text);
+  box-shadow: 0 24px 80px var(--jz-ui-shadow);
+}
+
+#app:not(:has(.zero-app)) dialog::backdrop {
+  background: var(--jz-ui-overlay);
+}
+
+#app:not(:has(.zero-app)) :is(.auth-story, .dash-sidebar, .editor-top, .editor-left, .editor-right, .editor-status, .mobile-workspace-tabs, .settings-nav, .settings-content, .pages-table-wrap, .pages-table, .system-items > div, .project-card, .settings-dashboard .dash-sidebar .sidebar-settings-nav, .ai-profile-card, .ai-profile-form, .ai-plan-panel, .ai-component-editor, .ai-image-slot-chooser, .ai-taste-audit, .publication-panel, .component-context-menu, .page-menu-popover, .asset-card, .image-source-tabs, .page-switcher-menu) {
+  border-color: var(--jz-ui-border);
+  background-color: var(--jz-ui-panel);
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) :is(.dash-top, .editor-status, .mobile-workspace-tabs, .editor-shell, .editor-center, .canvas-wrap) {
+  background-color: var(--jz-ui-bg);
+}
+
+#app:not(:has(.zero-app)) :is(.canvas-toolbar, .block-card, .new-card, .settings-notice, .settings-planned, .ai-profile-card, .ai-profile-form, .ai-plan-panel, .ai-plan-copy-section, .ai-component-editor, .ai-component-change, .ai-image-slot-chooser, .ai-image-slot-thumb, .ai-taste-audit, .asset-card, .asset-upload-zone, .page-menu-popover, .page-switcher-menu, .page-switcher-trigger, .page-rename-action, .system-icon, .editor-floating-tools button, .flex-option, .page-settings-tabs, .ai-component-change-values > div, .ai-skill-form, .ai-skill-rules-help, .ai-taste-review) {
+  border-color: var(--jz-ui-border);
+  background-color: var(--jz-ui-panel-raised);
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) :is(.dash-sidebar .nav-active, .settings-nav a.active, .settings-dashboard .sidebar-settings-nav a.active, .mobile-workspace-tabs button[aria-pressed="true"], .editor-floating-tools button[aria-pressed="true"], .flex-option.active, .ai-profile-card.selected, .ai-image-slot-card[aria-pressed="true"], .image-source-tabs [aria-pressed="true"], .asset-card[aria-pressed="true"], .page-switcher-option[aria-selected="true"], .page-switcher-option:hover, .page-switcher-option:focus-visible, .library-categories button[aria-pressed="true"], .library-categories button:hover, .block-list .block-card:hover, .component-context-menu button:hover:not(:disabled), .component-context-menu button:focus-visible, .page-menu-popover a:hover, .page-menu-popover button:hover) {
+  border-color: var(--jz-ui-selection-border);
+  background-color: var(--jz-ui-selected);
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) :is(.dash-sidebar .nav-active, .settings-nav a.active, .settings-dashboard .sidebar-settings-nav a.active, .mobile-workspace-tabs button[aria-pressed="true"], .editor-floating-tools button[aria-pressed="true"], .flex-option.active, .page-switcher-option[aria-selected="true"]::before, .block-card b, .project-arrow, .brand-mark i, .status-dot, .plus, .home-state.is-home, .library-categories button[aria-pressed="true"]) {
+  color: var(--jz-ui-accent);
+}
+
+#app:not(:has(.zero-app)) :is(.dash-sidebar .nav-active, .settings-nav a.active, .settings-dashboard .sidebar-settings-nav a.active, .mobile-workspace-tabs button[aria-pressed="true"], .editor-floating-tools button[aria-pressed="true"], .flex-option.active, .page-switcher-option[aria-selected="true"], .ai-profile-card.selected) {
+  box-shadow: inset 3px 0 var(--jz-ui-accent-secondary);
+}
+
+#app:not(:has(.zero-app)) :is(.panel-tabs button, .block-card small, .library-foot, .project-info p, .dash-footer, .auth-foot, .workspace-label, .sidebar-note p, .page-count, .page-revision-link, .settings-content .muted, .settings-notice p, .settings-items small, .history-row time, .asset-card-info small, .ai-plan-facts p span, .ai-plan-section-label, .ai-plan-preview > .small, .ai-taste-audit li small, .page-switcher-current, .size-controls > .small, .inspector-hint) {
+  color: var(--jz-ui-text-muted);
+}
+
+#app:not(:has(.zero-app)) :is(.project-card, .new-card, .block-card, .page-menu[open] summary, .page-menu summary:hover, .page-switcher-trigger:hover, .page-switcher-trigger[aria-expanded="true"], .page-rename-action:hover, .asset-upload-zone.drag-over, .editor-floating-tools button:hover, .flex-option:hover) {
+  border-color: var(--jz-ui-accent-secondary);
+}
+
+#app:not(:has(.zero-app)) :is(.project-card, .new-card, .page-menu[open] summary, .page-menu summary:hover, .page-switcher-trigger:hover, .page-switcher-trigger[aria-expanded="true"], .page-switcher-option.is-renaming, .page-switcher-rename-input, .page-rename-action, .library-filter input, .asset-upload-zone, .asset-upload-zone.drag-over, .ai-component-editor textarea, .ai-skill-form input[type="file"], .site-preview-selector select, .editor-floating-tools button, .flex-option, .ai-component-change-values > div) {
+  background-color: var(--jz-ui-panel-raised);
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) :is(.page-switcher-option, .page-menu-popover a, .page-menu-popover button) {
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) :is(.project-name, .page-title, .page-rename-action, .secondary-link, .text-button):hover {
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) :is(.status-dot, .brand-mark i, .plus, .page-switcher-option[aria-selected="true"]::before) {
+  background-color: var(--jz-ui-accent);
+}
+
+#app:not(:has(.zero-app)) :is(.page-settings-tabs [aria-pressed="true"], .image-source-tabs [aria-pressed="true"]) {
+  border-color: var(--jz-ui-accent);
+  background-color: var(--jz-ui-accent);
+  color: var(--jz-ui-on-accent);
+}
+
+#app:not(:has(.zero-app)) :is(.settings-notice, .ai-plan-panel, .publication-panel, .ai-image-slot-chooser, .ai-taste-audit, .ai-component-editor) {
+  background-color: var(--jz-ui-panel);
+}
+
+#app:not(:has(.zero-app)) :is(.settings-notice-icon, .system-icon) {
+  background-color: var(--jz-ui-muted-surface);
+}
+
+#app:not(:has(.zero-app)) .publication-stale {
+  border-color: var(--jz-ui-warning);
+  background: var(--jz-ui-panel-raised);
+  color: var(--jz-ui-warning);
+}
+
+#app:not(:has(.zero-app)) .ai-taste-audit li[data-status="passed"] {
+  color: var(--jz-ui-text);
+  border-inline-start: 3px solid var(--jz-ui-accent);
+}
+
+#app:not(:has(.zero-app)) .ai-taste-audit li[data-status="failed"] {
+  color: var(--jz-ui-error);
+}
+
+#app:not(:has(.zero-app)) :is(.component-context-menu, .page-menu-popover, .page-switcher-menu, .ai-plan-panel, .ai-profile-form, .ai-skill-form, .ai-component-editor, .settings-content, .settings-nav, .pages-table-wrap, .project-card, .block-card, .asset-card, .flex-option, .page-switcher-trigger) {
+  box-shadow: 0 8px 24px var(--jz-ui-shadow);
+}
+
+/* GrapesJS panels are constructor UI; its canvas iframe keeps the site's own design. */
+#app:not(:has(.zero-app)) :is(.gjs-one-bg, .gjs-sm-sector-title) {
+  background: var(--jz-ui-panel);
+}
+
+#app:not(:has(.zero-app)) :is(.gjs-two-color, .gjs-sm-sector-label, .gjs-field input, .gjs-field select, .gjs-field textarea) {
+  color: var(--jz-ui-text);
+}
+
+#app:not(:has(.zero-app)) .gjs-three-bg {
+  background: var(--jz-ui-accent);
+  color: var(--jz-ui-on-accent);
+}
+
+#app:not(:has(.zero-app)) :is(.gjs-four-color, .gjs-four-color-h:hover) {
+  color: var(--jz-ui-accent);
+}
+
+#app:not(:has(.zero-app)) .gjs-sm-sector-title {
+  background: var(--jz-ui-panel-raised);
+}
+
+#app:not(:has(.zero-app)) .gjs-field {
+  border-color: var(--jz-ui-border);
+  background: var(--jz-ui-bg);
+}
+
+#app:not(:has(.zero-app)) :is(.gjs-field:focus-within, .gjs-field input:focus-visible, .gjs-field select:focus-visible, .gjs-field textarea:focus-visible) {
+  outline: 2px solid var(--jz-ui-focus);
+  outline-offset: 1px;
+}
+
+/* Zero editor chrome. The artboard subtree (#zero-canvas) intentionally has no theme selectors. */
+.zero-app {
+  color-scheme: dark;
+  --surface: var(--jz-ui-panel);
+  --line: var(--jz-ui-border);
+  --muted: var(--jz-ui-text-muted);
+  --accent: var(--jz-ui-accent);
+  background: var(--jz-ui-bg);
+  color: var(--jz-ui-text);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) {
+  border-color: var(--jz-ui-border);
+  background-color: var(--jz-ui-panel);
+  color: var(--jz-ui-text);
+}
+
+.zero-app .zero-workspace,
+.zero-app .zero-bleed-surface {
+  --zero-workspace-background: var(--jz-ui-bg);
+  background-color: var(--zero-workspace-background);
+}
+
+.zero-app #zero-canvas {
+  color-scheme: normal;
+  color: #e9edeb;
+  --surface: #1d211f;
+  --line: #303632;
+  --muted: #929e96;
+  --accent: #a2d4b5;
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) :is(button, input, select, textarea) {
+  border-color: var(--jz-ui-border);
+  background-color: var(--jz-ui-panel-raised);
+  color: var(--jz-ui-text);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button:hover:not(:disabled),
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button[aria-pressed="true"] {
+  border-color: var(--jz-ui-accent-secondary);
+  background-color: var(--jz-ui-hover);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom) button.primary,
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom) button.primary:hover:not(:disabled) {
+  border-color: var(--jz-ui-accent);
+  background-color: var(--jz-ui-accent);
+  color: var(--jz-ui-on-accent);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) label,
+.zero-app .zero-help,
+.zero-app .zero-version-footer,
+.zero-app #zero-status,
+.zero-app .zero-ruler-x span,
+.zero-app .zero-ruler-y span {
+  color: var(--jz-ui-text-muted);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--jz-ui-focus);
+  outline-offset: 2px;
+}
+
+.zero-app .zero-layer.selected,
+.zero-app .zero-layer.drop-inside {
+  background-color: var(--jz-ui-selected);
+}
+
+.zero-app :is(.zero-layer.drop-before, .zero-layer.drop-after) {
+  --accent: var(--jz-ui-accent);
+}
+
+.zero-app :is(.zero-selected, .zero-selection-box) {
+  outline-color: var(--jz-ui-accent-secondary);
+}
+
+.zero-app .zero-handle {
+  border-color: var(--jz-ui-accent-secondary);
+  background-color: var(--jz-ui-accent);
+}
+
+.zero-app .zero-guide {
+  background-color: var(--jz-ui-accent);
+}
+
+.zero-app .zero-smart-guide {
+  background-color: var(--jz-ui-accent-secondary);
+}
+
+.zero-app :is(.zero-layer-lock.is-locked, .zero-layer-count, kbd) {
+  background-color: var(--jz-ui-muted-surface);
+  color: var(--jz-ui-text);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) :is(input, textarea)::placeholder {
+  color: var(--jz-ui-text-muted);
+}
+
+.zero-app .zero-layer-icon {
+  color: var(--jz-ui-accent);
+}
+
+.zero-app .zero-top .zero-add-trigger:hover,
+.zero-app .zero-top .zero-add-trigger[aria-expanded="true"] {
+  border-color: var(--jz-ui-accent-hover);
+  background-color: var(--jz-ui-accent-hover);
+  color: var(--jz-ui-on-accent);
+}
+
+.zero-app #zero-canvas [contenteditable="true"] {
+  outline-color: var(--jz-ui-accent-secondary);
+}
+
+#app:not(:has(.zero-app)) ::-webkit-scrollbar-thumb,
+.zero-app ::-webkit-scrollbar-thumb {
+  background: var(--jz-ui-muted-surface);
+}

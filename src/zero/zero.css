@@ -3,22 +3,19 @@
   inset: 0;
   z-index: 20;
   --zero-left-width: 190px;
-  background: #161918;
-  color: #e9edeb;
+  background: var(--jz-ui-bg, #222629);
+  color: var(--jz-ui-text, #f4f5f5);
   display: flex;
   flex-direction: column;
   font-family: inherit;
   font-size: 12px;
   line-height: 1.5;
 }
-.zero-app button,
-.zero-app select,
-.zero-app input,
-.zero-app textarea {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) :is(button, select, input, textarea) {
   font: inherit;
-  border: 1px solid var(--line, #303632);
+  border: 1px solid var(--jz-ui-border, #6b6e70);
   border-radius: var(--radius, 7px);
-  background: var(--surface, #1d211f);
+  background: var(--jz-ui-panel, #474b4f);
   color: inherit;
   padding: 7px 9px;
   min-width: 0;
@@ -26,39 +23,39 @@
 .zero-app button {
   cursor: pointer;
 }
-.zero-app button:hover,
-.zero-app button[aria-pressed="true"] {
-  background: #2b332e;
-  border-color: var(--accent, #a2d4b5);
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) button:hover,
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) button[aria-pressed="true"] {
+  background: var(--jz-ui-hover, #5a5e61);
+  border-color: var(--jz-ui-accent-secondary, #61892f);
 }
-.zero-app button.primary {
-  background: var(--accent, #a2d4b5);
-  border-color: var(--accent, #a2d4b5);
-  color: #183426;
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom) button.primary {
+  background: var(--jz-ui-accent, #86c232);
+  border-color: var(--jz-ui-accent, #86c232);
+  color: var(--jz-ui-on-accent, #222629);
 }
 .zero-app h2 {
   font-size: 13px;
   margin: 18px 0 10px;
 }
-.zero-app label {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) label {
   display: flex;
   flex-direction: column;
   gap: 5px;
   margin: 9px 0;
-  color: #b1c4b8;
+  color: var(--jz-ui-text-muted, #d2d4d5);
 }
-.zero-app input[type="checkbox"] {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) input[type="checkbox"] {
   align-self: flex-start;
 }
-.zero-app input[type="color"] {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) input[type="color"] {
   height: 32px;
   width: 100%;
   padding: 2px;
 }
-.zero-app textarea {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) textarea {
   resize: vertical;
 }
-.zero-app textarea.zero-code-input {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) textarea.zero-code-input {
   min-height: 90px;
   font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
   tab-size: 2;
@@ -629,7 +626,7 @@
   position: relative;
   flex: 1;
   overflow: auto;
-  --zero-workspace-background: #0d1310;
+  --zero-workspace-background: var(--jz-ui-bg, #222629);
   background: var(--zero-workspace-background);
   outline: 0;
   overscroll-behavior: contain;
@@ -1027,7 +1024,7 @@
     z-index: 5;
     max-height: 100%;
     overflow: auto;
-    background: #161918;
+    background: var(--jz-ui-panel, #474b4f);
     box-shadow: 0 8px 28px #0008;
   }
   .zero-app:not(.zero-left-open) .zero-left {

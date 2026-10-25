@@ -1,6 +1,8 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.137. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.138. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.138 — Zero Editor chrome uses the constructor's centralized graphite/lime `--jz-ui-*` tokens. Workspace and off-artboard bleed surface share the same dark token. The token stylesheet is loaded only in app/editor bundles; Zero artboard restores the pre-theme inherited text color and legacy generic variables, and native-control color scheme, so authored content and static exporter stay separate. Verified in Codex Browser without saving Project Data (existing project revision 287); `npm run test:ui-theme`, full `npm test`, `npm run build`, and backend PHP syntax checks pass.
 
 00.00.137 — the bleed surface outside the artboard uses the same CSS token as the black Zero workspace, so expanding the editor around off-artboard elements does not introduce a light patch. Codex Browser measured `rgb(13, 19, 16)` for both areas and confirmed the off-artboard button remains visible. Save was not pressed.
 

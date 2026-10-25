@@ -40,7 +40,9 @@ import { renderZero, escapeHTML as esc } from "../render.js";
 import { renderZeroElementMenu } from "../ui/element-menu.js";
 import { tablerIcon } from "../../editor-icons.js";
 import packageInfo from "../../../package.json";
+import "../../ui-theme.css";
 import "../zero.css";
+import "../../ui-overrides.css";
 function breakpointIcon(width) {
   if (width <= 430) return { name: "device-mobile", orientation: "portrait" };
   if (width <= 560) return { name: "device-mobile", orientation: "rotated" };

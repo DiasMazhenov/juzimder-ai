@@ -1,0 +1,25 @@
+/* Constructor chrome only. User project tokens live separately in design-tokens.js. */
+:root {
+  --jz-ui-bg: #222629;
+  --jz-ui-panel: #474b4f;
+  --jz-ui-panel-raised: #53575b;
+  --jz-ui-muted-surface: #6b6e70;
+  --jz-ui-border: #6b6e70;
+  --jz-ui-text: #f4f5f5;
+  --jz-ui-text-muted: #d2d4d5;
+  --jz-ui-accent: #86c232;
+  --jz-ui-accent-secondary: #61892f;
+  --jz-ui-on-accent: #222629;
+  --jz-ui-hover: #5a5e61;
+  --jz-ui-selected: #354522;
+  --jz-ui-selection-border: #61892f;
+  --jz-ui-accent-hover: #9bd64a;
+  --jz-ui-focus: #86c232;
+  --jz-ui-error: #ff9b91;
+  --jz-ui-error-surface: #4b3132;
+  --jz-ui-warning: #ffd27a;
+  --jz-ui-overlay: rgb(17 20 23 / 82%);
+  --jz-ui-shadow: rgb(0 0 0 / 40%);
+  --jz-ui-grid-line: rgb(107 110 112 / 42%);
+  --jz-ui-selection-fill: rgb(134 194 50 / 14%);
+}
