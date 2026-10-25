@@ -52,6 +52,7 @@ import {
 } from "../src/zero/model/operations.js";
 import { normalizeEditorIconMarkup } from "../src/editor-icon-markup.js";
 import { hexToHsv, hsvToHex } from "../src/zero/ui/color-picker.js";
+import { VECTOR_ICONS } from "../src/zero/model/vector-icons.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
 );
@@ -713,6 +714,18 @@ test("Tabler lock icons without SVG classes keep their layer-panel size", () => 
     const normalized = normalizeEditorIconMarkup(catalogue[name]);
     assert.match(normalized, /<svg class="tabler-editor-icon" aria-hidden="true" focusable="false"/);
     assert.equal((normalized.match(/class="tabler-editor-icon"/g) || []).length, 1);
+  }
+});
+test("Zero AI medical icons are curated Tabler vectors shared by UI and static renderer", () => {
+  const catalogue = JSON.parse(
+      readFileSync(new URL("../resources/tabler-editor/catalogue.json", import.meta.url), "utf8"),
+    ),
+    phpSource = readFileSync(new URL("../backend/ZeroBlock.php", import.meta.url), "utf8");
+  for (const name of ["stethoscope", "microscope", "baby-bottle", "first-aid-kit"]) {
+    assert.ok(VECTOR_ICONS[name], `${name} has a visible Russian label in the editor`);
+    assert.match(catalogue[name], /<svg[^>]*class="tabler-editor-icon"/);
+    assert.match(catalogue[name], /MIT License/);
+    assert.ok(phpSource.includes(`'${name}'`), `${name} passes backend validation`);
   }
 });
 test("Project Data schema carries one strict zeroData contract and rejects second trees", () => {

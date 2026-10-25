@@ -79,7 +79,7 @@ final class AiProviderFailure extends \RuntimeException {
             'invalid_css' => 'Стили модели не прошли безопасную проверку. Упростите описание визуального стиля и попробуйте ещё раз. Проект не изменён.',
             'contact_requirements' => 'Модель добавила контакт или внешнюю ссылку, которых нет в вашем описании. Укажите нужные контакты явно или попросите внутреннюю кнопку. Проект не изменён.',
             'skill_requirements' => 'Дизайн не прошёл обязательные проверки выбранного профиля. Уточните описание и попробуйте ещё раз. Проект не изменён.',
-            'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание сайта и попробуйте ещё раз. Проект не изменён.',
+            'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание сайта и попробуйте ещё раз. Проект не изменён.' . (str_starts_with($this->validationRule ?? '', 'zero:') ? ' Причина: ' . substr($this->validationRule, 5) : ''),
             'invalid_component_edit' => 'Предложение AI не прошло проверку изменений выбранного элемента. Проект не изменён.',
             default => 'AI-провайдер отклонил запрос. Проверьте выбранную модель и её настройки в «Настройки сайта → AI Engine». Проект не изменён.',
         };
@@ -180,7 +180,15 @@ final class OpenRouterProvider implements StructuredAiProvider {
             try {
                 return $this->completeWithModel($model, $systemPrompt, $userPrompt, $schema, $schemaName, $maxTokens);
             } catch (AiProviderFailure $failure) {
-                if ($index === 0 && isset($models[1]) && $failure->retryable) {
+                if (self::supportsJsonObjectRecovery($schemaName) && in_array($failure->category, ['invalid_response','provider'], true)) {
+                    error_log('Juzimder AI: structured response unavailable for '.$schemaName.'; retrying once in JSON object mode.');
+                    try {
+                        return $this->completeWithModel($model, $systemPrompt, $userPrompt, $schema, $schemaName, $maxTokens, true);
+                    } catch (AiProviderFailure) {
+                        // Keep the original failure category for normal profile/model failover.
+                    }
+                }
+                if ($index === 0 && isset($models[1]) && ($failure->retryable || in_array($failure->category, ['invalid_response','provider'], true))) {
                     error_log('Juzimder AI: OpenRouter primary model failed; using configured fallback.');
                     continue;
                 }
@@ -190,7 +198,11 @@ final class OpenRouterProvider implements StructuredAiProvider {
         throw new AiProviderFailure('AI provider returned an error.');
     }
 
-    private function completeWithModel(string $model, string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens): array {
+    private static function supportsJsonObjectRecovery(string $schemaName): bool {
+        return str_starts_with($schemaName,'juzimder_zero_') || $schemaName==='juzimder_photo_selection';
+    }
+
+    private function completeWithModel(string $model, string $systemPrompt, string $userPrompt, array $schema, string $schemaName, int $maxTokens, bool $jsonObjectMode=false): array {
         try {
             $request = [
                 'model' => $model,
@@ -205,7 +217,7 @@ final class OpenRouterProvider implements StructuredAiProvider {
                 'temperature' => 0.2,
                 'provider' => ['require_parameters' => true],
                 'usage' => ['include' => true],
-                'response_format' => [
+                'response_format' => $jsonObjectMode ? ['type'=>'json_object'] : [
                     'type' => 'json_schema',
                     'json_schema' => ['name' => $schemaName, 'strict' => true, 'schema' => $schema],
                 ],

@@ -62,6 +62,9 @@ try {
 }
 
     aiCheck(OpenRouterSettings::fromCredentials('', 'openai/test-model') === null, 'Provider stays unavailable until project credentials are configured');
+    $zeroValidationDiagnostic=new AiProviderFailure('internal validation failure',false,'invalid_output','zero:Zero Block: недопустимый цвет.');
+    $otherValidationDiagnostic=new AiProviderFailure('internal validation failure',false,'invalid_output','secret model response');
+    aiCheck(str_contains($zeroValidationDiagnostic->userMessage(),'Причина: Zero Block: недопустимый цвет.')&&!str_contains($otherValidationDiagnostic->userMessage(),'secret model response'),'Zero AI may show only a fixed safe validator reason, never model response content');
     $settings = OpenRouterSettings::fromCredentials('sk-test-only', 'openai/test-model');
     aiCheck($settings !== null && $settings->publicStatus() === ['provider'=>'openrouter','configured'=>true,'model'=>'openai/test-model','fallbackModel'=>null], 'Public provider status never contains the API key');
     aiCheck(OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','bad fallback model')===null&&OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','openai/test-model')===null,'Provider configuration rejects invalid or duplicate fallback model IDs');
@@ -282,7 +285,17 @@ try {
     catch (AiProviderFailure $error) { aiCheck($error->category==='rate_limited'&&$error->retryable&&str_contains($error->userMessage(),'HTTP 429')&&!str_contains($error->userMessage(),'{}'),'Transient provider failures have safe retry guidance'); }
     $invalidResponseTransport=new FakeAiTransport([new AiHttpResponse(200,'{"choices":[{"message":{"content":""}}]}')]);
     try { (new OpenRouterProvider($settings,$invalidResponseTransport))->completeJson('system','user',AiDesignPlan::schema(),'juzimder_design_plan'); throw new RuntimeException('Expected invalid provider response.'); }
-    catch (AiProviderFailure $error) { aiCheck($error->category==='invalid_response'&&str_contains($error->userMessage(),'структурированный дизайн'),'Malformed provider responses are distinguished from temporary availability failures'); }
+    catch (AiProviderFailure $error) { aiCheck($error->category==='invalid_response'&&str_contains($error->userMessage(),'структурированный дизайн')&&count($invalidResponseTransport->calls)===1,'Non-Zero workflows keep strict JSON Schema behavior when a provider returns no content'); }
+
+    $zeroJsonModeBody=json_encode(['choices'=>[['message'=>['content'=>'{"elements":[]}']]]],JSON_THROW_ON_ERROR);
+    $zeroJsonModeTransport=new FakeAiTransport([new AiHttpResponse(200,'{"choices":[{"message":{"content":""}}]}'),new AiHttpResponse(200,$zeroJsonModeBody)]);
+    $zeroJsonModeResult=(new OpenRouterProvider($settings,$zeroJsonModeTransport))->completeJson('Return JSON only.','user',['type'=>'object'],'juzimder_zero_composition');
+    $zeroJsonFormats=array_map(static fn($call)=>json_decode($call['body'],true,32,JSON_THROW_ON_ERROR)['response_format'],$zeroJsonModeTransport->calls);
+    aiCheck(count($zeroJsonModeTransport->calls)===2&&$zeroJsonFormats[0]['type']==='json_schema'&&$zeroJsonFormats[1]===['type'=>'json_object']&&$zeroJsonModeResult['content']==='{"elements":[]}','Zero AI retries once with JSON object mode after a provider returns no structured content');
+    $zeroModelFallbackTransport=new FakeAiTransport([new AiHttpResponse(200,'{"choices":[{"message":{"content":""}}]}'),new AiHttpResponse(400,'{"error":{"message":"JSON mode unsupported"}}'),new AiHttpResponse(200,$successBody)]);
+    $zeroModelFallbackResult=(new OpenRouterProvider($fallbackSettings,$zeroModelFallbackTransport))->completeJson('Return the requested JSON object.','user',['type'=>'object'],'juzimder_zero_composition');
+    $zeroModelFallbackRequests=array_map(static fn($call)=>json_decode($call['body'],true,32,JSON_THROW_ON_ERROR),$zeroModelFallbackTransport->calls);
+    aiCheck(array_column($zeroModelFallbackRequests,'model')===['openai/primary-model','openai/primary-model','openai/fallback-model']&&$zeroModelFallbackRequests[1]['response_format']===['type'=>'json_object']&&$zeroModelFallbackResult['model']==='openai/resolved-model','Zero AI tries its configured fallback model when the primary cannot produce structured JSON');
 
     $badPlan = $plan; $badPlan['sections'] = ['hero','unknown','faq'];
     aiRejects(fn()=>AiDesignPlan::parseProviderOutput(json_encode($badPlan,JSON_THROW_ON_ERROR)), 'Provider output rejects unsupported section types');

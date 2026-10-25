@@ -21,6 +21,10 @@ export const VECTOR_ICONS = Object.freeze({
   trash: "Корзина",
   lock: "Замок",
   "lock-open": "Открытый замок",
+  stethoscope: "Стетоскоп",
+  microscope: "Микроскоп",
+  "baby-bottle": "Бутылочка для младенца",
+  "first-aid-kit": "Аптечка",
 });
 
 export const VECTOR_ICON_NAMES = Object.freeze(Object.keys(VECTOR_ICONS));

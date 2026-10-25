@@ -6,7 +6,7 @@ require_once __DIR__.'/CustomCode.php';
 /** Canonical, versioned data belonging to one GrapesJS component. No executable markup. */
 final class ZeroBlock {
     public const MODES = ['desktop'=>1200,'laptop'=>980,'tablet'=>640,'landscape'=>480,'mobile'=>360];
-    public const VECTOR_ICONS = ['arrow-left','arrow-right','arrow-up','arrow-down','chevron-right','plus','minus','x','link','search','photo','eye','settings','download','copy','square','circle','menu','trash','lock','lock-open'];
+    public const VECTOR_ICONS = ['arrow-left','arrow-right','arrow-up','arrow-down','chevron-right','plus','minus','x','link','search','photo','eye','settings','download','copy','square','circle','menu','trash','lock','lock-open','stethoscope','microscope','baby-bottle','first-aid-kit'];
     public const STYLE_RANGES = ['fontSize'=>[1,500],'fontWeight'=>[100,900],'lineHeight'=>[0.5,5],'letterSpacing'=>[-30,100],'radius'=>[0,10000],'strokeWidth'=>[0,100],'opacity'=>[0,1],'shadowBlur'=>[0,200],'shadowX'=>[-200,200],'shadowY'=>[-200,200]];
     public static function fields(mixed $value, array $allowed, array $required=[]): array {
         if (!$value instanceof \stdClass) throw new Problem(422,'Zero Block: ожидается объект.');
