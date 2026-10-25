@@ -352,7 +352,9 @@ aiCheck($result['profileName']==='Backup'&&count($transport->calls)===2,'Malform
  aiCheck(array_column($provider->diagnostics(),'outcome')===['invalid_response','response_received'],'Malformed response failover preserves safe diagnostics');
 }
 $brokenProfiles=new FakeAiTransport([new AiHttpResponse(200,'{}'),new AiHttpResponse(200,'{}')]);
-try{(new Juzimder\ProfileFailoverProvider($profileEntries,$brokenProfiles))->completeJson('system','prompt',['type'=>'object'],'broken_all');throw new RuntimeException('Expected failure');}catch(AiProviderFailure $failure){aiCheck($failure->category==='invalid_response'&&count($brokenProfiles->calls)===2,'All malformed profiles fail closed without cycling');}
+$failedProvider=new Juzimder\ProfileFailoverProvider($profileEntries,$brokenProfiles);
+try{$failedProvider->completeJson('system','prompt',['type'=>'object'],'broken_all');throw new RuntimeException('Expected failure');}catch(AiProviderFailure $failure){aiCheck($failure->category==='invalid_response'&&count($brokenProfiles->calls)===2,'All malformed profiles fail closed without cycling');}
+aiCheck($failedProvider->userAttemptSummary()===' Попытки: Профиль 1: нет структурированного JSON; Профиль 2: нет структурированного JSON.','Zero AI failure summary identifies failed attempts without credentials, model names or raw content');
 $strictTransport=new FakeAiTransport([new AiHttpResponse(400,'{}'),new AiHttpResponse(200,$successBody)]);
 $strictResult=(new Juzimder\ProfileFailoverProvider($profileEntries,$strictTransport))->completeJson('system','prompt',['type'=>'object'],'profile_test');
 aiCheck($strictResult['profileName']==='Backup'&&count($strictTransport->calls)===2,'A provider-level model rejection rotates once to the next saved profile');

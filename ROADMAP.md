@@ -1,5 +1,8 @@
 # План Juzimder AI
 
+- [x] 00.00.182: при отказе Zero AI показывается безопасная сводка попыток профилей (номер и категория исхода), без ключей и модельного текста; регрессия покрывает два невалидных ответа.
+- [ ] 00.00.182 live acceptance отзывов: два реальных запроса (полный и краткий) завершились `invalid_response` до появления candidate. Скрин первого отказа `/tmp/juzimder-zero-ai-182-testimonials-provider-failure.png`; Project Data остался на revision 348. Повторить визуальную проверку с моделью, стабильно возвращающей структурированный JSON.
+
 - [x] 00.00.181: Zero AI распознаёт склонение «карточек» и нормализует именованные крупные векторы `cardNSurface` в редактируемые фоновые Rectangle; заголовок и описание ставятся внутрь, иконка сохраняется, мобильная поверхность охватывает пару текста. Regression: `php tests/zero-ai.php`.
 - [x] 00.00.181 live screenshot acceptance: короткая проверка основного `openrouter/free` отклонена; резервный `nvidia/nemotron-3.5-super-vl:free` ответил за 1,1 с и создал preview. Desktop показывает четыре rounded card surfaces в 2×2 без гигантских icon placeholders; Mobile показывает стек 01–04 с контекстными иконками и CTA после карточек. Preview отменён без Apply, Project Data остаётся пустым на revision 348. Скриншоты: `/tmp/juzimder-zero-ai-181-process-cards-desktop.png`, `/tmp/juzimder-zero-ai-181-process-cards-mobile.png`; ошибка основной модели: `/tmp/juzimder-zero-ai-181-provider-error.png`.
 - [x] 00.00.180: исправлена внутренняя белая плашка, замеченная на `.179` screenshot: нумерованные заголовки внутри созданных process-карточек теперь используют прозрачный фон, скругление остаётся только у карточки.

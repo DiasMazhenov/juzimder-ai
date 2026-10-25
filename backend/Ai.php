@@ -133,6 +133,16 @@ final class ProfileFailoverProvider implements StructuredAiProvider {
     private ?string $preferredId = null;
     private array $attempts=[];
     public function diagnostics(): array {return $this->attempts;}
+    /** Safe, bounded summary for a failed interactive request; never includes keys or model output. */
+    public function userAttemptSummary(): string {
+        $labels=['invalid_response'=>'нет структурированного JSON','timeout'=>'таймаут','unavailable'=>'недоступен','rate_limited'=>'лимит запросов','credentials'=>'доступ отклонён','provider'=>'отказ модели','response_received'=>'ответ получен'];
+        $parts=[];
+        foreach(array_slice($this->attempts,0,4) as $index=>$attempt){
+            $outcome=$attempt['outcome']??'provider';
+            $parts[]='Профиль '.($index+1).': '.($labels[$outcome]??'ответ отклонён');
+        }
+        return $parts?' Попытки: '.implode('; ',$parts).'.':'';
+    }
     public function __construct(private array $profiles, private readonly ?AiHttpTransport $transport = null, private readonly int $budgetSeconds=100, private readonly ?int $transferTimeout=null) {}
     public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200): array {
         $this->deadline ??= microtime(true)+$this->budgetSeconds;

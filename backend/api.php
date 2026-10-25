@@ -342,8 +342,9 @@ try {
         $credentials=new Juzimder\AiCredentialVault($store);$settings=$credentials->failoverSettings($projectId,$user);if(!$settings)throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $now=time();$storedRequests=$_SESSION['ai_requests']??[];if(!is_array($storedRequests))$storedRequests=[];$requests=array_values(array_filter($storedRequests,static fn($at)=>is_int($at)&&$at>$now-60));if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');$requests[]=$now;$_SESSION['ai_requests']=$requests;
         set_time_limit(150);
-        try{$proposal=Juzimder\AiZeroComposer::create($prompt,$found[0],new Juzimder\ProfileFailoverProvider($settings));$latest=$store->owned($projectId,$user);if($latest['version']!==$project['version'])throw new Problem(409,'Пока AI готовил композицию, версия проекта изменилась. Запросите новый вариант.');$proposal['baseVersion']=$project['version'];result($proposal);}
-        catch(Juzimder\AiProviderFailure $failure){throw new Problem(502,$failure->userMessage());}
+        $provider=new Juzimder\ProfileFailoverProvider($settings);
+        try{$proposal=Juzimder\AiZeroComposer::create($prompt,$found[0],$provider);$latest=$store->owned($projectId,$user);if($latest['version']!==$project['version'])throw new Problem(409,'Пока AI готовил композицию, версия проекта изменилась. Запросите новый вариант.');$proposal['baseVersion']=$project['version'];result($proposal);}
+        catch(Juzimder\AiProviderFailure $failure){throw new Problem(502,$failure->userMessage().$provider->userAttemptSummary());}
         catch(InvalidArgumentException $failure){throw new Problem(422,$failure->getMessage());}
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/edit-component$~D', $path, $aiEditMatch) && $method === 'POST') {
