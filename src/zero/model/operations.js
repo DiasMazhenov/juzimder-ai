@@ -1,6 +1,7 @@
 import {
   createElement,
   copy,
+  newId,
   resolve,
   rect,
   findElement,
@@ -10,6 +11,40 @@ import {
 import { multiply, rotatedBounds, worldMatrix } from "./transforms.js";
 const selected = (data, ids) =>
   ids.map((id) => findElement(data, id)).filter(Boolean);
+
+export function selectionRoots(data, ids) {
+  const items = selected(data, [...new Set(ids)]),
+    selectedIds = new Set(items.map(({ element }) => element.id));
+  return items.filter((item) => {
+    let parent = item.parent;
+    while (parent) {
+      if (selectedIds.has(parent.id)) return false;
+      parent = findElement(data, parent.id)?.parent || null;
+    }
+    return true;
+  });
+}
+
+export function cloneElementForPaste(
+  element,
+  { offset = 20, idFactory = newId } = {},
+) {
+  const clone = copy(element),
+    remap = (item) => {
+      item.id = idFactory();
+      for (const child of item.children || []) remap(child);
+    };
+  remap(clone);
+  clone.geometry.x += offset;
+  clone.geometry.y += offset;
+  for (const override of Object.values(clone.overrides || {})) {
+    if (!override.geometry) continue;
+    override.geometry.x = (override.geometry.x ?? element.geometry.x) + offset;
+    override.geometry.y = (override.geometry.y ?? element.geometry.y) + offset;
+  }
+  return clone;
+}
+
 const identity = [1, 0, 0, 1, 0, 0];
 function invert(matrix) {
   const [a, b, c, d, e, f] = matrix,

@@ -3,6 +3,8 @@ import {
   groupElements,
   layerDropIntent,
   moveLayer,
+  selectionRoots,
+  cloneElementForPaste,
   ungroupElements,
 } from "../model/operations.js";
 import {
@@ -34,7 +36,6 @@ import {
   appearanceCSS,
   adapt,
   History,
-  newId,
 } from "../model/model.js";
 import { renderZero, escapeHTML as esc } from "../render.js";
 import { renderZeroElementMenu } from "../ui/element-menu.js";
@@ -1093,13 +1094,7 @@ export async function openZeroEditor({
     changed();
   }
   function duplicate() {
-    const roots = selected().filter(
-      (item) =>
-        !selected().some(
-          (other) =>
-            other.element.children && contains(other.element, item.element.id),
-        ),
-    );
+    const roots = selectionRoots(data, [...selection]);
     const count = (el) =>
       1 + (el.children || []).reduce((n, c) => n + count(c), 0);
     if (
@@ -1111,28 +1106,13 @@ export async function openZeroEditor({
     }
     const copies = [];
     for (const item of roots) {
-      const clone = copy(item.element),
-        rename = (el) => {
-          el.id = newId();
-          for (const child of el.children || []) rename(child);
-        };
-      rename(clone);
-      clone.geometry.x += 20;
-      clone.geometry.y += 20;
-      for (const o of Object.values(clone.overrides)) {
-        if (o.geometry) {
-          o.geometry.x = (o.geometry.x ?? item.element.geometry.x) + 20;
-          o.geometry.y = (o.geometry.y ?? item.element.geometry.y) + 20;
-        }
-      }
+      const clone = cloneElementForPaste(item.element);
       item.list.splice(item.list.indexOf(item.element) + 1, 0, clone);
       copies.push(clone.id);
     }
     selection = new Set(copies);
     changed();
   }
-  const contains = (el, id) =>
-    el.id === id || (el.children || []).some((c) => contains(c, id));
   function group() {
     try {
       selection = new Set(groupElements(data, [...selection], mode));
@@ -1392,28 +1372,44 @@ export async function openZeroEditor({
       return;
     }
     if (key === "copy") {
-      clipboard = selected().map((i) => copy(i.element));
+      clipboard = selectionRoots(data, [...selection]).map((item) => ({
+        element: copy(item.element),
+        parentId: item.parent?.id || null,
+      }));
       return;
     }
     if (key === "paste") {
+      if (!clipboard.length) return;
       const count = (el) =>
         1 + (el.children || []).reduce((n, c) => n + count(c), 0);
       if (
-        flatten(data).length + clipboard.reduce((n, c) => n + count(c), 0) >
+        flatten(data).length +
+          clipboard.reduce((n, c) => n + count(c.element), 0) >
         300
       ) {
         status("Не более 300 элементов.");
         return;
       }
+      const destinations = clipboard.map((item) =>
+        item.parentId ? findElement(data, item.parentId)?.element : null,
+      );
+      if (
+        destinations.some(
+          (parent, index) =>
+            clipboard[index].parentId &&
+            (!parent || parent.type !== "group" || parent.locked),
+        )
+      ) {
+        status(
+          "Исходная группа удалена или заблокирована. Скопируйте слои повторно.",
+        );
+        return;
+      }
       selection = new Set();
-      for (const original of clipboard) {
-        const el = copy(original),
-          rename = (e) => {
-            e.id = newId();
-            for (const c of e.children || []) rename(c);
-          };
-        rename(el);
-        data.elements.push(el);
+      for (const [index, original] of clipboard.entries()) {
+        const el = cloneElementForPaste(original.element),
+          parent = destinations[index];
+        (parent ? parent.children : data.elements).push(el);
         selection.add(el.id);
       }
       changed();

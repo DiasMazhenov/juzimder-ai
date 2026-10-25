@@ -44,7 +44,12 @@ import {
 } from "../src/zero/sandbox.js";
 import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
-import { layerDropIntent, moveLayer } from "../src/zero/model/operations.js";
+import {
+  layerDropIntent,
+  moveLayer,
+  selectionRoots,
+  cloneElementForPaste,
+} from "../src/zero/model/operations.js";
 import { normalizeEditorIconMarkup } from "../src/editor-icon-markup.js";
 import { hexToHsv, hsvToHex } from "../src/zero/ui/color-picker.js";
 const fixture = JSON.parse(
@@ -1053,6 +1058,37 @@ test("moving layers between root and groups preserves absolute placement at ever
   assert.equal(moveLayer(d, "ze-child", null, 1), true);
   assert.equal(findElement(d, "ze-child").parent, null);
   assertSame(before);
+});
+
+test("clipboard copies selected roots once and pastes with independent offset geometry", () => {
+  const d = structuredClone(fixture),
+    group = findElement(d, "ze-group").element;
+  group.overrides ??= {};
+  group.overrides.mobile = { geometry: { x: 34, y: 56 } };
+  group.overrides.tablet = { geometry: { width: 420 } };
+  const original = structuredClone(group),
+    roots = selectionRoots(d, ["ze-group", "ze-child", "ze-title"]);
+  assert.deepEqual(
+    roots.map(({ element }) => element.id),
+    ["ze-group", "ze-title"],
+  );
+
+  let nextId = 0;
+  const pasted = cloneElementForPaste(group, {
+    idFactory: () => `clipboard-${++nextId}`,
+  });
+  assert.equal(pasted.id, "clipboard-1");
+  assert.equal(pasted.children[0].id, "clipboard-2");
+  assert.equal(pasted.geometry.x, original.geometry.x + 20);
+  assert.equal(pasted.geometry.y, original.geometry.y + 20);
+  assert.deepEqual(pasted.overrides.mobile.geometry, { x: 54, y: 76 });
+  assert.deepEqual(pasted.overrides.tablet.geometry, {
+    width: 420,
+    x: original.geometry.x + 20,
+    y: original.geometry.y + 20,
+  });
+  assert.deepEqual(pasted.children[0].geometry, original.children[0].geometry);
+  assert.deepEqual(group, original);
 });
 
 test("layer drop zones map visual row edges to sibling z-order and group centers to children", () => {

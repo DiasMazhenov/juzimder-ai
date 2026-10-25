@@ -1,5 +1,6 @@
 # План Juzimder AI
 
+- [x] 00.00.158: Zero Editor clipboard excludes selected descendants of selected ancestors, remaps all cloned element IDs, offsets pasted geometry and responsive overrides by 20 px, and restores the original group destination when available. Duplicate shares the same clone logic; regression test covers nested selection, responsive geometry, and source immutability. Browser Cmd/Ctrl+C/V acceptance remains open: Browser Use intercepted Meta+V with an empty virtual clipboard.
 - [ ] 00.00.157 browser acceptance (BLOCKED): запрос с явным CTA вернул provider HTTP 429 до открытия candidate; live UI результата не проверен. Project Data остался на revision 325 с 0 элементами.
 - [x] 00.00.157 automated regression: allowlisted imperative CTA returned as text becomes a Button only when the draft has no Button; copy, regular text, background and readable contrast are preserved.
 - [x] 00.00.156: Zero AI candidate preview gets responsive breakpoint buttons; switching changes only the ephemeral preview mode and uses the isolated CSS scope. Mobile photo-hero stacking now also recognizes tight desktop columns (40 px gap).
@@ -100,6 +101,7 @@
 - [x] Расширенные typography tokens: heading/body families and weights, base size, H1–H6 scale, line-height, letter spacing, fluid H1–H3; legacy settings migrate from schema v2 and local overrides remain intact.
 - [x] Библиотека десяти структурных секций и базовых элементов (контейнер/кнопка) с поиском и категориями.
 - [ ] Полная keyboard/copy-paste QA.
+- [x] 00.00.158 Zero Editor copy/paste model coverage; live modifier delivery remains NOT RUN because Browser Use intercepts Meta+V before the editor receives it.
 - [x] Частичный Codex Browser responsive smoke: девять секций на 375/768 px, FAQ также на desktop; Tab и видимый focus ring.
 - [x] Проверить Image preset с тестовым HTTPS-ресурсом, save и reload.
 - [ ] Подтвердить Cmd/Ctrl+C/V в браузере, который передаёт модификаторы.
