@@ -629,7 +629,8 @@
   position: relative;
   flex: 1;
   overflow: auto;
-  background: #0d1310;
+  --zero-workspace-background: #0d1310;
+  background: var(--zero-workspace-background);
   outline: 0;
   overscroll-behavior: contain;
   touch-action: none;
@@ -652,7 +653,7 @@
   position: absolute;
   z-index: 0;
   pointer-events: none;
-  background: #e8eeea;
+  background: var(--zero-workspace-background);
 }
 #zero-canvas {
   position: relative;

@@ -1,6 +1,8 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.136. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.137. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.137 — the bleed surface outside the artboard uses the same CSS token as the black Zero workspace, so expanding the editor around off-artboard elements does not introduce a light patch. Codex Browser measured `rgb(13, 19, 16)` for both areas and confirmed the off-artboard button remains visible. Save was not pressed.
 
 00.00.136 — the authoring workspace is larger than the artboard when visible elements extend beyond its edges. The editor measures rotated and nested element bounds in document coordinates, keeps negative X/Y inside the scrollable work area, and updates the stage extent during drag. Fit and zoom use the expanded bounds. A neutral surface makes the artboard edge distinct while offboard content remains readable/selectable. In normal editing only, the Zero root overflow is forced visible. Preview and static output retain the artboard's saved `overflow` policy, so `hidden` clips while `visible` allows overlap. This editor-only workspace does not alter element geometry or Project Data. Unit coverage verifies rotated/nested/negative bounds, camera extent and the editor/export overflow split. Codex Browser verified Mobile 360: the button at X=-332 remained visible outside the artboard, could be selected by pointer, and exposed geometry/style controls in Inspector; the editor was returned to Desktop without saving, and Project Data remained at revision 284. Full Preview/HTML/ZIP/publication visual acceptance remains open.
 

@@ -590,10 +590,16 @@ test("editor overflow is separate from the saved-preview and publication policy"
       new URL("../src/zero/editor/app.js", import.meta.url),
       "utf8",
     ),
+    styles = readFileSync(new URL("../src/zero/zero.css", import.meta.url), "utf8"),
     hidden = renderZero(fixture, "zero-overflow-hidden", "desktop"),
     visibleData = structuredClone(fixture);
   visibleData.artboards.desktop.overflow = "visible";
   assert.match(editor, /preview \? b\.overflow : "visible"/);
+  assert.match(styles, /--zero-workspace-background:\s*#0d1310/);
+  assert.match(
+    styles,
+    /\.zero-bleed-surface\s*\{[^}]*background:\s*var\(--zero-workspace-background\)/s,
+  );
   assert.match(hidden, /overflow:hidden/);
   assert.match(renderZero(visibleData, "zero-overflow-visible", "desktop"), /overflow:visible/);
 });
