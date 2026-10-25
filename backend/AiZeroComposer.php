@@ -95,6 +95,7 @@ final class AiZeroComposer {
         $decoded['elements']=self::promoteExplicitButtonLabels($decoded['elements'],$quotedRequirements);
         $decoded['elements']=self::normalizeIconTextElements($decoded['elements']);
         $decoded['elements']=self::removeDuplicateTextLayers($decoded['elements']);
+        $decoded['elements']=self::removeDuplicateNumberedStepLayers($prompt,$decoded['elements']);
         $decoded['elements']=self::withoutUntrustedPhotoCredits($decoded['elements']);
         $decoded['elements']=self::withoutDecorativeBadgeIcons($decoded['elements']);
         $generatedCardSurfaceCount=0;
@@ -117,6 +118,7 @@ final class AiZeroComposer {
         $mobileStack=self::mobileFaqStack($prompt,$decoded['elements'],$zeroData,$badgeIndex);
         if(!$mobileStack)$mobileStack=$generatedCardSurfaceCount===3?self::mobileGeneratedCardStack($decoded['elements'],$zeroData,$badgeIndex,$generatedCardSurfaceCount):[];
         if(!$mobileStack)$mobileStack=self::mobilePhotoStack($decoded['elements'],$zeroData,$badgeIndex);
+        if(!$mobileStack)$mobileStack=self::mobileNumberedStepStack($prompt,$decoded['elements'],$zeroData,$badgeIndex);
         if(!$mobileStack)$mobileStack=self::mobileCardStack($decoded['elements'],$zeroData,$badgeIndex);
         $slots=[];
         foreach($decoded['elements'] as $index=>$item){
@@ -588,6 +590,74 @@ final class AiZeroComposer {
             $imageWidth=$contentWidth;$aspect=(float)$image['height']/max(1,(float)$image['width']);$maxImageHeight=min(280,max(140,(int)round($board->height*.38)));
             $imageHeight=max(120,min($maxImageHeight,(int)round($imageWidth*$aspect)));$imageY=$cursor+8;
             $result[$imageIndex][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$imageY,'width'=>$imageWidth,'height'=>$imageHeight]];
+        }
+        return $result;
+    }
+
+    /** Remove repeated numbered steps and their adjacent duplicate descriptions from model output. */
+    private static function removeDuplicateNumberedStepLayers(string $prompt,array $items): array {
+        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1)return $items;
+        $titles=[];$byNumber=[];$boardWidth=0.0;foreach($items as $item)if(is_array($item))$boardWidth=max($boardWidth,(float)($item['x']??0)+(float)($item['width']??0));$xTolerance=max(48,(int)round(max(360,$boardWidth)*.05));
+        foreach($items as $index=>$item){if(!is_array($item)||($item['type']??null)!=='text'||preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)!==1)continue;$number=(int)$match[1];if($number<1)continue;$title=['index'=>$index,'number'=>$number,'x'=>(float)$item['x'],'y'=>(float)$item['y']];$titles[]=$title;$byNumber[$number][]=$title;}
+        $remove=[];
+        foreach($byNumber as $duplicates){if(count($duplicates)<2)continue;foreach(array_slice($duplicates,1) as $duplicate){$index=$duplicate['index'];$remove[$index]=true;$nextTitleY=PHP_FLOAT_MAX;foreach($titles as $other)if($other['index']!==$index&&abs($other['x']-$duplicate['x'])<=$xTolerance&&$other['y']>$duplicate['y'])$nextTitleY=min($nextTitleY,$other['y']);$description=null;$descriptionY=PHP_FLOAT_MAX;
+                foreach($items as $candidateIndex=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='text'||$candidateIndex===$index||isset($remove[$candidateIndex])||preg_match('/^\s*\d{1,2}(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($candidate['content']??''))===1)continue;$x=(float)$candidate['x'];$y=(float)$candidate['y'];if(abs($x-$duplicate['x'])>$xTolerance||$y<$duplicate['y']||$y>=$nextTitleY||$y-$duplicate['y']>180)continue;if($y<$descriptionY){$description=$candidateIndex;$descriptionY=$y;}}
+                if($description!==null)$remove[$description]=true;
+            }}
+        if(!$remove)return $items;
+        return array_values(array_filter($items,static fn(mixed $item,int $index):bool=>!isset($remove[$index]),ARRAY_FILTER_USE_BOTH));
+    }
+
+    /** Keep numbered two-column process cards in natural numeric order on mobile. */
+    private static function mobileNumberedStepStack(string $prompt,array $items,\stdClass $data,?int $badgeIndex=null): array {
+        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1)return [];
+        foreach($items as $item)if(is_array($item)&&($item['type']??null)==='image')return [];
+        $titles=[];$columns=[];$xTolerance=max(48,(int)round((float)$data->artboards->desktop->width*.05));
+        foreach($items as $index=>$item){
+            if(!is_array($item)||($item['type']??null)!=='text'||preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)!==1)continue;
+            $number=(int)$match[1];if($number<1)return [];$x=(float)$item['x'];$column=null;$distance=PHP_FLOAT_MAX;
+            foreach($columns as $columnIndex=>$columnX){$delta=abs($columnX-$x);if($delta<=$xTolerance&&$delta<$distance){$column=$columnIndex;$distance=$delta;}}
+            if($column===null){$column=count($columns);$columns[]=$x;}else $columns[$column]=($columns[$column]+$x)/2;
+            $titles[]=['index'=>$index,'number'=>$number,'column'=>$column,'y'=>(float)$item['y']];
+        }
+        if(count($titles)<3||count(array_unique(array_column($titles,'number')))!==count($titles))return [];
+        $claimed=[];$cards=[];
+        foreach($titles as $title){
+            $nextY=PHP_FLOAT_MAX;
+            foreach($titles as $other)if($other['column']===$title['column']&&$other['y']>$title['y'])$nextY=min($nextY,$other['y']);
+            $best=null;$bestY=PHP_FLOAT_MAX;
+            foreach($items as $index=>$item){
+                if(!is_array($item)||($item['type']??null)!=='text'||$index===$title['index']||isset($claimed[$index])||preg_match('/^\s*\d{1,2}(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''))===1)continue;
+                if(abs((float)$item['x']-$columns[$title['column']])>$xTolerance)continue;
+                $y=(float)$item['y'];if($y<$title['y']||$y>=$nextY||$y-$title['y']>180)continue;
+                if($y<$bestY){$best=$index;$bestY=$y;}
+            }
+            if($best===null)return [];
+            $claimed[$title['index']]=true;$claimed[$best]=true;$cards[]=['number'=>$title['number'],'title'=>$title['index'],'description'=>$best,'y'=>$title['y']];
+        }
+        usort($cards,static fn(array $a,array $b):int=>$a['number']<=>$b['number']);
+        $firstStepY=min(array_column($cards,'y'));$intro=[];$post=[];$actions=[];
+        foreach($items as $index=>$item){
+            if(!is_array($item)||!in_array($item['type']??null,['text','button','vector'],true)||isset($claimed[$index]))continue;
+            if(($item['type']??null)==='button'){$actions[]=$index;continue;}
+            if((float)($item['y']??0)<$firstStepY)$intro[]=$index;else $post[]=$index;
+        }
+        usort($intro,static fn(int $a,int $b):int=>(float)$items[$a]['y']<=>(float)$items[$b]['y']);
+        usort($post,static fn(int $a,int $b):int=>(float)$items[$a]['y']<=>(float)$items[$b]['y']);
+        usort($actions,static fn(int $a,int $b):int=>(float)$items[$a]['y']<=>(float)$items[$b]['y']);
+        $result=[];
+        foreach($data->artboards as $mode=>$board){
+            if($mode==='desktop'||$board->width>480)continue;
+            $margin=min(20,max(16,(int)round($board->width*.055)));$contentWidth=max(1,$board->width-2*$margin);$cursor=max(16,(int)round($board->height*.04));
+            foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
+            foreach($cards as $card){
+                $title=$card['title'];$description=$card['description'];
+                $cursor+=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin,$cursor,$contentWidth,null,true)+3;
+                $cursor+=self::mobileFlowOverride($result,$description,(string)$mode,$items[$description],$margin,$cursor,$contentWidth,null,true)+14;
+            }
+            foreach($post as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
+            foreach($actions as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,null,false)+8;
+            self::fitMobileCardStackToArtboard($result,(string)$mode,$board,$margin,$items);
         }
         return $result;
     }
