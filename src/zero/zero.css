@@ -63,6 +63,42 @@
 .zero-app [hidden] {
   display: none !important;
 }
+.zero-app #image-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-width: 760px;
+  max-height: min(88vh, 760px);
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid var(--jz-ui-border, #303a3f);
+  border-radius: 12px;
+  background: var(--jz-ui-panel, #1b2125);
+  color: var(--jz-ui-text, #eef2ef);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, .48);
+}
+.zero-app #image-dialog::backdrop { background: rgba(0, 0, 0, .68); }
+.zero-app #image-dialog .asset-dialog-head,
+.zero-app #image-dialog .image-source-tabs,
+.zero-app #image-dialog .asset-library-toolbar,
+.zero-app #image-dialog .image-picker-actions { display: flex; align-items: center; gap: 8px; }
+.zero-app #image-dialog .asset-dialog-head { justify-content: space-between; }
+.zero-app #image-dialog .asset-dialog-head h2 { margin: 2px 0 10px; }
+.zero-app #image-dialog .image-source-tabs { margin: 8px 0 14px; }
+.zero-app #image-dialog .asset-upload-zone { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px; border: 1px dashed var(--jz-ui-border, #46504b); border-radius: 9px; background: var(--jz-ui-surface, #202823); }
+.zero-app #image-dialog .asset-upload-zone p,
+.zero-app #image-dialog .asset-upload-zone small { display: block; margin: 5px 0; color: var(--jz-ui-text-muted, #aab5ae); }
+.zero-app #image-dialog .asset-library-toolbar { margin-top: 12px; }
+.zero-app #image-dialog .asset-library-toolbar label { flex: 1; margin: 0; }
+.zero-app #image-dialog .asset-library { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-height: 290px; min-height: 110px; margin-top: 10px; overflow: auto; }
+.zero-app #image-dialog .asset-card { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 6px; background: var(--jz-ui-surface, #202823); }
+.zero-app #image-dialog .asset-card[aria-pressed="true"] { outline: 2px solid var(--jz-ui-accent, #86c232); }
+.zero-app #image-dialog .asset-card > img { width: 100%; height: 88px; object-fit: cover; border-radius: 5px; }
+.zero-app #image-dialog .asset-card-info strong,
+.zero-app #image-dialog .asset-card-info small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zero-app #image-dialog .asset-card-info small { color: var(--jz-ui-text-muted, #aab5ae); }
+.zero-app #image-dialog .image-picker-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--jz-ui-border, #303a3f); }
+.zero-app #image-dialog .image-picker-actions { justify-content: flex-end; }
+.zero-app #image-dialog .image-picker-actions > span { flex: 1; }
+.zero-app #image-dialog .asset-library-empty { grid-column: 1 / -1; padding: 18px; color: var(--jz-ui-text-muted, #aab5ae); text-align: center; }
 .zero-top {
   position: relative;
   z-index: 10001;

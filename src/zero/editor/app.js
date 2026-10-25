@@ -39,6 +39,7 @@ import {
 import { renderZero, escapeHTML as esc } from "../render.js";
 import { renderZeroElementMenu } from "../ui/element-menu.js";
 import { tablerIcon } from "../../editor-icons.js";
+import { installImagePicker } from "../../image-picker.js";
 import packageInfo from "../../../package.json";
 import "../../ui-theme.css";
 import "../zero.css";
@@ -147,6 +148,21 @@ export async function openZeroEditor({
     status = (message) => {
       $("#zero-status").textContent = message;
     };
+  const imageDialog = document.createElement("dialog");
+  imageDialog.id = "image-dialog";
+  zeroRoot.append(imageDialog);
+  const backgroundImagePicker = installImagePicker({
+    projectId,
+    api,
+    csrf: () => session.csrf,
+    allowExternalUrl: false,
+    notify: (message) => status(message),
+    insert: (src, description, assetName) => {
+      board().backgroundImage = src;
+      board().backgroundImageName = assetName || description;
+      changed();
+    },
+  });
   const addTrigger = $('[data-action="add-menu"]'),
     layerToggle = $('[data-action="layers"]'),
     mobilePanelQuery = matchMedia("(max-width: 720px)");
@@ -1438,6 +1454,16 @@ export async function openZeroEditor({
       changed();
       return;
     }
+    if (key === "background-image") {
+      backgroundImagePicker.open(null, "Фоновое изображение секции", "Применить фон");
+      return;
+    }
+    if (key === "background-remove") {
+      board().backgroundImage = "";
+      board().backgroundImageName = "";
+      changed();
+      return;
+    }
     if (["snap", "grid", "guides", "rulers"].includes(key)) {
       if (key === "snap") snap = !snap;
       if (key === "grid") grid = !grid;
@@ -1628,8 +1654,18 @@ export async function openZeroEditor({
       return;
     }
     if (input.dataset.board) {
-      board()[input.dataset.board] =
-        input.type === "number" ? Number(input.value) : input.value;
+      const boardKey = input.dataset.board;
+      const boardValue = boardKey.endsWith("Opacity")
+        ? Number(input.value) / 100
+        : input.type === "number"
+          ? Number(input.value)
+          : input.value;
+      board()[boardKey] = boardValue;
+      if (input.type === "range") {
+        const output = $(`[data-board-output="${boardKey}"]`);
+        if (output) output.value = `${input.value}%`;
+        if (output) output.textContent = `${input.value}%`;
+      }
       if (commit) changed();
       else {
         dirty = true;

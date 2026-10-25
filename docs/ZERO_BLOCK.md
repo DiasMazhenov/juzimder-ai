@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.146 — Artboard Settings переиспользуют основной image picker и библиотеку проекта для фоновой картинки; добавлены цвет фона, размер изображения, позиция и два endpoint фильтра с цветом/opacity. Параметры проходят JSON Schema/PHP validation, asset references сохраняют принадлежность и включаются в ZIP/publication, а браузерный и PHP renderer формируют одинаковую CSS background-слойность. В Codex Browser в существующей вкладке проверены настройки и открытие проектной медиатеки; изображение намеренно не применялось к QA-странице, чтобы не менять её автосохранение.
+
 Version: zeroData v1, product 00.00.140. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
 
 00.00.145 — When a brief explicitly requests a photo, the AI composer makes one bounded structured repair if its first output omits an image. If the repair still omits it, or Commons cannot provide a usable open-licence image, the request fails closed before producing an applicable proposal. The repair usage is included in AI usage metadata. Tests cover one retry, rejection after a second omission, missing Commons matches, and no retry for briefs that do not request photos. Live acceptance of this new repair path and mobile layout remains open.

@@ -122,10 +122,16 @@ final class ZeroBlock {
         $widths=[];$overrideModes=[];
         foreach($ordered as $mode=>$board){
             if(!preg_match('/^(?:desktop|laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$/D',$mode))throw new Problem(422,'Zero Block: неверный ID брейкпоинта.');
-            $b=self::fields($board,['width','height','background','gridWidth','margin','gutter','overflow','scaleGrid','guides'],['width','height','background','gridWidth','margin','gutter','overflow','guides']);
+            $b=self::fields($board,['width','height','background','backgroundImage','backgroundImageName','backgroundSize','backgroundPosition','filterStartColor','filterStartOpacity','filterEndColor','filterEndOpacity','gridWidth','margin','gutter','overflow','scaleGrid','guides'],['width','height','background','gridWidth','margin','gutter','overflow','guides']);
             if(!is_int($b['width'])||$b['width']<320||$b['width']>2400||isset($widths[$b['width']]))throw new Problem(422,'Zero Block: ширины брейкпоинтов должны быть уникальны в диапазоне 320–2400 px.');
             $widths[$b['width']]=true;if($mode!=='desktop')$overrideModes[]=$mode;
             self::number($b['height'],40,20000);self::number($b['gridWidth'],1,2400);self::number($b['margin'],0,500);self::number($b['gutter'],0,200);self::color($b['background']);
+            if(array_key_exists('backgroundImage',$b)&&$b['backgroundImage']!==''&&(!is_string($b['backgroundImage'])||!preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D',$b['backgroundImage'])))throw new Problem(422,'Zero Block: выберите изображение из библиотеки текущего проекта.');
+            if(array_key_exists('backgroundImageName',$b))self::text($b['backgroundImageName'],200);
+            if(array_key_exists('backgroundSize',$b)&&!in_array($b['backgroundSize'],['cover','contain','auto','100% 100%'],true))throw new Problem(422,'Zero Block: неверное поведение фонового изображения.');
+            if(array_key_exists('backgroundPosition',$b)&&!in_array($b['backgroundPosition'],['center center','left top','center top','right top','left center','right center','left bottom','center bottom','right bottom'],true))throw new Problem(422,'Zero Block: неверная позиция фонового изображения.');
+            foreach(['filterStartColor','filterEndColor'] as $key)if(array_key_exists($key,$b)&&(!is_string($b[$key])||!preg_match('/^#[a-f0-9]{6}$/iD',$b[$key])))throw new Problem(422,'Zero Block: фильтру нужен шестизначный HEX-цвет.');
+            foreach(['filterStartOpacity','filterEndOpacity'] as $key)if(array_key_exists($key,$b))self::number($b[$key],0,1);
             if(!in_array($b['overflow'],['hidden','visible'],true))throw new Problem(422,'Zero Block: неверный overflow.');
             if(array_key_exists('scaleGrid',$b)&&!in_array($b['scaleGrid'],['fixed','autoscale'],true))throw new Problem(422,'Zero Block: неверный масштаб Grid Container.');
             if(!is_array($b['guides'])||count($b['guides'])>100)throw new Problem(422,'Zero Block: неверные направляющие.');

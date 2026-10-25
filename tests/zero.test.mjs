@@ -376,6 +376,31 @@ test("Autoscale emits independent responsive rules for all default and custom br
   }
   assert.ok(expected.some(({ mode }) => mode === customMode));
 });
+
+test("artboard background uses the project image picker and renders responsive-safe overlays", () => {
+  const data = createZeroData(),
+    board = data.artboards.desktop;
+  board.background = "#112233";
+  board.backgroundImage = `/api/projects/${"a".repeat(24)}/assets/${"b".repeat(24)}/file`;
+  board.backgroundImageName = "Clinic entrance.jpg";
+  board.backgroundSize = "contain";
+  board.backgroundPosition = "right bottom";
+  board.filterStartColor = "#000000";
+  board.filterStartOpacity = 0.5;
+  board.filterEndColor = "#ffffff";
+  board.filterEndOpacity = 0.25;
+  const html = renderZero(data, "background-settings"),
+    inspector = renderInspector({ items: [], mode: "desktop", board, project: {} }),
+    app = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8");
+  assert.match(html, /background-image:linear-gradient\(180deg,rgba\(0,0,0,0\.5\),rgba\(255,255,255,0\.25\)\),url\("\/api\/projects\//);
+  assert.match(html, /background-size:contain;background-position:right bottom;background-repeat:no-repeat/);
+  assert.match(inspector, /data-action="background-image"/);
+  assert.match(inspector, /data-board="filterStartOpacity"/);
+  assert.match(inspector, /data-board="filterEndOpacity"/);
+  assert.match(app, /installImagePicker\([\s\S]{0,180}allowExternalUrl: false/);
+  const picker = readFileSync(new URL("../src/image-picker.js", import.meta.url), "utf8");
+  assert.match(picker, /const imageForm=\$\('#image-form'\);if\(imageForm\)imageForm\.onsubmit=/);
+});
 test("Autoscale control is scoped to an artboard and new boards default to fixed", () => {
   const data = createZeroData();
   for (const board of Object.values(data.artboards))

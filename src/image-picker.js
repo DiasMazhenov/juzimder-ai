@@ -1,12 +1,12 @@
 import { tablerIcon } from './editor-icons.js';
 
-export function installImagePicker({editor,projectId,api,csrf,insert,notify}) {
+export function installImagePicker({editor,projectId,api,csrf,insert,notify,allowExternalUrl=true}) {
   const dialog=document.querySelector('#image-dialog');
   dialog.innerHTML=`<div class="asset-dialog-head"><div><p class="eyebrow">МЕДИА САЙТА</p><h2 id="image-dialog-title">Выберите изображение</h2></div><button type="button" id="close-image" aria-label="Закрыть изображения">${tablerIcon('x')}</button></div>
-    <nav class="image-source-tabs" aria-label="Источник изображения"><button type="button" data-image-source="library" aria-pressed="true">Библиотека сайта <span id="asset-count"></span></button><button type="button" data-image-source="url" aria-pressed="false">По ссылке</button></nav>
+    <nav class="image-source-tabs" aria-label="Источник изображения"><button type="button" data-image-source="library" aria-pressed="true">Библиотека сайта <span id="asset-count"></span></button>${allowExternalUrl?'<button type="button" data-image-source="url" aria-pressed="false">По ссылке</button>':''}</nav>
     <section id="image-library-panel"><div class="asset-upload-zone" id="asset-drop-zone"><div><strong>Добавьте свои фотографии</strong><p>Перетащите файл сюда или выберите его на компьютере.</p><small>PNG, JPEG, WebP, GIF · до 4 МБ · хранилище сайта 20 МБ</small></div><button type="button" class="primary" id="upload-asset">${tablerIcon('arrow-up')} Загрузить с компьютера</button><input id="asset-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></div>
     <div class="asset-library-toolbar"><label class="asset-search-label"><span class="visually-hidden">Поиск по библиотеке сайта</span><input type="search" id="asset-search" placeholder="Найти изображение по имени"></label><button type="button" id="refresh-assets" title="Обновить библиотеку" aria-label="Обновить библиотеку">${tablerIcon('arrow-back-up')}</button></div><p id="asset-status" role="status" aria-live="polite"></p><div id="asset-library" class="asset-library"></div></section>
-    <section id="image-url-panel" hidden><form id="image-form"><label>HTTPS-адрес изображения<input name="src" type="url" required pattern="https://.*" placeholder="https://example.com/photo.jpg"></label><p class="muted small">Изображение по ссылке не загружается в личную библиотеку сайта.</p></form></section>
+    ${allowExternalUrl?'<section id="image-url-panel" hidden><form id="image-form"><label>HTTPS-адрес изображения<input name="src" type="url" required pattern="https://.*" placeholder="https://example.com/photo.jpg"></label><p class="muted small">Изображение по ссылке не загружается в личную библиотеку сайта.</p></form></section>':''}
     <footer class="image-picker-footer"><label>Описание изображения <span class="muted small">для доступности</span><input id="image-alt" maxlength="200" placeholder="Что изображено на фотографии?"></label><div class="image-picker-actions"><span id="asset-selection" class="muted small">Выберите фото из библиотеки</span><button type="button" id="cancel-image">Отмена</button><button type="button" class="primary" id="insert-image" disabled>Вставить изображение</button></div></footer>`;
   const $=selector=>dialog.querySelector(selector);
   let assets=[],selected=null,source='library',context=null,targetSrc='',epoch=0,uploading=false;
@@ -37,14 +37,14 @@ export function installImagePicker({editor,projectId,api,csrf,insert,notify}) {
     catch(error){if(request===epoch)status('Не удалось загрузить библиотеку: '+error.message);}
     finally{if(request===epoch)$('#refresh-assets').disabled=false;}
   };
-  const setSource=value=>{source=value;$('#image-library-panel').hidden=value!=='library';$('#image-url-panel').hidden=value!=='url';for(const button of dialog.querySelectorAll('[data-image-source]'))button.setAttribute('aria-pressed',String(button.dataset.imageSource===value));sync();};
+  const setSource=value=>{source=value;$('#image-library-panel').hidden=value!=='library';const urlPanel=$('#image-url-panel');if(urlPanel)urlPanel.hidden=value!=='url';for(const button of dialog.querySelectorAll('[data-image-source]'))button.setAttribute('aria-pressed',String(button.dataset.imageSource===value));sync();};
   const apply=()=>{
     let src=selected?.url;
     if(source==='url'){if(!$('#image-form').reportValidity())return;src=$('#image-form').elements.src.value.trim();}
     if(!src)return;
-    const alt=$('#image-alt').value.trim(),native=context;
+    const alt=$('#image-alt').value.trim()||selected?.name||'',native=context;
     if(native){const target=native.options?.target;native.select({type:'image',src,name:selected?.name||'Изображение'},true);if(target?.is('image'))target.addAttributes({alt});}
-    else insert(src,alt);
+    else insert(src,alt,selected?.name||'');
     dialog.close();
   };
   const upload=async file=>{
@@ -64,9 +64,9 @@ export function installImagePicker({editor,projectId,api,csrf,insert,notify}) {
   $('#asset-search').oninput=render;$('#refresh-assets').onclick=load;
   $('#asset-library').onclick=event=>{const card=event.target.closest('[data-asset-id]');if(card){selected=assets.find(asset=>asset.id===card.dataset.assetId);sync();}};
   for(const button of dialog.querySelectorAll('[data-image-source]'))button.onclick=()=>setSource(button.dataset.imageSource);
-  $('#image-form').onsubmit=event=>{event.preventDefault();apply();};$('#insert-image').onclick=apply;
+  const imageForm=$('#image-form');if(imageForm)imageForm.onsubmit=event=>{event.preventDefault();apply();};$('#insert-image').onclick=apply;
   $('#cancel-image').onclick=$('#close-image').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{const native=context;context=null;epoch++;$('#refresh-assets').disabled=false;if(native)native.close();});
   const zone=$('#asset-drop-zone');zone.ondragover=event=>{event.preventDefault();event.stopPropagation();zone.classList.add('drag-over');};zone.ondragleave=()=>zone.classList.remove('drag-over');zone.ondrop=event=>{event.preventDefault();event.stopPropagation();zone.classList.remove('drag-over');if(event.dataTransfer.files.length!==1){status('Перетащите одно изображение за раз.');return;}upload(event.dataTransfer.files[0]);};
-  return {open(native=null){context=native;targetSrc=native?.options?.target?.getSrc?.()||'';selected=null;$('#asset-search').value='';$('#image-form').reset();if(targetSrc.startsWith('https://'))$('#image-form').elements.src.value=targetSrc;$('#image-alt').value=native?.options?.target?.getAttributes?.().alt||'';$('#insert-image').textContent=native?'Использовать изображение':'Вставить изображение';setSource('library');if(!dialog.open)dialog.showModal();load();}};
+  return {open(native=null,dialogTitle='Выберите изображение',insertLabel='Вставить изображение'){context=native;targetSrc=native?.options?.target?.getSrc?.()||'';selected=null;$('#asset-search').value='';$('#image-form')?.reset();if(targetSrc.startsWith('https://')&&$('#image-form'))$('#image-form').elements.src.value=targetSrc;$('#image-alt').value=native?.options?.target?.getAttributes?.().alt||'';$('#image-dialog-title').textContent=dialogTitle;$('#insert-image').textContent=native?'Использовать изображение':insertLabel;setSource('library');if(!dialog.open)dialog.showModal();load();}};
 }

@@ -103,6 +103,29 @@ export function elementHTML(el, children = "") {
   if (el.type === "group") return children;
   return content;
 }
+function artboardBackgroundCSS(board) {
+  const color = /^(?:#[a-f\d]{6}|transparent)$/i.test(board.background || "")
+      ? board.background
+      : "#ffffff",
+    url = /^\/api\/projects\/[a-f\d]{24}\/assets\/[a-f\d]{24}\/file$/.test(
+      board.backgroundImage || "",
+    );
+  if (!url) return `background:${color};`;
+  const rgba = (key, opacityKey) => {
+    const value = /^#[a-f\d]{6}$/i.test(board[key] || "") ? board[key] : "#000000",
+      channels = [1, 3, 5].map((index) => Number.parseInt(value.slice(index, index + 2), 16)),
+      opacity = Number.isFinite(board[opacityKey])
+        ? Math.max(0, Math.min(1, board[opacityKey]))
+        : 0;
+    return `rgba(${channels.join(",")},${opacity})`;
+  };
+  const size = ["cover", "contain", "auto", "100% 100%"].includes(board.backgroundSize)
+      ? board.backgroundSize
+      : "cover",
+    positions = ["center center", "left top", "center top", "right top", "left center", "right center", "left bottom", "center bottom", "right bottom"],
+    position = positions.includes(board.backgroundPosition) ? board.backgroundPosition : "center center";
+  return `background:${color};background-image:linear-gradient(180deg,${rgba("filterStartColor", "filterStartOpacity")},${rgba("filterEndColor", "filterEndOpacity")}),url("${board.backgroundImage}");background-size:${size};background-position:${position};background-repeat:no-repeat;`;
+}
 export function renderZero(
   data,
   blockId,
@@ -146,7 +169,7 @@ export function renderZero(
     const autoScale = !activeMode && b.scaleGrid === "autoscale";
     css += wrap(
       mode,
-      `.${scope}{height:${autoScale ? scaledGridLength(b.height, b, true) : `${b.height}px`};background:${b.background};overflow:${b.overflow}}`,
+      `.${scope}{height:${autoScale ? scaledGridLength(b.height, b, true) : `${b.height}px`};${artboardBackgroundCSS(b)}overflow:${b.overflow}}`,
     );
   }
   const walk = (list, nested = false, inheritedGrid = {}) =>

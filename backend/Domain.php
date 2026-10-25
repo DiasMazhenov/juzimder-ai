@@ -125,7 +125,7 @@ final class Document {
             else return;
             foreach ($fields as $key => $item) {
                 if ($key === 'background-image') $item = BackgroundImage::source($item);
-                if (in_array($key,['src','background-image'],true) && is_string($item) && preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $item, $match)) {
+                if (in_array($key,['src','background-image','backgroundImage'],true) && is_string($item) && preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $item, $match)) {
                     $references[$match[1] . ':' . $match[2]] = ['projectId'=>$match[1], 'assetId'=>$match[2]];
                     if (count($references) > 200) throw new Problem(422, 'В одном проекте можно использовать не более 200 изображений.');
                 }
