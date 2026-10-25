@@ -1,10 +1,12 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.134. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.135. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.135 — API concurrency regression test sends two same-base Zero saves through separate PHP server processes with independent authenticated sessions and a shared isolated SQLite database. It asserts exactly one 200 and one 409, then reads the project to verify that only the successful request's Zero Data was committed. This exercises the backend CAS independently of BroadcastChannel; it does not change runtime behavior.
 
 00.00.134 — locked selected elements now show an Inspector note and disable property controls. A guarded input event reports the lock without setting `dirty`, preventing an unchanged save/revision. Browser QA found this while editing the fixture's intentionally locked line; its saved coordinate remains X=100. An unlocked title's X was changed to 10, saved, and read back through the project API; then restored to X=0 and verified.
 
-00.00.134 Browser QA — two existing Zero Editor tabs edited the same title X (10 and 20). One save won revision 271; the other tab reported a conflict while retaining its local value. Explicitly loading the server version updated that tab. The original X=0 was restored and saved as revision 272; both tabs then showed X=0. This verifies the cross-window BroadcastChannel conflict flow and recovery, not an isolated simultaneous HTTP 409 race. The wider Z6 conflict matrix remains open.
+00.00.134 Browser QA — two existing Zero Editor tabs edited the same title X (10 and 20). One save won revision 271; the other tab reported a conflict while retaining its local value. Explicitly loading the server version updated that tab. The original X=0 was restored and saved as revision 272; both tabs then showed X=0. This verifies the cross-window BroadcastChannel conflict flow and recovery; a two-process HTTP 200/409 race is covered in 00.00.135. The wider Z6 conflict matrix remains open.
 
 00.00.133 — CAS rebase handles a clean local state after undo: it refreshes the server base/revision and displays `Сохранено · ревизия N` without attempting a no-op Zero save. Codex Browser reproduced the stale status in the existing two tabs after a temporary unrelated SEO change and local Undo; the SEO field was restored to empty and the Zero line remains at X=100. The same-element concurrent edit flow was verified in the 00.00.134 follow-up below.
 

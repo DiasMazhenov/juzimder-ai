@@ -11,6 +11,7 @@ import { AI_SECTION_TEXT_FIELDS, buildDesignPlanOperations } from '../src/ai-pla
 let server, devServer, dir, devDir, testDbPath;
 const base='http://127.0.0.1:18081';
 const devBase='http://127.0.0.1:18082';
+const concurrentBase='http://127.0.0.1:18083';
 class Client {
   constructor(url=base){this.url=url;}
   cookie=''; csrf='';
@@ -493,9 +494,12 @@ assert.equal((await anon.call(path,'PUT',{version:1,zeroData})).status,401);
 assert.equal((await other.call(path,'PUT',{version:1,zeroData})).status,404);
 assert.equal((await owner.call(path,'PUT',{version:1,zeroData},'bad')).status,403);
 const changed=structuredClone(zeroData);changed.elements[0].geometry.x=-90;const changedGallery=changed.elements.find(element=>element.id==='ze-zero-gallery');changedGallery.galleryOptions={columns:1,gap:0,objectFit:'contain'};changedGallery.galleryItems[0].alt='Edited gallery photo';
-const saved=await owner.call(path,'PUT',{version:1,zeroData:changed});assert.equal(saved.status,200);assert.equal(saved.data.version,2);
-assert.equal((await owner.call(path,'PUT',{version:1,zeroData})).status,409);
-const latest=(await owner.call(`/projects/${p.id}`)).data;assert.equal(latest.document.data.pages[0].frames[0].component.components[1].content,'Keep sibling');assert.equal(latest.document.data.pages[0].frames[0].component.components[0].zeroData.elements[0].geometry.x,-90);
+const competing=structuredClone(changed);competing.elements[0].geometry.x=-80;
+const conflictServer=spawn('php',['-S','127.0.0.1:18083','-t','public','public/router.php'],{env:{...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});let concurrentSaves;
+try{await waitFor(concurrentBase);const concurrentOwner=new Client(concurrentBase);await concurrentOwner.call('/session');assert.equal((await concurrentOwner.call('/login','POST',{email:'zero-owner@example.test',password:'local-zero-test-password'})).status,200,'A second server process authenticates the same owner with an independent session');concurrentSaves=await Promise.all([owner.call(path,'PUT',{version:1,zeroData:changed}),concurrentOwner.call(path,'PUT',{version:1,zeroData:competing})]);}finally{conflictServer.kill();await new Promise(resolve=>conflictServer.once('exit',resolve));}
+assert.deepEqual(concurrentSaves.map(response=>response.status).sort(),[200,409],'Concurrent Zero saves in separate PHP processes produce one winner and one CAS conflict');
+const saved=concurrentSaves.find(response=>response.status===200);assert.equal(saved.data.version,2);const winningX=saved.data.zeroData.elements[0].geometry.x;
+const latest=(await owner.call(`/projects/${p.id}`)).data;assert.equal(latest.document.data.pages[0].frames[0].component.components[1].content,'Keep sibling');assert.equal(latest.document.data.pages[0].frames[0].component.components[0].zeroData.elements[0].geometry.x,winningX,'The concurrent winner is the only version written');
 const reopenedZero=latest.document.data.pages[0].frames[0].component.components[0].zeroData;assert.equal(reopenedZero.artboards[customMode].width,768);assert.equal(reopenedZero.elements[0].overrides[customMode].geometry.x,222);assert.equal(reopenedZero.elements[0].overrides[customMode].style.fontSize,31);
 assert.equal(reopenedZero.elements.find(element=>element.id==='ze-zero-gallery').galleryItems[0].alt,'Edited gallery photo');assert.equal(reopenedZero.elements.find(element=>element.id==='ze-zero-gallery').galleryOptions.columns,1);
 const bad=structuredClone(changed);bad.elements[1].src=`/api/projects/${'a'.repeat(24)}/assets/${'b'.repeat(24)}/file`;assert.equal((await owner.call(path,'PUT',{version:2,zeroData:bad})).status,422);const foreignGallery=structuredClone(changed);foreignGallery.elements.find(element=>element.id==='ze-zero-gallery').galleryItems[0].src=`/api/projects/${'a'.repeat(24)}/assets/${'b'.repeat(24)}/file`;assert.equal((await owner.call(path,'PUT',{version:2,zeroData:foreignGallery})).status,422,'gallery image references enforce the same project asset ownership policy');
