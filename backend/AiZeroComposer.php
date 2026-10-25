@@ -102,6 +102,7 @@ final class AiZeroComposer {
         $cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);
         if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}
         $decoded['elements']=self::normalizeNumberedProcessIcons($prompt,$decoded['elements'],(int)$board->width);
+        $decoded['elements']=self::normalizeRequestedNumberedProcessCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
         $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
         $autoPhotoAdded=false;$automaticPhotoIndex=null;
@@ -139,7 +140,7 @@ final class AiZeroComposer {
             self::validateModelElement($item,(int)$board->width,(int)$board->height);
             $type=$item['type'];
             if($type==='image'&&!isset($photos[$assignments['slot-'.$index]??'']))continue;
-            $generatedCardSurface=$index<$generatedCardSurfaceCount&&$type==='rectangle';
+            $generatedCardSurface=$type==='rectangle'&&preg_match('/^(?:Основа карточки \d+|AI process card \d{2})$/u',(string)($item['name']??''))===1;
             $geometry=(object)['container'=>'grid','anchorX'=>0,'anchorY'=>0,'originX'=>0,'originY'=>0,'x'=>round((float)$item['x'],2),'y'=>round((float)$item['y'],2),'width'=>round((float)$item['width'],2),'height'=>round((float)$item['height'],2),'rotation'=>0];
             $textSurface=$type==='text'&&$item['height']<=52&&$item['radius']>=12?$item['fill']:'transparent';
             $textBackground=$type==='button'?$item['fill']:($textSurface==='transparent'?$decoded['artboard']['backgroundColor']:$textSurface);
@@ -636,7 +637,8 @@ final class AiZeroComposer {
     private static function mobileNumberedStepStack(string $prompt,array $items,\stdClass $data,?int $badgeIndex=null): array {
         if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1)return [];
         foreach($items as $item)if(is_array($item)&&($item['type']??null)==='image')return [];
-        $titles=[];$columns=[];$xTolerance=max(48,(int)round((float)$data->artboards->desktop->width*.05));
+        $titles=[];$columns=[];$surfaceByNumber=[];$xTolerance=max(48,(int)round((float)$data->artboards->desktop->width*.05));
+        foreach($items as $index=>$item)if(is_array($item)&&($item['type']??null)==='rectangle'&&preg_match('/^AI process card (\d{2})$/u',(string)($item['name']??''),$match)===1)$surfaceByNumber[(int)$match[1]]=$index;
         foreach($items as $index=>$item){
             if(!is_array($item)||($item['type']??null)!=='text'||preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)!==1)continue;
             $number=(int)$match[1];if($number<1)return [];$x=(float)$item['x'];$column=null;$distance=PHP_FLOAT_MAX;
@@ -659,7 +661,7 @@ final class AiZeroComposer {
             if($best===null)return [];
             $icon=null;$iconDistance=PHP_FLOAT_MAX;$titleItem=$items[$title['index']];$titleLeft=(float)$titleItem['x'];$titleRight=$titleLeft+(float)$titleItem['width'];$titleTop=(float)$titleItem['y'];$titleBottom=$titleTop+(float)$titleItem['height'];
             foreach($items as $iconIndex=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='vector'||isset($claimed[$iconIndex])||$iconIndex===$title['index']||(float)($candidate['width']??0)>120||(float)($candidate['height']??0)>120)continue;$iconLeft=(float)$candidate['x'];$iconRight=$iconLeft+(float)$candidate['width'];$iconTop=(float)$candidate['y'];$iconBottom=$iconTop+(float)$candidate['height'];$horizontalGap=max(0,max($titleLeft-$iconRight,$iconLeft-$titleRight));$verticalGap=max(0,max($titleTop-$iconBottom,$iconTop-$titleBottom));if($horizontalGap>$xTolerance||$verticalGap>max(72,(float)$titleItem['height']*1.5))continue;$distance=$horizontalGap+$verticalGap*1.5;if($distance<$iconDistance){$icon=$iconIndex;$iconDistance=$distance;}}
-            $claimed[$title['index']]=true;$claimed[$best]=true;if($icon!==null)$claimed[$icon]=true;$cards[]=['number'=>$title['number'],'title'=>$title['index'],'description'=>$best,'icon'=>$icon,'y'=>$title['y']];
+            $claimed[$title['index']]=true;$claimed[$best]=true;if($icon!==null)$claimed[$icon]=true;$cards[]=['number'=>$title['number'],'title'=>$title['index'],'description'=>$best,'icon'=>$icon,'surface'=>$surfaceByNumber[$title['number']]??null,'y'=>$title['y']];
         }
         usort($cards,static fn(array $a,array $b):int=>$a['number']<=>$b['number']);
         $firstStepY=min(array_column($cards,'y'));$intro=[];$post=[];$actions=[];
@@ -678,9 +680,15 @@ final class AiZeroComposer {
             foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
             foreach($cards as $card){
                 $title=$card['title'];$description=$card['description'];
-                if($card['icon']!==null){$icon=$card['icon'];$result[$icon][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cursor,'width'=>28,'height'=>28]];$titleHeight=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin+36,$cursor,max(1,$contentWidth-36),null,true);$cursor+=max(28,$titleHeight)+3;}
-                else $cursor+=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin,$cursor,$contentWidth,null,true)+3;
-                $cursor+=self::mobileFlowOverride($result,$description,(string)$mode,$items[$description],$margin,$cursor,$contentWidth,null,true)+14;
+                if($card['surface']!==null){$surface=$card['surface'];$cardTop=$cursor+4;$innerY=$cardTop+12;$textX=$margin+12;$textWidth=max(1,$contentWidth-24);
+                    if($card['icon']!==null){$icon=$card['icon'];$result[$icon][$mode]=['geometry'=>(object)['x'=>$margin+12,'y'=>$innerY,'width'=>28,'height'=>28]];$titleHeight=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin+48,$innerY,max(1,$contentWidth-60),null,true);$innerY+=max(28,$titleHeight)+3;}
+                    else $innerY+=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$textX,$innerY,$textWidth,null,true)+3;
+                    $descriptionHeight=self::mobileFlowOverride($result,$description,(string)$mode,$items[$description],$textX,$innerY,$textWidth,null,true);$surfaceHeight=$innerY+$descriptionHeight+12-$cardTop;$result[$surface][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$surfaceHeight],'style'=>(object)['radius'=>(float)($items[$surface]['radius']??16)]];$cursor=$cardTop+$surfaceHeight+12;
+                }else{
+                    if($card['icon']!==null){$icon=$card['icon'];$result[$icon][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cursor,'width'=>28,'height'=>28]];$titleHeight=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin+36,$cursor,max(1,$contentWidth-36),null,true);$cursor+=max(28,$titleHeight)+3;}
+                    else $cursor+=self::mobileFlowOverride($result,$title,(string)$mode,$items[$title],$margin,$cursor,$contentWidth,null,true)+3;
+                    $cursor+=self::mobileFlowOverride($result,$description,(string)$mode,$items[$description],$margin,$cursor,$contentWidth,null,true)+14;
+                }
             }
             foreach($post as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
             foreach($actions as $index)$cursor+=self::mobileFlowOverride($result,$index,(string)$mode,$items[$index],$margin,$cursor,$contentWidth,null,false)+8;
@@ -703,6 +711,29 @@ final class AiZeroComposer {
             $claimed[$best]=true;$items[$best]['icon']=$iconName;$items[$best]['x']=$iconX;$items[$best]['y']=$iconY;$items[$best]['width']=28;$items[$best]['height']=28;
         }
         return $items;
+    }
+
+    /** Add editable background surfaces when a numbered workflow explicitly requests cards. */
+    private static function normalizeRequestedNumberedProcessCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
+        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1||preg_match('/(?:карточк\w*|\bcards?\b)/iu',$prompt)!==1)return $items;
+        foreach($items as $item)if(is_array($item)&&in_array($item['type']??null,['image','rectangle'],true))return $items;
+        $titles=[];$columns=[];$xTolerance=max(48,(int)round($boardWidth*.05));
+        foreach($items as $index=>$item){if(!is_array($item)||($item['type']??null)!=='text'||preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)!==1)continue;$x=(float)$item['x'];$column=null;$distance=PHP_FLOAT_MAX;foreach($columns as $columnIndex=>$columnX){$delta=abs($columnX-$x);if($delta<=$xTolerance&&$delta<$distance){$column=$columnIndex;$distance=$delta;}}if($column===null){$column=count($columns);$columns[]=$x;}else $columns[$column]=($columns[$column]+$x)/2;$titles[]=['index'=>$index,'number'=>(int)$match[1],'column'=>$column];}
+        if(count($titles)<3||count($titles)>6||count(array_unique(array_column($titles,'number')))!==count($titles)||count($items)+count($titles)>20)return $items;
+        $claimed=[];$cards=[];
+        foreach($titles as $title){$item=$items[$title['index']];$nextY=PHP_FLOAT_MAX;foreach($titles as $other)if($other['column']===$title['column']&&(float)$items[$other['index']]['y']>(float)$item['y'])$nextY=min($nextY,(float)$items[$other['index']]['y']);$description=null;$bestDistance=PHP_FLOAT_MAX;foreach($items as $index=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='text'||isset($claimed[$index])||$index===$title['index']||preg_match('/^\s*\d{1,2}(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($candidate['content']??''))===1)continue;$deltaX=abs((float)$candidate['x']-(float)$item['x']);$deltaY=(float)$candidate['y']-(float)$item['y'];if($deltaX>$xTolerance||$deltaY<0||$deltaY>180||(float)$candidate['y']>=$nextY)continue;$distance=$deltaY+$deltaX*.5;if($distance<$bestDistance){$description=$index;$bestDistance=$distance;}}
+            if($description===null)return $items;$claimed[$title['index']]=true;$claimed[$description]=true;$cards[]=['number'=>$title['number'],'title'=>$title['index'],'description'=>$description,'column'=>$title['column']];
+        }
+        usort($cards,static fn(array $a,array $b):int=>$a['number']<=>$b['number']);$columnOrder=array_keys($columns);usort($columnOrder,static fn(int $a,int $b):int=>$columns[$a]<=>$columns[$b]);$columnCount=min(3,count($columnOrder));$margin=max(40,(int)round($boardWidth*.06));$gutter=$columnCount>1?max(24,(int)round($boardWidth*.02)):0;$cardWidth=(int)floor(($boardWidth-2*$margin-$gutter*($columnCount-1))/$columnCount);if($cardWidth<180)return $items;
+        $light=self::colorLuminance($background)>=.42;$surfaceFill=self::blendColor($background,$light?'#DDEBDD':'#FFFFFF',$light?.72:.12);$surfaceStroke=self::blendColor($background,$light?'#8FAF8F':'#FFFFFF',$light?.48:.32);$surfaces=[];$usedIcons=[];$maxBottom=0;
+        foreach($cards as $card){$titleIndex=$card['title'];$descriptionIndex=$card['description'];$title=&$items[$titleIndex];$description=&$items[$descriptionIndex];$columnPosition=array_search($card['column'],$columnOrder,true);if($columnPosition===false){unset($title,$description);return $items;}$cardX=$margin+$columnPosition*($cardWidth+$gutter);$titleY=(float)$title['y'];$descriptionY=max($titleY+(float)$title['height']+8,(float)$description['y']);$iconIndex=null;$iconDistance=PHP_FLOAT_MAX;
+            foreach($items as $index=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='vector'||isset($usedIcons[$index])||(float)($candidate['width']??0)>120||(float)($candidate['height']??0)>120)continue;$horizontal=max(0,max((float)$title['x']-((float)$candidate['x']+(float)$candidate['width']),(float)$candidate['x']-((float)$title['x']+(float)$title['width'])));$vertical=max(0,max($titleY-((float)$candidate['y']+(float)$candidate['height']),(float)$candidate['y']-($titleY+(float)$title['height'])));if($horizontal>$xTolerance||$vertical>max(72,(float)$title['height']*1.5))continue;$distance=$horizontal+$vertical*1.5;if($distance<$iconDistance){$iconIndex=$index;$iconDistance=$distance;}}
+            $iconOffset=$iconIndex!==null?52:20;$title['x']=$cardX+$iconOffset;$title['width']=max(1,$cardWidth-$iconOffset-16);$titleLines=self::estimatedTextLines((string)$title['content'],max(14,(float)$title['fontSize']),(float)$title['width'],true);$title['height']=max((float)$title['height'],(int)ceil($titleLines*(float)$title['fontSize']*1.25+4));$description['x']=$cardX+20;$description['y']=$descriptionY;$description['width']=max(1,$cardWidth-40);$descriptionLines=self::estimatedTextLines((string)$description['content'],max(12,(float)$description['fontSize']),(float)$description['width'],false);$description['height']=max((float)$description['height'],(int)ceil($descriptionLines*(float)$description['fontSize']*1.35+4));
+            $top=min($titleY,$descriptionY);$bottom=max($titleY+(float)$title['height'],$descriptionY+(float)$description['height']);if($iconIndex!==null){$icon=&$items[$iconIndex];$icon['x']=$cardX+16;$icon['y']=$titleY+max(0,((float)$title['height']-(float)$icon['height'])/2);$icon['width']=28;$icon['height']=28;$top=min($top,(float)$icon['y']);$bottom=max($bottom,(float)$icon['y']+28);unset($icon);$usedIcons[$iconIndex]=true;}
+            $surfaceY=max(0,(int)floor($top-16));$surfaceBottom=(int)ceil($bottom+16);if($surfaceBottom>$boardHeight-8){unset($title,$description);return $items;}$maxBottom=max($maxBottom,$surfaceBottom);$surfaces[]=['type'=>'rectangle','name'=>sprintf('AI process card %02d',$card['number']),'content'=>'','photoQuery'=>'','icon'=>'','x'=>$cardX,'y'=>$surfaceY,'width'=>$cardWidth,'height'=>$surfaceBottom-$surfaceY,'fill'=>$surfaceFill,'color'=>'#222629','stroke'=>$surfaceStroke,'radius'=>16,'fontSize'=>16,'fontWeight'=>400,'textAlign'=>'left'];unset($title,$description);
+        }
+        foreach($items as &$item)if(is_array($item)&&($item['type']??null)==='button'&&(float)$item['y']<$maxBottom+16)$item['y']=min($maxBottom+24,$boardHeight-(float)$item['height']-12);unset($item);
+        return array_merge($surfaces,$items);
     }
 
     private static function mobileCardStack(array $items,\stdClass $data,?int $badgeIndex=null): array {
