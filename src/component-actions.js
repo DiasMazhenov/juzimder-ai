@@ -23,7 +23,7 @@ function isPageRoot(component) {
   return component?.get?.('type') === 'wrapper';
 }
 
-export function remapCopiedReferences(source, copy) {
+export function remapCopiedReferences(source, copy, cssComposer) {
   if (!source || !copy) return;
 
   const idMap = new Map();
@@ -57,6 +57,45 @@ export function remapCopiedReferences(source, copy) {
     }
     return COMPONENT_IDREF_ATTRIBUTES.has(name) ? remapTokens(value) : remapFragmentUrls(value);
   };
+  const remapPlainStyleValue = value => {
+    if (typeof value === 'string') {
+      const remapped = remapFragmentUrls(value);
+      return { value: remapped, changed: remapped !== value };
+    }
+    if (Array.isArray(value)) {
+      let changed = false;
+      const remapped = value.map(entry => {
+        const result = remapPlainStyleValue(entry);
+        changed ||= result.changed;
+        return result.value;
+      });
+      return { value: changed ? remapped : value, changed };
+    }
+    if (!value || typeof value !== 'object' || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+      return { value, changed: false };
+    }
+    let changed = false;
+    const remapped = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const result = remapPlainStyleValue(entry);
+      remapped[key] = result.value;
+      changed ||= result.changed;
+    }
+    return { value: changed ? remapped : value, changed };
+  };
+  const updateCssRule = rule => {
+    const styles = rule?.getStyle?.('', { withNested: true, skipResolve: true }) || {};
+    const updatedStyles = {};
+    for (const [name, value] of Object.entries(styles)) {
+      if (value && typeof value.getStyle === 'function' && typeof value.addStyle === 'function') {
+        updateCssRule(value);
+        continue;
+      }
+      const result = remapPlainStyleValue(value);
+      if (result.changed) updatedStyles[name] = result.value;
+    }
+    if (Object.keys(updatedStyles).length) rule.addStyle?.(updatedStyles);
+  };
   const updateReferences = component => {
     const attributes = component.get?.('attributes') || {};
     const updated = {};
@@ -76,6 +115,17 @@ export function remapCopiedReferences(source, copy) {
     getChildren(component).forEach(updateReferences);
   };
   updateReferences(copy);
+
+  if (cssComposer?.getRules) {
+    const visitedRules = new Set();
+    for (const id of idMap.values()) {
+      for (const rule of cssComposer.getRules(`#${id}`) || []) {
+        if (visitedRules.has(rule)) continue;
+        visitedRules.add(rule);
+        updateCssRule(rule);
+      }
+    }
+  }
 }
 
 function getClipboard(editor) {
@@ -103,7 +153,7 @@ function pasteFromClipboard(editor, sources, action = 'paste-component') {
   } finally {
     editor.off('component:paste', onPaste);
   }
-  pasted.forEach((component, index) => remapCopiedReferences(sources[index], component));
+  pasted.forEach((component, index) => remapCopiedReferences(sources[index], component, editor.Css));
   const last = pasted.at(-1);
   if (last) editor.select(last);
   return pasted;

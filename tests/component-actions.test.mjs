@@ -98,8 +98,21 @@ test('copy remaps HTML ID references and local CSS fragment URLs without changin
     new Component('mask-2', { id: 'mask-2' }),
     new Component('3d-gradient-2', { id: '3d-gradient-2' }),
   ]);
+  const sourceCssRule = {
+    style: { filter: 'url(#shadow)' },
+    getStyle() { return this.style; },
+    addStyle(style) { Object.assign(this.style, style); },
+  };
+  const copiedCssRule = {
+    style: { filter: 'url(#shadow)', mask: "url('#mask')", background: 'url(https://example.test/image.svg#mask)' },
+    getStyle() { return this.style; },
+    addStyle(style) { Object.assign(this.style, style); },
+  };
+  const cssComposer = {
+    getRules(selector) { return selector === '#label-2' ? [copiedCssRule] : []; },
+  };
 
-  remapCopiedReferences(source, copy);
+  remapCopiedReferences(source, copy, cssComposer);
 
   assert.equal(copy.children[2].attributes.for, 'field-2');
   assert.equal(copy.children[2].attributes['aria-controls'], 'field-2 title-2');
@@ -112,6 +125,10 @@ test('copy remaps HTML ID references and local CSS fragment URLs without changin
   assert.equal(copy.children[2].style.mask, "url('#mask-2')");
   assert.equal(copy.children[2].style['--numeric-id-reference'], 'url(#3d-gradient-2)');
   assert.equal(copy.children[2].style['background-image'], 'url("https://images.example.test/pattern.svg#shadow")');
+  assert.equal(copiedCssRule.style.filter, 'url(#shadow-2)');
+  assert.equal(copiedCssRule.style.mask, "url('#mask-2')");
+  assert.equal(copiedCssRule.style.background, 'url(https://example.test/image.svg#mask)');
+  assert.equal(sourceCssRule.style.filter, 'url(#shadow)', 'the original CSS rule remains unchanged');
   assert.equal(source.children[2].attributes.for, 'field', 'the source component remains unchanged');
   assert.equal(source.children[2].style.filter, 'url(#shadow)');
 });

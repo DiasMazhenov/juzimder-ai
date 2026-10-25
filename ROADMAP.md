@@ -1,5 +1,6 @@
 # План Juzimder AI
 
+- [x] 00.00.160: Copy/paste now remaps local `url(#id)` references in GrapesJS-cloned CSS Composer rules, including nested rules; source rules and external assets stay unchanged. Regression coverage added. Full universal component operations and live clipboard acceptance remain open.
 - [x] 00.00.159: Copy remaps additional HTML IDREF attributes, SVG fragment references, and local CSS `url(#id)` in attributes/inline styles, including IDs beginning with digits. External links/assets and source components remain unchanged; regression coverage added. Full universal component operations/schema extension and browser clipboard acceptance remain open.
 - [x] 00.00.158: Zero Editor clipboard excludes selected descendants of selected ancestors, remaps all cloned element IDs, offsets pasted geometry and responsive overrides by 20 px, and restores the original group destination when available. Duplicate shares the same clone logic; regression test covers nested selection, responsive geometry, and source immutability. Browser Cmd/Ctrl+C/V acceptance remains open: Browser Use intercepted Meta+V with an empty virtual clipboard.
 - [ ] 00.00.157 browser acceptance (BLOCKED): запрос с явным CTA вернул provider HTTP 429 до открытия candidate; live UI результата не проверен. Project Data остался на revision 325 с 0 элементами.
