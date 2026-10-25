@@ -34,6 +34,7 @@ import {
   rotatePoint,
   geometryCSS,
   appearanceCSS,
+  gridMetrics,
   adapt,
   History,
 } from "../model/model.js";
@@ -52,6 +53,12 @@ function breakpointIcon(width) {
   if (width <= 820) return { name: "device-tablet", orientation: "portrait" };
   if (width <= 1024) return { name: "device-tablet", orientation: "rotated" };
   return { name: "device-desktop", orientation: "landscape" };
+}
+function gridRgba(value, alpha) {
+  const match = /^#([a-f\d]{6})$/i.exec(value || "#86c232"),
+    hex = match?.[1] || "86c232",
+    channels = [0, 2, 4].map((index) => Number.parseInt(hex.slice(index, index + 2), 16));
+  return `rgba(${channels.join(",")},${Math.max(0, Math.min(1, alpha))})`;
 }
 export async function openZeroEditor({
   projectId,
@@ -87,6 +94,7 @@ export async function openZeroEditor({
     fieldTimer,
     pendingField = null,
     breakpointDraft = null,
+    gridSettingsScope = "current",
     smartLines = [],
     preview = false,
     destroyed = false;
@@ -107,7 +115,7 @@ export async function openZeroEditor({
   const history = new History(data);
   const channel = new BroadcastChannel(`jz-zero-${projectId}`),
     $ = (s) => app.querySelector(s);
-  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" aria-label="Слои" title="Слои">${tablerIcon("stack-2")}</button><button class="zero-mobile-inspector-toggle" data-action="inspector" aria-label="Инспектор" title="Инспектор">${tablerIcon("settings")}</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes" aria-label="Размеры экрана"></div><button data-action="breakpoints" aria-expanded="false" aria-controls="zero-breakpoint-manager" aria-label="Настроить брейкпоинты" title="Настроить брейкпоинты">${tablerIcon("settings")}</button><section id="zero-breakpoint-manager" class="zero-breakpoint-manager" hidden aria-label="Настройки брейкпоинтов"></section><button data-action="preview" aria-label="Просмотр" title="Просмотр">${tablerIcon("eye")}<span>Просмотр</span></button><button class="primary" data-action="save" aria-label="Сохранить" title="Сохранить">${tablerIcon("device-floppy")}<span>Сохранить</span></button><button data-action="close" aria-label="Закрыть" title="Закрыть">${tablerIcon("x")}<span>Закрыть</span></button></header><div class="zero-main"><button class="zero-panel-backdrop" data-action="panel-close" aria-label="Закрыть панель" hidden></button><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
+  app.innerHTML = `<main class="zero-app"><header class="zero-top"><a class="zero-brand" href="/projects/${projectId}/pages/${pageId}/edit" >Juzimder <b>ZERO</b></a><span class="zero-title">${esc(block.name || "Zero Block")}</span><span class="zero-version">${packageInfo.productVersion}</span><button data-action="add-menu" aria-label="Добавить элемент" title="Добавить элемент">${tablerIcon("plus")}</button><button data-action="layers" aria-label="Слои" title="Слои">${tablerIcon("stack-2")}</button><button class="zero-mobile-inspector-toggle" data-action="inspector" aria-label="Инспектор" title="Инспектор">${tablerIcon("settings")}</button><button data-action="grid" aria-pressed="true" aria-label="Сетка">${tablerIcon("layout-grid")}</button><button data-action="undo" aria-label="Отменить" title="Отменить">${tablerIcon("arrow-back-up")}</button><button data-action="redo" aria-label="Повторить" title="Повторить">${tablerIcon("arrow-forward-up")}</button><div class="zero-modes" aria-label="Размеры экрана"></div><button data-action="breakpoints" aria-expanded="false" aria-controls="zero-breakpoint-manager" aria-label="Настроить брейкпоинты" title="Настроить брейкпоинты">${tablerIcon("settings")}</button><section id="zero-breakpoint-manager" class="zero-breakpoint-manager" hidden aria-label="Настройки брейкпоинтов"></section><button data-action="preview" aria-label="Просмотр" title="Просмотр">${tablerIcon("eye")}<span>Просмотр</span></button><button class="primary" data-action="save" aria-label="Сохранить" title="Сохранить">${tablerIcon("device-floppy")}<span>Сохранить</span></button><button data-action="close" aria-label="Закрыть" title="Закрыть">${tablerIcon("x")}<span>Закрыть</span></button><button data-action="preferences-menu" aria-label="Дополнительные настройки Zero Block" title="Дополнительные настройки" aria-haspopup="menu" aria-expanded="false" aria-controls="zero-preferences-menu">${tablerIcon("dots")}</button><menu id="zero-preferences-menu" class="zero-preferences-menu" role="menu" aria-label="Меню Zero Block" hidden><button type="button" role="menuitem" data-action="undo">${tablerIcon("arrow-back-up")}<span>Отменить</span><kbd>⌘ Z</kbd></button><button type="button" role="menuitem" data-action="redo">${tablerIcon("arrow-forward-up")}<span>Повторить</span><kbd>⌘ ⇧ Z</kbd></button><hr><button type="button" role="menuitem" data-action="zoom-in">${tablerIcon("plus")}<span>Увеличить</span><kbd>⌘ +</kbd></button><button type="button" role="menuitem" data-action="zoom-out">${tablerIcon("minus")}<span>Уменьшить</span><kbd>⌘ −</kbd></button><hr><button type="button" role="menuitem" data-action="artboard-settings">${tablerIcon("settings")}<span>Настройки артборда</span></button><button type="button" role="menuitem" data-action="grid-settings">${tablerIcon("layout-grid")}<span>Параметры сетки</span></button><hr><button type="button" role="menuitemcheckbox" data-pref-toggle="layers" data-action="layers" aria-checked="true">${tablerIcon("stack-2")}<span>Слои</span><kbd>⌘ L</kbd></button><button type="button" role="menuitemcheckbox" data-pref-toggle="grid" data-action="grid" aria-checked="true">${tablerIcon("layout-grid")}<span>Сетка</span><kbd>G</kbd></button><button type="button" role="menuitemcheckbox" data-pref-toggle="rulers" data-action="rulers" aria-checked="true">${tablerIcon("baseline")}<span>Линейки</span><kbd>⇧ R</kbd></button><button type="button" role="menuitemcheckbox" data-pref-toggle="snap" data-action="snap" aria-checked="true">${tablerIcon("arrows-move")}<span>Привязка</span></button><button type="button" role="menuitemcheckbox" data-pref-toggle="guides" data-action="guides" aria-checked="true">${tablerIcon("selector")}<span>Направляющие</span></button></menu></header><div class="zero-main"><button class="zero-panel-backdrop" data-action="panel-close" aria-label="Закрыть панель" hidden></button><aside class="zero-left"><section class="zero-add"><h2>Добавить элемент</h2>${[
     ["text", "Текст"],
     ["image", "Фото"],
     ["rectangle", "Прямоугольник"],
@@ -130,7 +138,7 @@ export async function openZeroEditor({
     )
     .join(
       "",
-    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><dialog id="zero-ai-prompt"><header><h2>AI-композиция</h2><button type="button" data-action="ai-prompt-close" aria-label="Закрыть">${tablerIcon("x")}</button></header><p>Опишите задачу и визуальную идею. AI подготовит редактируемые слои и при уместности подберёт фото из Wikimedia Commons.</p><label>Описание<textarea id="zero-ai-prompt-text" rows="5" maxlength="2000" placeholder="Например: первый экран клиники с заголовком слева, фотографией справа и кнопкой записи"></textarea></label><p class="zero-help">Сначала появится предпросмотр. До нажатия «Применить вариант» текущая композиция не меняется. Отмену после применения можно сделать через Undo.</p><p id="zero-ai-prompt-status" role="status"></p><button type="button" class="primary" data-action="ai-generate">${tablerIcon("sparkles")} Сгенерировать вариант</button></dialog><dialog id="zero-ai-candidate"><header><h2>Предпросмотр AI-композиции</h2><button type="button" data-action="ai-candidate-cancel" aria-label="Закрыть">${tablerIcon("x")}</button></header><div id="zero-ai-preview-controls" class="zero-ai-preview-controls" role="group" aria-label="Размер предпросмотра"></div><div id="zero-ai-preview"></div><p id="zero-ai-candidate-status" role="status"></p><div class="zero-ai-candidate-actions"><button type="button" data-action="ai-candidate-cancel">Отменить</button><button type="button" class="primary" data-action="ai-candidate-apply">Применить вариант</button></div></dialog><menu id="zero-context" hidden>${[
+    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><dialog id="zero-grid-settings" aria-labelledby="zero-grid-settings-title"><header><div><p class="zero-eyebrow">НАСТРОЙКИ АРТБОРДА</p><h2 id="zero-grid-settings-title">Сетка</h2></div><button type="button" data-action="grid-settings-close" aria-label="Закрыть настройки сетки">${tablerIcon("x")}</button></header><p class="zero-help">Сетка служит ориентиром в редакторе и не отображается в превью или на сайте.</p><div class="zero-grid-settings-fields"><label>Ширина Grid · px<input type="number" data-grid-setting="gridWidth" min="320" max="2400" step="1"></label><label>Колонки<input type="number" data-grid-setting="gridColumns" min="1" max="24" step="1"></label><label>Ширина колонки · px<output id="zero-grid-column-width">—</output></label><label>Межколонник · px<input type="number" data-grid-setting="gutter" min="0" max="200" step="1"></label><label>Поля · px<input type="number" data-grid-setting="margin" min="0" max="500" step="1"></label></div><div class="zero-grid-color-row"><span>Цвет сетки</span><button type="button" id="zero-grid-color-trigger" data-action="grid-color" aria-haspopup="dialog"><span class="zero-grid-color-swatch"></span><span id="zero-grid-color-value"></span></button></div><label class="zero-grid-range">Заливка колонок <output data-grid-output="gridOpacity"></output><input type="range" data-grid-setting="gridOpacity" min="0" max="100" step="1"></label><label class="zero-grid-range">Линии колонок <output data-grid-output="gridBorderOpacity"></output><input type="range" data-grid-setting="gridBorderOpacity" min="0" max="100" step="1"></label><label>Охват<select id="zero-grid-setting-scope"><option value="current">Активный брейкпоинт</option><option value="all">Все брейкпоинты Zero Block</option></select></label><p class="zero-help">При выборе всех брейкпоинтов значения сетки применятся ко всему этому Zero Block.</p><div class="zero-grid-settings-actions"><button type="button" data-action="grid-reset">Сбросить сетку</button><button type="button" class="primary" data-action="grid-settings-close">Готово</button></div></dialog><dialog id="zero-ai-prompt"><header><h2>AI-композиция</h2><button type="button" data-action="ai-prompt-close" aria-label="Закрыть">${tablerIcon("x")}</button></header><p>Опишите задачу и визуальную идею. AI подготовит редактируемые слои и при уместности подберёт фото из Wikimedia Commons.</p><label>Описание<textarea id="zero-ai-prompt-text" rows="5" maxlength="2000" placeholder="Например: первый экран клиники с заголовком слева, фотографией справа и кнопкой записи"></textarea></label><p class="zero-help">Сначала появится предпросмотр. До нажатия «Применить вариант» текущая композиция не меняется. Отмену после применения можно сделать через Undo.</p><p id="zero-ai-prompt-status" role="status"></p><button type="button" class="primary" data-action="ai-generate">${tablerIcon("sparkles")} Сгенерировать вариант</button></dialog><dialog id="zero-ai-candidate"><header><h2>Предпросмотр AI-композиции</h2><button type="button" data-action="ai-candidate-cancel" aria-label="Закрыть">${tablerIcon("x")}</button></header><div id="zero-ai-preview-controls" class="zero-ai-preview-controls" role="group" aria-label="Размер предпросмотра"></div><div id="zero-ai-preview"></div><p id="zero-ai-candidate-status" role="status"></p><div class="zero-ai-candidate-actions"><button type="button" data-action="ai-candidate-cancel">Отменить</button><button type="button" class="primary" data-action="ai-candidate-apply">Применить вариант</button></div></dialog><menu id="zero-context" hidden>${[
     ["copy", "Копировать"],
     ["paste", "Вставить"],
     ["duplicate", "Дублировать"],
@@ -192,6 +200,16 @@ export async function openZeroEditor({
         }, 500);
       }
     },
+  });
+  const gridColorPicker = installZeroColorPicker({
+    read: () => ({
+      color: gridSettingValue("gridColor"),
+      opacity: gridSettingValue("gridOpacity"),
+      fill: null,
+    }),
+    apply: applyGridColor,
+    label: "Цвет сетки",
+    allowFill: false,
   });
   const addTrigger = $('[data-action="add-menu"]'),
     layerToggle = $('[data-action="layers"]'),
@@ -324,7 +342,23 @@ export async function openZeroEditor({
   $(".zero-add").remove();
   addTrigger.insertAdjacentHTML("afterend", renderZeroElementMenu());
   const elementMenu = $("#zero-element-menu"),
-    shapeMenu = $("#zero-shape-menu");
+    shapeMenu = $("#zero-shape-menu"),
+    preferencesMenu = $("#zero-preferences-menu"),
+    preferencesTrigger = $('[data-action="preferences-menu"]');
+  function closePreferencesMenu({ restoreFocus = false } = {}) {
+    preferencesMenu.hidden = true;
+    preferencesTrigger.setAttribute("aria-expanded", "false");
+    if (restoreFocus) preferencesTrigger.focus();
+  }
+  const onPreferencesMenuOutside = (event) => {
+    if (
+      !preferencesMenu.hidden &&
+      !event.target.closest("#zero-preferences-menu") &&
+      !event.target.closest('[data-action="preferences-menu"]')
+    )
+      closePreferencesMenu();
+  };
+  document.addEventListener("pointerdown", onPreferencesMenuOutside);
   function closeElementMenu({ restoreFocus = false } = {}) {
     elementMenu.hidden = true;
     shapeMenu.hidden = true;
@@ -364,6 +398,23 @@ export async function openZeroEditor({
         zeroRoot.dataset.mobilePanel === "layers"
       : zeroRoot.classList.contains("zero-layers-open");
     layerToggle.setAttribute("aria-pressed", String(isOpen));
+    syncPreferencesMenu();
+  }
+  function syncPreferencesMenu() {
+    const isLayersOpen = mobilePanelQuery.matches
+      ? zeroRoot.classList.contains("zero-left-open") &&
+        zeroRoot.dataset.mobilePanel === "layers"
+      : zeroRoot.classList.contains("zero-layers-open");
+    for (const [key, value] of Object.entries({
+      layers: isLayersOpen,
+      grid,
+      rulers,
+      snap,
+      guides,
+    }))
+      preferencesMenu
+        .querySelector(`[data-pref-toggle="${key}"]`)
+        ?.setAttribute("aria-checked", String(value));
   }
   function closeMobilePanels({
     restoreSections = true,
@@ -416,6 +467,112 @@ export async function openZeroEditor({
   const selected = () =>
     [...selection].map((id) => findElement(data, id)).filter(Boolean);
   const board = () => data.artboards[mode];
+  const gridSettingTargets = () =>
+    gridSettingsScope === "all" ? Object.values(data.artboards) : [board()];
+  const gridSettingValue = (key, target = board()) =>
+    target[key] ??
+    ({
+      gridWidth: Math.min(1200, target.width),
+      gridColumns: 12,
+      gridColor: "#86c232",
+      gridOpacity: 0.08,
+      gridBorderOpacity: 0.12,
+      gutter: 20,
+      margin: 20,
+    })[key];
+  function syncGridSettingsDialog() {
+    const dialog = $("#zero-grid-settings");
+    if (!dialog?.open) return;
+    for (const input of dialog.querySelectorAll("[data-grid-setting]")) {
+      const key = input.dataset.gridSetting,
+        value = gridSettingValue(key);
+      input.value =
+        key === "gridOpacity" || key === "gridBorderOpacity"
+          ? String(Math.round(value * 100))
+          : String(value);
+      const output = dialog.querySelector(`[data-grid-output="${key}"]`);
+      if (output) output.value = `${input.value}%`;
+    }
+    const metrics = gridMetrics(board());
+    $("#zero-grid-column-width").value = `${Number(metrics.columnWidth.toFixed(2))} px`;
+    const color = gridSettingValue("gridColor");
+    $("#zero-grid-color-trigger .zero-grid-color-swatch").style.backgroundColor = color;
+    $("#zero-grid-color-value").textContent = color.toUpperCase();
+    $("#zero-grid-setting-scope").value = gridSettingsScope;
+  }
+  function markGridSettingInput(input, commit) {
+    const key = input.dataset.gridSetting,
+      raw = Number(input.value),
+      opacity = key === "gridOpacity" || key === "gridBorderOpacity",
+      value = opacity ? raw / 100 : Math.round(raw),
+      bounds = {
+        gridWidth: [1, 2400],
+        gridColumns: [1, 24],
+        gutter: [0, 200],
+        margin: [0, 500],
+        gridOpacity: [0, 1],
+        gridBorderOpacity: [0, 1],
+      }[key];
+    if (!bounds || !Number.isFinite(value) || value < bounds[0] || value > bounds[1])
+      return;
+    const fieldKey = `grid:${gridSettingsScope}:${key}`;
+    if (pendingField && pendingField !== fieldKey) flushField();
+    pendingField = fieldKey;
+    for (const target of gridSettingTargets()) target[key] = value;
+    syncGridSettingsDialog();
+    if (commit) {
+      clearTimeout(fieldTimer);
+      changed();
+      return;
+    }
+    dirty = true;
+    clearTimeout(timer);
+    drawCanvas();
+    status(conflict ? "Конфликт · локальные изменения сохранены в окне" : "Изменения не сохранены");
+    clearTimeout(fieldTimer);
+    fieldTimer = setTimeout(() => {
+      flushField();
+      if (dirty && !conflict) timer = setTimeout(save, 800);
+    }, 500);
+  }
+  function applyGridColor({ color, opacity }, commit) {
+    const key = `grid:${gridSettingsScope}:appearance`;
+    if (pendingField && pendingField !== key) flushField();
+    pendingField = key;
+    for (const target of gridSettingTargets()) {
+      target.gridColor = color;
+      target.gridOpacity = opacity;
+    }
+    syncGridSettingsDialog();
+    if (commit) {
+      clearTimeout(fieldTimer);
+      changed();
+      return;
+    }
+    dirty = true;
+    clearTimeout(timer);
+    drawCanvas();
+    status(conflict ? "Конфликт · локальные изменения сохранены в окне" : "Изменения не сохранены");
+    clearTimeout(fieldTimer);
+    fieldTimer = setTimeout(() => {
+      flushField();
+      if (dirty && !conflict) timer = setTimeout(save, 800);
+    }, 500);
+  }
+  function resetGridSettings() {
+    if (pendingField) flushField();
+    for (const target of gridSettingTargets()) {
+      target.gridWidth = Math.min(1200, target.width);
+      target.gridColumns = 12;
+      target.gutter = 20;
+      target.margin = 20;
+      target.gridColor = "#86c232";
+      target.gridOpacity = 0.08;
+      target.gridBorderOpacity = 0.12;
+    }
+    syncGridSettingsDialog();
+    changed();
+  }
   const parentBoard = (item) =>
     item.parent
       ? {
@@ -858,9 +1015,16 @@ export async function openZeroEditor({
       }
     const gridEl = $(".zero-grid");
     gridEl.hidden = !grid || preview;
-    const gw = Math.min(b.width, b.gridWidth),
-      column = (gw - 2 * b.margin - 11 * b.gutter) / 12;
-    gridEl.style.cssText = `left:${(b.width - gw) / 2 + b.margin}px;width:${Math.max(1, gw - 2 * b.margin)}px;height:${b.height}px;background:repeating-linear-gradient(to right,rgba(104,168,130,.10) 0px,rgba(104,168,130,.10) ${Math.max(1, column)}px,transparent ${Math.max(1, column)}px,transparent ${Math.max(1, column + b.gutter)}px)`;
+    const metrics = gridMetrics(b),
+      color = /^#[a-f\d]{6}$/i.test(b.gridColor || "") ? b.gridColor : "#86c232",
+      columnFill = gridRgba(color, b.gridOpacity ?? 0.08),
+      columnBorder = gridRgba(color, b.gridBorderOpacity ?? 0.12),
+      backgrounds = [];
+    if ((b.gridOpacity ?? 0.08) > 0 && metrics.columnWidth > 0)
+      backgrounds.push(`repeating-linear-gradient(to right,${columnFill} 0px,${columnFill} ${metrics.columnWidth}px,transparent ${metrics.columnWidth}px,transparent ${metrics.step}px)`);
+    if ((b.gridBorderOpacity ?? 0.12) > 0)
+      backgrounds.push(`repeating-linear-gradient(to right,${columnBorder} 0px,${columnBorder} 1px,transparent 1px,transparent ${metrics.step}px)`);
+    gridEl.style.cssText = `left:${(b.width - metrics.containerWidth) / 2 + metrics.margin}px;width:${Math.max(1, metrics.contentWidth)}px;height:${b.height}px;background-image:${backgrounds.join(",") || "none"};background-repeat:repeat`;
     $(".zero-guides").innerHTML =
       guides && !preview
         ? b.guides
@@ -944,6 +1108,8 @@ export async function openZeroEditor({
       })
       .join("");
     app.querySelector(".zero-app").classList.toggle("zero-preview", preview);
+    syncGridSettingsDialog();
+    syncPreferencesMenu();
   }
   async function save() {
     clearTimeout(timer);
@@ -1320,6 +1486,48 @@ export async function openZeroEditor({
   async function action(key, trigger = null) {
     flushField();
     $("#zero-context").hidden = true;
+    if (key !== "preferences-menu") closePreferencesMenu();
+    if (key === "preferences-menu") {
+      const open = preferencesMenu.hidden;
+      preferencesMenu.hidden = !open;
+      preferencesTrigger.setAttribute("aria-expanded", String(open));
+      if (open)
+        preferencesMenu.querySelector('[role="menuitem"]')?.focus();
+      return;
+    }
+    if (key === "artboard-settings") {
+      selection.clear();
+      render();
+      if (mobilePanelQuery.matches) toggleMobilePanel("inspector");
+      else inspectorPanel.scrollTop = 0;
+      return;
+    }
+    if (key === "grid-settings") {
+      $("#zero-grid-settings").showModal();
+      syncGridSettingsDialog();
+      return;
+    }
+    if (key === "grid-settings-close") {
+      $("#zero-grid-settings").close();
+      return;
+    }
+    if (key === "grid-color") {
+      gridColorPicker.open(trigger);
+      return;
+    }
+    if (key === "grid-reset") {
+      resetGridSettings();
+      return;
+    }
+    if (key === "zoom-in" || key === "zoom-out") {
+      const bounds = workspace.getBoundingClientRect(),
+        next = Math.max(
+          0.25,
+          Math.min(2, zoom + (key === "zoom-in" ? 0.1 : -0.1)),
+        );
+      zoomAt(next, bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+      return;
+    }
     if (key === "ai-zero") return openZeroAiPrompt();
     if (key === "ai-prompt-close") {
       $("#zero-ai-prompt").close();
@@ -1562,6 +1770,7 @@ export async function openZeroEditor({
           "aria-pressed",
           String({ snap, grid, guides, rulers }[key]),
         );
+      syncPreferencesMenu();
       drawCanvas();
     }
   }
@@ -1905,6 +2114,15 @@ export async function openZeroEditor({
   }
   app.addEventListener("change", (event) => {
     if (event.target.matches("[data-breakpoint-width]")) return;
+    if (event.target.matches("[data-grid-setting]")) {
+      markGridSettingInput(event.target, true);
+      return;
+    }
+    if (event.target.id === "zero-grid-setting-scope") {
+      gridSettingsScope = event.target.value === "all" ? "all" : "current";
+      syncGridSettingsDialog();
+      return;
+    }
     if (!event.target.closest("#zero-inspector") && event.target.id !== "zero-zoom")
       return;
     if (
@@ -1920,6 +2138,10 @@ export async function openZeroEditor({
     applyInput(event.target, true);
   });
   app.addEventListener("input", (event) => {
+    if (event.target.matches("[data-grid-setting]")) {
+      markGridSettingInput(event.target, false);
+      return;
+    }
     if (
       !event.target.matches(
         "#zero-inspector input:not([type=checkbox]),#zero-inspector textarea",
@@ -2066,9 +2288,10 @@ export async function openZeroEditor({
       yTargets.push(o.y, o.y + o.height / 2, o.y + o.height);
     }
     if (grid) {
-      const start = (b.width - Math.min(b.width, b.gridWidth)) / 2 + b.margin,
-        step = (Math.min(b.width, b.gridWidth) - 2 * b.margin + b.gutter) / 12;
-      for (let c = 0; c <= 12; c++) xTargets.push(start + c * step);
+      const metrics = gridMetrics(b),
+        start = (b.width - metrics.containerWidth) / 2 + metrics.margin;
+      for (let c = 0; c <= metrics.columns; c++)
+        xTargets.push(start + c * metrics.step);
     }
     const nearest = (points, targets, axis) => {
       let delta = 6 / zoom,
@@ -2589,6 +2812,10 @@ export async function openZeroEditor({
       return;
     }
     if (key === "escape") {
+      if (!preferencesMenu.hidden) {
+        closePreferencesMenu({ restoreFocus: true });
+        return;
+      }
       if (!elementMenu.hidden) {
         closeElementMenu({ restoreFocus: true });
         return;
@@ -2600,11 +2827,32 @@ export async function openZeroEditor({
       render();
       return;
     }
+    if (mod && (event.key === "+" || event.key === "=")) {
+      event.preventDefault();
+      action("zoom-in");
+      return;
+    }
+    if (mod && key === "-") {
+      event.preventDefault();
+      action("zoom-out");
+      return;
+    }
+    if (!mod && !event.shiftKey && key === "g") {
+      event.preventDefault();
+      action("grid");
+      return;
+    }
+    if (!mod && event.shiftKey && key === "r") {
+      event.preventDefault();
+      action("rulers");
+      return;
+    }
     const shortcut = mod
       ? {
           z: event.shiftKey ? "redo" : "undo",
           y: "redo",
           s: "save",
+          l: "layers",
           c: "copy",
           v: "paste",
           d: "duplicate",
@@ -2680,6 +2928,7 @@ export async function openZeroEditor({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("keyup", onUp);
       document.removeEventListener("pointerdown", onElementMenuOutside);
+      document.removeEventListener("pointerdown", onPreferencesMenuOutside);
       window.removeEventListener("beforeunload", beforeUnload);
       window.removeEventListener("resize", onSidebarViewportResize);
     },

@@ -2,7 +2,13 @@ import { getSharedColorPicker, hexToHsv, hsvToHex } from "../../ui/color-picker.
 
 export { hexToHsv, hsvToHex };
 
-export function installZeroColorPicker({ read, apply }) {
+export function installZeroColorPicker({
+  read,
+  apply,
+  label = "Цвет фона секции",
+  allowOpacity = true,
+  allowFill = true,
+}) {
   const picker = getSharedColorPicker();
   return {
     open(trigger) {
@@ -12,9 +18,9 @@ export function installZeroColorPicker({ read, apply }) {
         color: current.color,
         opacity: current.opacity,
         fill: current.fill,
-        allowOpacity: true,
-        allowFill: true,
-        label: "Цвет фона секции",
+        allowOpacity,
+        allowFill,
+        label,
         onChange: apply,
       });
     },

@@ -839,6 +839,10 @@
                   "minimum": 1,
                   "maximum": 2400
                 },
+                "gridColumns": { "type": "integer", "minimum": 1, "maximum": 24 },
+                "gridColor": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" },
+                "gridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gridBorderOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "margin": {
                   "type": "number",
                   "minimum": 0,
@@ -961,6 +965,10 @@
                   "minimum": 1,
                   "maximum": 2400
                 },
+                "gridColumns": { "type": "integer", "minimum": 1, "maximum": 24 },
+                "gridColor": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" },
+                "gridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gridBorderOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "margin": {
                   "type": "number",
                   "minimum": 0,
@@ -1053,6 +1061,10 @@
                   "minimum": 1,
                   "maximum": 2400
                 },
+                "gridColumns": { "type": "integer", "minimum": 1, "maximum": 24 },
+                "gridColor": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" },
+                "gridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gridBorderOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "margin": {
                   "type": "number",
                   "minimum": 0,
@@ -1145,6 +1157,10 @@
                   "minimum": 1,
                   "maximum": 2400
                 },
+                "gridColumns": { "type": "integer", "minimum": 1, "maximum": 24 },
+                "gridColor": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" },
+                "gridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gridBorderOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "margin": {
                   "type": "number",
                   "minimum": 0,
@@ -1237,6 +1253,10 @@
                   "minimum": 1,
                   "maximum": 2400
                 },
+                "gridColumns": { "type": "integer", "minimum": 1, "maximum": 24 },
+                "gridColor": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" },
+                "gridOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "gridBorderOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
                 "margin": {
                   "type": "number",
                   "minimum": 0,

@@ -957,20 +957,160 @@
   cursor: text;
   outline: 2px solid #269b69;
 }
+.zero-app .zero-preferences-menu {
+  position: absolute;
+  top: 56px;
+  right: 10px;
+  z-index: 10003;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(286px, calc(100vw - 20px));
+  max-height: min(72dvh, 640px);
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  border: 1px solid var(--jz-ui-border, #303a3f);
+  border-radius: 11px;
+  background: var(--jz-ui-panel, #1b2125);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, .45);
+}
+.zero-app .zero-preferences-menu button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--jz-ui-text, #f5f7f7);
+  text-align: left;
+}
+.zero-app .zero-preferences-menu button:hover,
+.zero-app .zero-preferences-menu button[aria-checked="true"] {
+  background: var(--jz-ui-hover, #30383b);
+}
+.zero-app .zero-preferences-menu button[aria-checked="true"] > .tabler-editor-icon {
+  color: var(--jz-ui-accent, #86c232);
+}
+.zero-app .zero-preferences-menu .tabler-editor-icon {
+  width: 17px;
+  height: 17px;
+}
+.zero-app .zero-preferences-menu kbd {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--jz-ui-hover, #30383b);
+  color: var(--jz-ui-text-muted, #aab5ae);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.zero-app .zero-preferences-menu hr {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--jz-ui-border, #303a3f);
+}
+.zero-app #zero-grid-settings {
+  width: min(520px, calc(100vw - 24px));
+  max-width: 520px;
+  max-height: min(90dvh, 760px);
+  overflow: auto;
+  padding: 18px;
+}
+.zero-app #zero-grid-settings header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.zero-app #zero-grid-settings header h2 {
+  margin: 0 0 10px;
+}
+.zero-app #zero-grid-settings header .zero-eyebrow {
+  margin: 0;
+}
+.zero-app .zero-grid-settings-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 14px;
+}
+.zero-app #zero-grid-settings label {
+  color: var(--jz-ui-text-secondary, #c2cac6);
+}
+.zero-app #zero-grid-settings output {
+  display: block;
+  min-height: 35px;
+  padding: 8px 9px;
+  border-bottom: 1px solid var(--jz-ui-border, #303a3f);
+  color: var(--jz-ui-text, #f5f7f7);
+  font-variant-numeric: tabular-nums;
+}
+.zero-app .zero-grid-color-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(140px, 1.4fr);
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  color: var(--jz-ui-text-secondary, #c2cac6);
+}
+.zero-app #zero-grid-color-trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+}
+.zero-app .zero-grid-color-swatch {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1px solid var(--jz-ui-border, #303a3f);
+  border-radius: 50%;
+}
+.zero-app #zero-grid-settings .zero-grid-range {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+}
+.zero-app #zero-grid-settings .zero-grid-range input {
+  grid-column: 1 / -1;
+}
+.zero-app #zero-grid-settings .zero-grid-range output {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+.zero-app .zero-grid-settings-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+.zero-app .zero-grid-settings-actions .primary {
+  background: var(--jz-ui-accent, #86c232);
+  border-color: var(--jz-ui-accent, #86c232);
+  color: var(--jz-ui-on-accent, #14181b);
+}
 .zero-preview .zero-selected {
   outline: 0;
 }
 .zero-app dialog {
   width: min(760px, 90vw);
   max-height: 85vh;
-  background: #1d211f;
-  border: 1px solid #4e6c58;
+  background: var(--jz-ui-panel, #1b2125);
+  border: 1px solid var(--jz-ui-border, #303a3f);
   border-radius: 14px;
   color: inherit;
   padding: 22px;
 }
 .zero-app dialog::backdrop {
-  background: #0008;
+  background: rgba(0, 0, 0, .68);
 }
 .zero-app dialog header {
   display: flex;

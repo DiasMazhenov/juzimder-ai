@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import Ajv2020 from "ajv/dist/2020.js";
 import {
   createZeroData,
+  gridMetrics,
   createElement,
   breakpointEntries,
   breakpointMediaMax,
@@ -65,6 +66,26 @@ test("absolute movement does not affect siblings; negative coordinates and indep
   assert.deepEqual(d.elements[1], before);
   assert.equal(d.artboards.desktop.height, 650);
   assert.equal(rect(d.elements[0].geometry, d.artboards.desktop).x, -150);
+});
+test("artboard grid settings compute exact column geometry", () => {
+  const board = {
+    ...createZeroData().artboards.desktop,
+    gridWidth: 1200,
+    gridColumns: 12,
+    margin: 20,
+    gutter: 40,
+  };
+  assert.deepEqual(gridMetrics(board), {
+    columns: 12,
+    containerWidth: 1200,
+    contentWidth: 1160,
+    margin: 20,
+    gutter: 40,
+    columnWidth: 60,
+    step: 100,
+  });
+  board.gridColumns = 6;
+  assert.equal(gridMetrics(board).columnWidth, 160);
 });
 test("editor document bounds include rotated outboard elements and nested groups", () => {
   const d = structuredClone(fixture),
@@ -451,6 +472,21 @@ test("Autoscale control is scoped to an artboard and new boards default to fixed
   });
   assert.match(customMarkup, /АРТБОРД · Custom breakpoint/);
 });
+test("Zero preferences menu and grid dialog are available after Close", () => {
+  const app = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8"),
+    schema = JSON.parse(readFileSync(new URL("../schemas/project.schema.json", import.meta.url), "utf8"));
+  assert.match(app, /data-action="close"[^<]*<span>Закрыть<\/span><\/button><button data-action="preferences-menu"/);
+  assert.match(app, /data-action="artboard-settings"/);
+  assert.match(app, /id="zero-grid-settings"[\s\S]*data-grid-setting="gridColumns"[\s\S]*data-grid-setting="gridBorderOpacity"/);
+  assert.match(app, /id="zero-grid-color-trigger"/);
+  for (const name of ["desktop", "laptop", "tablet", "landscape", "mobile"]) {
+    const artboard = schema.$defs.zeroData.properties.artboards.properties[name].properties;
+    assert.equal(artboard.gridColumns.maximum, 24);
+    assert.equal(artboard.gridOpacity.maximum, 1);
+    assert.equal(artboard.gridBorderOpacity.minimum, 0);
+    assert.equal(artboard.gridColor.pattern, "^#[a-fA-F0-9]{6}$");
+  }
+});
 test("photo copyright is editable and rendered as an 8px caption below the image", () => {
   const data = structuredClone(fixture);
   data.elements[1].copyright = "Фото: A & B · CC BY-SA 4.0";
@@ -806,6 +842,18 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
       },
     };
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
+  const gridSettingsDocument = structuredClone(doc),
+    gridSettings = gridSettingsDocument.data.pages[0].frames[0].component.components[0].zeroData.artboards.desktop;
+  Object.assign(gridSettings, { gridColumns: 12, gridColor: "#86c232", gridOpacity: 0.08, gridBorderOpacity: 0.12 });
+  assert.equal(validate(gridSettingsDocument), true, JSON.stringify(validate.errors));
+  gridSettings.gridColumns = 25;
+  assert.equal(validate(gridSettingsDocument), false, "grid column count stays within the supported range");
+  gridSettings.gridColumns = 12;
+  gridSettings.gridColor = "url(javascript:alert(1))";
+  assert.equal(validate(gridSettingsDocument), false, "grid color only accepts six-digit HEX");
+  gridSettings.gridColor = "#86c232";
+  gridSettings.gridBorderOpacity = 1.1;
+  assert.equal(validate(gridSettingsDocument), false, "grid opacity stays within zero and one");
   const gradientDocument = structuredClone(doc),
     gradientRoot = gradientDocument.data.pages[0].frames[0].component.components[0],
     gradient = { type: "conic", angle: 45, stops: [{ color: "#112233", opacity: 1, position: 0 }, { color: "#aabbcc", opacity: 1, position: 100 }] };

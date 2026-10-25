@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.171 — Дополнительное меню открывается через троеточие после кнопки Close. Artboard Settings возвращают выделение к существующему Artboard Inspector; параметры сетки собраны в отдельном диалоге. Колонки рассчитываются общей функцией, используемой одновременно canvas и snapping. HEX/opacity сетки настраиваются раздельно и ограничиваются текущим breakpoint либо всеми artboards одного Zero Block. Поля опциональны, проверяются backend и JSON Schema и не экспортируются как CSS/HTML сайта.
+
 00.00.153 — Общий color picker уменьшен; при запуске системной пипетки диалоги не затемняют и не размывают содержимое под ними, временное состояние снимается и при завершении, и при отмене. В браузере проверен компактный размер 328×350 px и чёткое содержимое при активной пипетке; sampler был остановлен без выбора цвета, ревизия проекта не менялась.
 
 00.00.152 — Zero AI keeps side-by-side hero geometry on Desktop and creates explicit text-first/photo-last overrides for a single-photo two-column hero on artboards up to 480 px. The image credit follows the image bottom. This is a narrow responsive composition rule based on the candidate's element geometry, not an alternate layout engine or CSS flow. It leaves the source block untouched until proposal Apply. Contract tests cover mobile stacking, preserved desktop coordinates and credit alignment; new live preview acceptance is tracked separately.

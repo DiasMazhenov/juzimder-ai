@@ -199,6 +199,10 @@ export function createZeroData() {
           filterEndColor: "#000000",
           filterEndOpacity: 0,
           gridWidth: Math.min(1200, width),
+          gridColumns: 12,
+          gridColor: "#86c232",
+          gridOpacity: 0.08,
+          gridBorderOpacity: 0.12,
           margin: 20,
           gutter: 20,
           overflow: "hidden",
@@ -208,6 +212,29 @@ export function createZeroData() {
       ]),
     ),
     elements: [],
+  };
+}
+export function gridMetrics(board) {
+  const columns = Math.max(
+      1,
+      Math.min(24, Math.trunc(Number(board.gridColumns) || 12)),
+    ),
+    containerWidth = Math.min(board.width, board.gridWidth),
+    margin = Math.max(0, Number(board.margin) || 0),
+    gutter = Math.max(0, Number(board.gutter) || 0),
+    contentWidth = Math.max(0, containerWidth - 2 * margin),
+    columnWidth = Math.max(
+      0,
+      (contentWidth - (columns - 1) * gutter) / columns,
+    );
+  return {
+    columns,
+    containerWidth,
+    contentWidth,
+    margin,
+    gutter,
+    columnWidth,
+    step: Math.max(1, columnWidth + gutter),
   };
 }
 export function createElement(type, tokens = {}) {
