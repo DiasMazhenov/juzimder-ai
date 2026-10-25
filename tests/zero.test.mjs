@@ -676,6 +676,33 @@ test("Zero Block buttons use flex centering and keep the label centered", () => 
   assert.match(renderZero(fixture, "zero-mode", "desktop"), /width:1200px!important/);
   assert.doesNotMatch(renderZero(fixture, "zero-mode", "desktop"), /@media\(/);
 });
+test("Zero Block pill badges center their labels horizontally and vertically", () => {
+  const data = createZeroData(),
+    badge = createElement("text");
+  badge.id = "ze-pill-badge";
+  badge.name = "Section badge";
+  badge.content = "Care options";
+  badge.geometry.width = 160;
+  badge.geometry.height = 32;
+  badge.style.fill = "#E8F5E9";
+  badge.style.radius = 16;
+  badge.style.fontSize = 14;
+  badge.style.textAlign = "left";
+  data.elements.push(badge);
+  const html = renderZero(data, "pill-test");
+  assert.match(
+    html,
+    /class="jz-zero-element jz-zero-badge" data-ze="ze-pill-badge"/,
+  );
+  assert.match(
+    html,
+    /\.jz-zero-pill-test \[data-ze="ze-pill-badge"\]\{[^}]*display:flex;[^}]*align-items:center;[^}]*justify-content:center;[^}]*text-align:center;/,
+  );
+  assert.doesNotMatch(
+    renderZero(fixture, "plain-text"),
+    /class="jz-zero-element jz-zero-badge"/,
+  );
+});
 test("editor overflow is separate from the saved-preview and publication policy", () => {
   const editor = readFileSync(
       new URL("../src/zero/editor/app.js", import.meta.url),

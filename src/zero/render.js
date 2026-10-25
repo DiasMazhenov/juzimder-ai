@@ -54,6 +54,24 @@ function hasGallery(elements) {
       (element.children?.length && hasGallery(element.children)),
   );
 }
+function isPillBadge(element, style = element?.style || {}) {
+  if (element?.type !== "text") return false;
+  if (/(?:badge|pill|бейдж|пилюля)/iu.test(String(element.name || "")))
+    return true;
+  const fill = style.fill,
+    hasFill =
+      typeof fill === "string"
+        ? fill.trim() !== "" && fill.trim().toLowerCase() !== "transparent"
+        : Boolean(fill && typeof fill === "object"),
+    content = String(element.content || "").trim();
+  return (
+    hasFill &&
+    Number(style.radius || 0) >= 10 &&
+    Number(style.fontSize || 99) <= 18 &&
+    content.length > 0 &&
+    content.length <= 64
+  );
+}
 export function elementHTML(el, children = "") {
   let content = escapeHTML(el.content || "");
   if (el.runs)
@@ -190,6 +208,7 @@ export function renderZero(
         for (const mode of activeMode ? [activeMode] : modes) {
           const e = resolve(el, mode),
             s = e.style,
+            badge = isPillBadge(e, s),
             board = data.artboards[mode],
             gridAttached = nested
               ? inheritedGrid[mode]
@@ -205,7 +224,7 @@ export function renderZero(
                   ? `.${scope} .jz-zero-tooltip[data-ze="${el.id}"]`
                 : `.${scope} [data-ze="${el.id}"]`,
             appearance =
-              el.type === "button"
+              el.type === "button" || badge
                 ? appearanceCSS({ ...s, textAlign: "center" }, board, autoScale)
                 : appearanceCSS(s, board, autoScale),
             buttonPadding =
@@ -253,7 +272,7 @@ export function renderZero(
               : "";
           css += wrap(
             mode,
-              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}${animationStyle}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${hoverCSS}`,
+              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}${animationStyle}z-index:${index + 1};display:${e.visible ? (el.type === "button" || badge ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${badge ? "align-items:center;justify-content:center;text-align:center;" : ""}${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${hoverCSS}`,
           );
         }
         const childGrid = Object.fromEntries(
@@ -265,6 +284,7 @@ export function renderZero(
           ]),
         );
         const e = resolve(el, activeMode || "desktop"),
+          badge = isPillBadge(e, e.style),
           tag =
             el.type === "text"
               ? e.tag || "p"
@@ -291,7 +311,7 @@ export function renderZero(
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
         if (el.type === "html") return body;
-        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}${el.type === "form" ? " jz-zero-form" : ""}${el.type === "gallery" ? " jz-zero-gallery" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "gallery" ? ` role="group" aria-label="${escapeHTML(e.name || "Галерея")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${badge ? " jz-zero-badge" : ""}${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}${el.type === "form" ? " jz-zero-form" : ""}${el.type === "gallery" ? " jz-zero-gallery" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "gallery" ? ` role="group" aria-label="${escapeHTML(e.name || "Галерея")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);
