@@ -674,6 +674,45 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
   assert.equal(validate(doc), false);
 });
 
+test("Zero Block accepts and renders the full 300-element limit", () => {
+  const data = createZeroData();
+  data.elements = Array.from({ length: 300 }, (_, index) => {
+    const element = createElement("text");
+    element.id = `ze-cap-${index}`;
+    element.name = `Load item ${index}`;
+    return element;
+  });
+  const schema = JSON.parse(
+      readFileSync(new URL("../schemas/project.schema.json", import.meta.url)),
+    ),
+    validate = new Ajv2020({ strict: false }).compile(schema),
+    document = {
+      schemaVersion: 1,
+      engine: "grapesjs",
+      data: {
+        pages: [{
+          id: "home",
+          frames: [{
+            component: {
+              type: "wrapper",
+              components: [{
+                type: "zero-block",
+                attributes: { id: "zero-cap" },
+                zeroData: data,
+                components: [],
+              }],
+            },
+          }],
+        }],
+      },
+    };
+  assert.equal(validate(document), true, JSON.stringify(validate.errors));
+  const html = renderZero(data, "zero-cap");
+  assert.equal((html.match(/class="jz-zero-element/g) || []).length, 300);
+  data.elements.push(createElement("text"));
+  assert.equal(validate(document), false, "the schema rejects element 301");
+});
+
 test("window synchronization patches only the block and detects unrelated remote changes", () => {
   const a = {
       data: {
