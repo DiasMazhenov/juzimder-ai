@@ -102,6 +102,7 @@ final class AiZeroComposer {
         $cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);
         if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}
         $decoded['elements']=self::normalizeNumberedProcessIcons($prompt,$decoded['elements'],(int)$board->width);
+        $decoded['elements']=self::normalizeModelNumberedProcessCardSurfaces($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         $decoded['elements']=self::normalizeRequestedNumberedProcessCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
         $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
@@ -713,9 +714,43 @@ final class AiZeroComposer {
         return $items;
     }
 
+    /** Convert clearly named AI card-background vectors into editable rectangles and keep them behind their content. */
+    private static function normalizeModelNumberedProcessCardSurfaces(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
+        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bstep\w*\b|\bprocess\b)/iu',$prompt)!==1||preg_match('/(?:карточ\w*|\bcards?\b)/iu',$prompt)!==1)return $items;
+        $surfaces=[];
+        foreach($items as $index=>$item){
+            if(!is_array($item)||($item['type']??null)!=='vector'||trim((string)($item['content']??''))!==''||preg_match('/^(?:AI\s+)?card[\s_-]*(\d{1,2})[\s_-]*(?:surface|background|bg|фон|поверхность)$/iu',trim((string)($item['name']??'')),$match)!==1)continue;
+            $width=(float)($item['width']??0);$height=(float)($item['height']??0);$number=(int)$match[1];
+            if($number<1||$number>20||$width<$boardWidth*.15||$width>$boardWidth*.7||$height<80||$height>$boardHeight*.75)continue;
+            $surfaces[$number]=$index;
+        }
+        if(count($surfaces)<3)return $items;
+        $titles=[];$xTolerance=max(48,(int)round($boardWidth*.05));
+        foreach($items as $index=>$item){if(!is_array($item)||($item['type']??null)!=='text'||preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)!==1)continue;$titles[(int)$match[1]]=$index;}
+        $cards=[];$claimed=[];
+        foreach($surfaces as $number=>$surfaceIndex){
+            if(!isset($titles[$number]))continue;$titleIndex=$titles[$number];$title=$items[$titleIndex];$titleX=(float)$title['x'];$titleY=(float)$title['y'];$nextY=PHP_FLOAT_MAX;
+            foreach($titles as $otherNumber=>$otherIndex)if($otherNumber!==$number&&abs((float)$items[$otherIndex]['x']-$titleX)<=$xTolerance&&(float)$items[$otherIndex]['y']>$titleY)$nextY=min($nextY,(float)$items[$otherIndex]['y']);
+            $descriptionIndex=null;$bestDistance=PHP_FLOAT_MAX;
+            foreach($items as $index=>$item){if(!is_array($item)||($item['type']??null)!=='text'||$index===$titleIndex||isset($claimed[$index])||preg_match('/^\s*\d{1,2}(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''))===1)continue;$deltaX=abs((float)$item['x']-$titleX);$deltaY=(float)$item['y']-$titleY;if($deltaX>$xTolerance||$deltaY<0||$deltaY>180||(float)$item['y']>=$nextY)continue;$distance=$deltaY+$deltaX*.5;if($distance<$bestDistance){$descriptionIndex=$index;$bestDistance=$distance;}}
+            if($descriptionIndex===null)continue;$claimed[$descriptionIndex]=true;$cards[$number]=['surface'=>$surfaceIndex,'title'=>$titleIndex,'description'=>$descriptionIndex];
+        }
+        if(count($cards)<3)return $items;
+        ksort($cards);$light=self::colorLuminance($background)>=.42;$surfaceFill=self::blendColor($background,$light?'#DDEBDD':'#FFFFFF',$light?.72:.12);$surfaceStroke=self::blendColor($background,$light?'#8FAF8F':'#FFFFFF',$light?.48:.32);$surfaceIndices=[];
+        foreach($cards as $number=>$card){
+            $surfaceIndex=$card['surface'];$titleIndex=$card['title'];$descriptionIndex=$card['description'];$surface=&$items[$surfaceIndex];$title=&$items[$titleIndex];$description=&$items[$descriptionIndex];$x=(float)$surface['x'];$y=(float)$surface['y'];$width=(float)$surface['width'];$titleX=(float)$title['x'];$titleY=max((float)$title['y'],$y+16);$titleFont=max(14,(float)$title['fontSize']);$descriptionY=max((float)$description['y'],$titleY+(float)$title['height']+8);$descriptionFont=max(12,(float)$description['fontSize']);$iconIndex=null;$iconDistance=PHP_FLOAT_MAX;
+            foreach($items as $index=>$candidate){if(!is_array($candidate)||($candidate['type']??null)!=='vector'||isset($surfaceIndices[$index])||in_array($index,array_values($surfaces),true)||(float)($candidate['width']??0)>120||(float)($candidate['height']??0)>120)continue;$left=(float)$candidate['x'];$top=(float)$candidate['y'];$right=$left+(float)$candidate['width'];$titleRight=$titleX+(float)$title['width'];$horizontal=max(0,max($titleX-$right,$left-$titleRight));$vertical=max(0,max($titleY-($top+(float)$candidate['height']),$top-($titleY+(float)$title['height'])));if($horizontal>$xTolerance||$vertical>max(72,(float)$title['height']*1.5))continue;$distance=$horizontal+$vertical*1.5;if($distance<$iconDistance){$iconIndex=$index;$iconDistance=$distance;}}
+            $titleOffset=$iconIndex!==null?52:20;$title['x']=$x+$titleOffset;$title['y']=$titleY;$title['width']=max(1,$width-$titleOffset-16);$title['height']=max((float)$title['height'],(int)ceil(self::estimatedTextLines((string)$title['content'],$titleFont,(float)$title['width'],true)*$titleFont*1.25+4));$title['fill']='transparent';$title['stroke']='transparent';$title['radius']=0;$title['color']=self::readableTextColor((string)$title['color'],$surfaceFill);$description['x']=$x+20;$description['y']=$descriptionY;$description['width']=max(1,$width-40);$description['fill']='transparent';$description['stroke']='transparent';$description['radius']=0;$description['color']=self::readableTextColor((string)$description['color'],$surfaceFill);$descriptionLines=self::estimatedTextLines((string)$description['content'],$descriptionFont,(float)$description['width'],false);$description['height']=max((float)$description['height'],(int)ceil($descriptionLines*$descriptionFont*1.35+4));
+            $contentTop=min($titleY,$descriptionY);$contentBottom=max($titleY+(float)$title['height'],$descriptionY+(float)$description['height']);if($iconIndex!==null){$icon=&$items[$iconIndex];$icon['x']=$x+16;$icon['y']=$titleY+max(0,((float)$title['height']-(float)$icon['height'])/2);$icon['width']=28;$icon['height']=28;$contentTop=min($contentTop,(float)$icon['y']);$contentBottom=max($contentBottom,(float)$icon['y']+28);unset($icon);}
+            $top=min($y,$contentTop-12);$bottom=$contentBottom+16;$surface['type']='rectangle';$surface['name']=sprintf('AI process card %02d',$number);$surface['content']='';$surface['icon']='';$surface['fill']=$surfaceFill;$surface['color']=$light?'#222629':'#FFFFFF';$surface['stroke']=$surfaceStroke;$surface['strokeWidth']=max(1,(float)($surface['strokeWidth']??0));$surface['radius']=max(12,min(24,(float)($surface['radius']??16)));$surface['x']=$x;$surface['y']=$top;$surface['width']=$width;$surface['height']=max(84,$bottom-$top);$surfaceIndices[$surfaceIndex]=true;unset($surface,$title,$description);
+        }
+        $front=[];$rest=[];foreach($items as $index=>$item){if(isset($surfaceIndices[$index]))$front[]=$item;else$rest[]=$item;}
+        return array_merge($front,$rest);
+    }
+
     /** Add editable background surfaces when a numbered workflow explicitly requests cards. */
     private static function normalizeRequestedNumberedProcessCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
-        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1||preg_match('/(?:карточк\w*|\bcards?\b)/iu',$prompt)!==1)return $items;
+        if(preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1||preg_match('/(?:карточ\w*|\bcards?\b)/iu',$prompt)!==1)return $items;
         foreach($items as $item)if(is_array($item)&&in_array($item['type']??null,['image','rectangle'],true))return $items;
         $titles=[];$columns=[];$xTolerance=max(48,(int)round($boardWidth*.05));
         foreach($items as $index=>$item){if(!is_array($item)||($item['type']??null)!=='text'||preg_match('/^\s*(\d{1,2})(?:\s*[.)\-:]|\s+)\s*\S/u',(string)($item['content']??''),$match)!==1)continue;$x=(float)$item['x'];$column=null;$distance=PHP_FLOAT_MAX;foreach($columns as $columnIndex=>$columnX){$delta=abs($columnX-$x);if($delta<=$xTolerance&&$delta<$distance){$column=$columnIndex;$distance=$delta;}}if($column===null){$column=count($columns);$columns[]=$x;}else $columns[$column]=($columns[$column]+$x)/2;$titles[]=['index'=>$index,'number'=>(int)$match[1],'column'=>$column];}
