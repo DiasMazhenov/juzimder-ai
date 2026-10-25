@@ -1,3 +1,5 @@
+import { colorFillCss } from "../../ui/color-picker.js";
+
 export const MODES = Object.freeze({
   desktop: 1200,
   laptop: 980,
@@ -580,8 +582,12 @@ export function appearanceCSS(s, board = null, autoScale = false) {
         ? scaledGridLength(value, board, true)
         : `${String(value).replace(/[;{}<>]/g, "")}px`;
   for (const [key, prop] of Object.entries(map))
-    if (s[key] !== undefined)
-      css += `${prop}:${lengths.has(key) ? dimension(key, s[key]) : String(s[key]).replace(/[;{}<>]/g, "")};`;
+    if (s[key] !== undefined) {
+      if (key === "fill" && s.fill && typeof s.fill === "object") {
+        const gradient = colorFillCss(s.fill);
+        if (gradient) css += `background-color:transparent;background-image:${gradient};`;
+      } else css += `${prop}:${lengths.has(key) ? dimension(key, s[key]) : String(s[key]).replace(/[;{}<>]/g, "")};`;
+    }
   const strokeWidth = dimension("strokeWidth", s.strokeWidth || 0);
   css += `border:${strokeWidth} solid ${s.stroke || "transparent"};`;
   if (s.shadowBlur !== undefined)

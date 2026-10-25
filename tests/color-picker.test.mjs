@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { formatColor, hexToHsv, hsvToHex, parseColor, readSavedColors, removeSavedColor, saveColor } from "../src/ui/color-picker.js";
+import { colorFillCss, formatColor, hexToHsv, hsvToHex, normalizeColorFill, parseColor, readSavedColors, removeSavedColor, saveColor } from "../src/ui/color-picker.js";
 
 class MemoryStorage {
   values = new Map();
@@ -16,6 +16,22 @@ test("shared picker normalizes HEX, RGB(A), alpha and HSV", () => {
   assert.equal(formatColor("#0c2238", 0.4), "rgba(12, 34, 56, 0.4)");
   for (const color of ["#000000", "#ffffff", "#86c232", "#f05a45", "#183e31"])
     assert.equal(hsvToHex(...Object.values(hexToHsv(color))), color);
+});
+
+test("shared picker builds safe solid, linear, radial, conic and multicolor fills", () => {
+  const stops = [
+    { color: "#ff0000", opacity: 1, position: 0 },
+    { color: "#0000ff", opacity: 0.5, position: 100 },
+  ];
+  assert.equal(colorFillCss({ type: "linear", angle: 135, stops }), "linear-gradient(135deg,#ff0000 0%,rgba(0,0,255,0.5) 100%)");
+  assert.equal(colorFillCss({ type: "radial", angle: 90, stops }), "radial-gradient(circle,#ff0000 0%,rgba(0,0,255,0.5) 100%)");
+  assert.equal(colorFillCss({ type: "conic", angle: 270, stops }), "conic-gradient(from 270deg,#ff0000 0%,rgba(0,0,255,0.5) 100%)");
+  const multicolor = normalizeColorFill({ type: "multicolor", angle: 0, stops: [...stops, { color: "#00ff00", opacity: 1, position: 50 }] });
+  assert.equal(multicolor.stops[1].position, 50);
+  assert.match(colorFillCss(multicolor), /^linear-gradient\(90deg,/);
+  assert.equal(colorFillCss({ type: "linear", stops: [{ color: "url(javascript:bad)", opacity: 1, position: 0 }, stops[1]] }), "");
+  assert.equal(normalizeColorFill({ type: "multicolor", stops }), null, "multicolor requires at least three stops");
+  assert.equal(normalizeColorFill({ type: "linear", stops: Array.from({ length: 7 }, (_, position) => ({ color: "#ffffff", opacity: 1, position })) }), null, "the editor caps a fill at six stops");
 });
 
 test("saved palette is shared across editors and imports legacy Zero colors", () => {
@@ -57,4 +73,7 @@ test("main UI, GrapesJS color properties and Zero Block use the shared picker", 
   assert.match(sharedPicker, /contextmenu/);
   assert.match(sharedPicker, /Удалить цвет/);
   assert.match(sharedPicker, /aria-keyshortcuts/);
+  assert.match(sharedPicker, /dialog\.showModal\(\)/, "shared picker uses the browser top layer so editor panels cannot cover it");
+  assert.match(sharedPicker, /data-color-fill-type/);
+  assert.match(zeroInspector, /data-color-fill="true"/);
 });

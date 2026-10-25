@@ -76,6 +76,25 @@
 }
 .jz-color-dialog::backdrop { background: transparent; }
 .jz-color-dialog [hidden] { display: none !important; }
+.jz-color-fill-controls { padding: 12px 14px 0; }
+.jz-color-fill-controls > label { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 10px; color: var(--jz-ui-text-secondary, #b6bec1); font-size: 12px; }
+.jz-color-fill-controls select { min-width: 0; padding: 8px 10px; border: 1px solid var(--jz-ui-border, #303a3f); border-radius: 7px; background: var(--jz-ui-panel-raised, #242b30); color: var(--jz-ui-text, #f5f7f7); font: inherit; }
+.jz-color-gradient-settings { display: grid; gap: 8px; margin-top: 10px; }
+.jz-color-gradient-settings [hidden] { display: none !important; }
+.jz-color-angle-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) 40px; gap: 8px; align-items: center; color: var(--jz-ui-text-secondary, #b6bec1); font-size: 11px; }
+.jz-color-angle-row output { text-align: right; font-variant-numeric: tabular-nums; }
+.jz-color-angle-row input { width: 100%; margin: 0; accent-color: var(--jz-ui-accent, #86c232); }
+.jz-color-gradient-preview { height: 24px; border: 1px solid var(--jz-ui-border, #303a3f); border-radius: 5px; background-color: #fff; }
+.jz-color-stops { display: grid; gap: 5px; }
+.jz-color-stop { display: grid; grid-template-columns: 26px minmax(0, 1fr) 34px 28px; gap: 6px; align-items: center; min-height: 30px; }
+.jz-color-dialog .jz-color-stop-swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; }
+.jz-color-stop-swatch[aria-pressed="true"] { outline: 2px solid var(--jz-ui-focus, #86c232); outline-offset: 2px; }
+.jz-color-stop input { min-width: 0; width: 100%; margin: 0; accent-color: var(--jz-ui-accent, #86c232); }
+.jz-color-stop output { color: var(--jz-ui-text-secondary, #b6bec1); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.jz-color-dialog .jz-color-stop-remove { width: 26px; height: 26px; padding: 0; font-size: 16px; }
+.jz-color-dialog .jz-color-stop-remove:disabled { opacity: .45; cursor: not-allowed; }
+.jz-color-dialog .jz-color-add-stop { justify-self: start; min-height: 28px; padding: 4px 9px; font-size: 11px; }
+.jz-color-dialog .jz-color-add-stop:disabled { opacity: .45; cursor: not-allowed; }
 .jz-color-dialog button {
   border: 1px solid var(--jz-ui-border, #303a3f);
   border-radius: 7px;

@@ -23,6 +23,21 @@ final class ZeroBlock {
     public static function color(mixed $s): void {
         if (!is_string($s)||!preg_match('/^(?:#[a-f0-9]{6}|transparent)$/iD',$s)) throw new Problem(422,'Zero Block: недопустимый цвет.');
     }
+    private static function backgroundFill(mixed $value): void {
+        $fill=self::fields($value,['type','angle','stops'],['type','angle','stops']);
+        if(!in_array($fill['type'],['linear','radial','conic','multicolor'],true))throw new Problem(422,'Zero Block: неверный тип заливки.');
+        self::number($fill['angle'],0,360);
+        $stops=$fill['stops'];$minimum=$fill['type']==='multicolor'?3:2;
+        if(!is_array($stops)||count($stops)<$minimum||count($stops)>6)throw new Problem(422,'Zero Block: заливка должна содержать от двух до шести цветовых точек.');
+        $last=-1;
+        foreach($stops as $stop){
+            $fields=self::fields($stop,['color','opacity','position'],['color','opacity','position']);
+            if(!is_string($fields['color'])||!preg_match('/^#[a-f0-9]{6}$/iD',$fields['color']))throw new Problem(422,'Zero Block: цвет градиента должен быть шестизначным HEX.');
+            self::number($fields['opacity'],0,1);self::number($fields['position'],0,100);
+            if($fields['position']<$last)throw new Problem(422,'Zero Block: цветовые точки градиента должны идти по порядку.');
+            $last=$fields['position'];
+        }
+    }
     public static function videoEmbedUrl(mixed $value): ?string {
         if(!is_string($value)||$value===''||strlen($value)>2048||preg_match('/[\s<>"\x00-\x20]/',$value))return null;
         $parts=parse_url($value);
@@ -49,7 +64,8 @@ final class ZeroBlock {
     private static function style(mixed $value): void {
         foreach(self::fields($value,array_merge(array_keys(self::STYLE_RANGES),['color','fill','stroke','shadowColor','fontFamily','textAlign','textDecoration','objectFit','objectPosition','autoHeight','hoverFill','hoverColor'])) as $key=>$v){
             if(isset(self::STYLE_RANGES[$key]))self::number($v,...self::STYLE_RANGES[$key]);
-            elseif(in_array($key,['color','fill','stroke','shadowColor','hoverFill','hoverColor'],true))self::color($v);
+            elseif($key==='fill'){if(is_string($v))self::color($v);else self::backgroundFill($v);}
+            elseif(in_array($key,['color','stroke','shadowColor','hoverFill','hoverColor'],true))self::color($v);
             elseif($key==='fontFamily'){if(!is_string($v)||strlen($v)>160||!preg_match('/^[a-zA-Z0-9 ,\x27-]+$/D',$v))throw new Problem(422,'Zero Block: недопустимый шрифт.');}
             elseif($key==='autoHeight'){if(!is_bool($v))throw new Problem(422,'Zero Block: неверный autoHeight.');}
             else { $values=match($key){'textAlign'=>['left','center','right','justify'],'textDecoration'=>['none','underline','line-through'],'objectFit'=>['cover','contain','fill','none'],'objectPosition'=>['center','top','bottom','left','right']};if(!in_array($v,$values,true))throw new Problem(422,'Zero Block: недопустимый стиль.'); }
@@ -122,11 +138,12 @@ final class ZeroBlock {
         $widths=[];$overrideModes=[];
         foreach($ordered as $mode=>$board){
             if(!preg_match('/^(?:desktop|laptop|tablet|landscape|mobile|bp-[a-f0-9-]{8,36})$/D',$mode))throw new Problem(422,'Zero Block: неверный ID брейкпоинта.');
-            $b=self::fields($board,['width','height','background','backgroundOpacity','backgroundImage','backgroundImageName','backgroundSize','backgroundPosition','filterStartColor','filterStartOpacity','filterEndColor','filterEndOpacity','gridWidth','margin','gutter','overflow','scaleGrid','guides'],['width','height','background','gridWidth','margin','gutter','overflow','guides']);
+            $b=self::fields($board,['width','height','background','backgroundOpacity','backgroundFill','backgroundImage','backgroundImageName','backgroundSize','backgroundPosition','filterStartColor','filterStartOpacity','filterEndColor','filterEndOpacity','gridWidth','margin','gutter','overflow','scaleGrid','guides'],['width','height','background','gridWidth','margin','gutter','overflow','guides']);
             if(!is_int($b['width'])||$b['width']<320||$b['width']>2400||isset($widths[$b['width']]))throw new Problem(422,'Zero Block: ширины брейкпоинтов должны быть уникальны в диапазоне 320–2400 px.');
             $widths[$b['width']]=true;if($mode!=='desktop')$overrideModes[]=$mode;
             self::number($b['height'],40,20000);self::number($b['gridWidth'],1,2400);self::number($b['margin'],0,500);self::number($b['gutter'],0,200);self::color($b['background']);
             if(array_key_exists('backgroundOpacity',$b))self::number($b['backgroundOpacity'],0,1);
+            if(array_key_exists('backgroundFill',$b))self::backgroundFill($b['backgroundFill']);
             if(array_key_exists('backgroundImage',$b)&&$b['backgroundImage']!==''&&(!is_string($b['backgroundImage'])||!preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D',$b['backgroundImage'])))throw new Problem(422,'Zero Block: выберите изображение из библиотеки текущего проекта.');
             if(array_key_exists('backgroundImageName',$b))self::text($b['backgroundImageName'],200);
             if(array_key_exists('backgroundSize',$b)&&!in_array($b['backgroundSize'],['cover','contain','auto','100% 100%'],true))throw new Problem(422,'Zero Block: неверное поведение фонового изображения.');

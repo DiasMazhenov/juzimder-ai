@@ -10,6 +10,7 @@ import { sandboxFrame } from "./sandbox.js";
 import iconCatalogue from "../../resources/tabler-editor/catalogue.json" with { type: "json" };
 import { VECTOR_ICON_NAMES } from "./model/vector-icons.js";
 import { videoEmbedUrl } from "./model/video.js";
+import { colorFillCss } from "../ui/color-picker.js";
 export const escapeHTML = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -116,8 +117,9 @@ function artboardBackgroundCSS(board) {
       : `rgba(${[1, 3, 5].map((index) => Number.parseInt(color.slice(index, index + 2), 16)).join(",")},${alpha})`,
     url = /^\/api\/projects\/[a-f\d]{24}\/assets\/[a-f\d]{24}\/file$/.test(
       board.backgroundImage || "",
-    );
-  if (!url) return `background:${colorCSS};`;
+    ),
+    fillCSS = colorFillCss(board.backgroundFill);
+  if (!url) return `background:${colorCSS};${fillCSS ? `background-image:${fillCSS};` : ""}`;
   const rgba = (key, opacityKey) => {
     const value = /^#[a-f\d]{6}$/i.test(board[key] || "") ? board[key] : "#000000",
       channels = [1, 3, 5].map((index) => Number.parseInt(value.slice(index, index + 2), 16)),
@@ -131,7 +133,10 @@ function artboardBackgroundCSS(board) {
       : "cover",
     positions = ["center center", "left top", "center top", "right top", "left center", "right center", "left bottom", "center bottom", "right bottom"],
     position = positions.includes(board.backgroundPosition) ? board.backgroundPosition : "center center";
-  return `background:${colorCSS};background-image:linear-gradient(180deg,${rgba("filterStartColor", "filterStartOpacity")},${rgba("filterEndColor", "filterEndOpacity")}),url("${board.backgroundImage}");background-size:${size};background-position:${position};background-repeat:no-repeat;`;
+  const layers = [`linear-gradient(180deg,${rgba("filterStartColor", "filterStartOpacity")},${rgba("filterEndColor", "filterEndOpacity")})`];
+  if (fillCSS) layers.push(fillCSS);
+  layers.push(`url("${board.backgroundImage}")`);
+  return `background:${colorCSS};background-image:${layers.join(",")};background-size:${size};background-position:${position};background-repeat:no-repeat;`;
 }
 export function renderZero(
   data,
@@ -240,9 +245,15 @@ export function renderZero(
             const galleryVars = `--jz-gallery-columns:${columns};--jz-gallery-rows:${rows};--jz-gallery-gap:${scale(options.gap)};--jz-gallery-fit:${options.objectFit};--jz-gallery-radius:${scale(s.radius || 0)};`;
             css += wrap(mode, `${sel}{${galleryVars}}`);
           }
+          const hoverFillCSS = s.hoverFill && typeof s.hoverFill === "object"
+            ? `background-color:transparent;background-image:${colorFillCss(s.hoverFill)};`
+            : s.hoverFill ? `background-color:${s.hoverFill};` : "",
+            hoverCSS = s.hoverFill || s.hoverColor
+              ? `${sel}:hover{${hoverFillCSS}${s.hoverColor ? `color:${s.hoverColor};` : ""}}`
+              : "";
           css += wrap(
             mode,
-              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}${animationStyle}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
+              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}${animationStyle}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${hoverCSS}`,
           );
         }
         const childGrid = Object.fromEntries(

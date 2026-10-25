@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.151 — Общий picker открывается через `HTMLDialogElement.showModal()`, поэтому его невозможно перекрыть canvas/Inspector stacking contexts. Для фоновой заливки артборда и `style.fill` элементов доступны solid, linear, radial, conic и multicolor с 2–6 цветными точками; multicolor требует минимум три. Значение градиента — `{type,angle,stops:[{color,opacity,position}]}` с allowlist CSS-функций и ограничениями JSON Schema/PHP. JS editor/preview renderer и PHP publication renderer генерируют однотипный CSS; обычные цветовые свойства остаются solid. В Codex Browser на сохранённой ревизии 319 проверено модальное открытие и наличие пяти режимов заливки; picker закрыт без изменения проекта.
+
 00.00.150 — Общие сохранённые цвета можно удалять через контекстное меню swatch (правая кнопка мыши или Shift+F10/Menu); Zero и основной редактор используют одну палитру.
 
 00.00.149 — Color fields in Zero Block use the application's shared color picker and shared saved-color palette. Artboard background retains its `backgroundOpacity` pair; element appearance, filter and shadow colors use the same HEX-capable chooser, with alpha only when the model field supports it.

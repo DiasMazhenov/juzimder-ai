@@ -1,6 +1,7 @@
 import { breakpointName, resolve } from "../model/model.js";
 import { VECTOR_ICONS } from "../model/vector-icons.js";
 import { escapeHTML as esc } from "../render.js";
+import { colorFillCss, normalizeColorFill } from "../../ui/color-picker.js";
 const MODE_NAMES = {};
 const GEOMETRY = ["x", "y", "width", "height", "rotation"];
 const LABELS = {
@@ -47,8 +48,10 @@ export function renderInspector({ items, mode, board, project }) {
         original &&
         Object.hasOwn(original.overrides?.[mode]?.[section] || {}, key);
     const label = original?.type === "vector" && key === "color" ? "Цвет иконки" : LABELS[key] || key,
-      inputValue = type === "color" && !/^#[a-f\d]{6}$/i.test(String(value)) ? "#ffffff" : value;
-    return `<label class="${overridden ? "zero-overridden" : ""}"><span>${label}${mode !== "desktop" ? (overridden ? " •" : " ↳") : ""}</span>${options ? `<select data-section="${section}" data-key="${key}">${options.map((v) => `<option value="${esc(v)}" ${String(value) === String(v) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>` : `<input data-section="${section}" data-key="${key}" type="${type}" value="${esc(inputValue)}" ${min !== null ? `min="${min}"` : ""} ${max !== null ? `max="${max}"` : ""} step="any">`}</label>`;
+      fillValue = key === "fill" ? normalizeColorFill(value) : null,
+      inputValue = type === "color" && fillValue ? fillValue.stops[0].color : type === "color" && !/^#[a-f\d]{6}$/i.test(String(value)) ? "#ffffff" : value,
+      fillAttrs = fillValue ? `data-color-fill="true" data-color-fill-value="${esc(JSON.stringify(fillValue))}"` : key === "fill" ? `data-color-fill="true" data-color-fill-value=""` : "";
+    return `<label class="${overridden ? "zero-overridden" : ""}"><span>${label}${mode !== "desktop" ? (overridden ? " •" : " ↳") : ""}</span>${options ? `<select data-section="${section}" data-key="${key}">${options.map((v) => `<option value="${esc(v)}" ${String(value) === String(v) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>` : `<input data-section="${section}" data-key="${key}" ${fillAttrs} type="${type}" value="${esc(inputValue)}" ${min !== null ? `min="${min}"` : ""} ${max !== null ? `max="${max}"` : ""} step="any">`}</label>`;
   }
   function inspectorMarkup() {
     const el = items[0]?.element;
@@ -96,7 +99,10 @@ export function renderInspector({ items, mode, board, project }) {
   }
   const backgroundHex = /^#[a-f\d]{6}$/i.test(board.background || "") ? board.background : "#ffffff",
     backgroundOpacity = Math.round((board.background === "transparent" ? 0 : (board.backgroundOpacity ?? 1)) * 100),
-    colorControl = `<div class="zero-background-color"><span>Цвет фона</span><button type="button" class="zero-background-color-trigger" data-action="background-color" aria-haspopup="dialog" aria-label="Настроить цвет фона"><span class="zero-background-swatch" style="background-color:${esc(backgroundHex)};opacity:${backgroundOpacity / 100}"></span><span>${esc(backgroundHex.toUpperCase())}</span></button><output>${backgroundOpacity}%</output></div>`,
+    backgroundFillCSS = colorFillCss(board.backgroundFill),
+    fillName = ({ linear: "Линейный", radial: "Радиальный", conic: "Конический", multicolor: "Multicolor" })[board.backgroundFill?.type] || "Градиент",
+    swatchStyle = backgroundFillCSS ? `background-color:${esc(backgroundHex)};background-image:${esc(backgroundFillCSS)}` : `background-color:${esc(backgroundHex)};opacity:${backgroundOpacity / 100}`,
+    colorControl = `<div class="zero-background-color"><span>Цвет фона</span><button type="button" class="zero-background-color-trigger" data-action="background-color" aria-haspopup="dialog" aria-label="Настроить цвет фона"><span class="zero-background-swatch" style="${swatchStyle}"></span><span>${backgroundFillCSS ? esc(fillName) : esc(backgroundHex.toUpperCase())}</span></button><output>${backgroundFillCSS ? "Градиент" : `${backgroundOpacity}%`}</output></div>`,
     markup = inspectorMarkup().replace(/<label>Цвет фона<input type="color" data-board="background" value="[^"]+"><\/label>/, colorControl);
   const selected = items[0]?.element;
   if (selected?.type === "tooltip") {

@@ -288,8 +288,10 @@
           "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
         },
         "fill": {
-          "type": "string",
-          "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
+          "oneOf": [
+            { "type": "string", "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$" },
+            { "$ref": "#/$defs/zeroData/properties/artboards/properties/desktop/properties/backgroundFill" }
+          ]
         },
         "stroke": {
           "type": "string",
@@ -848,6 +850,36 @@
                   "pattern": "^(?:#[a-fA-F0-9]{6}|transparent)$"
                 },
                 "backgroundOpacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "backgroundFill": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": { "enum": ["linear", "radial", "conic", "multicolor"] },
+                    "angle": { "type": "number", "minimum": 0, "maximum": 360 },
+                    "stops": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 6,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "color": { "type": "string", "pattern": "^#[a-fA-F0-9]{6}$" },
+                          "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                          "position": { "type": "number", "minimum": 0, "maximum": 100 }
+                        },
+                        "required": ["color", "opacity", "position"]
+                      }
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": { "properties": { "type": { "const": "multicolor" } }, "required": ["type"] },
+                      "then": { "properties": { "stops": { "minItems": 3 } } }
+                    }
+                  ],
+                  "required": ["type", "angle", "stops"]
+                },
                 "backgroundImage": {
                   "type": "string",
                   "maxLength": 100,

@@ -14,19 +14,42 @@ final class ZeroBlockRenderer {
         return $svgStart!==false&&str_ends_with(trim($svg),'</svg>')?$svg:'';
     }
     private static function length(int|float $v,\stdClass $board,bool $autoScale): string{return self::n($autoScale?$v*100/$board->gridWidth:$v).($autoScale?'vw':'px');}
+    private static function backgroundFillCSS(mixed $value): ?string {
+        if(!$value instanceof \stdClass)return null;
+        $type=$value->type??'';$stops=$value->stops??null;$angle=$value->angle??90;
+        if(!in_array($type,['linear','radial','conic','multicolor'],true)||!is_array($stops)||count($stops)<($type==='multicolor'?3:2)||count($stops)>6||!is_numeric($angle)||!is_finite((float)$angle))return null;
+        $parts=[];$last=-1;
+        foreach($stops as $stop){
+            if(!$stop instanceof \stdClass||!is_string($stop->color??null)||!preg_match('/^#[a-f0-9]{6}$/iD',$stop->color)||!is_numeric($stop->opacity??null)||!is_numeric($stop->position??null))return null;
+            $opacity=(float)$stop->opacity;$position=(float)$stop->position;
+            if(!is_finite($opacity)||$opacity<0||$opacity>1||!is_finite($position)||$position<$last||$position<0||$position>100)return null;
+            $hex=substr($stop->color,1);$channels=[hexdec(substr($hex,0,2)),hexdec(substr($hex,2,2)),hexdec(substr($hex,4,2))];
+            $color=$opacity>=0.999?strtolower($stop->color):'rgba('.implode(',',$channels).','.self::n($opacity).')';
+            $parts[]=$color.' '.self::n($position).'%';$last=$position;
+        }
+        $stopsCSS=implode(',',$parts);$angle=max(0,min(360,(float)$angle));
+        if($type==='radial')return 'radial-gradient(circle,'.$stopsCSS.')';
+        if($type==='conic')return 'conic-gradient(from '.self::n($angle).'deg,'.$stopsCSS.')';
+        return 'linear-gradient('.self::n($type==='multicolor'?90:$angle).'deg,'.$stopsCSS.')';
+    }
+    private static function fillDeclaration(mixed $value): string {
+        if($value instanceof \stdClass){$gradient=self::backgroundFillCSS($value);return $gradient?'background-color:transparent;background-image:'.$gradient.';':'';}
+        return is_string($value)?'background-color:'.$value.';':'';
+    }
     private static function artboardBackground(\stdClass $board): string {
         $color=is_string($board->background??null)&&preg_match('/^(?:#[a-f0-9]{6}|transparent)$/iD',$board->background)?$board->background:'#ffffff';
         $alpha=is_numeric($board->backgroundOpacity??null)?max(0,min(1,(float)$board->backgroundOpacity)):($color==='transparent'?0.0:1.0);
         if($color==='transparent')$color='#ffffff';
         if($alpha<1){$hex=substr($color,1);$channels=[hexdec(substr($hex,0,2)),hexdec(substr($hex,2,2)),hexdec(substr($hex,4,2))];$color='rgba('.implode(',',$channels).','.self::n($alpha).')';}
-        $src=$board->backgroundImage??'';
-        if(!is_string($src)||!preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D',$src))return 'background:'.$color.';';
+        $fill=self::backgroundFillCSS($board->backgroundFill??null);$src=$board->backgroundImage??'';
+        if(!is_string($src)||!preg_match('~^/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file$~D',$src))return 'background:'.$color.';'.($fill?'background-image:'.$fill.';':'');
         $rgba=static function(string $color,float $opacity):string{$hex=preg_match('/^#[a-f0-9]{6}$/iD',$color)?substr($color,1):'000000';$channels=[hexdec(substr($hex,0,2)),hexdec(substr($hex,2,2)),hexdec(substr($hex,4,2))];return 'rgba('.implode(',',$channels).','.self::n(max(0,min(1,$opacity))).')';};
         $startColor=is_string($board->filterStartColor??null)?$board->filterStartColor:'#000000';$endColor=is_string($board->filterEndColor??null)?$board->filterEndColor:'#000000';
         $startOpacity=is_numeric($board->filterStartOpacity??null)?(float)$board->filterStartOpacity:0.0;$endOpacity=is_numeric($board->filterEndOpacity??null)?(float)$board->filterEndOpacity:0.0;
         $sizes=['cover','contain','auto','100% 100%'];$size=in_array($board->backgroundSize??'cover',$sizes,true)?$board->backgroundSize:'cover';
         $positions=['center center','left top','center top','right top','left center','right center','left bottom','center bottom','right bottom'];$position=in_array($board->backgroundPosition??'center center',$positions,true)?$board->backgroundPosition:'center center';
-        return 'background:'.$color.';background-image:linear-gradient(180deg,'.$rgba($startColor,$startOpacity).','.$rgba($endColor,$endOpacity).'),url("'.$src.'");background-size:'.$size.';background-position:'.$position.';background-repeat:no-repeat;';
+        $layers=['linear-gradient(180deg,'.$rgba($startColor,$startOpacity).','.$rgba($endColor,$endOpacity).')'];if($fill)$layers[]=$fill;$layers[]='url("'.$src.'")';
+        return 'background:'.$color.';background-image:'.implode(',',$layers).';background-size:'.$size.';background-position:'.$position.';background-repeat:no-repeat;';
     }
     public static function resolved(\stdClass $element,string $mode): array {
         $e=get_object_vars($element);$o=get_object_vars($element->overrides->$mode??new \stdClass());
@@ -43,7 +66,7 @@ final class ZeroBlockRenderer {
     public static function appearance(array $s,?\stdClass $board=null,bool $autoScale=false): string {
         $map=['fontSize'=>'font-size','fontWeight'=>'font-weight','lineHeight'=>'line-height','letterSpacing'=>'letter-spacing','radius'=>'border-radius','opacity'=>'opacity','color'=>'color','fill'=>'background-color','fontFamily'=>'font-family','textAlign'=>'text-align','textDecoration'=>'text-decoration','objectFit'=>'object-fit','objectPosition'=>'object-position'];$css='';
         $lengths=['fontSize','letterSpacing','radius','strokeWidth','shadowX','shadowY','shadowBlur'];
-        foreach($map as $key=>$property)if(isset($s[$key]))$css.=$property.':'.(in_array($key,$lengths,true)&&$autoScale&&$board?self::length($s[$key],$board,true):$s[$key].(in_array($key,['fontSize','letterSpacing','radius'],true)?'px':'')).';';
+        foreach($map as $key=>$property)if(isset($s[$key])){if($key==='fill')$css.=self::fillDeclaration($s[$key]);else $css.=$property.':'.(in_array($key,$lengths,true)&&$autoScale&&$board?self::length($s[$key],$board,true):$s[$key].(in_array($key,['fontSize','letterSpacing','radius'],true)?'px':'')).';';}
         $css.='border:'.($autoScale&&$board?self::length($s['strokeWidth']??0,$board,true):($s['strokeWidth']??0).'px').' solid '.($s['stroke']??'transparent').';';
         if(isset($s['shadowBlur']))$css.='box-shadow:'.($autoScale&&$board?self::length($s['shadowX']??0,$board,true):($s['shadowX']??0).'px').' '.($autoScale&&$board?self::length($s['shadowY']??0,$board,true):($s['shadowY']??0).'px').' '.($autoScale&&$board?self::length($s['shadowBlur'],$board,true):$s['shadowBlur'].'px').' '.($s['shadowColor']??'#000000').';';
         if($s['autoHeight']??false)$css.='height:auto;';return $css;

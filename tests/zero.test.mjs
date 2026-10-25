@@ -30,6 +30,7 @@ import {
   screenDelta,
   zoomCameraAtPoint,
   geometryCSS,
+  appearanceCSS,
   History,
   adapt,
 } from "../src/zero/model/model.js";
@@ -404,6 +405,18 @@ test("artboard background uses the project image picker and renders responsive-s
   const picker = readFileSync(new URL("../src/image-picker.js", import.meta.url), "utf8");
   assert.match(picker, /const imageForm=\$\('#image-form'\);if\(imageForm\)imageForm\.onsubmit=/);
 });
+test("Zero fill gradients render through editor and export-safe CSS", () => {
+  const data = structuredClone(fixture),
+    linear = { type: "linear", angle: 135, stops: [{ color: "#173f70", opacity: 1, position: 0 }, { color: "#75b7d1", opacity: 0.8, position: 100 }] },
+    radial = { type: "radial", angle: 90, stops: [{ color: "#ffffff", opacity: 1, position: 0 }, { color: "#86c232", opacity: 1, position: 100 }] };
+  data.artboards.desktop.backgroundFill = linear;
+  data.elements[0].style.fill = radial;
+  const html = renderZero(data, "gradient-fills");
+  assert.match(html, /background-image:linear-gradient\(135deg,#173f70 0%,rgba\(117,183,209,0\.8\) 100%\)/);
+  assert.match(html, /background-image:radial-gradient\(circle,#ffffff 0%,#86c232 100%\)/);
+  assert.match(appearanceCSS({ fill: radial }), /background-image:radial-gradient\(circle/);
+  assert.match(renderInspector({ items: [], mode: "desktop", board: data.artboards.desktop, project: {} }), /Градиент/);
+});
 test("background color picker converts HEX/HSV and retains independent opacity", () => {
   for (const value of ["#000000", "#ffffff", "#86c232", "#f05a45", "#183e31"])
     assert.equal(hsvToHex(...Object.values(hexToHsv(value))), value);
@@ -729,6 +742,14 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
       },
     };
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
+  const gradientDocument = structuredClone(doc),
+    gradientRoot = gradientDocument.data.pages[0].frames[0].component.components[0],
+    gradient = { type: "conic", angle: 45, stops: [{ color: "#112233", opacity: 1, position: 0 }, { color: "#aabbcc", opacity: 1, position: 100 }] };
+  gradientRoot.zeroData.artboards.desktop.backgroundFill = structuredClone(gradient);
+  gradientRoot.zeroData.elements[0].style.fill = structuredClone(gradient);
+  assert.equal(validate(gradientDocument), true, JSON.stringify(validate.errors));
+  gradientRoot.zeroData.artboards.desktop.backgroundFill.type = "multicolor";
+  assert.equal(validate(gradientDocument), false, "multicolor gradients require at least three stops");
   const animationDocument = structuredClone(doc),
     animatedElement = animationDocument.data.pages[0].frames[0].component.components[0].zeroData.elements[0];
   animatedElement.animation = { effect: "fade", duration: 700, delay: 100, easing: "ease-out" };

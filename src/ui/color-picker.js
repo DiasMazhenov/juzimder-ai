@@ -79,6 +79,41 @@ export function formatColor(color, opacity = 1) {
   return `rgba(${r}, ${g}, ${b}, ${Math.round(alpha * 1000) / 1000})`;
 }
 
+const FILL_TYPES = new Set(["linear", "radial", "conic", "multicolor"]);
+const finiteClamp = (value, min, max, fallback) => Number.isFinite(Number(value))
+  ? clamp(Number(value), min, max)
+  : fallback;
+
+export function normalizeColorFill(fill) {
+  if (!fill || !FILL_TYPES.has(fill.type) || !Array.isArray(fill.stops)) return null;
+  const minStops = fill.type === "multicolor" ? 3 : 2;
+  if (fill.stops.length < minStops || fill.stops.length > 6) return null;
+  const stops = fill.stops.map((stop) => ({
+    color: typeof stop?.color === "string" && HEX.test(stop.color) ? stop.color.toLowerCase() : null,
+    opacity: finiteClamp(stop?.opacity, 0, 1, NaN),
+    position: finiteClamp(stop?.position, 0, 100, NaN),
+  }));
+  if (stops.some((stop) => !stop.color || !Number.isFinite(stop.opacity) || !Number.isFinite(stop.position))) return null;
+  stops.sort((a, b) => a.position - b.position);
+  return {
+    type: fill.type,
+    angle: finiteClamp(fill.angle, 0, 360, 90),
+    stops,
+  };
+}
+
+export function colorFillCss(fill) {
+  const normalized = normalizeColorFill(fill);
+  if (!normalized) return "";
+  const stops = normalized.stops.map(({ color, opacity, position }) =>
+    `${formatColor(color, opacity).replaceAll(", ", ",")} ${Math.round(position * 100) / 100}%`,
+  ).join(",");
+  if (normalized.type === "radial") return `radial-gradient(circle,${stops})`;
+  if (normalized.type === "conic") return `conic-gradient(from ${normalized.angle}deg,${stops})`;
+  const angle = normalized.type === "multicolor" ? 90 : normalized.angle;
+  return `linear-gradient(${angle}deg,${stops})`;
+}
+
 function safeLocalStorage() {
   try { return globalThis.localStorage; } catch { return null; }
 }
@@ -121,6 +156,7 @@ export function createColorPicker(host = globalThis.document?.body) {
   dialog.className = "jz-color-dialog";
   dialog.setAttribute("aria-label", "Выбор цвета");
   dialog.innerHTML = `<header class="jz-color-header"><span data-color-title>Цвет</span><button type="button" data-color-close aria-label="Закрыть палитру">×</button></header>
+    <div class="jz-color-fill-controls" data-color-fill-controls hidden><label>Тип заливки<select data-color-fill-type aria-label="Тип заливки"><option value="solid">Solid</option><option value="linear">Линейный градиент</option><option value="radial">Радиальный градиент</option><option value="conic">Конический градиент</option><option value="multicolor">Multicolor</option></select></label><div class="jz-color-gradient-settings" data-color-gradient-settings hidden><label class="jz-color-angle-row" data-color-angle-row>Угол<input type="range" min="0" max="360" step="1" data-color-angle aria-label="Угол градиента"><output data-color-angle-value>90°</output></label><div class="jz-color-gradient-preview" data-color-gradient-preview aria-label="Предпросмотр градиента"></div><div class="jz-color-stops" data-color-stops></div><button type="button" class="jz-color-add-stop" data-color-add-stop>+ Добавить цвет</button></div></div>
     <div class="jz-color-plane" role="group" aria-label="Выбор насыщенности и яркости" tabindex="0"><span class="jz-color-plane-marker" aria-hidden="true"></span></div>
     <label class="jz-color-hue"><span>Тон</span><input type="range" min="0" max="359" step="1" data-color-hue aria-label="Тон цвета"></label>
     <label class="jz-color-alpha" data-color-alpha-row><span>Прозрачность</span><input type="range" min="0" max="100" step="1" data-color-alpha aria-label="Прозрачность цвета"></label>
@@ -136,7 +172,7 @@ export function createColorPicker(host = globalThis.document?.body) {
   deleteColorButton.className = "jz-color-delete-action";
   deleteColorButton.setAttribute("role", "menuitem");
   colorMenu.append(deleteColorButton);
-  host.append(colorMenu);
+  dialog.append(colorMenu);
   const $ = (selector) => dialog.querySelector(selector),
     plane = $(".jz-color-plane"),
     marker = $(".jz-color-plane-marker"),
@@ -147,8 +183,16 @@ export function createColorPicker(host = globalThis.document?.body) {
     hex = $("[data-color-hex]"),
     swatches = $("[data-color-swatches]"),
     title = $("[data-color-title]"),
-    clearAlpha = $("[data-color-clear]");
-  let state = { h: 0, s: 0, v: 1, a: 1 }, pointerId = null, active = null, menuColor = null;
+    clearAlpha = $("[data-color-clear]"),
+    fillControls = $("[data-color-fill-controls]"),
+    fillType = $("[data-color-fill-type]"),
+    gradientSettings = $("[data-color-gradient-settings]"),
+    angle = $("[data-color-angle]"),
+    angleValue = $("[data-color-angle-value]"),
+    gradientPreview = $("[data-color-gradient-preview]"),
+    stopList = $("[data-color-stops]"),
+    addStop = $("[data-color-add-stop]");
+  let state = { h: 0, s: 0, v: 1, a: 1 }, pointerId = null, active = null, menuColor = null, fill = null, selectedStop = 0;
 
   function closeColorMenu() {
     colorMenu.hidden = true;
@@ -167,6 +211,54 @@ export function createColorPicker(host = globalThis.document?.body) {
   }
 
   function color() { return hsvToHex(state.h, state.s, state.v); }
+  function midpointColor(a, b) {
+    return `#${[1, 3, 5].map((index) => Math.round((Number.parseInt(a.slice(index, index + 2), 16) + Number.parseInt(b.slice(index, index + 2), 16)) / 2).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function fillForType(type) {
+    const first = { color: color(), opacity: state.a, position: 0 },
+      other = { color: color().toLowerCase() === "#ffffff" ? "#222629" : "#ffffff", opacity: 1, position: 100 };
+    if (type === "multicolor") return { type, angle: 90, stops: [first, { color: midpointColor(first.color, other.color), opacity: 1, position: 50 }, other] };
+    return { type, angle: 90, stops: [first, other] };
+  }
+  function drawStops() {
+    stopList.replaceChildren();
+    if (!fill) return;
+    const minimum = fill.type === "multicolor" ? 3 : 2;
+    fill.stops.forEach((stop, index) => {
+      const row = documentRef.createElement("div"), select = documentRef.createElement("button"), position = documentRef.createElement("input"), output = documentRef.createElement("output"), remove = documentRef.createElement("button");
+      row.className = "jz-color-stop";
+      select.type = "button"; select.className = "jz-color-stop-swatch"; select.style.backgroundColor = formatColor(stop.color, stop.opacity); select.setAttribute("aria-label", `Редактировать цвет ${index + 1}`); select.setAttribute("aria-pressed", String(index === selectedStop));
+      select.addEventListener("click", () => { selectedStop = index; state = { ...hexToHsv(stop.color), a: stop.opacity }; sync(); });
+      position.type = "range"; position.min = index ? String(fill.stops[index - 1].position) : "0"; position.max = index < fill.stops.length - 1 ? String(fill.stops[index + 1].position) : "100"; position.step = "1"; position.value = String(stop.position); position.setAttribute("aria-label", `Позиция цвета ${index + 1}`);
+      output.textContent = `${Math.round(stop.position)}%`;
+      position.addEventListener("input", () => { stop.position = Number(position.value); output.textContent = `${position.value}%`; position.min = index ? String(fill.stops[index - 1].position) : "0"; position.max = index < fill.stops.length - 1 ? String(fill.stops[index + 1].position) : "100"; sync(); });
+      position.addEventListener("change", () => paint(true));
+      remove.type = "button"; remove.textContent = "×"; remove.className = "jz-color-stop-remove"; remove.disabled = fill.stops.length <= minimum; remove.setAttribute("aria-label", `Удалить цвет ${index + 1}`);
+      remove.addEventListener("click", () => { fill.stops.splice(index, 1); selectedStop = Math.min(selectedStop, fill.stops.length - 1); const next = fill.stops[selectedStop]; state = { ...hexToHsv(next.color), a: next.opacity }; drawStops(); sync(); paint(true); });
+      row.append(select, position, output, remove); stopList.append(row);
+    });
+    addStop.disabled = fill.stops.length >= 6;
+  }
+  function syncFill() {
+    fillType.value = fill?.type || "solid";
+    gradientSettings.hidden = !fill;
+    const showAngle = fill?.type === "linear" || fill?.type === "conic";
+    $("[data-color-angle-row]").hidden = !showAngle;
+    if (fill) {
+      angle.value = String(Math.round(fill.angle));
+      angleValue.value = `${Math.round(fill.angle)}°`;
+      angleValue.textContent = angleValue.value;
+      gradientPreview.style.backgroundImage = colorFillCss(fill);
+      [...stopList.querySelectorAll(".jz-color-stop")].forEach((row, index) => {
+        const stop = fill.stops[index], swatch = row.querySelector(".jz-color-stop-swatch"), slider = row.querySelector('input[type="range"]'), output = row.querySelector("output");
+        if (!stop || !swatch || !slider) return;
+        swatch.style.backgroundColor = formatColor(stop.color, stop.opacity);
+        swatch.setAttribute("aria-pressed", String(index === selectedStop));
+        slider.value = String(stop.position); slider.min = index ? String(fill.stops[index - 1].position) : "0"; slider.max = index < fill.stops.length - 1 ? String(fill.stops[index + 1].position) : "100";
+        output.textContent = `${Math.round(stop.position)}%`;
+      });
+    } else gradientPreview.style.backgroundImage = "none";
+  }
   function sync() {
     const value = color();
     plane.style.setProperty("--jz-color-hue", String(state.h));
@@ -178,10 +270,14 @@ export function createColorPicker(host = globalThis.document?.body) {
     hex.value = value.toUpperCase();
     alphaValue.value = `${Math.round(state.a * 100)}%`;
     alphaValue.textContent = alphaValue.value;
+    if (fill) {
+      fill.stops[selectedStop] = { ...fill.stops[selectedStop], color: value, opacity: state.a };
+    }
+    syncFill();
   }
   function paint(commit = false) {
     sync();
-    active?.onChange?.({ color: color(), opacity: state.a }, commit);
+    active?.onChange?.({ color: color(), opacity: state.a, fill: normalizeColorFill(fill) }, commit);
   }
   function drawSaved() {
     swatches.replaceChildren();
@@ -221,6 +317,38 @@ export function createColorPicker(host = globalThis.document?.body) {
     paint(commit);
   }
 
+  fillType.addEventListener("change", () => {
+    const type = fillType.value;
+    if (type === "solid") fill = null;
+    else {
+      fill = fill ? { ...fill, type } : fillForType(type);
+      if (type === "multicolor" && fill.stops.length < 3) {
+        const first = fill.stops[0], last = fill.stops.at(-1);
+        fill.stops.splice(1, 0, { color: midpointColor(first.color, last.color), opacity: (first.opacity + last.opacity) / 2, position: (first.position + last.position) / 2 });
+      }
+      selectedStop = Math.min(selectedStop, fill.stops.length - 1);
+      const stop = fill.stops[selectedStop];
+      state = { ...hexToHsv(stop.color), a: stop.opacity };
+    }
+    drawStops(); sync(); paint(true);
+  });
+  angle.addEventListener("input", () => { if (fill) { fill.angle = Number(angle.value); angleValue.value = `${angle.value}°`; angleValue.textContent = angleValue.value; syncFill(); paint(); } });
+  angle.addEventListener("change", () => paint(true));
+  addStop.addEventListener("click", () => {
+    if (!fill || fill.stops.length >= 6) return;
+    const sorted = fill.stops.map((stop) => ({ ...stop })).sort((a, b) => a.position - b.position);
+    let left = sorted[0], right = sorted[1];
+    for (let index = 1; index < sorted.length - 1; index++) {
+      if (sorted[index + 1].position - sorted[index].position > right.position - left.position) { left = sorted[index]; right = sorted[index + 1]; }
+    }
+    const stop = { color: midpointColor(left.color, right.color), opacity: (left.opacity + right.opacity) / 2, position: (left.position + right.position) / 2 };
+    fill.stops.push(stop);
+    fill.stops.sort((a, b) => a.position - b.position);
+    selectedStop = fill.stops.indexOf(stop);
+    state = { ...hexToHsv(stop.color), a: stop.opacity };
+    drawStops(); sync(); paint(true);
+  });
+
   $("[data-color-close]").addEventListener("click", () => dialog.close());
   plane.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
@@ -251,7 +379,7 @@ export function createColorPicker(host = globalThis.document?.body) {
     if (HEX.test(hex.value)) state = { ...hexToHsv(hex.value), a: state.a };
     paint(true);
   });
-  clearAlpha.addEventListener("click", () => { if (active?.allowOpacity) { state.a = 0; paint(true); } });
+  clearAlpha.addEventListener("click", () => { if (active?.allowOpacity || active?.allowFill) { state.a = 0; paint(true); } });
   $("[data-color-save]").addEventListener("click", () => { saveColor(color()); drawSaved(); });
   deleteColorButton.addEventListener("click", () => {
     if (menuColor) removeSavedColor(menuColor);
@@ -276,23 +404,29 @@ export function createColorPicker(host = globalThis.document?.body) {
     if (!colorMenu.hidden && !colorMenu.contains(event.target)) closeColorMenu();
     if (dialog.open && !dialog.contains(event.target) && !colorMenu.contains(event.target) && !active?.trigger?.contains(event.target)) dialog.close();
   });
-  dialog.addEventListener("close", () => { active = null; closeColorMenu(); });
+  dialog.addEventListener("close", () => { if (dialog.open) return; active = null; closeColorMenu(); });
   drawSaved();
 
   return {
     dialog,
-    open({ trigger, color: currentColor, opacity = 1, allowOpacity = false, label = "Цвет", onChange }) {
+    open({ trigger, color: currentColor, opacity = 1, fill: currentFill = null, allowOpacity = false, allowFill = false, label = "Цвет", onChange }) {
       const parsed = parseColor(currentColor, documentRef);
-      state = { ...hexToHsv(parsed.color), a: allowOpacity ? clamp(Number(opacity ?? parsed.opacity), 0, 1) : 1 };
-      active = { trigger, allowOpacity, onChange };
+      fill = allowFill ? normalizeColorFill(currentFill) : null;
+      selectedStop = 0;
+      const selectedColor = fill?.stops[0]?.color || parsed.color,
+        selectedOpacity = fill?.stops[0]?.opacity ?? (allowOpacity ? clamp(Number(opacity ?? parsed.opacity), 0, 1) : 1);
+      state = { ...hexToHsv(selectedColor), a: selectedOpacity };
+      active = { trigger, allowOpacity, allowFill, onChange };
       title.textContent = label;
       dialog.setAttribute("aria-label", label);
-      alphaRow.hidden = !allowOpacity;
-      alpha.hidden = !allowOpacity;
-      alphaValue.hidden = !allowOpacity;
-      clearAlpha.hidden = !allowOpacity;
-      drawSaved(); sync();
-      if (!dialog.open) dialog.show();
+      fillControls.hidden = !allowFill;
+      alphaRow.hidden = !(allowOpacity || (allowFill && fill));
+      alpha.hidden = alphaRow.hidden;
+      alphaValue.hidden = alphaRow.hidden;
+      clearAlpha.hidden = alphaRow.hidden;
+      drawSaved(); drawStops(); sync();
+      if (dialog.open && !dialog.matches(":modal")) dialog.close();
+      if (!dialog.open) dialog.showModal();
       if (trigger) {
         const bounds = trigger.getBoundingClientRect(), panel = dialog.getBoundingClientRect();
         dialog.style.left = `${clamp(bounds.right - panel.width, 12, Math.max(12, globalThis.innerWidth - panel.width - 12))}px`;
@@ -358,13 +492,17 @@ export function installColorPickerInputs(root = globalThis.document?.body) {
     trigger.addEventListener("click", (event) => {
       event.preventDefault(); event.stopPropagation();
       const current = parseColor(input.dataset.colorValue || input.value, documentRef), allowOpacity = input.dataset.colorAlpha === "true";
+      let currentFill = null;
+      try { currentFill = JSON.parse(input.dataset.colorFillValue || "null"); } catch { currentFill = null; }
+      const allowFill = input.dataset.colorFill === "true";
       picker.open({
         trigger, color: current.color, opacity: allowOpacity ? (input.dataset.colorOpacity ?? current.opacity) : 1,
-        allowOpacity, label: input.dataset.colorLabel || label,
-        onChange: ({ color, opacity }, commit) => {
+        fill: currentFill, allowOpacity, allowFill, label: input.dataset.colorLabel || label,
+        onChange: ({ color, opacity, fill }, commit) => {
           input.value = color;
           input.dataset.colorOpacity = String(opacity);
           input.dataset.colorValue = allowOpacity ? formatColor(color, opacity) : color;
+          if (allowFill) input.dataset.colorFillValue = fill ? JSON.stringify(fill) : "";
           update();
           const EventCtor = documentRef.defaultView.Event;
           input.dispatchEvent(new EventCtor("input", { bubbles: true }));

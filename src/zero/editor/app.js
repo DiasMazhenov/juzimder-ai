@@ -166,12 +166,16 @@ export async function openZeroEditor({
   });
   const backgroundColorPicker = installZeroColorPicker({
     host: zeroRoot,
-    read: () => ({ color: board().background, opacity: board().backgroundOpacity }),
-    apply: ({ color, opacity }, commit) => {
+    read: () => ({ color: board().background, opacity: board().backgroundOpacity, fill: board().backgroundFill }),
+    apply: ({ color, opacity, fill }, commit) => {
       if (pendingField && pendingField !== "board:background") flushField();
       pendingField = "board:background";
-      board().background = color;
-      board().backgroundOpacity = opacity;
+      if (fill) board().backgroundFill = fill;
+      else {
+        delete board().backgroundFill;
+        board().background = color;
+        board().backgroundOpacity = opacity;
+      }
       if (commit) {
         clearTimeout(fieldTimer);
         changed();
@@ -1781,10 +1785,14 @@ export async function openZeroEditor({
             i.element.galleryOptions[key] = value;
         }
       } else if (input.dataset.key) {
-        const val =
+        let val =
           input.type === "number" || input.dataset.key.startsWith("origin")
             ? Number(input.value)
             : input.value;
+        if (input.dataset.colorFill === "true") {
+          try { val = JSON.parse(input.dataset.colorFillValue || "null") || input.dataset.colorValue || input.value; }
+          catch { val = input.dataset.colorValue || input.value; }
+        }
         if (typeof val === "number" && !Number.isFinite(val)) return;
         if (["originX", "originY"].includes(input.dataset.key))
           setGeometry(
