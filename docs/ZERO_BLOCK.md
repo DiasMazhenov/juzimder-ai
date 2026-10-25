@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.152 — Zero AI keeps side-by-side hero geometry on Desktop and creates explicit text-first/photo-last overrides for a single-photo two-column hero on artboards up to 480 px. The image credit follows the image bottom. This is a narrow responsive composition rule based on the candidate's element geometry, not an alternate layout engine or CSS flow. It leaves the source block untouched until proposal Apply. Contract tests cover mobile stacking, preserved desktop coordinates and credit alignment; new live preview acceptance is tracked separately.
+
 00.00.151 — Общий picker открывается через `HTMLDialogElement.showModal()`, поэтому его невозможно перекрыть canvas/Inspector stacking contexts. Для фоновой заливки артборда и `style.fill` элементов доступны solid, linear, radial, conic и multicolor с 2–6 цветными точками; multicolor требует минимум три. Значение градиента — `{type,angle,stops:[{color,opacity,position}]}` с allowlist CSS-функций и ограничениями JSON Schema/PHP. JS editor/preview renderer и PHP publication renderer генерируют однотипный CSS; обычные цветовые свойства остаются solid. В Codex Browser на сохранённой ревизии 319 проверено модальное открытие и наличие пяти режимов заливки; picker закрыт без изменения проекта.
 
 00.00.150 — Общие сохранённые цвета можно удалять через контекстное меню swatch (правая кнопка мыши или Shift+F10/Menu); Zero и основной редактор используют одну палитру.
