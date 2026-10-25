@@ -867,6 +867,12 @@ export async function openZeroEditor({
         version = latest.version;
         conflict = false;
         $('[data-action="rebase"]').hidden = true;
+        dirty = JSON.stringify(data) !== JSON.stringify(remote);
+        if (!dirty) {
+          baseData = copy(remote);
+          status(`Сохранено · ревизия ${version}`);
+          return;
+        }
         status("Другие изменения объединены; сохраняем Zero Block");
         await save();
       } else if (
