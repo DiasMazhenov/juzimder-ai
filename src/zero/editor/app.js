@@ -550,12 +550,24 @@ export async function openZeroEditor({
     input.select();
   }
   function inspector() {
-    $("#zero-inspector").innerHTML = renderInspector({
-      items: selected(),
+    const root = $("#zero-inspector"),
+      items = selected(),
+      locked = items.length > 0 && items.every(({ element }) => element.locked);
+    root.innerHTML = renderInspector({
+      items,
       mode,
       board: board(),
       project,
     });
+    if (locked) {
+      root.querySelectorAll("input,select,textarea,[data-anchor]").forEach((control) => {
+        control.disabled = true;
+      });
+      const note = document.createElement("p");
+      note.className = "zero-help";
+      note.textContent = "Слой заблокирован. Снимите замок в панели слоёв, чтобы редактировать свойства.";
+      root.prepend(note);
+    }
   }
   const breakpointManager = () => $(".zero-breakpoint-manager");
   function renderBreakpointManager() {
@@ -1473,7 +1485,12 @@ export async function openZeroEditor({
       }
       return;
     }
-    for (const i of selected()) {
+    const targets = selected();
+    if (targets.length && targets.every(({ element }) => element.locked)) {
+      status("Слой заблокирован · разблокируйте его, чтобы изменить");
+      return;
+    }
+    for (const i of targets) {
       if (i.element.locked) continue;
       if (input.hasAttribute("data-container")) {
         setGeometry(

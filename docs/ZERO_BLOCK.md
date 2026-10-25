@@ -1,6 +1,8 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.133. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.134. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.134 — locked selected elements now show an Inspector note and disable property controls. A guarded input event reports the lock without setting `dirty`, preventing an unchanged save/revision. Browser QA found this while editing the fixture's intentionally locked line; its saved coordinate remains X=100. An unlocked title's X was changed to 10, saved, and read back through the project API; then restored to X=0 and verified.
 
 00.00.133 — CAS rebase handles a clean local state after undo: it refreshes the server base/revision and displays `Сохранено · ревизия N` without attempting a no-op Zero save. Codex Browser reproduced the stale status in the existing two tabs after a temporary unrelated SEO change and local Undo; the SEO field was restored to empty and the Zero line remains at X=100. Overlapping remote edits to the same Zero element remain untested.
 
