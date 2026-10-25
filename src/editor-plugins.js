@@ -5,10 +5,23 @@ import flexbox from 'grapesjs-blocks-flexbox';
 import gradient from 'grapesjs-style-gradient';
 import filter from 'grapesjs-style-filter';
 import touch from 'grapesjs-touch';
+import { syncColorInput } from './ui/color-picker.js';
 
 const invoke=(module,...args)=>{while(typeof module!=='function'&&module?.default)module=module.default;return module(...args);};
 // Component scripts stay prohibited until the isolated runtime is implemented.
 export function editorPlugins(editor) {
+  // Replace GrapesJS' native color field so simple properties and composite
+  // sub-fields (for example the color inside Border) share the same picker.
+  editor.StyleManager.addType('color',{
+    create({props,change}){
+      const field=document.createElement('div');field.className='jz-color-property';
+      const input=document.createElement('input');input.type='color';input.dataset.colorAlpha='true';input.dataset.colorLabel=`Цвет · ${props.name||props.property||'элемента'}`;input.value='#ffffff';
+      input.addEventListener('input',event=>change({event,partial:true}));input.addEventListener('change',event=>change({event}));field.append(input);return field;
+    },
+    emit({updateStyle},{event,partial}){updateStyle(event.target.dataset.colorValue||event.target.value,{partial});},
+    update({value,el}){syncColorInput(el.querySelector('input[type="color"]'),value||'#ffffff');},
+    destroy(){},
+  });
   invoke(basic,editor,{blocks:['column1','column2','column3','column3-7'],flexGrid:true,labelColumn1:'Одна колонка',labelColumn2:'Две колонки',labelColumn3:'Три колонки',labelColumn37:'Колонки 3/7'});
   invoke(flexbox,editor,{labelRow:'Строка',labelColumn:'Колонка',flexboxBlock:{label:'Flex-контейнер'}});
   invoke(forms,editor,{category:'Формы'});

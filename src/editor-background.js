@@ -1,3 +1,5 @@
+import { syncColorInput } from './ui/color-picker.js';
+
 export function backgroundValue(src, color = '#000000', opacity = 0) {
   if (!src) return 'none';
   if (!/^(https:\/\/[^\s"<>\\(){};]+|\/api\/projects\/[a-f0-9]{24}\/assets\/[a-f0-9]{24}\/file)$/.test(src)) throw new Error('Укажите HTTPS URL изображения или файл библиотеки проекта.');
@@ -19,7 +21,7 @@ export function installBackgroundControls(editor, projectId, api, notify) {
   let target=null;
   const field=id=>panel.querySelector('#'+id);
   const mount=()=>{const sector=[...document.querySelectorAll('#styles .gjs-sm-sector')].find(node=>node.querySelector('.gjs-sm-sector-title')?.textContent.includes('Оформление'));const host=sector?.querySelector('.gjs-sm-properties')||document.querySelector('#styles');if(host&&!panel.isConnected)host.append(panel);};
-  const sync=component=>{mount();target=component;const tag=component?.get('tagName');const allowed=component&&!['img','a','button','h1','h2','h3','h4','p','span'].includes(tag);panel.hidden=!allowed;if(!allowed)return;const value=parseBackground(component.getStyle()['background-image']);field('container-background-url').value=value.src;field('container-overlay-color').value=value.color;field('container-overlay-opacity').value=String(value.opacity*100);field('container-overlay-value').textContent=Math.round(value.opacity*100)+'%';field('background-status').textContent='Фон покрывает контейнер; overlay не меняет прозрачность текста.';};
+  const sync=component=>{mount();target=component;const tag=component?.get('tagName');const allowed=component&&!['img','a','button','h1','h2','h3','h4','p','span'].includes(tag);panel.hidden=!allowed;if(!allowed)return;const value=parseBackground(component.getStyle()['background-image']);field('container-background-url').value=value.src;field('container-overlay-color').value=value.color;syncColorInput(field('container-overlay-color'));field('container-overlay-opacity').value=String(value.opacity*100);field('container-overlay-value').textContent=Math.round(value.opacity*100)+'%';field('background-status').textContent='Фон покрывает контейнер; overlay не меняет прозрачность текста.';};
   field('container-overlay-opacity').oninput=event=>field('container-overlay-value').textContent=event.target.value+'%';
   field('container-background-asset').onchange=event=>field('container-background-url').value=event.target.value;
   field('background-library-load').onclick=async()=>{try{const assets=await api(`/projects/${projectId}/assets`);const select=field('container-background-asset');select.replaceChildren(new Option('Выберите изображение',''));for(const asset of assets)select.add(new Option(asset.name,asset.url));}catch(error){field('background-status').textContent=error.message;}};

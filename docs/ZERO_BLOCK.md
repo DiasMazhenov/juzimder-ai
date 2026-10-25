@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.149 — Color fields in Zero Block use the application's shared color picker and shared saved-color palette. Artboard background retains its `backgroundOpacity` pair; element appearance, filter and shadow colors use the same HEX-capable chooser, with alpha only when the model field supports it.
+
 00.00.148 — Изображение фона в Artboard Inspector показывается миниатюрой фиксированной высоты 128 px с `object-fit: cover`; имя файла не расширяет панель, кнопки остаются в переносимом ряду. Изменение касается только UI редактора и не влияет на фон или экспорт страницы.
 
 00.00.147 — Цвет фона настраивается через собственный picker: HSV поле, тон, alpha, HEX, browser eyedropper при поддержке и сохранённые цвета в локальном хранилище UI. Текущая фон-альфа хранится отдельно в `backgroundOpacity`; поле опционально, чтобы старые Zero Data сохраняли поведение. JS preview и статическая PHP публикация рендерят одинаковую прозрачность. Полные тесты, сборка и PHP syntax прошли. Picker визуально проверен в существующей вкладке Codex Browser и закрыт без изменений Project Data.

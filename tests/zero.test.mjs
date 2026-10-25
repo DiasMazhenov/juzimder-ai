@@ -408,7 +408,8 @@ test("background color picker converts HEX/HSV and retains independent opacity",
   for (const value of ["#000000", "#ffffff", "#86c232", "#f05a45", "#183e31"])
     assert.equal(hsvToHex(...Object.values(hexToHsv(value))), value);
   assert.equal(createZeroData().artboards.desktop.backgroundOpacity, 1);
-  assert.match(readFileSync(new URL("../src/zero/ui/color-picker.js", import.meta.url), "utf8"), /juzimder-zero-saved-colors/);
+  assert.match(readFileSync(new URL("../src/ui/color-picker.js", import.meta.url), "utf8"), /juzimder-saved-colors/);
+  assert.match(readFileSync(new URL("../src/ui/color-picker.js", import.meta.url), "utf8"), /juzimder-zero-saved-colors/);
 });
 test("Autoscale control is scoped to an artboard and new boards default to fixed", () => {
   const data = createZeroData();

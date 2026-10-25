@@ -2,6 +2,7 @@ import { serializedZero, sameOutsideZero } from './zero/sync.js';
 import { registerZero } from './zero/register.js';
 import { blockMedia } from './block-media.js';
 import { installImagePicker } from './image-picker.js';
+import { installColorPickerInputs, syncColorInputs } from './ui/color-picker.js';
 import { editorPlugins, exposePluginBlocks } from './editor-plugins.js';
 import { appendPhotoCredit as appendAIPhotoCredit } from './photo-credit.js';
 import { tablerIcon, tablerCoreIcons, installEditorIcons, updateFlexIcons } from './editor-icons.js';
@@ -9,6 +10,7 @@ import { backgroundValue, installBackgroundControls } from './editor-background.
 import { persistedComponentId } from './component-identity.js';
 import 'grapesjs/dist/css/grapes.min.css';
 import './ui-theme.css';
+import './ui/color-picker.css';
 import './style.css';
 import './ui-overrides.css';
 import { blocks, registerBlocks } from './blocks.js';
@@ -20,6 +22,7 @@ import { DEFAULT_DESIGN_TOKENS, FONT_FAMILIES, FONT_WEIGHTS, TOKEN_FIELDS, desig
 import packageInfo from '../package.json';
 const $ = (selector) => document.querySelector(selector);
 const app = $('#app');
+installColorPickerInputs(document.body);
 const productVersion = packageInfo.productVersion;
 const esc = (s) => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mark = '<span class="brand-mark"><i></i><i></i><i></i><i></i></span>';
@@ -373,6 +376,7 @@ async function openEditor(id,pageId=null) {
     const wrapper=editor.Pages.getSelected()?.getMainComponent();
     const tokens=normalizeDesignTokens(current.settings?.designTokens||designTokensFromStyle(wrapper?.getStyle()||{}));
     for(const field of TOKEN_FIELDS){const control=$(`#theme-form [name="${field.name}"]`);if(control)control.value=tokens[field.name];}
+    syncColorInputs($('#theme-form'));
   };
   let aiDesignState=null,aiPreviewRenderId=0,aiComponentProposal=null,aiComponentTargetId=null,aiComponentTargetModel=null,aiComponentTargetPath=null;
   const syncAIApply=()=>{const button=$('#ai-plan-apply');if(button)button.disabled=isAIDesignReadOnly()||Boolean(aiDesignState?.photosPending);};
