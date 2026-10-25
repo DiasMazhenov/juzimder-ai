@@ -1,5 +1,7 @@
 # План Juzimder AI
 
+- [x] 00.00.153: общий color picker стал компактнее; во время работы EyeDropper backdrop-слои временно прозрачны и без blur, восстановление происходит после результата или отмены.
+- [x] 00.00.153 browser acceptance: picker 328×350 px; при активной пипетке backdrop-filter none, артборд чёткий; нативный sampler завершён reload без выбора, цвет и ревизия 323 не изменились.
 - [x] 00.00.152: Zero AI создаёт mobile text-first/photo-last stack для бокового фото-героя на брейкпоинтах до 480 px, сохраняет desktop геометрию и позицию атрибуции; проверено контрактными тестами.
 - [ ] 00.00.152 browser acceptance: проверить новую Zero AI композицию на Mobile 360 и отменить preview без изменения Project Data.
 - [x] 00.00.151: общий color picker переведён на модальный top layer; для фона артборда и Fill элементов Zero добавлены Solid, Linear, Radial, Conic и Multicolor с редактируемыми цветами/позициями, HEX и безопасным согласованным рендерингом.

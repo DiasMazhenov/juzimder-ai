@@ -391,11 +391,14 @@ export function createColorPicker(host = globalThis.document?.body) {
     const eyeDropper = documentRef.createElement("button");
     eyeDropper.type = "button"; eyeDropper.className = "jz-color-eyedropper"; eyeDropper.textContent = "Пипетка";
     eyeDropper.addEventListener("click", async () => {
+      const root = documentRef.documentElement;
+      root.classList.add("jz-eyedropper-active");
       try {
         const result = await new globalThis.EyeDropper().open();
         if (HEX.test(result.sRGBHex)) state = { ...hexToHsv(result.sRGBHex), a: state.a };
         paint(true);
       } catch { /* The native eyedropper may be cancelled. */ }
+      finally { root.classList.remove("jz-eyedropper-active"); }
     });
     $(".jz-color-header").append(eyeDropper);
   }

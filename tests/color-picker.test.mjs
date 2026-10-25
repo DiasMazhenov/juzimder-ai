@@ -74,6 +74,11 @@ test("main UI, GrapesJS color properties and Zero Block use the shared picker", 
   assert.match(sharedPicker, /Удалить цвет/);
   assert.match(sharedPicker, /aria-keyshortcuts/);
   assert.match(sharedPicker, /dialog\.showModal\(\)/, "shared picker uses the browser top layer so editor panels cannot cover it");
+  assert.match(sharedPicker, /jz-eyedropper-active/);
+  assert.match(sharedPicker, /finally\s*\{\s*root\.classList\.remove\("jz-eyedropper-active"\)/, "eyedropper mode is cleared after sampling or cancellation");
   assert.match(sharedPicker, /data-color-fill-type/);
   assert.match(zeroInspector, /data-color-fill="true"/);
+  assert.match(pickerCss, /width:\s*min\(328px/);
+  assert.match(pickerCss, /\.jz-color-plane[^}]*height:\s*138px/);
+  assert.match(pickerCss, /:root\.jz-eyedropper-active dialog::backdrop[^}]*backdrop-filter:\s*none\s*!important/);
 });
