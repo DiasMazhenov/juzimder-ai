@@ -603,6 +603,16 @@ test("editor overflow is separate from the saved-preview and publication policy"
   assert.match(hidden, /overflow:hidden/);
   assert.match(renderZero(visibleData, "zero-overflow-visible", "desktop"), /overflow:visible/);
 });
+test("Zero layer controls have no individual outlines while locked and keyboard states remain visible", () => {
+  const overrides = readFileSync(new URL("../src/ui-overrides.css", import.meta.url), "utf8");
+  assert.match(
+    overrides,
+    /\.zero-app \.zero-left \.zero-layer :is\(\.zero-layer-disclosure, \.zero-layer-name, \.zero-layer-lock, \.zero-layer-visibility\)\s*\{[^}]*border:\s*0 !important;[^}]*background:\s*transparent !important/s,
+  );
+  assert.match(overrides, /\.zero-app \.zero-left \.zero-layer button:hover:not\(:disabled\)\s*\{[^}]*border-color:\s*transparent !important/s);
+  assert.match(overrides, /\.zero-app \.zero-left \.zero-layer\.is-locked \.zero-layer-lock\s*\{[^}]*background:\s*var\(--jz-ui-muted-surface\) !important/s);
+  assert.match(overrides, /:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--jz-ui-focus\)/s);
+});
 test("Project Data schema carries one strict zeroData contract and rejects second trees", () => {
   const schema = JSON.parse(
       readFileSync(new URL("../schemas/project.schema.json", import.meta.url)),

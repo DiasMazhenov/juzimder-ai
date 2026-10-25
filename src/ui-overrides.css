@@ -324,6 +324,21 @@
   color: var(--jz-ui-text);
 }
 
+.zero-app .zero-left .zero-layer :is(.zero-layer-disclosure, .zero-layer-name, .zero-layer-lock, .zero-layer-visibility) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.zero-app .zero-left .zero-layer button:hover:not(:disabled) {
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.zero-app .zero-left .zero-layer.is-locked .zero-layer-lock {
+  background: var(--jz-ui-muted-surface) !important;
+}
+
 .zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) :is(input, textarea)::placeholder {
   color: var(--jz-ui-text-muted);
 }

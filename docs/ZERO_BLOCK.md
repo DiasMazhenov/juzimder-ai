@@ -1,6 +1,8 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.139. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.140. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.140 — Zero Layers controls use plain icon/text affordances without individual button frames or hover pills. Row dividers, selection/drop feedback, keyboard focus and the locked-state marker remain. The change is scoped to editor chrome and does not affect Zero Data, artboard styling, or export.
 
 00.00.139 — Zero Editor chrome now uses the deep charcoal/lime constructor palette (`#14181B`, `#1B2125`, `#61892F`, `#86C232`) and no longer falls back to superseded graphite colors. The workspace outside the artboard follows the app surface; `#zero-canvas`, saved content, responsive geometry, and exported page styles remain authored-project data and are unchanged. Codex Browser verified the existing Zero Editor tab at saved revision 288; no Save action was triggered.
 
