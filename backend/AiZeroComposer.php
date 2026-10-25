@@ -104,6 +104,7 @@ final class AiZeroComposer {
         $decoded['elements']=self::normalizeNumberedProcessIcons($prompt,$decoded['elements'],(int)$board->width);
         $decoded['elements']=self::normalizeModelNumberedProcessCardSurfaces($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         $decoded['elements']=self::normalizeRequestedNumberedProcessCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
+        $decoded['elements']=self::normalizeRequestedTestimonialCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
         $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
         $autoPhotoAdded=false;$automaticPhotoIndex=null;
@@ -141,7 +142,7 @@ final class AiZeroComposer {
             self::validateModelElement($item,(int)$board->width,(int)$board->height);
             $type=$item['type'];
             if($type==='image'&&!isset($photos[$assignments['slot-'.$index]??'']))continue;
-            $generatedCardSurface=$type==='rectangle'&&preg_match('/^(?:Основа карточки \d+|AI process card \d{2})$/u',(string)($item['name']??''))===1;
+            $generatedCardSurface=$type==='rectangle'&&preg_match('/^(?:Основа карточки \d+|AI process card \d{2}|AI testimonial card \d{2})$/u',(string)($item['name']??''))===1;
             $geometry=(object)['container'=>'grid','anchorX'=>0,'anchorY'=>0,'originX'=>0,'originY'=>0,'x'=>round((float)$item['x'],2),'y'=>round((float)$item['y'],2),'width'=>round((float)$item['width'],2),'height'=>round((float)$item['height'],2),'rotation'=>0];
             $textSurface=$type==='text'&&$item['height']<=52&&$item['radius']>=12?$item['fill']:'transparent';
             $textBackground=$type==='button'?$item['fill']:($textSurface==='transparent'?$decoded['artboard']['backgroundColor']:$textSurface);
@@ -444,6 +445,42 @@ final class AiZeroComposer {
             if($index===$badgeIndex)$nextBadgeIndex=count($result);$result[]=$item;
         }
         return [$result,$nextBadgeIndex??$badgeIndex];
+    }
+
+    /** Keep explicit quote/author pairs together when a testimonial model emits duplicate mobile layers. */
+    private static function normalizeRequestedTestimonialCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
+        if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1||preg_match('/(?:две|двух|2|two)\s+(?:отдельн\w*\s+)?(?:карточк\w*|cards?)/iu',$prompt)!==1||count($items)>18)return $items;
+        foreach($items as $item)if(is_array($item)&&in_array($item['type']??null,['rectangle','image'],true))return $items;
+        $originalItems=$items;
+        preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*([\p{L}][\p{L}-]{1,40}(?:\s+[\p{L}][\p{L}-]{1,40}){0,2})/u',$prompt,$matches,PREG_SET_ORDER);
+        if(count($matches)!==2)return $items;
+        $pairs=[];$keep=[];$quotedTexts=[];$authors=[];
+        foreach($matches as $match){
+            $quoteText='«'.trim($match[1]).'»';$authorText=trim($match[2]);$quotedTexts[]=$quoteText;$authors[]=$authorText;$quoteIndex=null;$authorIndex=null;
+            foreach($items as $index=>$item){
+                if(!is_array($item)||($item['type']??null)!=='text')continue;
+                $content=trim((string)($item['content']??''));
+                $combined=preg_match('/^'.preg_quote($quoteText,'/').'\s*[—–-]\s*'.preg_quote($authorText,'/').'$/u',$content)===1;
+                if(($content===$quoteText||$combined)&&($quoteIndex===null||(float)$item['width']>(float)$items[$quoteIndex]['width']))$quoteIndex=$index;
+                if($content===$authorText&&$authorIndex===null)$authorIndex=$index;
+            }
+            if($quoteIndex===null)return $originalItems;
+            if($authorIndex===null){$items[]=array_replace($items[$quoteIndex],['name'=>'AI testimonial author '.(count($pairs)+1),'content'=>$authorText,'fontSize'=>16,'fontWeight'=>600,'height'=>24]);$authorIndex=array_key_last($items);}
+            $keep[$quoteIndex]=true;$keep[$authorIndex]=true;$pairs[]=['quote'=>$quoteIndex,'author'=>$authorIndex];
+        }
+        if($pairs[0]['quote']===$pairs[1]['quote']||$pairs[0]['author']===$pairs[1]['author'])return $originalItems;
+        $headingBottom=0;$headingX=null;
+        foreach($items as $item)if(is_array($item)&&($item['type']??null)==='text'&&(float)($item['fontSize']??0)>=34){$headingBottom=max($headingBottom,(float)$item['y']+(float)$item['height']);$headingX=$headingX===null?(float)$item['x']:min($headingX,(float)$item['x']);}
+        $margin=max(32,min((int)round($boardWidth*.1),(int)round($headingX??$boardWidth*.06)));$gap=max(24,(int)round($boardWidth*.025));$cardWidth=(int)floor(($boardWidth-2*$margin-$gap)/2);if($cardWidth<180)return $originalItems;
+        $quoteY=max($headingBottom+32,min((float)$items[$pairs[0]['quote']]['y'],(float)$items[$pairs[1]['quote']]['y']));$light=self::colorLuminance($background)>=.42;$fill=self::blendColor($background,$light?'#DDEBDD':'#FFFFFF',$light?.68:.12);$stroke=self::blendColor($background,$light?'#8FAF8F':'#FFFFFF',$light?.45:.3);$surfaces=[];
+        foreach($pairs as $index=>$pair){
+            $quote=&$items[$pair['quote']];$author=&$items[$pair['author']];$cardX=$margin+$index*($cardWidth+$gap);$font=max(16,(float)$quote['fontSize']);$quote['x']=$cardX+20;$quote['y']=$quoteY;$quote['width']=$cardWidth-40;$quote['height']=max(48,ceil(self::estimatedTextLines($quotedTexts[$index],$font,$cardWidth-40,true)*$font*1.3+4));$quote['content']=$quotedTexts[$index];$author['x']=$cardX+20;$author['y']=$quoteY+(float)$quote['height']+12;$author['width']=$cardWidth-40;$author['height']=max(24,min(40,(float)$author['height']));$author['fontSize']=16;$author['fontWeight']=600;$author['content']=$authors[$index];$height=(float)$author['y']+(float)$author['height']+20-($quoteY-20);unset($quote,$author);
+            if($quoteY-20<0||$quoteY-20+$height>$boardHeight)return $originalItems;
+            $surfaces[]=['type'=>'rectangle','name'=>sprintf('AI testimonial card %02d',$index+1),'content'=>'','photoQuery'=>'','icon'=>'','x'=>$cardX,'y'=>$quoteY-20,'width'=>$cardWidth,'height'=>$height,'fill'=>$fill,'color'=>$fill,'stroke'=>$stroke,'radius'=>18,'fontSize'=>16,'fontWeight'=>400,'textAlign'=>'left'];
+        }
+        $items=array_values(array_filter($items,static function($item,$index)use($quotedTexts,$authors,$keep):bool{if(!is_array($item)||($item['type']??null)!=='text'||isset($keep[$index]))return true;$content=trim((string)($item['content']??''));if(in_array($content,$authors,true))return false;foreach($quotedTexts as $quote)if(str_starts_with($content,$quote))return false;return true;},ARRAY_FILTER_USE_BOTH));
+        if(count($items)+2>20)return $originalItems;
+        return array_merge($surfaces,$items);
     }
 
     /** Add consistent editable card surfaces when the model lays out three text-led service cards but omits their backgrounds. */
@@ -794,9 +831,9 @@ final class AiZeroComposer {
         $result=[];
         foreach($data->artboards as $mode=>$mobileBoard){if($mode==='desktop'||$mobileBoard->width>480)continue;$margin=min(20,max(16,(int)round($mobileBoard->width*.055)));$contentWidth=max(1,(int)$mobileBoard->width-2*$margin);$cursor=max(16,(int)round($mobileBoard->height*.04));
             foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
-            foreach($active as $column){$cardTop=$cursor;$cardCursor=$cardTop+8;$content=[];$surfaces=[];foreach($column['indices'] as $index){if(($items[$index]['type']??null)==='rectangle')$surfaces[]=$index;else$content[]=$index;}usort($content,static function(int $a,int $b)use($items):int{$ay=(float)$items[$a]['y'];$by=(float)$items[$b]['y'];if(abs($ay-$by)<=8){$av=($items[$a]['type']??null)==='vector';$bv=($items[$b]['type']??null)==='vector';if($av!==$bv)return $av?-1:1;}return $ay<=>$by;});
-                foreach($content as $index){$item=$items[$index];if(($item['type']??null)==='vector'){$result[$index][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardCursor,'width'=>28,'height'=>28]];$cardCursor+=36;continue;}$cardCursor+=self::mobileFlowOverride($result,$index,$mode,$item,$margin,$cardCursor,$contentWidth,null,true)+8;}
-                $cardHeight=max(84,$cardCursor-$cardTop+8);foreach($surfaces as $index)$result[$index][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$cardHeight]];$cursor=$cardTop+$cardHeight+8;
+            foreach($active as $column){$cardTop=$cursor;$content=[];$surfaces=[];foreach($column['indices'] as $index){if(($items[$index]['type']??null)==='rectangle')$surfaces[]=$index;else$content[]=$index;}$inset=$surfaces?16:0;$cardCursor=$cardTop+8+$inset;usort($content,static function(int $a,int $b)use($items):int{$ay=(float)$items[$a]['y'];$by=(float)$items[$b]['y'];if(abs($ay-$by)<=8){$av=($items[$a]['type']??null)==='vector';$bv=($items[$b]['type']??null)==='vector';if($av!==$bv)return $av?-1:1;}return $ay<=>$by;});
+                foreach($content as $index){$item=$items[$index];if(($item['type']??null)==='vector'){$result[$index][$mode]=['geometry'=>(object)['x'=>$margin+$inset,'y'=>$cardCursor,'width'=>28,'height'=>28]];$cardCursor+=36;continue;}$cardCursor+=self::mobileFlowOverride($result,$index,$mode,$item,$margin+$inset,$cardCursor,$contentWidth-2*$inset,null,true)+8;}
+                $cardHeight=max(84,$cardCursor-$cardTop+8+$inset);foreach($surfaces as $index)$result[$index][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$cardHeight]];$cursor=$cardTop+$cardHeight+8;
             }
             foreach($post as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+10;
         }
