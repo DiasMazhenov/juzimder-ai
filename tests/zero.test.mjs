@@ -595,7 +595,7 @@ test("editor overflow is separate from the saved-preview and publication policy"
     visibleData = structuredClone(fixture);
   visibleData.artboards.desktop.overflow = "visible";
   assert.match(editor, /preview \? b\.overflow : "visible"/);
-  assert.match(styles, /--zero-workspace-background:\s*var\(--jz-ui-bg,\s*#222629\)/);
+  assert.match(styles, /--zero-workspace-background:\s*var\(--jz-ui-bg,\s*#14181b\)/);
   assert.match(
     styles,
     /\.zero-bleed-surface\s*\{[^}]*background:\s*var\(--zero-workspace-background\)/s,

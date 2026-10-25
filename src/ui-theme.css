@@ -1,25 +1,28 @@
 /* Constructor chrome only. User project tokens live separately in design-tokens.js. */
 :root {
-  --jz-ui-bg: #222629;
-  --jz-ui-panel: #474b4f;
-  --jz-ui-panel-raised: #53575b;
-  --jz-ui-muted-surface: #6b6e70;
-  --jz-ui-border: #6b6e70;
-  --jz-ui-text: #f4f5f5;
-  --jz-ui-text-muted: #d2d4d5;
+  --jz-ui-bg: #14181b;
+  --jz-ui-panel: #1b2125;
+  --jz-ui-panel-raised: #242b30;
+  --jz-ui-muted-surface: #303a3f;
+  --jz-ui-border: #303a3f;
+  --jz-ui-border-subtle: #283136;
+  --jz-ui-text: #f5f7f7;
+  --jz-ui-text-secondary: #b6bec1;
+  --jz-ui-text-muted: #929da2;
   --jz-ui-accent: #86c232;
   --jz-ui-accent-secondary: #61892f;
-  --jz-ui-on-accent: #222629;
-  --jz-ui-hover: #5a5e61;
-  --jz-ui-selected: #354522;
-  --jz-ui-selection-border: #61892f;
-  --jz-ui-accent-hover: #9bd64a;
+  --jz-ui-on-accent: #14181b;
+  --jz-ui-hover: #2b3439;
+  --jz-ui-selected: rgb(134 194 50 / 14%);
+  --jz-ui-selection-border: #86c232;
+  --jz-ui-accent-hover: #98d744;
   --jz-ui-focus: #86c232;
-  --jz-ui-error: #ff9b91;
-  --jz-ui-error-surface: #4b3132;
-  --jz-ui-warning: #ffd27a;
-  --jz-ui-overlay: rgb(17 20 23 / 82%);
+  --jz-ui-success: #86c232;
+  --jz-ui-error: #f16d6d;
+  --jz-ui-error-surface: #342629;
+  --jz-ui-warning: #e9b95b;
+  --jz-ui-overlay: rgb(8 10 12 / 82%);
   --jz-ui-shadow: rgb(0 0 0 / 40%);
-  --jz-ui-grid-line: rgb(107 110 112 / 42%);
+  --jz-ui-grid-line: rgb(48 58 63 / 42%);
   --jz-ui-selection-fill: rgb(134 194 50 / 14%);
 }

@@ -1,6 +1,8 @@
 # Zero Block — absolute positioning engine
 
-Version: zeroData v1, product 00.00.138. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+Version: zeroData v1, product 00.00.139. Audited 25.10.2026: GrapesJS Core 0.23.8, Vite 8.3.4, PHP 8.5.8 locally; supported backend remains PHP 8.2+. Studio SDK and browser test infrastructure were not added.
+
+00.00.139 — Zero Editor chrome now uses the deep charcoal/lime constructor palette (`#14181B`, `#1B2125`, `#61892F`, `#86C232`) and no longer falls back to superseded graphite colors. The workspace outside the artboard follows the app surface; `#zero-canvas`, saved content, responsive geometry, and exported page styles remain authored-project data and are unchanged. Codex Browser verified the existing Zero Editor tab at saved revision 288; no Save action was triggered.
 
 00.00.138 — Zero Editor chrome uses the constructor's centralized graphite/lime `--jz-ui-*` tokens. Workspace and off-artboard bleed surface share the same dark token. The token stylesheet is loaded only in app/editor bundles; Zero artboard restores the pre-theme inherited text color and legacy generic variables, and native-control color scheme, so authored content and static exporter stay separate. Verified in Codex Browser without saving Project Data (existing project revision 287); `npm run test:ui-theme`, full `npm test`, `npm run build`, and backend PHP syntax checks pass.
 

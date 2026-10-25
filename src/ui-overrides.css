@@ -13,6 +13,10 @@
   color: var(--jz-ui-text);
 }
 
+#app:not(:has(.zero-app)) :is(input[type="checkbox"], input[type="radio"], input[type="range"], progress) {
+  accent-color: var(--jz-ui-accent);
+}
+
 #app:not(:has(.zero-app)) button:hover:not(:disabled) {
   background: var(--jz-ui-hover);
 }
@@ -20,6 +24,10 @@
 #app:not(:has(.zero-app)) button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+}
+
+#app:not(:has(.zero-app)) :is([aria-busy="true"], .is-loading, .loading) {
+  cursor: progress;
 }
 
 #app:not(:has(.zero-app)) :is(button, a, input, select, textarea):focus-visible {
@@ -56,6 +64,10 @@
 
 #app:not(:has(.zero-app)) :is(.error, #create-error, #page-dialog-error, .page-rename-error, .ai-component-editor [data-status="error"]) {
   color: var(--jz-ui-error) !important;
+}
+
+#app:not(:has(.zero-app)) :is(.success, [data-status="success"]) {
+  color: var(--jz-ui-success);
 }
 
 #app:not(:has(.zero-app)) :is(.danger-action, .ai-profile-form .danger-action, .ai-skill-form .danger-action, .component-context-menu .danger-action) {
@@ -237,10 +249,27 @@
   color: var(--jz-ui-text);
 }
 
-.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button:hover:not(:disabled),
-.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button[aria-pressed="true"] {
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button:hover:not(:disabled) {
   border-color: var(--jz-ui-accent-secondary);
   background-color: var(--jz-ui-hover);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button[aria-pressed="true"] {
+  border-color: var(--jz-ui-selection-border);
+  background-color: var(--jz-ui-selected);
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.zero-app :is([aria-busy="true"], .is-loading, .loading) {
+  cursor: progress;
+}
+
+.zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets, dialog) :is(input[type="checkbox"], input[type="radio"], input[type="range"], progress) {
+  accent-color: var(--jz-ui-accent);
 }
 
 .zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom) button.primary,
@@ -266,7 +295,7 @@
 
 .zero-app .zero-layer.selected,
 .zero-app .zero-layer.drop-inside {
-  background-color: var(--jz-ui-selected);
+  background-color: var(--jz-ui-selection-fill);
 }
 
 .zero-app :is(.zero-layer.drop-before, .zero-layer.drop-after) {
@@ -274,11 +303,11 @@
 }
 
 .zero-app :is(.zero-selected, .zero-selection-box) {
-  outline-color: var(--jz-ui-accent-secondary);
+  outline-color: var(--jz-ui-selection-border);
 }
 
 .zero-app .zero-handle {
-  border-color: var(--jz-ui-accent-secondary);
+  border-color: var(--jz-ui-selection-border);
   background-color: var(--jz-ui-accent);
 }
 

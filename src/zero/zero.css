@@ -3,8 +3,8 @@
   inset: 0;
   z-index: 20;
   --zero-left-width: 190px;
-  background: var(--jz-ui-bg, #222629);
-  color: var(--jz-ui-text, #f4f5f5);
+  background: var(--jz-ui-bg, #14181b);
+  color: var(--jz-ui-text, #f5f7f7);
   display: flex;
   flex-direction: column;
   font-family: inherit;
@@ -13,9 +13,9 @@
 }
 .zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) :is(button, select, input, textarea) {
   font: inherit;
-  border: 1px solid var(--jz-ui-border, #6b6e70);
+  border: 1px solid var(--jz-ui-border, #303a3f);
   border-radius: var(--radius, 7px);
-  background: var(--jz-ui-panel, #474b4f);
+  background: var(--jz-ui-panel, #1b2125);
   color: inherit;
   padding: 7px 9px;
   min-width: 0;
@@ -31,7 +31,7 @@
 .zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom) button.primary {
   background: var(--jz-ui-accent, #86c232);
   border-color: var(--jz-ui-accent, #86c232);
-  color: var(--jz-ui-on-accent, #222629);
+  color: var(--jz-ui-on-accent, #14181b);
 }
 .zero-app h2 {
   font-size: 13px;
@@ -42,7 +42,7 @@
   flex-direction: column;
   gap: 5px;
   margin: 9px 0;
-  color: var(--jz-ui-text-muted, #d2d4d5);
+  color: var(--jz-ui-text-muted, #929da2);
 }
 .zero-app :is(.zero-top, .zero-left, .zero-inspector, .zero-bottom, .zero-element-menu, .zero-breakpoint-manager, #zero-context, #zero-assets) input[type="checkbox"] {
   align-self: flex-start;
@@ -626,7 +626,7 @@
   position: relative;
   flex: 1;
   overflow: auto;
-  --zero-workspace-background: var(--jz-ui-bg, #222629);
+  --zero-workspace-background: var(--jz-ui-bg, #14181b);
   background: var(--zero-workspace-background);
   outline: 0;
   overscroll-behavior: contain;
@@ -1024,7 +1024,7 @@
     z-index: 5;
     max-height: 100%;
     overflow: auto;
-    background: var(--jz-ui-panel, #474b4f);
+    background: var(--jz-ui-panel, #1b2125);
     box-shadow: 0 8px 28px #0008;
   }
   .zero-app:not(.zero-left-open) .zero-left {
