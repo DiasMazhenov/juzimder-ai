@@ -903,7 +903,7 @@ export async function openZeroEditor({
       "<p>Фото пока нет. Загрузите изображение с компьютера.</p>";
   }
   async function chooseImage(target = null) {
-    assetTarget = target;
+    assetTarget = target || { kind: "image-new" };
     $("#zero-assets").showModal();
     try {
       assets = await api(`/projects/${projectId}/assets`);
@@ -1197,7 +1197,8 @@ export async function openZeroEditor({
       changed();
       return;
     }
-    if (key === "replace-image") return chooseImage(selected()[0]?.element.id);
+    if (key === "replace-image")
+      return chooseImage({ kind: "image", elementId: selected()[0]?.element.id });
     if (key === "assets-close") {
       $("#zero-assets").close();
       return;
@@ -1290,6 +1291,32 @@ export async function openZeroEditor({
       toggleLayerGroup(target.dataset.toggleGroup);
       return;
     }
+    if (target.dataset.galleryAdd || target.dataset.galleryPick) {
+      flushField();
+      const gallery = target.dataset.galleryAdd
+        ? findElement(data, target.dataset.galleryAdd)?.element
+        : selected().find(({ element }) => element.type === "gallery")?.element;
+      if (!gallery || gallery.type !== "gallery" || gallery.locked) return;
+      if (target.dataset.galleryAdd && gallery.galleryItems.length >= 12) {
+        status("В галерее может быть не более 12 фото");
+        return;
+      }
+      return chooseImage({
+        kind: target.dataset.galleryAdd ? "gallery-add" : "gallery-item",
+        elementId: gallery.id,
+        itemId: target.dataset.galleryPick || null,
+      });
+    }
+    if (target.dataset.galleryRemove) {
+      flushField();
+      const gallery = selected().find(({ element }) => element.type === "gallery")?.element;
+      if (!gallery || gallery.locked) return;
+      gallery.galleryItems = gallery.galleryItems.filter(
+        (item) => item.id !== target.dataset.galleryRemove,
+      );
+      changed();
+      return;
+    }
     if (target.dataset.formAction || target.dataset.formRemove) {
       flushField();
       const form = selected().find(({ element }) => element.type === "form")?.element;
@@ -1372,15 +1399,35 @@ export async function openZeroEditor({
     if (target.dataset.asset) {
       const asset = assets.find((a) => a.id === target.dataset.asset);
       if (!asset) return;
-      const el = assetTarget
-        ? findElement(data, assetTarget)?.element
-        : createElement("image", project.settings?.designTokens);
+      const targetSpec = assetTarget || { kind: "image-new" };
+      const el = targetSpec.kind === "image-new"
+        ? createElement("image", project.settings?.designTokens)
+        : findElement(data, targetSpec.elementId)?.element;
       if (!el) return;
-      if (!assetTarget) data.elements.push(el);
-      setValue(el, mode, null, "src", asset.url);
-      if (!el.src) el.src = asset.url;
-      setValue(el, "desktop", null, "alt", asset.name);
+      if (targetSpec.kind === "gallery-add" || targetSpec.kind === "gallery-item") {
+        if (el.type !== "gallery") return;
+        el.galleryItems ??= [];
+        if (targetSpec.kind === "gallery-add") {
+          if (el.galleryItems.length >= 12) return;
+          el.galleryItems.push({
+            id: `photo-${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`,
+            src: asset.url,
+            alt: asset.name,
+          });
+        } else {
+          const item = el.galleryItems.find((candidate) => candidate.id === targetSpec.itemId);
+          if (!item) return;
+          item.src = asset.url;
+          item.alt = asset.name;
+        }
+      } else {
+        if (targetSpec.kind === "image-new") data.elements.push(el);
+        setValue(el, mode, null, "src", asset.url);
+        if (!el.src) el.src = asset.url;
+        setValue(el, "desktop", null, "alt", asset.name);
+      }
       selection = new Set([el.id]);
+      assetTarget = null;
       $("#zero-assets").close();
       changed();
     }
@@ -1452,6 +1499,23 @@ export async function openZeroEditor({
           key === "required"
             ? input.checked
             : input.value.slice(0, key === "label" ? 80 : 120);
+      } else if (input.dataset.galleryItem && i.element.type === "gallery") {
+        const item = i.element.galleryItems?.find(
+          (candidate) => candidate.id === input.dataset.galleryItem,
+        );
+        if (item && input.dataset.galleryProp === "alt")
+          item.alt = input.value.slice(0, 300);
+      } else if (input.dataset.galleryOption && i.element.type === "gallery") {
+        i.element.galleryOptions ??= { columns: 3, gap: 16, objectFit: "cover" };
+        const key = input.dataset.galleryOption;
+        if (key === "objectFit" && ["cover", "contain"].includes(input.value))
+          i.element.galleryOptions.objectFit = input.value;
+        else if (["columns", "gap"].includes(key)) {
+          const value = Number(input.value);
+          const [min, max] = key === "columns" ? [1, 6] : [0, 80];
+          if (Number.isInteger(value) && value >= min && value <= max)
+            i.element.galleryOptions[key] = value;
+        }
       } else if (input.dataset.key) {
         const val =
           input.type === "number" || input.dataset.key.startsWith("origin")
@@ -1537,6 +1601,12 @@ export async function openZeroEditor({
       event.target.dataset.element ||
       (event.target.dataset.formField
         ? `form-field:${event.target.dataset.formField}:${event.target.dataset.formProp}`
+        : "") ||
+      (event.target.dataset.galleryItem
+        ? `gallery-item:${event.target.dataset.galleryItem}:${event.target.dataset.galleryProp}`
+        : "") ||
+      (event.target.dataset.galleryOption
+        ? `gallery-option:${event.target.dataset.galleryOption}`
         : "") ||
       event.target.dataset.board ||
       (event.target.dataset.code ? `code:${event.target.dataset.code}` : "");

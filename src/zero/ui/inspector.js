@@ -129,5 +129,15 @@ export function renderInspector({ items, mode, board, project }) {
       `<h2>Поля макета</h2><div class="zero-form-field-list">${fields}</div><button type="button" data-form-action="add" ${selected.formFields.length >= 8 ? "disabled" : ""}>Добавить поле</button><label>Текст кнопки<input data-element="submitLabel" value="${esc(selected.submitLabel || "Отправить")}" maxlength="60"></label><p class="zero-help">Данные не собираются и никуда не отправляются. Обработчик формы можно подключить отдельно.</p><h2>Действия</h2>`,
     );
   }
+  if (selected?.type === "gallery") {
+    const options = selected.galleryOptions || { columns: 3, gap: 16, objectFit: "cover" };
+    const images = (selected.galleryItems || []).map((item, index) =>
+      `<fieldset class="zero-gallery-item-editor"><legend>Фото ${index + 1}</legend><img src="${esc(item.src)}" alt=""><label>Alt-текст<input data-gallery-item="${esc(item.id)}" data-gallery-prop="alt" value="${esc(item.alt || "")}" maxlength="300"></label><div class="zero-gallery-item-actions"><button type="button" data-gallery-pick="${esc(item.id)}">Заменить</button><button type="button" data-gallery-remove="${esc(item.id)}">Удалить</button></div></fieldset>`,
+    ).join("");
+    return markup.replace(
+      "<h2>Действия</h2>",
+      `<h2>Макет галереи</h2><div class="zero-fields"><label>Колонки<input type="number" data-gallery-option="columns" min="1" max="6" step="1" value="${esc(options.columns)}"></label><label>Расстояние · px<input type="number" data-gallery-option="gap" min="0" max="80" step="1" value="${esc(options.gap)}"></label></div><label>Отображение фото<select data-gallery-option="objectFit">${[["cover", "Заполнить"], ["contain", "Вписать"]].map(([value, label]) => `<option value="${value}" ${options.objectFit === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><p class="zero-help">На узких режимах число колонок автоматически уменьшается. Скругление настраивается выше в «Оформлении».</p><h2>Фотографии · ${selected.galleryItems.length}/12</h2><div class="zero-gallery-item-list">${images || '<p class="zero-help">Добавьте изображения из библиотеки проекта.</p>'}</div><button type="button" data-gallery-add="${esc(selected.id)}" ${selected.galleryItems.length >= 12 ? "disabled" : ""}>Добавить фото из библиотеки</button><h2>Действия</h2>`,
+    );
+  }
   return markup;
 }

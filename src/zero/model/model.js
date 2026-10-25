@@ -208,6 +208,7 @@ export function createElement(type, tokens = {}) {
     vector: [64, 64],
     video: [560, 315],
     form: [360, 330],
+    gallery: [720, 420],
     html: [420, 260],
     group: [400, 300],
     rectangle: [240, 180],
@@ -226,6 +227,7 @@ export function createElement(type, tokens = {}) {
       vector: "Вектор",
       video: "Видео",
       form: "Форма",
+      gallery: "Галерея",
       html: "HTML",
       group: "Группа",
       rectangle: "Прямоугольник",
@@ -256,7 +258,7 @@ export function createElement(type, tokens = {}) {
         : {}),
       fontWeight: 500,
       lineHeight: 1.2,
-      radius: type === "button" ? 12 : 0,
+      radius: type === "button" || type === "gallery" ? 12 : 0,
       opacity: 1,
       strokeWidth: 0,
       textAlign: "left",
@@ -264,7 +266,7 @@ export function createElement(type, tokens = {}) {
     overrides: {},
     visible: true,
     locked: false,
-    keepAspect: ["image", "group"].includes(type),
+    keepAspect: ["image", "group", "gallery"].includes(type),
     ...(type === "group"
       ? { children: [] }
       : {
@@ -290,6 +292,12 @@ export function createElement(type, tokens = {}) {
             { id: "email", type: "email", label: "Email", placeholder: "name@example.com", required: true },
             { id: "message", type: "textarea", label: "Сообщение", placeholder: "Ваш вопрос", required: false },
           ],
+        }
+      : {}),
+    ...(type === "gallery"
+      ? {
+          galleryOptions: { columns: 3, gap: 16, objectFit: "cover" },
+          galleryItems: [],
         }
       : {}),
   };

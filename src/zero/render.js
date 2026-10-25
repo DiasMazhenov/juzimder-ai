@@ -46,6 +46,13 @@ function hasForm(elements) {
       (element.children?.length && hasForm(element.children)),
   );
 }
+function hasGallery(elements) {
+  return elements.some(
+    (element) =>
+      element.type === "gallery" ||
+      (element.children?.length && hasGallery(element.children)),
+  );
+}
 export function elementHTML(el, children = "") {
   let content = escapeHTML(el.content || "");
   if (el.runs)
@@ -87,6 +94,12 @@ export function elementHTML(el, children = "") {
     }).join("");
     return `<div class="jz-zero-form-fields" role="group" aria-label="${escapeHTML(el.name || "Форма")}" aria-describedby="${noteId}">${fields}<button class="jz-zero-form-submit" type="button" disabled aria-disabled="true">${escapeHTML(el.submitLabel || "Отправить")}</button><p class="jz-zero-form-note" id="${noteId}">Отправка формы пока не подключена.</p></div>`;
   }
+  if (el.type === "gallery") {
+    const items = (el.galleryItems || []).map((item) =>
+      `<figure class="jz-zero-gallery-item" role="listitem"><img src="${escapeHTML(item.src)}" alt="${escapeHTML(item.alt || "")}" loading="lazy" decoding="async" draggable="false"></figure>`,
+    ).join("");
+    return `<div class="jz-zero-gallery-grid" role="list" aria-label="${escapeHTML(el.name || "Галерея")}">${items || '<span class="jz-zero-gallery-empty">Добавьте фото в настройках галереи</span>'}</div>`;
+  }
   if (el.type === "group") return children;
   return content;
 }
@@ -121,6 +134,8 @@ export function renderZero(
     css += `.${scope} .jz-zero-video{overflow:hidden;padding:0!important;background:#111}.${scope} .jz-zero-video>iframe{display:block;width:100%;height:100%;border:0}.${scope} .jz-zero-video-placeholder{display:flex;width:100%;height:100%;align-items:center;justify-content:center;padding:16px;background:#111;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:center}.zero-app:not(.zero-preview) .${scope} .jz-zero-video>iframe{pointer-events:none}`;
   if (hasForm(data.elements))
     css += `.${scope} .jz-zero-form{overflow:auto;white-space:normal}.${scope} .jz-zero-form-fields{display:grid;align-content:start;gap:12px;width:100%;min-height:100%;box-sizing:border-box;font:14px/1.4 system-ui,sans-serif;white-space:normal}.${scope} .jz-zero-form-field{display:grid;gap:5px;color:inherit;font-weight:600}.${scope} .jz-zero-form-control{box-sizing:border-box;width:100%;min-height:40px;padding:9px 11px;border:1px solid rgba(24,62,49,.28);border-radius:8px;background:rgba(255,255,255,.9);color:#183e31;font:14px/1.4 system-ui,sans-serif;white-space:normal}.${scope} textarea.jz-zero-form-control{min-height:76px;resize:none}.${scope} .jz-zero-form-required{color:#b42318}.${scope} .jz-zero-form-submit{min-height:40px;padding:10px 14px;border:0;border-radius:8px;background:#245b46;color:#fff;font:600 14px/1.2 system-ui,sans-serif;opacity:.62;cursor:not-allowed}.${scope} .jz-zero-form-note{margin:0;color:rgba(24,62,49,.72);font:12px/1.4 system-ui,sans-serif}.zero-app:not(.zero-preview) .${scope} .jz-zero-form-fields{pointer-events:none}`;
+  if (hasGallery(data.elements))
+    css += `.${scope} .jz-zero-gallery{overflow:hidden!important;white-space:normal}.${scope} .jz-zero-gallery-grid{display:grid;grid-template-columns:repeat(var(--jz-gallery-columns,3),minmax(0,1fr));grid-template-rows:repeat(var(--jz-gallery-rows,1),minmax(0,1fr));gap:var(--jz-gallery-gap,16px);width:100%;height:100%;box-sizing:border-box}.${scope} .jz-zero-gallery-item{min-width:0;min-height:0;margin:0;overflow:hidden;border-radius:var(--jz-gallery-radius,0px)}.${scope} .jz-zero-gallery-item img{display:block;width:100%;height:100%;object-fit:var(--jz-gallery-fit,cover);border-radius:inherit}.${scope} .jz-zero-gallery-empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;color:inherit;text-align:center;white-space:normal}`;
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
@@ -161,6 +176,14 @@ export function renderZero(
               autoScale && el.type === "button"
                 ? `padding:${scaledGridLength(12, board, true)} ${scaledGridLength(16, board, true)};`
                 : "";
+          if (el.type === "gallery") {
+            const options = el.galleryOptions || { columns: 3, gap: 16, objectFit: "cover" };
+            const columns = Math.min(options.columns, Math.max(1, el.galleryItems?.length || 1), board.width <= 480 ? 1 : board.width <= 820 ? 2 : options.columns);
+            const rows = Math.max(1, Math.ceil((el.galleryItems?.length || 1) / columns));
+            const scale = (value) => autoScale ? scaledGridLength(value, board, true) : `${value}px`;
+            const galleryVars = `--jz-gallery-columns:${columns};--jz-gallery-rows:${rows};--jz-gallery-gap:${scale(options.gap)};--jz-gallery-fit:${options.objectFit};--jz-gallery-radius:${scale(s.radius || 0)};`;
+            css += wrap(mode, `${sel}{${galleryVars}}`);
+          }
           css += wrap(
             mode,
               `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
@@ -201,7 +224,7 @@ export function renderZero(
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
         if (el.type === "html") return body;
-        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}${el.type === "form" ? " jz-zero-form" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}${el.type === "vector" ? " jz-zero-vector" : ""}${el.type === "video" ? " jz-zero-video" : ""}${el.type === "form" ? " jz-zero-form" : ""}${el.type === "gallery" ? " jz-zero-gallery" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "vector" ? ` role="img" aria-label="${escapeHTML(e.name || "Вектор")}"` : ""}${el.type === "gallery" ? ` role="group" aria-label="${escapeHTML(e.name || "Галерея")}"` : ""}${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);

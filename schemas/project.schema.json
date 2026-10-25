@@ -370,7 +370,8 @@
             "html",
             "vector",
             "video",
-            "form"
+            "form",
+            "gallery"
           ]
         },
         "name": {
@@ -443,6 +444,30 @@
               "required": { "type": "boolean" }
             },
             "required": ["id", "type", "label", "placeholder", "required"]
+          }
+        },
+        "galleryOptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "columns": { "type": "integer", "minimum": 1, "maximum": 6 },
+            "gap": { "type": "integer", "minimum": 0, "maximum": 80 },
+            "objectFit": { "enum": ["cover", "contain"] }
+          },
+          "required": ["columns", "gap", "objectFit"]
+        },
+        "galleryItems": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$" },
+              "src": { "type": "string", "maxLength": 2048, "pattern": "^(?:https://[^\\s<>\\x22\\x00-\\x20]+|/api/projects/[a-f0-9]{24}/assets/[a-f0-9]{24}/file)$" },
+              "alt": { "type": "string", "maxLength": 300 }
+            },
+            "required": ["id", "src", "alt"]
           }
         },
         "tag": {
@@ -715,6 +740,42 @@
               "anyOf": [
                 { "required": ["formFields"] },
                 { "required": ["submitLabel"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "gallery" }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["galleryItems", "galleryOptions"],
+            "not": {
+              "anyOf": [
+                { "required": ["children"] },
+                { "required": ["content"] },
+                { "required": ["runs"] },
+                { "required": ["src"] },
+                { "required": ["alt"] },
+                { "required": ["href"] },
+                { "required": ["target"] },
+                { "required": ["tag"] },
+                { "required": ["code"] },
+                { "required": ["icon"] },
+                { "required": ["videoUrl"] },
+                { "required": ["formFields"] },
+                { "required": ["submitLabel"] }
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                { "required": ["galleryItems"] },
+                { "required": ["galleryOptions"] }
               ]
             }
           }

@@ -392,7 +392,42 @@ test("Zero Tooltip renders escaped text and appears on hover or keyboard focus",
   assert.match(inspector, /Текст подсказки/);
   assert.match(inspector, /maxlength="2000"/);
   assert.match(menuSource, /\["tooltip", "Подсказка", "message"\]/);
-  assert.match(menuSource, /disabled: !\["tooltip", "video", "form"\]\.includes\(type\)/);
+  assert.match(menuSource, /disabled: !\["tooltip", "video", "form", "gallery"\]\.includes\(type\)/);
+});
+test("Zero Gallery renders escaped project-library images with responsive internal columns", () => {
+  const data = createZeroData(),
+    gallery = createElement("gallery");
+  gallery.id = "ze-safe-gallery";
+  gallery.name = 'Gallery & "stories"';
+  gallery.style.radius = 14;
+  gallery.galleryOptions = { columns: 4, gap: 12, objectFit: "contain" };
+  gallery.galleryItems = [
+    { id: "photo-one", src: "/api/projects/aaaaaaaaaaaaaaaaaaaaaaaa/assets/bbbbbbbbbbbbbbbbbbbbbbbb/file", alt: 'A & "quoted" photo' },
+    { id: "photo-two", src: "https://images.example.test/two.jpg", alt: "Second photo" },
+    { id: "photo-three", src: "https://images.example.test/three.jpg", alt: "Third photo" },
+    { id: "photo-four", src: "https://images.example.test/four.jpg", alt: "Fourth photo" },
+  ];
+  data.elements.push(gallery);
+  const html = renderZero(data, "zero-gallery"),
+    inspector = renderInspector({
+      items: [{ element: gallery }],
+      mode: "desktop",
+      board: data.artboards.desktop,
+      project: {},
+    });
+  assert.match(html, /class="jz-zero-element jz-zero-gallery" data-ze="ze-safe-gallery" role="group" aria-label="Gallery &amp; &quot;stories&quot;"/);
+  assert.match(html, /\[data-ze="ze-safe-gallery"\]\{position:absolute/);
+  assert.match(html, /class="jz-zero-gallery-grid" role="list"/);
+  assert.match(html, /alt="A &amp; &quot;quoted&quot; photo" loading="lazy" decoding="async"/);
+  assert.match(html, /--jz-gallery-columns:4;--jz-gallery-rows:1;--jz-gallery-gap:12px;--jz-gallery-fit:contain;--jz-gallery-radius:14px/);
+  assert.match(html, /@media\(max-width:979px\)[\s\S]*?--jz-gallery-columns:2/);
+  assert.match(html, /@media\(max-width:639px\)[\s\S]*?--jz-gallery-columns:1/);
+  assert.match(html, /grid-template-columns:repeat\(var\(--jz-gallery-columns,3\),minmax\(0,1fr\)\)/);
+  assert.match(inspector, /Макет галереи/);
+  assert.match(inspector, /data-gallery-option="columns"/);
+  assert.match(inspector, /Добавить фото из библиотеки/);
+  gallery.galleryItems = [];
+  assert.match(renderZero(data, "zero-gallery-empty"), /jz-zero-gallery-empty/);
 });
 test("Zero Vector uses a curated Tabler icon with safe, accessible rendering", () => {
   const data = createZeroData(),
@@ -595,6 +630,26 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
   form.type = "text";
   form.submitLabel = "Send";
   assert.equal(validate(formDocument), false);
+  const galleryDocument = structuredClone(doc), gallery = structuredClone(fixture.elements[0]);
+  gallery.id = "ze-schema-gallery";
+  gallery.type = "gallery";
+  delete gallery.content;
+  gallery.galleryOptions = { columns: 4, gap: 12, objectFit: "contain" };
+  gallery.galleryItems = [{ id: "photo-one", src: "https://images.example.test/one.jpg", alt: "First photo" }];
+  galleryDocument.data.pages[0].frames[0].component.components[0].zeroData.elements = [gallery];
+  assert.equal(validate(galleryDocument), true, JSON.stringify(validate.errors));
+  gallery.content = "Unexpected free content";
+  assert.equal(validate(galleryDocument), false);
+  delete gallery.content;
+  assert.equal(validate(galleryDocument), true, JSON.stringify(validate.errors));
+  gallery.galleryItems[0].onload = "alert(1)";
+  assert.equal(validate(galleryDocument), false);
+  delete gallery.galleryItems[0].onload;
+  gallery.galleryOptions.columns = 7;
+  assert.equal(validate(galleryDocument), false);
+  gallery.galleryOptions.columns = 4;
+  gallery.type = "text";
+  assert.equal(validate(galleryDocument), false);
   const custom = structuredClone(doc);
   custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
     "bp-12345678"
