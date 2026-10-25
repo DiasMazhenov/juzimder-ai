@@ -129,7 +129,7 @@ export async function openZeroEditor({
     )
     .join(
       "",
-    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><dialog id="zero-ai-prompt"><header><h2>AI-композиция</h2><button type="button" data-action="ai-prompt-close" aria-label="Закрыть">${tablerIcon("x")}</button></header><p>Опишите задачу и визуальную идею. AI подготовит редактируемые слои и при уместности подберёт фото из Wikimedia Commons.</p><label>Описание<textarea id="zero-ai-prompt-text" rows="5" maxlength="2000" placeholder="Например: первый экран клиники с заголовком слева, фотографией справа и кнопкой записи"></textarea></label><p class="zero-help">Сначала появится предпросмотр. До нажатия «Применить вариант» текущая композиция не меняется. Отмену после применения можно сделать через Undo.</p><p id="zero-ai-prompt-status" role="status"></p><button type="button" class="primary" data-action="ai-generate">${tablerIcon("sparkles")} Сгенерировать вариант</button></dialog><dialog id="zero-ai-candidate"><header><h2>Предпросмотр AI-композиции</h2><button type="button" data-action="ai-candidate-cancel" aria-label="Закрыть">${tablerIcon("x")}</button></header><div id="zero-ai-preview"></div><p id="zero-ai-candidate-status" role="status"></p><div class="zero-ai-candidate-actions"><button type="button" data-action="ai-candidate-cancel">Отменить</button><button type="button" class="primary" data-action="ai-candidate-apply">Применить вариант</button></div></dialog><menu id="zero-context" hidden>${[
+    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><dialog id="zero-ai-prompt"><header><h2>AI-композиция</h2><button type="button" data-action="ai-prompt-close" aria-label="Закрыть">${tablerIcon("x")}</button></header><p>Опишите задачу и визуальную идею. AI подготовит редактируемые слои и при уместности подберёт фото из Wikimedia Commons.</p><label>Описание<textarea id="zero-ai-prompt-text" rows="5" maxlength="2000" placeholder="Например: первый экран клиники с заголовком слева, фотографией справа и кнопкой записи"></textarea></label><p class="zero-help">Сначала появится предпросмотр. До нажатия «Применить вариант» текущая композиция не меняется. Отмену после применения можно сделать через Undo.</p><p id="zero-ai-prompt-status" role="status"></p><button type="button" class="primary" data-action="ai-generate">${tablerIcon("sparkles")} Сгенерировать вариант</button></dialog><dialog id="zero-ai-candidate"><header><h2>Предпросмотр AI-композиции</h2><button type="button" data-action="ai-candidate-cancel" aria-label="Закрыть">${tablerIcon("x")}</button></header><div id="zero-ai-preview-controls" class="zero-ai-preview-controls" role="group" aria-label="Размер предпросмотра"></div><div id="zero-ai-preview"></div><p id="zero-ai-candidate-status" role="status"></p><div class="zero-ai-candidate-actions"><button type="button" data-action="ai-candidate-cancel">Отменить</button><button type="button" class="primary" data-action="ai-candidate-apply">Применить вариант</button></div></dialog><menu id="zero-context" hidden>${[
     ["copy", "Копировать"],
     ["paste", "Вставить"],
     ["duplicate", "Дублировать"],
@@ -1233,6 +1233,36 @@ export async function openZeroEditor({
       $("#zero-ai-prompt-text").focus();
     }
   }
+  function renderZeroAiCandidatePreview(activeMode = "desktop") {
+    const candidate = aiCandidateData,
+      stage = $("#zero-ai-preview"),
+      controls = $("#zero-ai-preview-controls"),
+      board = candidate?.artboards?.[activeMode];
+    if (!candidate || !board || !stage || !controls) return;
+    controls.innerHTML = breakpointEntries(candidate, "asc")
+      .map(([id, item]) => {
+        const icon = breakpointIcon(item.width),
+          label = `${breakpointName(id, item.width)} · ${item.width} px`;
+        return `<button type="button" data-action="ai-preview-breakpoint" data-preview-breakpoint="${esc(id)}" aria-label="${esc(label)}" title="${esc(label)}" aria-pressed="${id === activeMode}">${tablerIcon(icon.name)}<span>${item.width}</span></button>`;
+      })
+      .join("");
+    stage.dataset.previewMode = activeMode;
+    stage.innerHTML = renderZero(
+      candidate,
+      `${blockId}-ai-preview`,
+      activeMode,
+    );
+    requestAnimationFrame(() => {
+      if (candidate !== aiCandidateData || stage.dataset.previewMode !== activeMode)
+        return;
+      const section = stage.firstElementChild;
+      if (!section) return;
+      const scale = Math.min(0.72, Math.max(0.2, (stage.clientWidth - 16) / board.width));
+      section.style.transformOrigin = "top left";
+      section.style.transform = `scale(${scale})`;
+      stage.style.height = `${board.height * scale}px`;
+    });
+  }
   async function generateZeroAiProposal() {
     const prompt = $("#zero-ai-prompt-text").value.trim(),
       submit = $('[data-action="ai-generate"]'),
@@ -1261,27 +1291,13 @@ export async function openZeroEditor({
       aiCandidateData = copy(data);
       aiCandidateData.elements = proposal.elements;
       aiCandidateBaseVersion = proposal.baseVersion;
-      const stage = $("#zero-ai-preview"),
-        candidateStatus = $("#zero-ai-candidate-status");
-      stage.innerHTML = renderZero(
-        aiCandidateData,
-        `${blockId}-ai-preview`,
-        "desktop",
-      );
+      const candidateStatus = $("#zero-ai-candidate-status");
       candidateStatus.textContent = proposal.metadata?.photoSelection === "completed"
         ? "Подобраны открытые фото с указанием автора и лицензии. Предложение не сохранено."
         : "Фото из Commons не подобраны; предложение не сохранено.";
       $("#zero-ai-prompt").close();
       $("#zero-ai-candidate").showModal();
-      requestAnimationFrame(() => {
-        const board = aiCandidateData?.artboards?.desktop,
-          section = stage.firstElementChild;
-        if (!board || !section) return;
-        const scale = Math.min(0.72, Math.max(0.2, (stage.clientWidth - 16) / board.width));
-        section.style.transformOrigin = "top left";
-        section.style.transform = `scale(${scale})`;
-        stage.style.height = `${board.height * scale}px`;
-      });
+      renderZeroAiCandidatePreview("desktop");
     } catch (error) {
       message.textContent = error.message || "Не удалось подготовить предложение.";
     } finally {
@@ -1301,6 +1317,12 @@ export async function openZeroEditor({
       $("#zero-ai-candidate").close();
       aiCandidateData = null;
       aiCandidateBaseVersion = null;
+      return;
+    }
+    if (key === "ai-preview-breakpoint") {
+      const nextMode = trigger?.dataset.previewBreakpoint;
+      if (nextMode && aiCandidateData?.artboards?.[nextMode])
+        renderZeroAiCandidatePreview(nextMode);
       return;
     }
     if (key === "ai-candidate-apply") {

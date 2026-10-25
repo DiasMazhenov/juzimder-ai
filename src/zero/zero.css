@@ -981,6 +981,25 @@
   width: 100%;
   box-sizing: border-box;
 }
+.zero-app #zero-ai-preview-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.zero-app #zero-ai-preview-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 58px;
+  padding: 6px 9px;
+}
+.zero-app #zero-ai-preview-controls button[aria-pressed="true"] {
+  border-color: var(--jz-ui-accent, #86c232);
+  color: var(--jz-ui-accent, #86c232);
+}
 .zero-app #zero-ai-preview {
   width: 100%;
   min-height: 80px;

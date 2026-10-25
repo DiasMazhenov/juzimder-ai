@@ -144,7 +144,7 @@ final class AiZeroComposer {
         $imageLeft=(float)$image['x'];$imageRight=$imageLeft+(float)$image['width'];$imageTop=(float)$image['y'];$imageBottom=$imageTop+(float)$image['height'];
         $horizontalGap=max($imageLeft-$copyRight,$copyLeft-$imageRight);
         $verticalOverlap=max(0,min($copyBottom,$imageBottom)-max($copyTop,$imageTop));
-        if($horizontalGap<max(48,min((float)$image['width'],max(1,$copyRight-$copyLeft))*.18)||$verticalOverlap<min((float)$image['height'],max(1,$copyBottom-$copyTop))*.15)return [];
+        if($horizontalGap<max(24,min((float)$image['width'],max(1,$copyRight-$copyLeft))*.08)||$verticalOverlap<min((float)$image['height'],max(1,$copyBottom-$copyTop))*.15)return [];
 
         $copyIndices=array_keys($copy);usort($copyIndices,static fn($a,$b)=>((float)$copy[$a]['y']<=>(float)$copy[$b]['y'])?:($a<=>$b));
         $result=[];

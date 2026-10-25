@@ -1182,12 +1182,16 @@ test("Zero AI dialog changes are isolated from inspector edits", () => {
   );
   assert.match(
     editor,
-    /renderZero\(\s*aiCandidateData,\s*`\$\{blockId\}-ai-preview`,\s*"desktop",?\s*\)/,
+    /function renderZeroAiCandidatePreview\(activeMode = "desktop"\)[\s\S]*?renderZero\(\s*candidate,\s*`\$\{blockId\}-ai-preview`,\s*activeMode,?\s*\)/,
   );
+  assert.match(editor, /data-action="ai-preview-breakpoint"/);
+  assert.match(editor, /data-preview-breakpoint="\$\{esc\(id\)\}"/);
   const mobile = renderZero(fixture, "scope-mobile", "mobile"),
-    candidate = renderZero(fixture, "scope-mobile-ai-preview", "desktop");
+    candidate = renderZero(fixture, "scope-mobile-ai-preview", "desktop"),
+    mobileCandidate = renderZero(fixture, "scope-mobile-ai-preview-mobile", "mobile");
   assert.match(mobile, /jz-zero-scope-mobile\{[^}]*width:360px!important/s);
   assert.match(candidate, /jz-zero-scope-mobile-ai-preview\{[^}]*width:1200px!important/s);
+  assert.match(mobileCandidate, /jz-zero-scope-mobile-ai-preview-mobile\{[^}]*width:360px!important/s);
   assert.doesNotMatch(mobile, /jz-zero-scope-mobile-ai-preview/);
   assert.match(
     editor,

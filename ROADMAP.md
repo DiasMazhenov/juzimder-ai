@@ -1,14 +1,18 @@
 # План Juzimder AI
 
+- [x] 00.00.156: Zero AI candidate preview gets responsive breakpoint buttons; switching changes only the ephemeral preview mode and uses the isolated CSS scope. Mobile photo-hero stacking now also recognizes tight desktop columns (40 px gap).
+- [x] 00.00.156 browser acceptance: generated proposal switched between Desktop 1200 and Mobile 360. The mobile result stacked copy/action before full-width photo with visible attribution; main canvas stayed at 360 px. Preview cancelled without Apply; revision 325 and 0 saved elements remained unchanged.
+- [x] 00.00.156 automated regression: a photo hero with a 40 px desktop column gap is recognized and gets a text-first/photo-last mobile stack while its desktop geometry stays intact.
 - [x] 00.00.155: CSS AI preview получил уникальную область, чтобы закрытый диалог не переопределял responsive canvas редактора с тем же block ID.
 - [x] 00.00.155 browser acceptance: при выбранном Mobile 360 открытый desktop preview имел отдельный CSS scope (1200 px), основной canvas оставался 360 px. Commons-фото загружено с автором/лицензией; preview отменён без Apply, ревизия 325 и 0 элементов не изменились. Редактор возвращён на Desktop.
 - [x] 00.00.154: Zero AI failover продолжает запрос к следующему сохранённому профилю при отказе провайдера/модели, включая HTTP 4xx, в пределах общего deadline. Активный профиль и Project Data не меняются; подсказка AI Engine обновлена.
 - [x] 00.00.154 browser acceptance: после короткой проверки профиля (0,9 с) полное предложение Zero AI появилось; фото Wikimedia и подпись автора/лицензии видны. Mobile acceptance пока не прошла.
-- [ ] Zero AI mobile preview: кандидат и редактор используют одинаковый CSS scope, поэтому скрытый desktop preview с шириной 1200 px перебил мобильный canvas. При попытке локального Apply/Undo автосохранение успело создать ревизии 324–325; после перезагрузки текущий блок снова пустой (0 элементов), публикации не было. Исправить CSS isolation и повторить mobile QA без Apply.
+- [x] Zero AI mobile preview CSS collision исправлен в 00.00.155; предыдущая Apply/Undo QA всё же создала ревизии 324–325 из-за autosave. После reload Zero Block пустой (0 элементов), публикации не было; последующие candidate QA проводят без Apply.
 - [x] 00.00.153: общий color picker стал компактнее; во время работы EyeDropper backdrop-слои временно прозрачны и без blur, восстановление происходит после результата или отмены.
 - [x] 00.00.153 browser acceptance: picker 328×350 px; при активной пипетке backdrop-filter none, артборд чёткий; нативный sampler завершён reload без выбора, цвет и ревизия 323 не изменились.
 - [x] 00.00.152: Zero AI создаёт mobile text-first/photo-last stack для бокового фото-героя на брейкпоинтах до 480 px, сохраняет desktop геометрию и позицию атрибуции; проверено контрактными тестами.
-- [ ] 00.00.152 browser acceptance: проверить новую Zero AI композицию на Mobile 360 и отменить preview без изменения Project Data.
+- [x] 00.00.152 browser acceptance: новая Zero AI композиция на Mobile 360 показала текст и CTA copy перед фото; preview отменён без изменения Project Data.
+- [ ] Zero AI CTA fidelity: если модель формулирует явное действие, preview должен показывать native Button component, а не обычный текст; проверить на новых генерациях.
 - [x] 00.00.151: общий color picker переведён на модальный top layer; для фона артборда и Fill элементов Zero добавлены Solid, Linear, Radial, Conic и Multicolor с редактируемыми цветами/позициями, HEX и безопасным согласованным рендерингом.
 - [x] 00.00.151 browser acceptance: в существующей единственной вкладке picker открылся поверх canvas/Inspector (`:modal`, видимая область), доступны пять режимов заливки; закрыт без выбора, Project Data остался на ревизии 319.
 - [x] 00.00.150: удаление сохранённого цвета через контекстное меню образца; работает по правому клику и клавишам Shift+F10/Menu, удаление синхронизирует общую и legacy палитры.
