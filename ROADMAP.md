@@ -83,6 +83,7 @@
 - [x] 00.00.111: Zero Editor chrome follows Juzimder colors and text scale; toolbar icons share centered alignment, and breakpoint settings sit beside the device selectors.
 - [x] 00.00.112: Layers button hides the full sidebar when off; grouped layers have compact icons/text and expandable nested contents; Add Element control is half-size.
 - [x] 00.00.123: Zero HTML is an additive `zeroData v1` element with bounded payload validation, CSP-protected opaque iframe rendering, Preview-only editor execution, and no script permission when JS is empty.
+- [x] 00.00.124: Fixed editor Preview bootstrap under inherited `srcdoc` CSP by issuing a per-request nonce in the editor shell and reusing it in the isolated child frame; `script-src` still has no `unsafe-inline`. Codex Browser reloaded saved revision 229 and confirmed JavaScript execution in the sandbox, with no console errors/warnings. Full automated checks and documentation are recorded for this release; ZIP/public visual acceptance remains open.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [x] Autoscale в сохранённом HTML preview: при viewport 1228 → 1440 px высота Desktop-секции масштабировалась 1023.33 → 1200 px и Grid-линия 496.55 → 582.27 px; Window Container сохранил ширину 1200 px. `fixed` восстановлен, reload подтвердил исходные 1000 px / 485.23 px в revision 225.
 - [ ] Полная визуальная матрица Autoscale для ориентаций, ширин и каждого breakpoint.

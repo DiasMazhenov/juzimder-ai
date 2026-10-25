@@ -40,6 +40,12 @@ async function publicBinaryCall(projectId,path,method='GET'){
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
 before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath,JUZIMDER_PUBLIC_HOST_SUFFIX:'juzimder-ai.localhost:18081',JUZIMDER_PUBLIC_SCHEME:'http'};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
+test('Editor shell issues the CSP nonce shared with isolated child frames',async()=>{
+  const response=await fetch(base+'/'),html=await response.text(),csp=response.headers.get('content-security-policy'),match=html.match(/<meta name=\"juzimder-csp-nonce\" content=\"([a-f0-9]{32})\">/);
+  assert.ok(match,'the editor shell injects its request nonce into metadata');
+  assert.ok(csp.includes(`script-src 'self' 'nonce-${match[1]}'`),'the matching nonce is allowed without unsafe-inline');
+  assert.doesNotMatch(csp,/unsafe-inline.*script-src|script-src[^;]*unsafe-inline/);
+});
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();
 assert.equal((await anon.call('/projects')).status,401);

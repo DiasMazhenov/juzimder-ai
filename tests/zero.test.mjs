@@ -34,7 +34,11 @@ import {
 } from "../src/zero/model/model.js";
 import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
-import { validateSandboxPayload } from "../src/zero/sandbox.js";
+import {
+  pageSandboxNonce,
+  sandboxFrame,
+  validateSandboxPayload,
+} from "../src/zero/sandbox.js";
 import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
 import { layerDropIntent, moveLayer } from "../src/zero/model/operations.js";
@@ -309,6 +313,25 @@ test("the exported frontend renderer contains no layout flow or editor UI and sc
   assert.doesNotMatch(html, /zero-handle|zero-ruler|display:flex|display:grid/);
   assert.notEqual(html, other);
   assert.match(html, /Hello &amp; Zero/);
+});
+test("Zero HTML reuses the parent page nonce required by inherited CSP", () => {
+  const nonce = "0123456789abcdef0123456789abcdef";
+  assert.equal(
+    pageSandboxNonce({ querySelector: () => ({ content: nonce }) }),
+    nonce,
+  );
+  assert.match(
+    pageSandboxNonce({ querySelector: () => ({ content: "invalid" }) }),
+    /^[a-f0-9]{32}$/,
+  );
+  const frame = sandboxFrame(
+    { html: "<p>ok</p>", css: "", js: "document.body.dataset.ready='yes'" },
+    { runScripts: true, nonce },
+  );
+  assert.match(frame, new RegExp(`script-src &#39;nonce-${nonce}&#39;`));
+  assert.match(frame, new RegExp(`script nonce=&quot;${nonce}&quot;`));
+  assert.match(frame, /sandbox="allow-scripts"/);
+  assert.doesNotMatch(frame, /script-src[^;]*unsafe-inline/);
 });
 test("Zero HTML is rendered in a locked-down iframe and runs JavaScript only in Preview", () => {
   const data = createZeroData(),

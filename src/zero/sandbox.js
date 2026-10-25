@@ -13,6 +13,15 @@ export function createSandboxNonce() {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+export function pageSandboxNonce(documentRef = globalThis.document) {
+  const candidate = documentRef?.querySelector?.(
+    'meta[name="juzimder-csp-nonce"]',
+  )?.content;
+  return typeof candidate === "string" && /^[a-f0-9]{32}$/.test(candidate)
+    ? candidate
+    : createSandboxNonce();
+}
+
 export function validateSandboxPayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload))
     throw new TypeError("HTML-элемент ожидает объект HTML/CSS/JavaScript.");
@@ -62,10 +71,14 @@ export function createSandboxDocument(value, nonce = createSandboxNonce()) {
 
 export function sandboxFrame(
   payload,
-  { id = "", runScripts = false, title = "HTML-элемент" } = {},
+  {
+    id = "",
+    runScripts = false,
+    title = "HTML-элемент",
+    nonce = pageSandboxNonce(),
+  } = {},
 ) {
-  const nonce = createSandboxNonce(),
-    srcdoc = createSandboxDocument(payload, nonce),
+  const srcdoc = createSandboxDocument(payload, nonce),
     sandbox = runScripts && payload.js !== "" ? "allow-scripts" : "";
   const attr = (value) =>
     String(value).replace(/[&<>"']/g, (character) =>
