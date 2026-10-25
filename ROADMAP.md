@@ -1,7 +1,9 @@
 # План Juzimder AI
 
+- [ ] 00.00.157 browser acceptance (BLOCKED): запрос с явным CTA вернул provider HTTP 429 до открытия candidate; live UI результата не проверен. Project Data остался на revision 325 с 0 элементами.
+- [x] 00.00.157 automated regression: allowlisted imperative CTA returned as text becomes a Button only when the draft has no Button; copy, regular text, background and readable contrast are preserved.
 - [x] 00.00.156: Zero AI candidate preview gets responsive breakpoint buttons; switching changes only the ephemeral preview mode and uses the isolated CSS scope. Mobile photo-hero stacking now also recognizes tight desktop columns (40 px gap).
-- [x] 00.00.156 browser acceptance: generated proposal switched between Desktop 1200 and Mobile 360. The mobile result stacked copy/action before full-width photo with visible attribution; main canvas stayed at 360 px. Preview cancelled without Apply; revision 325 and 0 saved elements remained unchanged.
+- [x] 00.00.156 browser acceptance: generated proposal switched between Desktop 1200 and Mobile 360. The mobile result stacked copy and action text before full-width photo with visible attribution; main canvas stayed at 360 px. Preview cancelled without Apply; revision 325 and 0 saved elements remained unchanged. CTA fidelity is addressed in 00.00.157.
 - [x] 00.00.156 automated regression: a photo hero with a 40 px desktop column gap is recognized and gets a text-first/photo-last mobile stack while its desktop geometry stays intact.
 - [x] 00.00.155: CSS AI preview получил уникальную область, чтобы закрытый диалог не переопределял responsive canvas редактора с тем же block ID.
 - [x] 00.00.155 browser acceptance: при выбранном Mobile 360 открытый desktop preview имел отдельный CSS scope (1200 px), основной canvas оставался 360 px. Commons-фото загружено с автором/лицензией; preview отменён без Apply, ревизия 325 и 0 элементов не изменились. Редактор возвращён на Desktop.
@@ -12,7 +14,6 @@
 - [x] 00.00.153 browser acceptance: picker 328×350 px; при активной пипетке backdrop-filter none, артборд чёткий; нативный sampler завершён reload без выбора, цвет и ревизия 323 не изменились.
 - [x] 00.00.152: Zero AI создаёт mobile text-first/photo-last stack для бокового фото-героя на брейкпоинтах до 480 px, сохраняет desktop геометрию и позицию атрибуции; проверено контрактными тестами.
 - [x] 00.00.152 browser acceptance: новая Zero AI композиция на Mobile 360 показала текст и CTA copy перед фото; preview отменён без изменения Project Data.
-- [ ] Zero AI CTA fidelity: если модель формулирует явное действие, preview должен показывать native Button component, а не обычный текст; проверить на новых генерациях.
 - [x] 00.00.151: общий color picker переведён на модальный top layer; для фона артборда и Fill элементов Zero добавлены Solid, Linear, Radial, Conic и Multicolor с редактируемыми цветами/позициями, HEX и безопасным согласованным рендерингом.
 - [x] 00.00.151 browser acceptance: в существующей единственной вкладке picker открылся поверх canvas/Inspector (`:modal`, видимая область), доступны пять режимов заливки; закрыт без выбора, Project Data остался на ревизии 319.
 - [x] 00.00.150: удаление сохранённого цвета через контекстное меню образца; работает по правому клику и клавишам Shift+F10/Menu, удаление синхронизирует общую и legacy палитры.
@@ -29,7 +30,7 @@
 - [x] 00.00.144 live flow: Codex Browser получил визуально цельный desktop hero с Commons-фото, автором и лицензией, затем проверил Apply → Undo → Reload. Исходные 10 слоёв восстановлены и сохранены, ревизия 305.
 - [x] 00.00.145 live flow: кандидат содержал фото Commons с автором/лицензией Paul Bryan / CC BY-SA 2.0; Apply → Undo → autosave → Reload вернул исходные десять слоёв на ревизии 307. Реальный провайдер не продемонстрировал пропуск, поэтому срабатывание repair-ветки подтверждено тестами, не live.
 - [ ] Zero AI photo repair live acceptance: ни один из двух v00.00.145 live-ответов не вошёл в повторную попытку; проверка ветки пока только контрактная.
-- [ ] Zero AI mobile acceptance: предыдущий кандидат оставался двухколоночным на Mobile 360. v00.00.152 добавляет deterministic stack для side-by-side photo hero; live generated preview и visual acceptance пока не пройдены.
+- [x] Zero AI mobile acceptance: v00.00.156 live candidate проверен на Mobile 360; copy/action text идёт перед полноширинным фото, автор/лицензия читаемы, preview отменён без изменения Project Data.
 - [x] 00.00.144: AutoScale сверён на 19 viewport ширинах/ориентациях; saved preview, ZIP и публикация дают согласованную геометрию, горизонтального overflow нет. ZIP прошёл integrity check, публикация обновлена до v7/revision 303. Качество существующей QA-композиции на мобильном не принято из-за перекрытия объектов.
 - [x] 00.00.144: Автоматические Z6 проверки покрывают лимит 300 элементов и конкурирующие PHP CAS-сохранения 200/409. Физическое мобильное устройство и полная ручная browser conflict/performance матрица остаются открыты.
 - [x] 00.00.144: Реализованы безопасные Fade/Move/Scale CSS-анимации с серверной allowlist-валидацией и `prefers-reduced-motion`; в Zero Editor они запускаются только в режиме Preview.

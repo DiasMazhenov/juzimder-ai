@@ -30,6 +30,13 @@ zeroAiCheck($proposal['elements'][0]->style->fill==='transparent'&&$proposal['el
 zeroAiCheck($proposal['elements'][1]->style->fill==='#183e31'&&$proposal['elements'][1]->style->color==='#ffffff','AI button preserves its surface and readable label contrast');
 zeroAiCheck($fixture==$original&&$proposal['baseVersion']===null,'Proposal generation leaves source Project Data untouched until explicit editor apply');
 
+$ctaItems=[aiItem('text','Hero heading',80,80,'Здоровье рядом'),aiItem('text','Supporting copy',80,180,'Забота о всей семье каждый день.'),aiItem('text','Primary action',80,320,'Записаться на приём')];
+$ctaProvider=new ZeroComposerFakeProvider([json_encode(['elements'=>$ctaItems],JSON_THROW_ON_ERROR)]);
+$ctaProposal=AiZeroComposer::create('Создай первый экран клиники с кнопкой записи.',$fixture,$ctaProvider,static fn()=>[]);
+$ctaByName=[];foreach($ctaProposal['elements'] as $element)$ctaByName[$element->name]=$element;
+zeroAiCheck($ctaByName['Primary action']->type==='button'&&$ctaByName['Primary action']->content==='Записаться на приём'&&$ctaByName['Primary action']->href==='#','Explicit action copy returned as text becomes a native editable Button');
+zeroAiCheck($ctaByName['Hero heading']->type==='text'&&$ctaByName['Primary action']->style->fill==='#183e31'&&$ctaByName['Primary action']->style->color==='#ffffff','CTA conversion preserves ordinary text and applies button surface contrast');
+
 $photoItems=[aiItem('image','Clinic photo',700,80,'','modern clinic interior'),aiItem('image','Care photo',700,350,'','doctor consulting patient'),aiItem('image','Extra photo',300,400,'','medical team'),aiItem('text','Clinic heading',80,100,'Care from the first visit')];
 $selection=['selections'=>[['slotId'=>'slot-0','photoId'=>'commons:clinic'],['slotId'=>'slot-1','photoId'=>'commons:care'],['slotId'=>'slot-2','photoId'=>'commons:team']]];
 $photoProvider=new ZeroComposerFakeProvider([json_encode(['elements'=>$photoItems],JSON_THROW_ON_ERROR),json_encode($selection,JSON_THROW_ON_ERROR)]);
