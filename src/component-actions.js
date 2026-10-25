@@ -1,4 +1,18 @@
-const COMPONENT_REFERENCE_ATTRIBUTES = ['aria-labelledby', 'aria-describedby'];
+const COMPONENT_IDREF_ATTRIBUTES = new Set([
+  'aria-labelledby',
+  'aria-describedby',
+  'aria-controls',
+  'aria-owns',
+  'aria-flowto',
+  'aria-details',
+  'aria-errormessage',
+  'aria-activedescendant',
+  'for',
+  'form',
+  'list',
+  'headers',
+  'itemref',
+]);
 
 function getChildren(component) {
   const children = component?.components?.();
@@ -26,22 +40,39 @@ export function remapCopiedReferences(source, copy) {
   collectIds(source, copy);
   if (!idMap.size) return;
 
-  const remapTokens = value => typeof value === 'string'
-    ? value.split(/\s+/).map(token => idMap.get(token) || token).join(' ')
-    : value;
+  const remapTokens = value => value.split(/\s+/).map(token => idMap.get(token) || token).join(' ');
+  const remapFragmentUrls = value => value.replace(
+    /url\(\s*(["']?)#([^"'()\s]+)\1\s*\)/gi,
+    (match, quote, id) => {
+      const replacement = idMap.get(id);
+      return replacement ? `url(${quote}#${replacement}${quote})` : match;
+    },
+  );
+  const remapAttribute = (name, value) => {
+    if (typeof value !== 'string') return value;
+    if (name === 'href' || name === 'xlink:href' || name === 'usemap') {
+      if (!value.startsWith('#')) return value;
+      const replacement = idMap.get(value.slice(1));
+      return replacement ? `#${replacement}` : value;
+    }
+    return COMPONENT_IDREF_ATTRIBUTES.has(name) ? remapTokens(value) : remapFragmentUrls(value);
+  };
   const updateReferences = component => {
     const attributes = component.get?.('attributes') || {};
     const updated = {};
-    if (typeof attributes.href === 'string' && attributes.href.startsWith('#')) {
-      const replacement = idMap.get(attributes.href.slice(1));
-      if (replacement) updated.href = `#${replacement}`;
-    }
-    for (const name of COMPONENT_REFERENCE_ATTRIBUTES) {
-      if (typeof attributes[name] !== 'string') continue;
-      const value = remapTokens(attributes[name]);
-      if (value !== attributes[name]) updated[name] = value;
+    for (const [name, value] of Object.entries(attributes)) {
+      const remapped = remapAttribute(name, value);
+      if (remapped !== value) updated[name] = remapped;
     }
     if (Object.keys(updated).length) component.addAttributes(updated);
+    const styles = component.getStyle?.() || {};
+    const updatedStyles = {};
+    for (const [name, value] of Object.entries(styles)) {
+      if (typeof value !== 'string') continue;
+      const remapped = remapFragmentUrls(value);
+      if (remapped !== value) updatedStyles[name] = remapped;
+    }
+    if (Object.keys(updatedStyles).length) component.addStyle(updatedStyles);
     getChildren(component).forEach(updateReferences);
   };
   updateReferences(copy);
