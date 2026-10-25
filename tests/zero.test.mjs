@@ -340,6 +340,42 @@ test("Autoscale scales Grid geometry per breakpoint and leaves Window geometry f
   assert.match(authoringCanvas, /height:650px/);
   assert.match(authoringCanvas, /width:420px/);
 });
+test("Autoscale emits independent responsive rules for all default and custom breakpoints", () => {
+  const data = createZeroData(),
+    customMode = addBreakpoint(data, 768),
+    element = createElement("rectangle"),
+    entries = breakpointEntries(data, "asc");
+  element.id = "ze-autoscale-matrix";
+  data.elements.push(element);
+  const expected = entries.map(([mode, board], index) => {
+    const width = board.width * (0.12 + index * 0.07),
+      height = board.width * (0.08 + index * 0.015);
+    board.scaleGrid = "autoscale";
+    board.gridWidth = board.width;
+    board.height = 420 + index * 47;
+    setValue(element, mode, "geometry", "width", width);
+    setValue(element, mode, "geometry", "height", height);
+    return { mode, board, width, height };
+  });
+  assert.equal(entries.length, 6, "covers five standard modes and a 768 px custom mode");
+
+  const html = renderZero(data, "autoscale-matrix"),
+    scope = ".jz-zero-autoscale-matrix",
+    vw = (value, board) => `${Number(((value * 100) / board.gridWidth).toFixed(4))}vw`;
+  for (const { mode, board, width, height } of expected) {
+    const media = mode === "desktop"
+        ? ""
+        : `@media(max-width:${breakpointMediaMax(data, mode)}px){`,
+      artboardRule = `${scope}{height:${vw(board.height, board)};background:${board.background};overflow:${board.overflow}}`,
+      elementRule = `${scope} [data-ze="${element.id}"]{position:absolute;box-sizing:border-box;`;
+    assert.ok(html.includes(`${media}${artboardRule}`), `${mode} artboard height scales from its own grid width`);
+    assert.ok(
+      html.includes(`${elementRule}left:`) && html.includes(`width:${vw(width, board)};height:${vw(height, board)};`),
+      `${mode} element geometry scales from its own grid width`,
+    );
+  }
+  assert.ok(expected.some(({ mode }) => mode === customMode));
+});
 test("Autoscale control is scoped to an artboard and new boards default to fixed", () => {
   const data = createZeroData();
   for (const board of Object.values(data.artboards))
