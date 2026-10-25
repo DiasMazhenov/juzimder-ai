@@ -78,10 +78,11 @@
 - [x] 00.00.107: per-breakpoint Grid Autoscale: пропорциональная геометрия, типографика и высота секции; Window Container остаётся фиксированным. Схема, backend validator и JS/PHP renderer согласованы.
 - [x] 00.00.108: Zero Block breakpoint widths are dynamic; modes can be added, removed, and resized, with Tabler device icons, safe base promotion, and width-derived media ranges in both renderers.
 - [x] 00.00.108: Codex Browser persistence acceptance for custom widths. Version 00.00.121 saved a 768 px breakpoint with geometry/style overrides, verified it after reload, removed it and verified the original 360/1200 configuration after another reload.
-- [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. Unsupported element types remain visibly disabled until their safe renderer exists.
+- [x] 00.00.109: Zero Block uses a Tilda-style floating add palette with local Tabler Outline icons, keyboard hints, shape variants, outside/Escape dismissal, and working shortcuts. HTML became active with its safe iframe renderer in 00.00.123; Vector, Video, Tooltip, Form and Gallery remain disabled until their renderers exist.
 - [x] 00.00.110: Zero Block in the main editor follows its selected device mode even when the responsive iframe falls below the desktop breakpoint; buttons center labels on both axes in the Zero Editor and static renderer.
 - [x] 00.00.111: Zero Editor chrome follows Juzimder colors and text scale; toolbar icons share centered alignment, and breakpoint settings sit beside the device selectors.
 - [x] 00.00.112: Layers button hides the full sidebar when off; grouped layers have compact icons/text and expandable nested contents; Add Element control is half-size.
+- [x] 00.00.123: Zero HTML is an additive `zeroData v1` element with bounded payload validation, CSP-protected opaque iframe rendering, Preview-only editor execution, and no script permission when JS is empty.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [x] Autoscale в сохранённом HTML preview: при viewport 1228 → 1440 px высота Desktop-секции масштабировалась 1023.33 → 1200 px и Grid-линия 496.55 → 582.27 px; Window Container сохранил ширину 1200 px. `fixed` восстановлен, reload подтвердил исходные 1000 px / 485.23 px в revision 225.
 - [ ] Полная визуальная матрица Autoscale для ориентаций, ширин и каждого breakpoint.

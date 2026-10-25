@@ -2,10 +2,20 @@
 declare(strict_types=1);
 namespace Juzimder;
 
-/** Code is stored as data and rendered only inside an opaque, network-restricted iframe. */
+/** Code stays data on the server and is rendered in an opaque-origin iframe with restrictive CSP. */
 final class CustomCode {
     private const PREFIX = 'jzcc1.';
     private const MAX_TOTAL_BYTES = 65536;
+
+    public static function validatePayload(mixed $payload): array {
+        if ($payload instanceof \stdClass) $payload = get_object_vars($payload);
+        if (!is_array($payload) || array_is_list($payload)) throw new Problem(422, 'Некорректные данные блока Custom Code.');
+        $keys = array_keys($payload); sort($keys);
+        if ($keys !== ['css','html','js'] || !is_string($payload['html']) || !is_string($payload['css']) || !is_string($payload['js'])) throw new Problem(422, 'В Custom Code разрешены только поля HTML, CSS и JavaScript.');
+        if (strlen($payload['html']) > 32768 || strlen($payload['css']) > 16384 || strlen($payload['js']) > 16384 || strlen($payload['html']) + strlen($payload['css']) + strlen($payload['js']) > self::MAX_TOTAL_BYTES) throw new Problem(422, 'HTML, CSS и JavaScript блока превышают допустимый размер.');
+        if (preg_match('~</style\s*>~i', $payload['css'])) throw new Problem(422, 'В CSS блока нельзя закрывать тег style.');
+        return ['html'=>$payload['html'],'css'=>$payload['css'],'js'=>$payload['js']];
+    }
 
     public static function decode(mixed $value): array {
         if (!is_string($value) || !str_starts_with($value, self::PREFIX)) throw new Problem(422, 'Некорректный блок Custom Code.');
@@ -14,17 +24,12 @@ final class CustomCode {
         $json = base64_decode(strtr($encoded, '-_', '+/') . str_repeat('=', (4 - strlen($encoded) % 4) % 4), true);
         if (!is_string($json) || strlen($json) > self::MAX_TOTAL_BYTES) throw new Problem(422, 'Код блока превышает допустимый размер.');
         try { $payload = json_decode($json, true, 8, JSON_THROW_ON_ERROR); } catch (\JsonException) { throw new Problem(422, 'Некорректные данные блока Custom Code.'); }
-        if (!is_array($payload) || array_is_list($payload)) throw new Problem(422, 'Некорректные данные блока Custom Code.');
-        $keys = array_keys($payload); sort($keys);
-        if ($keys !== ['css','html','js'] || !is_string($payload['html']) || !is_string($payload['css']) || !is_string($payload['js'])) throw new Problem(422, 'В Custom Code разрешены только поля HTML, CSS и JavaScript.');
-        if (strlen($payload['html']) > 32768 || strlen($payload['css']) > 16384 || strlen($payload['js']) > 16384 || strlen($payload['html']) + strlen($payload['css']) + strlen($payload['js']) > self::MAX_TOTAL_BYTES) throw new Problem(422, 'HTML, CSS и JavaScript блока превышают допустимый размер.');
-        if (preg_match('~</style\s*>~i', $payload['css'])) throw new Problem(422, 'В CSS блока нельзя закрывать тег style.');
-        return $payload;
+        return self::validatePayload($payload);
     }
 
     public static function encode(array $payload): string {
-        foreach (['html','css','js'] as $key) if (!is_string($payload[$key] ?? null)) throw new Problem(422, 'Некорректное поле Custom Code.');
-        $json = json_encode(['html'=>$payload['html'],'css'=>$payload['css'],'js'=>$payload['js']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $payload = self::validatePayload($payload);
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($json) > self::MAX_TOTAL_BYTES) throw new Problem(422, 'HTML, CSS и JavaScript блока превышают допустимый размер.');
         return self::PREFIX . rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
     }
@@ -43,13 +48,13 @@ final class CustomCode {
 
     public static function sandboxDocument(array $payload, string $nonce): string {
         if (!preg_match('/^[a-f0-9]{32}$/D', $nonce)) throw new Problem(422, 'Некорректный nonce песочницы.');
-        $payload = self::decode(self::encode($payload));
+        $payload = self::validatePayload($payload);
         $script = '';
         if ($payload['js'] !== '') {
             $scriptData = json_encode(base64_encode($payload['js']), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR);
             $script = '<script nonce="' . $nonce . '">(function(){const data=' . $scriptData . ';const bytes=Uint8Array.from(atob(data),c=>c.charCodeAt(0));const code=new TextDecoder().decode(bytes);const node=document.createElement("script");node.nonce=document.currentScript.nonce;node.textContent=code;document.body.append(node);})();</script>';
         }
-        $csp = "default-src 'none'; script-src 'nonce-" . $nonce . "'; connect-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; navigate-to 'none'";
+        $csp = "default-src 'none'; script-src 'nonce-" . $nonce . "'; connect-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
         return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="' . htmlspecialchars($csp, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8') . '"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}' . $payload['css'] . '</style></head><body>' . $payload['html'] . $script . '</body></html>';
     }
 }

@@ -58,6 +58,11 @@
 .zero-app textarea {
   resize: vertical;
 }
+.zero-app textarea.zero-code-input {
+  min-height: 90px;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  tab-size: 2;
+}
 .zero-app [hidden] {
   display: none !important;
 }

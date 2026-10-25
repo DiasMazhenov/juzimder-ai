@@ -83,6 +83,8 @@ final class Document {
         if (++$count > 50000 || $depth > 45) throw new Problem(422, 'Проект слишком сложный.');
         if (is_array($value) || $value instanceof \stdClass) {
             foreach (self::objectFields($value) ?? $value as $key => $item) {
+                // zeroData has its own closed typed schema and HTML payload validator.
+                if ($key === 'zeroData' && $value instanceof \stdClass && ($value->type ?? null) === 'zero-block') continue;
                 if (is_string($key) && (preg_match('/^on/i', $key) || in_array(strtolower($key), ['script', 'script-export', 'srcdoc', 'srcset', 'formaction', 'action'], true))) throw new Problem(422, 'Исполняемый код запрещён.');
                 if ($key === 'tagName' && (!is_string($item) || !in_array($item, self::TAG_NAMES, true))) throw new Problem(422, 'Недопустимый HTML-тег.');
                 if (in_array($key, ['href','src'], true)) {

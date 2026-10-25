@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Juzimder;
+require_once __DIR__.'/CustomCode.php';
 
 /** Canonical, versioned data belonging to one GrapesJS component. No executable markup. */
 final class ZeroBlock {
@@ -83,7 +84,7 @@ final class ZeroBlock {
         $ids=[];$count=0;
         $walk=function($elements,$depth)use(&$walk,&$ids,&$count,$overrideModes){
             if(!is_array($elements)||!array_is_list($elements)||$depth>8)throw new Problem(422,'Zero Block: неверная вложенность.');
-            foreach($elements as $element){if(++$count>300)throw new Problem(422,'Zero Block: не более 300 элементов.');$e=self::fields($element,['id','type','name','geometry','style','overrides','children','content','runs','src','alt','href','target','tag','visible','locked','keepAspect'],['id','type','name','geometry','style','overrides','visible','locked']);if(!is_string($e['id'])||!preg_match('/^ze-[a-zA-Z0-9_-]{1,80}$/D',$e['id'])||isset($ids[$e['id']]))throw new Problem(422,'Zero Block: ID элементов должны быть уникальны.');$ids[$e['id']]=true;if(!in_array($e['type'],['text','image','rectangle','ellipse','line','button','group'],true))throw new Problem(422,'Zero Block: неизвестный тип элемента.');self::text($e['name'],120);self::geometry($e['geometry']);self::properties($e);foreach(self::fields($e['overrides'],$overrideModes) as $override){$o=self::fields($override,['geometry','style','visible','src']);self::properties($o);}if($e['type']==='group')$walk($e['children']??[], $depth+1);elseif(isset($e['children']))throw new Problem(422,'Zero Block: дети допустимы только у группы.');if($e['type']==='image'&&!isset($e['src']))throw new Problem(422,'Zero Block: изображение требует src.');}
+            foreach($elements as $element){if(++$count>300)throw new Problem(422,'Zero Block: не более 300 элементов.');$e=self::fields($element,['id','type','name','geometry','style','overrides','children','content','runs','src','alt','href','target','tag','visible','locked','keepAspect','code'],['id','type','name','geometry','style','overrides','visible','locked']);if(!is_string($e['id'])||!preg_match('/^ze-[a-zA-Z0-9_-]{1,80}$/D',$e['id'])||isset($ids[$e['id']]))throw new Problem(422,'Zero Block: ID элементов должны быть уникальны.');$ids[$e['id']]=true;if(!in_array($e['type'],['text','image','rectangle','ellipse','line','button','group','html'],true))throw new Problem(422,'Zero Block: неизвестный тип элемента.');self::text($e['name'],120);self::geometry($e['geometry']);self::properties($e);foreach(self::fields($e['overrides'],$overrideModes) as $override){$o=self::fields($override,['geometry','style','visible','src']);self::properties($o);}if($e['type']==='group')$walk($e['children']??[], $depth+1);elseif(isset($e['children']))throw new Problem(422,'Zero Block: дети допустимы только у группы.');if($e['type']==='image'&&!isset($e['src']))throw new Problem(422,'Zero Block: изображение требует src.');if($e['type']==='html')CustomCode::validatePayload($e['code']??null);elseif(isset($e['code']))throw new Problem(422,'Zero Block: код допустим только у HTML-элемента.');}
         };$walk($fields['elements'],0);
     }
     public static function updated(mixed $document,string $pageId,string $blockId,mixed $zeroData): \stdClass {

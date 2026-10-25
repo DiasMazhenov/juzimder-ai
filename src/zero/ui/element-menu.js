@@ -30,9 +30,9 @@ export function renderZeroElementMenu() {
     iconName: "vector-bezier",
     disabled: true,
   });
+  const customCode = menuItem({ type: "html", label: "HTML", iconName: "code" });
   const planned = [
     ["video", "Видео", "player-play"],
-    ["html", "HTML", "code"],
     ["tooltip", "Подсказка", "message"],
     ["form", "Форма", "list"],
     ["gallery", "Галерея", "stack-2"],
@@ -42,5 +42,5 @@ export function renderZeroElementMenu() {
     )
     .join("");
 
-  return `<div id="zero-element-menu" class="zero-element-menu" role="menu" aria-label="Добавить элемент" hidden><div class="zero-element-group">${primary}<button type="button" class="zero-element-item" data-action="shapes-menu" aria-expanded="false" aria-controls="zero-shape-menu"><span class="zero-element-icon">${tablerIcon("square")}</span><span class="zero-element-label">Фигура</span><kbd>R</kbd>${tablerIcon("chevron-down")}</button><div id="zero-shape-menu" class="zero-shape-menu" hidden>${shapes}</div>${menuItem({ type: "button", label: "Кнопка", iconName: "link", shortcut: "B" })}${vector}</div><div class="zero-element-separator" role="separator"></div><div class="zero-element-group zero-element-planned-group"><div class="zero-element-caption">Дополнительные элементы</div>${planned}</div><p class="zero-element-note">Будут доступны после добавления безопасного renderer.</p></div>`;
+  return `<div id="zero-element-menu" class="zero-element-menu" role="menu" aria-label="Добавить элемент" hidden><div class="zero-element-group">${primary}<button type="button" class="zero-element-item" data-action="shapes-menu" aria-expanded="false" aria-controls="zero-shape-menu"><span class="zero-element-icon">${tablerIcon("square")}</span><span class="zero-element-label">Фигура</span><kbd>R</kbd>${tablerIcon("chevron-down")}</button><div id="zero-shape-menu" class="zero-shape-menu" hidden>${shapes}</div>${menuItem({ type: "button", label: "Кнопка", iconName: "link", shortcut: "B" })}${vector}</div><div class="zero-element-separator" role="separator"></div><div class="zero-element-group"><div class="zero-element-caption">Дополнительные элементы</div>${customCode}</div><div class="zero-element-group zero-element-planned-group">${planned}</div><p class="zero-element-note">Остальные элементы появятся после добавления их безопасных renderer.</p></div>`;
 }

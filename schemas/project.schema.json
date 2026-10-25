@@ -365,7 +365,8 @@
             "ellipse",
             "line",
             "button",
-            "group"
+            "group",
+            "html"
           ]
         },
         "name": {
@@ -548,6 +549,16 @@
         },
         "keepAspect": {
           "type": "boolean"
+        },
+        "code": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "html": { "type": "string", "maxLength": 32768 },
+            "css": { "type": "string", "maxLength": 16384 },
+            "js": { "type": "string", "maxLength": 16384 }
+          },
+          "required": ["html", "css", "js"]
         }
       },
       "required": [
@@ -561,6 +572,16 @@
         "locked"
       ],
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "html" }
+            },
+            "required": ["type"]
+          },
+          "then": { "required": ["code"] },
+          "else": { "not": { "required": ["code"] } }
+        },
         {
           "if": {
             "properties": {

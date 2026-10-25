@@ -135,6 +135,15 @@ $countdownProject['document']=json_decode(json_encode($project['document'],JSON_
 $countdownProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['type'=>'countdown','tagName'=>'div','attributes'=>(object)['data-countdown-end'=>'2027-01-01T00:00:00Z']];
 $countdownHtml=StaticSiteExporter::files($countdownProject)['index.html'];
 exportCheck(str_contains($countdownHtml,'Обратный отсчёт')&&str_contains($countdownHtml,'sandbox="allow-scripts"'),'Countdown exports a live isolated timer instead of a static label');
+$zeroCodeProject=$project;
+$zeroCodeProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$zeroCodeData=json_decode(file_get_contents(__DIR__.'/zero.fixture.json'),false,64,JSON_THROW_ON_ERROR);
+$zeroCodeElement=clone $zeroCodeData->elements[0];$zeroCodeElement->id='ze-static-html';$zeroCodeElement->type='html';$zeroCodeElement->name='Isolated Zero HTML';$zeroCodeElement->code=(object)['html'=>'<h2>Isolated Zero HTML</h2>','css'=>'h2{color:#123456}','js'=>'document.body.dataset.ready="yes";'];$zeroCodeData->elements=[$zeroCodeElement];
+$zeroBlock=(object)['type'=>'zero-block','attributes'=>(object)['id'=>'zero-html-export'],'zeroData'=>$zeroCodeData,'components'=>[]];
+$zeroCodeProject['document']->data->pages[0]->frames[0]->component->components[]=$zeroBlock;
+$zeroCodeFiles=StaticSiteExporter::files($zeroCodeProject);$zeroCodePage=$zeroCodeFiles['index.html'];$zeroCodeNonce=StaticSiteExporter::runtimeNonce($zeroCodePage);
+exportCheck(is_string($zeroCodeNonce)&&str_contains($zeroCodePage,'sandbox="allow-scripts"')&&str_contains($zeroCodePage,'srcdoc="&lt;!doctype html'),'Nested Zero HTML uses an opaque iframe in static export');
+exportCheck(str_contains($zeroCodePage,'script-src &#39;nonce-'.$zeroCodeNonce.'&#39;')&&str_contains(StaticSiteExporter::pageSecurityPolicy($zeroCodePage),"frame-src 'self' data:")&&!preg_match('~<script\b|</script>~i',$zeroCodePage),'Static page CSP grants only the frame nonce and never emits user JS into its own DOM');
 exportRejects(fn()=>\Juzimder\CustomCode::countdownPayload('2027-13-99T99:99:99Z'),422,'Countdown rejects invalid dates');
 exportRejects(fn()=>\Juzimder\CustomCode::decode(\Juzimder\CustomCode::encode(['html'=>'','css'=>'</style><script>bad</script>','js'=>''])),422,'Custom Code CSS cannot escape its style boundary');
 

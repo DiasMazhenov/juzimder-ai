@@ -6,6 +6,7 @@ import {
   appearanceCSS,
   scaledGridLength,
 } from "./model/model.js";
+import { sandboxFrame } from "./sandbox.js";
 export const escapeHTML = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -31,7 +32,12 @@ export function elementHTML(el, children = "") {
   if (el.type === "group") return children;
   return content;
 }
-export function renderZero(data, blockId, activeMode = null) {
+export function renderZero(
+  data,
+  blockId,
+  activeMode = null,
+  { runScripts = false } = {},
+) {
   const scope = "jz-zero-" + String(blockId).replace(/[^a-zA-Z0-9_-]/g, "");
   const modes = breakpointEntries(data).map(([id]) => id),
     sourceModes = [...modes].reverse().filter((mode) => mode !== "desktop");
@@ -44,7 +50,11 @@ export function renderZero(data, blockId, activeMode = null) {
     scope +
     " a.jz-zero-button{align-items:center;justify-content:center;text-align:center}." +
     scope +
-    " [data-zero-image]{padding:0}";
+    " [data-zero-image]{padding:0}." +
+    scope +
+    " .jz-zero-code{border:0;padding:0;overflow:hidden;pointer-events:none}." +
+    scope +
+    " .jz-zero-code[data-code-running=\"true\"]{pointer-events:auto}";
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
@@ -107,6 +117,12 @@ export function renderZero(data, blockId, activeMode = null) {
           e,
           el.children ? walk(el.children, true, childGrid) : "",
         );
+        if (el.type === "html")
+          body = sandboxFrame(e.code, {
+            id: el.id,
+            runScripts,
+            title: el.name || "HTML-элемент",
+          });
         if (el.type === "image" && !activeMode) {
           const sources = sourceModes
             .map(
@@ -116,6 +132,7 @@ export function renderZero(data, blockId, activeMode = null) {
             .join("");
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
+        if (el.type === "html") return body;
         return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");

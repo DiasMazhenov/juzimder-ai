@@ -460,6 +460,7 @@ export async function openZeroEditor({
             ellipse: "circle",
             line: "minus",
             button: "link",
+            html: "code",
             group: "stack-2",
           }[el.type];
         return `<div class="zero-layer ${selection.has(el.id) ? "selected" : ""} ${el.type === "group" ? "is-group" : ""} ${el.locked ? "is-locked" : ""}"${hidden ? " hidden" : ""} data-layer="${esc(el.id)}" data-layer-parent="${esc(parentId)}" data-layer-depth="${depth}" style="padding-left:${depth * 3}px">${disclosure}<button class="zero-layer-name" data-select="${esc(el.id)}" aria-label="Слой ${esc(el.name)}" title="${esc(el.name)}"><span class="zero-layer-icon" aria-hidden="true">${tablerIcon(typeIcon)}</span><span class="zero-layer-label">${esc(el.name)}</span>${groupBadge}</button><button class="zero-layer-lock" data-lock="${esc(el.id)}" title="Блокировка" aria-label="Блокировка ${esc(el.name)}">${tablerIcon(el.locked ? "lock" : "lock-open")}</button><button class="zero-layer-visibility" data-visibility="${esc(el.id)}" title="Видимость" aria-label="Видимость ${esc(el.name)}">${tablerIcon(resolve(el, mode).visible ? "eye" : "eye-off")}</button></div>`;
@@ -682,7 +683,7 @@ export async function openZeroEditor({
     return { x: result.documentX, y: result.documentY };
   }
   function drawCanvas() {
-    canvas.innerHTML = renderZero(data, blockId, mode);
+    canvas.innerHTML = renderZero(data, blockId, mode, { runScripts: preview });
     const b = board();
     plane.style.width = b.width + "px";
     plane.style.height = b.height + "px";
@@ -1411,6 +1412,9 @@ export async function openZeroEditor({
             setValue(i.element, mode, "geometry", "height", el.offsetHeight);
         }
         setValue(i.element, mode, "style", "autoHeight", input.checked);
+      } else if (input.dataset.code) {
+        i.element.code ??= { html: "", css: "", js: "" };
+        i.element.code[input.dataset.code] = input.value;
       } else if (input.dataset.key) {
         const val =
           input.type === "number" || input.dataset.key.startsWith("origin")
@@ -1455,6 +1459,10 @@ export async function openZeroEditor({
     else {
       dirty = true;
       clearTimeout(timer);
+      if (input.dataset.code) {
+        status(conflict ? "Конфликт · локальные изменения сохранены в окне" : "Изменения не сохранены");
+        return;
+      }
       drawCanvas();
       if (input.dataset.element === "name") layers();
       status(
@@ -1478,7 +1486,8 @@ export async function openZeroEditor({
     const key =
       event.target.dataset.key ||
       event.target.dataset.element ||
-      event.target.dataset.board;
+      event.target.dataset.board ||
+      (event.target.dataset.code ? `code:${event.target.dataset.code}` : "");
     if (pendingField && pendingField !== key) flushField();
     pendingField = key;
     applyInput(event.target, false);

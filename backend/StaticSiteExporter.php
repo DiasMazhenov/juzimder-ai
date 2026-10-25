@@ -150,14 +150,23 @@ final class StaticSiteExporter {
 
     private static function containsCustomCode(\stdClass $component): bool {
         if (in_array(($component->type ?? null), ['custom-code','countdown'], true)) return true;
+        if (($component->type ?? null) === 'zero-block' && self::zeroContainsCode($component->zeroData->elements ?? [])) return true;
         foreach (($component->components ?? []) as $child) if ($child instanceof \stdClass && self::containsCustomCode($child)) return true;
+        return false;
+    }
+
+    private static function zeroContainsCode(array $elements): bool {
+        foreach ($elements as $element) {
+            if (($element->type ?? null) === 'html') return true;
+            if (($element->type ?? null) === 'group' && self::zeroContainsCode($element->children ?? [])) return true;
+        }
         return false;
     }
 
     private static function renderComponent(mixed $component, int $depth, array $assetPaths = [], ?string $nonce = null): string {
         if (!$component instanceof \stdClass || $depth > 35) throw new Problem(422, 'Невозможно экспортировать дерево компонентов.');
         $type = is_string($component->type ?? null) ? $component->type : '';
-        if ($type === 'zero-block') return ZeroBlockRenderer::render($component->zeroData, $component->attributes->id);
+        if ($type === 'zero-block') return ZeroBlockRenderer::render($component->zeroData, $component->attributes->id, $nonce);
         if (in_array($type, ['head'], true)) return '';
         if ($type === 'textnode') return self::escape(is_string($component->content ?? null) ? $component->content : '');
         if (in_array($type, ['custom-code','countdown'], true)) {

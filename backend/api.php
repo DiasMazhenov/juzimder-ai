@@ -114,7 +114,8 @@ try {
         $nonce = bin2hex(random_bytes(16));
         header_remove('X-Frame-Options'); header('X-Frame-Options: SAMEORIGIN');
         header('Content-Type: text/html; charset=utf-8'); header('Cache-Control: no-store');
-        header("Content-Security-Policy: sandbox allow-scripts; default-src 'none'; script-src 'nonce-" . $nonce . "'; connect-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; navigate-to 'none'; frame-ancestors 'self'");
+        $sandboxScripts = $preview['payload']['js'] !== '' ? 'sandbox allow-scripts' : 'sandbox';
+        header("Content-Security-Policy: " . $sandboxScripts . "; default-src 'none'; script-src 'nonce-" . $nonce . "'; connect-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'");
         echo CustomCode::sandboxDocument($preview['payload'], $nonce); exit;
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/assets(?:/([a-f0-9]{24})/file)?$~D', $path, $assetMatch)) {

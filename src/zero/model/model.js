@@ -204,6 +204,7 @@ export function createElement(type, tokens = {}) {
     text: [420, 110],
     image: [360, 240],
     button: [220, 54],
+    html: [420, 260],
     group: [400, 300],
     rectangle: [240, 180],
     ellipse: [180, 180],
@@ -217,6 +218,7 @@ export function createElement(type, tokens = {}) {
       text: "Текст",
       image: "Фото",
       button: "Кнопка",
+      html: "HTML",
       group: "Группа",
       rectangle: "Прямоугольник",
       ellipse: "Эллипс",
@@ -265,6 +267,9 @@ export function createElement(type, tokens = {}) {
                 ? "Подробнее"
                 : "",
         }),
+    ...(type === "html"
+      ? { code: { html: "", css: "", js: "" } }
+      : {}),
   };
 }
 export function resolve(element, mode) {

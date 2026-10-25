@@ -34,6 +34,7 @@ import {
 } from "../src/zero/model/model.js";
 import { serializedZero, sameOutsideZero } from "../src/zero/sync.js";
 import { renderZero } from "../src/zero/render.js";
+import { validateSandboxPayload } from "../src/zero/sandbox.js";
 import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
 import { layerDropIntent, moveLayer } from "../src/zero/model/operations.js";
@@ -309,6 +310,38 @@ test("the exported frontend renderer contains no layout flow or editor UI and sc
   assert.notEqual(html, other);
   assert.match(html, /Hello &amp; Zero/);
 });
+test("Zero HTML is rendered in a locked-down iframe and runs JavaScript only in Preview", () => {
+  const data = createZeroData(),
+    element = createElement("html");
+  element.id = "ze-safe-html";
+  element.code = {
+    html: '<button id="run">Запустить</button>',
+    css: "button{color:#123456}",
+    js: 'document.body.dataset.ready="yes";const escaped="</script>";',
+  };
+  data.elements.push(element);
+  const editorMarkup = renderZero(data, "zero-safe-html", "desktop"),
+    previewMarkup = renderZero(data, "zero-safe-html", "desktop", {
+      runScripts: true,
+    });
+  assert.match(editorMarkup, /<iframe[^>]*data-ze="ze-safe-html"[^>]*sandbox=""/);
+  assert.match(previewMarkup, /<iframe[^>]*sandbox="allow-scripts"[^>]*srcdoc=/);
+  assert.match(previewMarkup, /data-code-running="true"/);
+  assert.match(editorMarkup, /&lt;meta http-equiv=&quot;Content-Security-Policy/);
+  assert.match(editorMarkup, /connect-src &#39;none&#39;/);
+  assert.doesNotMatch(previewMarkup, /allow-same-origin|allow-forms|allow-popups/);
+  assert.doesNotMatch(previewMarkup, /<script(?:\s|>)/i);
+  const menuSource = readFileSync(
+    new URL("../src/zero/ui/element-menu.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(menuSource, /type: "html", label: "HTML"/);
+  assert.doesNotMatch(menuSource, /\["html", "HTML", "code"\]/);
+  assert.throws(
+    () => validateSandboxPayload({ html: "", css: "</style>", js: "" }),
+    /нельзя закрывать тег style/i,
+  );
+});
 test("Zero Block buttons use flex centering and keep the label centered", () => {
   const data = createZeroData(),
     button = createElement("button");
@@ -361,6 +394,17 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
       },
     };
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
+  const htmlDocument = structuredClone(doc),
+    htmlElement = structuredClone(fixture.elements[0]);
+  htmlElement.id = "ze-schema-html";
+  htmlElement.type = "html";
+  htmlElement.code = { html: "<strong>Safe</strong>", css: "", js: "" };
+  htmlDocument.data.pages[0].frames[0].component.components[0].zeroData.elements = [htmlElement];
+  assert.equal(validate(htmlDocument), true, JSON.stringify(validate.errors));
+  delete htmlElement.code;
+  assert.equal(validate(htmlDocument), false);
+  htmlElement.code = { html: "", css: "", js: "", network: "yes" };
+  assert.equal(validate(htmlDocument), false);
   const custom = structuredClone(doc);
   custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
     "bp-12345678"
