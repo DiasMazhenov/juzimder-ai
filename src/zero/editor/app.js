@@ -1243,6 +1243,24 @@ export async function openZeroEditor({
       stage.style.height = `${board.height * scale}px`;
     });
   }
+  function applyAiArtboardBackground(candidate, settings) {
+    if (
+      !candidate?.artboards ||
+      !/^#[a-f\d]{6}$/i.test(settings?.backgroundColor || "") ||
+      !["clear", "preserve"].includes(settings?.backgroundImageMode)
+    ) return;
+    for (const board of Object.values(candidate.artboards)) {
+      board.background = settings.backgroundColor;
+      board.backgroundOpacity = 1;
+      if (settings.backgroundImageMode === "clear") {
+        board.backgroundImage = "";
+        board.backgroundImageName = "";
+        delete board.backgroundFill;
+        board.filterStartOpacity = 0;
+        board.filterEndOpacity = 0;
+      }
+    }
+  }
   async function generateZeroAiProposal() {
     const prompt = $("#zero-ai-prompt-text").value.trim(),
       submit = $('[data-action="ai-generate"]'),
@@ -1270,6 +1288,7 @@ export async function openZeroEditor({
         throw new Error("AI не подготовил достаточно безопасных элементов.");
       aiCandidateData = copy(data);
       aiCandidateData.elements = proposal.elements;
+      applyAiArtboardBackground(aiCandidateData, proposal.artboardBackground);
       aiCandidateBaseVersion = proposal.baseVersion;
       const candidateStatus = $("#zero-ai-candidate-status");
       candidateStatus.textContent = proposal.metadata?.photoSelection === "completed"
