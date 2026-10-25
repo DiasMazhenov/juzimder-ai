@@ -749,6 +749,37 @@
   border-left: 1px solid var(--line, #303632);
   padding: 14px;
 }
+.zero-background-image {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 10px 0;
+}
+.zero-background-image > img {
+  display: block;
+  width: 100%;
+  height: 128px;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid var(--jz-ui-border, #303a3f);
+  border-radius: var(--radius, 7px);
+  background: var(--jz-ui-surface, #202823);
+}
+.zero-background-image > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zero-background-image > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.zero-background-image > p {
+  margin: 0;
+}
 .zero-fields {
   display: flex;
   flex-wrap: wrap;
