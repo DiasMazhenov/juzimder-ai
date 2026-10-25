@@ -344,11 +344,11 @@ foreach([429,502,401] as $failedStatus){
  $failover->completeJson('system','prompt',['type'=>'object'],'profile_repair');
  aiCheck(in_array('Authorization: Bearer sk-backup-test',$failoverTransport->calls[0]['headers'],true),'Repair reuses the successful profile');
 }
-foreach(['not-json','{}',json_encode(['choices'=>[['message'=>['content'=>'']]]])] as $brokenBody){
+foreach(['not-json','{}',json_encode(['choices'=>[['message'=>['content'=>'']]]]),json_encode(['choices'=>[['message'=>['content'=>'not-json']]]],JSON_THROW_ON_ERROR)] as $brokenBody){
  $transport=new FakeAiTransport([new AiHttpResponse(200,$brokenBody),new AiHttpResponse(200,$successBody)]);
  $provider=new Juzimder\ProfileFailoverProvider($profileEntries,$transport);
  $result=$provider->completeJson('system','prompt',['type'=>'object'],'broken_response');
- aiCheck($result['profileName']==='Backup'&&count($transport->calls)===2,'Malformed or empty provider response rotates to the next saved profile once');
+aiCheck($result['profileName']==='Backup'&&count($transport->calls)===2,'Malformed HTTP envelopes, empty content, or non-JSON model content rotate to the next saved profile once');
  aiCheck(array_column($provider->diagnostics(),'outcome')===['invalid_response','response_received'],'Malformed response failover preserves safe diagnostics');
 }
 $brokenProfiles=new FakeAiTransport([new AiHttpResponse(200,'{}'),new AiHttpResponse(200,'{}')]);

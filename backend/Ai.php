@@ -149,6 +149,7 @@ final class ProfileFailoverProvider implements StructuredAiProvider {
             $record=function(string $outcome,?string $resolvedModel=null)use($profile,$started):void{if(count($this->attempts)<20)$this->attempts[]=['profileName'=>$profile['name'],'model'=>$resolvedModel??$profile['settings']->model,'outcome'=>$outcome,'elapsedMs'=>(int)round((microtime(true)-$started)*1000)];};
             try{
                 $result=$provider->completeJson($systemPrompt,$userPrompt,$schema,$schemaName,$maxTokens);
+                try{json_decode($result['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('AI profile returned a non-JSON structured response.',false,'invalid_response');}
                 $record('response_received',$result['model']??null);
                 $this->preferredId=$profile['id'];
                 return [...$result,'profileId'=>$profile['id'],'profileName'=>$profile['name']];
