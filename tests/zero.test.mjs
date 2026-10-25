@@ -44,6 +44,7 @@ import {
 import { editorMode } from "../src/zero/editor-mode.js";
 import { renderInspector } from "../src/zero/ui/inspector.js";
 import { layerDropIntent, moveLayer } from "../src/zero/model/operations.js";
+import { normalizeEditorIconMarkup } from "../src/editor-icon-markup.js";
 const fixture = JSON.parse(
   readFileSync(new URL("./zero.fixture.json", import.meta.url)),
 );
@@ -612,6 +613,18 @@ test("Zero layer controls have no individual outlines while locked and keyboard 
   assert.match(overrides, /\.zero-app \.zero-left \.zero-layer button:hover:not\(:disabled\)\s*\{[^}]*border-color:\s*transparent !important/s);
   assert.match(overrides, /\.zero-app \.zero-left \.zero-layer\.is-locked \.zero-layer-lock\s*\{[^}]*background:\s*var\(--jz-ui-muted-surface\) !important/s);
   assert.match(overrides, /:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--jz-ui-focus\)/s);
+});
+test("Tabler lock icons without SVG classes keep their layer-panel size", () => {
+  const catalogue = JSON.parse(
+      readFileSync(new URL("../resources/tabler-editor/catalogue.json", import.meta.url), "utf8"),
+    ),
+    editorIcons = readFileSync(new URL("../src/editor-icons.js", import.meta.url), "utf8");
+  assert.match(editorIcons, /normalizeEditorIconMarkup\(catalogue\[name\]/);
+  for (const name of ["lock", "lock-open", "circle", "minus"]) {
+    const normalized = normalizeEditorIconMarkup(catalogue[name]);
+    assert.match(normalized, /<svg class="tabler-editor-icon" aria-hidden="true" focusable="false"/);
+    assert.equal((normalized.match(/class="tabler-editor-icon"/g) || []).length, 1);
+  }
 });
 test("Project Data schema carries one strict zeroData contract and rejects second trees", () => {
   const schema = JSON.parse(
