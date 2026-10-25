@@ -365,6 +365,34 @@ test("Zero HTML is rendered in a locked-down iframe and runs JavaScript only in 
     /нельзя закрывать тег style/i,
   );
 });
+test("Zero Tooltip renders escaped text and appears on hover or keyboard focus", () => {
+  const data = createZeroData(),
+    tooltip = createElement("tooltip");
+  tooltip.id = "ze-safe-tooltip";
+  tooltip.content = "Информация & детали";
+  data.elements.push(tooltip);
+  const html = renderZero(data, "zero-tooltip"),
+    inspector = renderInspector({
+      items: [{ element: tooltip }],
+      mode: "desktop",
+      board: data.artboards.desktop,
+      project: {},
+    }),
+    menuSource = readFileSync(
+      new URL("../src/zero/ui/element-menu.js", import.meta.url),
+      "utf8",
+    );
+  assert.match(html, /class="jz-zero-element jz-zero-tooltip" data-ze="ze-safe-tooltip"/);
+  assert.match(html, /aria-describedby="jz-tooltip-ze-safe-tooltip"/);
+  assert.match(html, /role="tooltip">Информация &amp; детали<\/span>/);
+  assert.match(html, /\.jz-zero-tooltip:hover \.jz-zero-tooltip-popover/);
+  assert.match(html, /\.jz-zero-tooltip:focus-within \.jz-zero-tooltip-popover/);
+  assert.doesNotMatch(html, /<script/i);
+  assert.match(inspector, /Текст подсказки/);
+  assert.match(inspector, /maxlength="2000"/);
+  assert.match(menuSource, /\["tooltip", "Подсказка", "message"\]/);
+  assert.match(menuSource, /disabled: type !== "tooltip"/);
+});
 test("Zero Block buttons use flex centering and keep the label centered", () => {
   const data = createZeroData(),
     button = createElement("button");
@@ -428,6 +456,18 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
   assert.equal(validate(htmlDocument), false);
   htmlElement.code = { html: "", css: "", js: "", network: "yes" };
   assert.equal(validate(htmlDocument), false);
+  const tooltipDocument = structuredClone(doc),
+    tooltip = structuredClone(fixture.elements[0]);
+  tooltip.id = "ze-schema-tooltip";
+  tooltip.type = "tooltip";
+  tooltip.name = "Safe Tooltip";
+  tooltip.content = "Plain tooltip text";
+  tooltipDocument.data.pages[0].frames[0].component.components[0].zeroData.elements = [tooltip];
+  assert.equal(validate(tooltipDocument), true, JSON.stringify(validate.errors));
+  delete tooltip.content;
+  assert.equal(validate(tooltipDocument), false);
+  tooltip.content = "x".repeat(2001);
+  assert.equal(validate(tooltipDocument), false);
   const custom = structuredClone(doc);
   custom.data.pages[0].frames[0].component.components[0].zeroData.artboards[
     "bp-12345678"

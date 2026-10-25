@@ -365,6 +365,7 @@
             "ellipse",
             "line",
             "button",
+            "tooltip",
             "group",
             "html"
           ]
@@ -609,6 +610,20 @@
               "required": [
                 "children"
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": { "const": "tooltip" }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["content"],
+            "properties": {
+              "content": { "type": "string", "maxLength": 2000 }
             }
           }
         }

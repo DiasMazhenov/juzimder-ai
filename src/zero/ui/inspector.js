@@ -91,5 +91,11 @@ export function renderInspector({ items, mode, board, project }) {
         "",
       )}</div>${mode !== "desktop" ? '<button data-action="reset-override">Сбросить override элемента</button>' : ""}`;
   }
-  return inspectorMarkup();
+  const markup = inspectorMarkup();
+  if (items[0]?.element?.type !== "tooltip") return markup;
+  const tooltipInspector = `<h2>Подсказка</h2><label>Текст подсказки<textarea data-element="content" rows="4" maxlength="2000">${esc(items[0].element.content || "")}</textarea></label><p class="zero-help">Показывается при наведении на значок и при фокусе клавиатурой.</p>`;
+  return markup.replace(
+    "<h2>Действия</h2>",
+    `${tooltipInspector}<h2>Действия</h2>`,
+  );
 }

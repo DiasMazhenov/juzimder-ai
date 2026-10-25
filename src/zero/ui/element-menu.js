@@ -31,16 +31,16 @@ export function renderZeroElementMenu() {
     disabled: true,
   });
   const customCode = menuItem({ type: "html", label: "HTML", iconName: "code" });
-  const planned = [
+  const additional = [
     ["video", "Видео", "player-play"],
     ["tooltip", "Подсказка", "message"],
     ["form", "Форма", "list"],
     ["gallery", "Галерея", "stack-2"],
   ]
     .map(([type, label, iconName]) =>
-      menuItem({ type, label, iconName, disabled: true }),
+      menuItem({ type, label, iconName, disabled: type !== "tooltip" }),
     )
     .join("");
 
-  return `<div id="zero-element-menu" class="zero-element-menu" role="menu" aria-label="Добавить элемент" hidden><div class="zero-element-group">${primary}<button type="button" class="zero-element-item" data-action="shapes-menu" aria-expanded="false" aria-controls="zero-shape-menu"><span class="zero-element-icon">${tablerIcon("square")}</span><span class="zero-element-label">Фигура</span><kbd>R</kbd>${tablerIcon("chevron-down")}</button><div id="zero-shape-menu" class="zero-shape-menu" hidden>${shapes}</div>${menuItem({ type: "button", label: "Кнопка", iconName: "link", shortcut: "B" })}${vector}</div><div class="zero-element-separator" role="separator"></div><div class="zero-element-group"><div class="zero-element-caption">Дополнительные элементы</div>${customCode}</div><div class="zero-element-group zero-element-planned-group">${planned}</div><p class="zero-element-note">Остальные элементы появятся после добавления их безопасных renderer.</p></div>`;
+  return `<div id="zero-element-menu" class="zero-element-menu" role="menu" aria-label="Добавить элемент" hidden><div class="zero-element-group">${primary}<button type="button" class="zero-element-item" data-action="shapes-menu" aria-expanded="false" aria-controls="zero-shape-menu"><span class="zero-element-icon">${tablerIcon("square")}</span><span class="zero-element-label">Фигура</span><kbd>R</kbd>${tablerIcon("chevron-down")}</button><div id="zero-shape-menu" class="zero-shape-menu" hidden>${shapes}</div>${menuItem({ type: "button", label: "Кнопка", iconName: "link", shortcut: "B" })}${vector}</div><div class="zero-element-separator" role="separator"></div><div class="zero-element-group"><div class="zero-element-caption">Дополнительные элементы</div>${customCode}</div><div class="zero-element-group zero-element-planned-group">${additional}</div><p class="zero-element-note">Видео, формы и галереи появятся после добавления безопасных renderer.</p></div>`;
 }

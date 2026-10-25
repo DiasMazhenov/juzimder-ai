@@ -15,6 +15,13 @@ export const escapeHTML = (s) =>
         c
       ],
   );
+function hasTooltip(elements) {
+  return elements.some(
+    (element) =>
+      element.type === "tooltip" ||
+      (element.children?.length && hasTooltip(element.children)),
+  );
+}
 export function elementHTML(el, children = "") {
   let content = escapeHTML(el.content || "");
   if (el.runs)
@@ -29,6 +36,10 @@ export function elementHTML(el, children = "") {
       .join("");
   if (el.type === "image")
     return `<img src="${escapeHTML(el.src)}" alt="${escapeHTML(el.alt || "")}" draggable="false" style="width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">`;
+  if (el.type === "tooltip") {
+    const id = `jz-tooltip-${escapeHTML(el.id)}`;
+    return `<button class="jz-zero-tooltip-trigger" type="button" aria-label="Показать подсказку" aria-describedby="${id}">?</button><span class="jz-zero-tooltip-popover" id="${id}" role="tooltip">${content}</span>`;
+  }
   if (el.type === "group") return children;
   return content;
 }
@@ -55,6 +66,8 @@ export function renderZero(
     " .jz-zero-code{border:0;padding:0;overflow:hidden;pointer-events:none}." +
     scope +
     " .jz-zero-code[data-code-running=\"true\"]{pointer-events:auto}";
+  if (hasTooltip(data.elements))
+    css += `.${scope} .jz-zero-tooltip{overflow:visible!important;white-space:normal}.${scope} .jz-zero-tooltip-trigger{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:28px;height:28px;padding:0;border:1px solid currentColor;border-radius:50%;background:transparent;color:inherit;font:inherit;line-height:1;cursor:help}.${scope} .jz-zero-tooltip-popover{position:absolute;left:50%;top:calc(100% + 8px);z-index:10000;width:max-content;max-width:280px;box-sizing:border-box;padding:8px 12px;border:0;border-radius:8px;background:#183e31;color:#fff;font:14px/1.4 system-ui,sans-serif;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-50%);transition:opacity .12s ease,visibility .12s ease}.${scope} .jz-zero-tooltip:hover .jz-zero-tooltip-popover, .${scope} .jz-zero-tooltip:focus-within .jz-zero-tooltip-popover{opacity:1;visibility:visible}`;
   const wrap = (mode, rule) =>
     activeMode || mode === "desktop"
       ? rule
@@ -84,6 +97,8 @@ export function renderZero(
             sel =
               el.type === "button"
                 ? `.${scope} a.jz-zero-button[data-ze="${el.id}"]`
+                : el.type === "tooltip"
+                  ? `.${scope} .jz-zero-tooltip[data-ze="${el.id}"]`
                 : `.${scope} [data-ze="${el.id}"]`,
             appearance =
               el.type === "button"
@@ -95,7 +110,7 @@ export function renderZero(
                 : "";
           css += wrap(
             mode,
-            `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
+            `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
           );
         }
         const childGrid = Object.fromEntries(
@@ -133,7 +148,7 @@ export function renderZero(
           body = `<picture style="display:block;width:100%;height:100%;object-fit:inherit;object-position:inherit;border-radius:inherit">${sources}${body}</picture>`;
         }
         if (el.type === "html") return body;
-        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
+        return `<${tag} class="jz-zero-element${el.type === "button" ? " jz-zero-button" : ""}${el.type === "tooltip" ? " jz-zero-tooltip" : ""}" data-ze="${escapeHTML(el.id)}"${el.type === "image" ? ' data-zero-image="true"' : ""}${tag === "a" ? ` href="${escapeHTML(e.href || "#")}" target="${escapeHTML(e.target || "_self")}" rel="noopener noreferrer"` : ""}>${body}</${tag}>`;
       })
       .join("");
   const html = walk(data.elements);

@@ -204,6 +204,7 @@ export function createElement(type, tokens = {}) {
     text: [420, 110],
     image: [360, 240],
     button: [220, 54],
+    tooltip: [36, 36],
     html: [420, 260],
     group: [400, 300],
     rectangle: [240, 180],
@@ -218,6 +219,7 @@ export function createElement(type, tokens = {}) {
       text: "Текст",
       image: "Фото",
       button: "Кнопка",
+      tooltip: "Подсказка",
       html: "HTML",
       group: "Группа",
       rectangle: "Прямоугольник",
@@ -265,6 +267,8 @@ export function createElement(type, tokens = {}) {
               ? "Создавайте свободно"
               : type === "button"
                 ? "Подробнее"
+                : type === "tooltip"
+                  ? "Дополнительная информация"
                 : "",
         }),
     ...(type === "html"
