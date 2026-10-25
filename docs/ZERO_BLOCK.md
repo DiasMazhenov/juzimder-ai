@@ -1,5 +1,7 @@
 # Zero Block — absolute positioning engine
 
+00.00.150 — Общие сохранённые цвета можно удалять через контекстное меню swatch (правая кнопка мыши или Shift+F10/Menu); Zero и основной редактор используют одну палитру.
+
 00.00.149 — Color fields in Zero Block use the application's shared color picker and shared saved-color palette. Artboard background retains its `backgroundOpacity` pair; element appearance, filter and shadow colors use the same HEX-capable chooser, with alpha only when the model field supports it.
 
 00.00.148 — Изображение фона в Artboard Inspector показывается миниатюрой фиксированной высоты 128 px с `object-fit: cover`; имя файла не расширяет панель, кнопки остаются в переносимом ряду. Изменение касается только UI редактора и не влияет на фон или экспорт страницы.

@@ -104,6 +104,16 @@ export function saveColor(color, storage = safeLocalStorage()) {
   return readSavedColors(storage);
 }
 
+export function removeSavedColor(color, storage = safeLocalStorage()) {
+  if (!HEX.test(color) || !storage) return readSavedColors(storage);
+  const colors = readSavedColors(storage).filter((item) => item !== color.toLowerCase());
+  try {
+    storage.setItem(COLOR_KEY, JSON.stringify(colors));
+    storage.setItem(LEGACY_COLOR_KEY, JSON.stringify(colors));
+  } catch { /* Private browsing may disable local storage. */ }
+  return readSavedColors(storage);
+}
+
 export function createColorPicker(host = globalThis.document?.body) {
   const documentRef = host?.ownerDocument || globalThis.document;
   if (!host || !documentRef) return { open() {} };
@@ -117,6 +127,16 @@ export function createColorPicker(host = globalThis.document?.body) {
     <div class="jz-color-hex-row"><label><span>HEX</span><input type="text" data-color-hex maxlength="7" spellcheck="false" aria-label="HEX цвета"></label><output data-color-alpha-value>100%</output><button type="button" data-color-clear aria-label="Сделать цвет прозрачным" title="Сделать цвет прозрачным">×</button></div>
     <section class="jz-saved-colors"><header><span>Сохранённые цвета</span><button type="button" data-color-save aria-label="Сохранить текущий цвет" title="Сохранить текущий цвет">+</button></header><div data-color-swatches></div></section>`;
   host.append(dialog);
+  const colorMenu = documentRef.createElement("div");
+  colorMenu.className = "jz-color-context-menu";
+  colorMenu.setAttribute("role", "menu");
+  colorMenu.hidden = true;
+  const deleteColorButton = documentRef.createElement("button");
+  deleteColorButton.type = "button";
+  deleteColorButton.className = "jz-color-delete-action";
+  deleteColorButton.setAttribute("role", "menuitem");
+  colorMenu.append(deleteColorButton);
+  host.append(colorMenu);
   const $ = (selector) => dialog.querySelector(selector),
     plane = $(".jz-color-plane"),
     marker = $(".jz-color-plane-marker"),
@@ -128,7 +148,23 @@ export function createColorPicker(host = globalThis.document?.body) {
     swatches = $("[data-color-swatches]"),
     title = $("[data-color-title]"),
     clearAlpha = $("[data-color-clear]");
-  let state = { h: 0, s: 0, v: 1, a: 1 }, pointerId = null, active = null;
+  let state = { h: 0, s: 0, v: 1, a: 1 }, pointerId = null, active = null, menuColor = null;
+
+  function closeColorMenu() {
+    colorMenu.hidden = true;
+    menuColor = null;
+  }
+  function openColorMenu(savedColor, x, y) {
+    menuColor = savedColor;
+    deleteColorButton.textContent = `Удалить цвет ${savedColor.toUpperCase()}`;
+    colorMenu.hidden = false;
+    colorMenu.style.left = "0px";
+    colorMenu.style.top = "0px";
+    const bounds = colorMenu.getBoundingClientRect(), view = documentRef.defaultView;
+    colorMenu.style.left = `${clamp(x, 8, Math.max(8, view.innerWidth - bounds.width - 8))}px`;
+    colorMenu.style.top = `${clamp(y, 8, Math.max(8, view.innerHeight - bounds.height - 8))}px`;
+    deleteColorButton.focus();
+  }
 
   function color() { return hsvToHex(state.h, state.s, state.v); }
   function sync() {
@@ -156,7 +192,19 @@ export function createColorPicker(host = globalThis.document?.body) {
       chip.style.backgroundColor = saved;
       chip.title = saved.toUpperCase();
       chip.setAttribute("aria-label", `Выбрать цвет ${saved.toUpperCase()}`);
+      chip.setAttribute("aria-haspopup", "menu");
+      chip.setAttribute("aria-keyshortcuts", "Shift+F10 ContextMenu");
       chip.addEventListener("click", () => { state = { ...hexToHsv(saved), a: state.a }; paint(true); });
+      chip.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        openColorMenu(saved, event.clientX, event.clientY);
+      });
+      chip.addEventListener("keydown", (event) => {
+        if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
+        event.preventDefault();
+        const bounds = chip.getBoundingClientRect();
+        openColorMenu(saved, bounds.left, bounds.bottom);
+      });
       swatches.append(chip);
     }
     if (!swatches.childElementCount) {
@@ -205,6 +253,12 @@ export function createColorPicker(host = globalThis.document?.body) {
   });
   clearAlpha.addEventListener("click", () => { if (active?.allowOpacity) { state.a = 0; paint(true); } });
   $("[data-color-save]").addEventListener("click", () => { saveColor(color()); drawSaved(); });
+  deleteColorButton.addEventListener("click", () => {
+    if (menuColor) removeSavedColor(menuColor);
+    closeColorMenu();
+    drawSaved();
+    $("[data-color-save]").focus();
+  });
   if ("EyeDropper" in globalThis) {
     const eyeDropper = documentRef.createElement("button");
     eyeDropper.type = "button"; eyeDropper.className = "jz-color-eyedropper"; eyeDropper.textContent = "Пипетка";
@@ -219,9 +273,10 @@ export function createColorPicker(host = globalThis.document?.body) {
   }
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   documentRef.addEventListener("pointerdown", (event) => {
-    if (dialog.open && !dialog.contains(event.target) && !active?.trigger?.contains(event.target)) dialog.close();
+    if (!colorMenu.hidden && !colorMenu.contains(event.target)) closeColorMenu();
+    if (dialog.open && !dialog.contains(event.target) && !colorMenu.contains(event.target) && !active?.trigger?.contains(event.target)) dialog.close();
   });
-  dialog.addEventListener("close", () => { active = null; });
+  dialog.addEventListener("close", () => { active = null; closeColorMenu(); });
   drawSaved();
 
   return {

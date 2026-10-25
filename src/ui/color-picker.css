@@ -112,6 +112,11 @@
 .jz-color-swatch { width: 30px; height: 30px; padding: 0 !important; border: 2px solid rgba(255,255,255,.24) !important; border-radius: 50% !important; }
 .jz-color-swatch:hover { outline: 2px solid var(--jz-ui-focus, #86c232); outline-offset: 2px; }
 .jz-color-empty { color: var(--jz-ui-text-muted, #929da2); font-size: 11px; }
+.jz-color-context-menu { position: fixed; z-index: 10000; min-width: 180px; padding: 4px; border: 1px solid var(--jz-ui-border, #303a3f); border-radius: 8px; background: var(--jz-ui-panel, #1b2125); box-shadow: 0 10px 30px rgb(0 0 0 / 40%); }
+.jz-color-context-menu[hidden] { display: none !important; }
+.jz-color-context-menu .jz-color-delete-action { width: 100%; min-height: 34px; padding: 6px 10px; border: 0; color: var(--jz-ui-error, #f16d6d); text-align: left; white-space: nowrap; }
+.jz-color-context-menu .jz-color-delete-action:hover { border-color: var(--jz-ui-error, #f16d6d); background: var(--jz-ui-error-surface, #342629); }
+.jz-color-context-menu .jz-color-delete-action:focus-visible { outline: 2px solid var(--jz-ui-focus, #86c232); outline-offset: 1px; }
 @media (max-width: 520px) {
   .theme-color-grid .jz-color-field-trigger,
   .settings-color-grid .jz-color-field-trigger { width: 110px; min-width: 110px; }

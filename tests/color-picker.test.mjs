@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { formatColor, hexToHsv, hsvToHex, parseColor, readSavedColors, saveColor } from "../src/ui/color-picker.js";
+import { formatColor, hexToHsv, hsvToHex, parseColor, readSavedColors, removeSavedColor, saveColor } from "../src/ui/color-picker.js";
 
 class MemoryStorage {
   values = new Map();
@@ -27,11 +27,23 @@ test("saved palette is shared across editors and imports legacy Zero colors", ()
   assert.equal(storage.getItem("juzimder-saved-colors") !== null, true);
 });
 
+test("saved colors can be removed without reappearing from legacy storage", () => {
+  const storage = new MemoryStorage();
+  storage.setItem("juzimder-zero-saved-colors", JSON.stringify(["#86c232", "#f05a45"]));
+  assert.deepEqual(removeSavedColor("#f05a45", storage), ["#86c232"]);
+  assert.deepEqual(JSON.parse(storage.getItem("juzimder-saved-colors")), ["#86c232"]);
+  assert.deepEqual(JSON.parse(storage.getItem("juzimder-zero-saved-colors")), ["#86c232"]);
+  assert.deepEqual(removeSavedColor("#86c232", storage), []);
+  assert.deepEqual(readSavedColors(storage), []);
+  assert.deepEqual(removeSavedColor("not-a-color", storage), []);
+});
+
 test("main UI, GrapesJS color properties and Zero Block use the shared picker", () => {
   const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8"),
     plugins = readFileSync(new URL("../src/editor-plugins.js", import.meta.url), "utf8"),
     zeroInspector = readFileSync(new URL("../src/zero/ui/inspector.js", import.meta.url), "utf8"),
     background = readFileSync(new URL("../src/editor-background.js", import.meta.url), "utf8"),
+    sharedPicker = readFileSync(new URL("../src/ui/color-picker.js", import.meta.url), "utf8"),
     zeroPicker = readFileSync(new URL("../src/zero/ui/color-picker.js", import.meta.url), "utf8"),
     pickerCss = readFileSync(new URL("../src/ui/color-picker.css", import.meta.url), "utf8");
   assert.match(main, /installColorPickerInputs\(document\.body\)/);
@@ -42,4 +54,7 @@ test("main UI, GrapesJS color properties and Zero Block use the shared picker", 
   assert.match(background, /syncColorInput\(field\('container-overlay-color'\)\)/);
   assert.match(zeroPicker, /getSharedColorPicker/);
   assert.match(pickerCss, /\.jz-color-dialog/);
+  assert.match(sharedPicker, /contextmenu/);
+  assert.match(sharedPicker, /Удалить цвет/);
+  assert.match(sharedPicker, /aria-keyshortcuts/);
 });
