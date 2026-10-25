@@ -340,9 +340,10 @@ foreach(['not-json','{}',json_encode(['choices'=>[['message'=>['content'=>'']]]]
 }
 $brokenProfiles=new FakeAiTransport([new AiHttpResponse(200,'{}'),new AiHttpResponse(200,'{}')]);
 try{(new Juzimder\ProfileFailoverProvider($profileEntries,$brokenProfiles))->completeJson('system','prompt',['type'=>'object'],'broken_all');throw new RuntimeException('Expected failure');}catch(AiProviderFailure $failure){aiCheck($failure->category==='invalid_response'&&count($brokenProfiles->calls)===2,'All malformed profiles fail closed without cycling');}
-$strictTransport=new FakeAiTransport([new AiHttpResponse(400,'{}')]);
-aiRejects(fn()=>(new Juzimder\ProfileFailoverProvider($profileEntries,$strictTransport))->completeJson('system','prompt',['type'=>'object'],'profile_test'),'Non-transient request errors do not rotate profiles');
-aiCheck(count($strictTransport->calls)===1,'No extra billable calls for a non-transient request error');
+$strictTransport=new FakeAiTransport([new AiHttpResponse(400,'{}'),new AiHttpResponse(200,$successBody)]);
+$strictResult=(new Juzimder\ProfileFailoverProvider($profileEntries,$strictTransport))->completeJson('system','prompt',['type'=>'object'],'profile_test');
+aiCheck($strictResult['profileName']==='Backup'&&count($strictTransport->calls)===2,'A provider-level model rejection rotates once to the next saved profile');
+aiCheck(in_array('Authorization: Bearer sk-backup-test',$strictTransport->calls[1]['headers'],true),'Provider rejection failover uses the next profile own key');
 
 $networkTransport=new FakeAiTransport([new RuntimeException('timeout'),new AiHttpResponse(200,$successBody)]);
 $networkResult=(new Juzimder\ProfileFailoverProvider($profileEntries,$networkTransport))->completeJson('system','prompt',['type'=>'object'],'network_profile');
