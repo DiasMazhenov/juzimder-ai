@@ -60,6 +60,7 @@ export async function openZeroEditor({
 }) {
   let project = await api(`/projects/${projectId}`),
     data,
+    aiCandidateData = null,
     baseData,
     version = project.version,
     mode = "desktop",
@@ -126,7 +127,7 @@ export async function openZeroEditor({
     )
     .join(
       "",
-    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><menu id="zero-context" hidden>${[
+    )}<button data-action="fit" aria-label="Вписать" title="Вписать">${tablerIcon("layout-grid")}<span>Вписать</span></button><span id="zero-status" role="status">Ревизия ${version}</span><button data-action="rebase" hidden>Проверить конфликт</button><button data-action="export" aria-label="Скачать JSON" title="Скачать JSON">${tablerIcon("download")}<span>Скачать JSON</span></button></footer><dialog id="zero-assets"><header><h2>Библиотека сайта</h2><button data-action="assets-close">Закрыть</button></header><label class="zero-upload">Загрузить с компьютера<input id="zero-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><input id="zero-asset-search" placeholder="Найти фото"><div class="zero-asset-list"></div><p id="zero-asset-status" role="status"></p></dialog><dialog id="zero-ai-prompt"><header><h2>AI-композиция</h2><button type="button" data-action="ai-prompt-close" aria-label="Закрыть">${tablerIcon("x")}</button></header><p>Опишите задачу и визуальную идею. AI подготовит редактируемые слои и при уместности подберёт фото из Wikimedia Commons.</p><label>Описание<textarea id="zero-ai-prompt-text" rows="5" maxlength="2000" placeholder="Например: первый экран клиники с заголовком слева, фотографией справа и кнопкой записи"></textarea></label><p class="zero-help">Сначала появится предпросмотр. До нажатия «Применить вариант» текущая композиция не меняется. Отмену после применения можно сделать через Undo.</p><p id="zero-ai-prompt-status" role="status"></p><button type="button" class="primary" data-action="ai-generate">${tablerIcon("sparkles")} Сгенерировать вариант</button></dialog><dialog id="zero-ai-candidate"><header><h2>Предпросмотр AI-композиции</h2><button type="button" data-action="ai-candidate-cancel" aria-label="Закрыть">${tablerIcon("x")}</button></header><div id="zero-ai-preview"></div><p id="zero-ai-candidate-status" role="status"></p><div class="zero-ai-candidate-actions"><button type="button" data-action="ai-candidate-cancel">Отменить</button><button type="button" class="primary" data-action="ai-candidate-apply">Применить вариант</button></div></dialog><menu id="zero-context" hidden>${[
     ["copy", "Копировать"],
     ["paste", "Вставить"],
     ["duplicate", "Дублировать"],
@@ -1177,9 +1178,95 @@ export async function openZeroEditor({
     }
     changed();
   }
+  let aiCandidateBaseVersion = null;
+  function openZeroAiPrompt() {
+    closeElementMenu();
+    if (!preview) {
+      $("#zero-ai-prompt-text").value = "";
+      $("#zero-ai-prompt-status").textContent = "";
+      $("#zero-ai-prompt").showModal();
+      $("#zero-ai-prompt-text").focus();
+    }
+  }
+  async function generateZeroAiProposal() {
+    const prompt = $("#zero-ai-prompt-text").value.trim(),
+      submit = $('[data-action="ai-generate"]'),
+      message = $("#zero-ai-prompt-status");
+    if (!prompt) {
+      message.textContent = "Опишите композицию, чтобы продолжить.";
+      return;
+    }
+    submit.disabled = true;
+    message.textContent = "Сохраняю текущую версию и готовлю предложение…";
+    try {
+      flushField();
+      if (dirty) await save();
+      if (dirty || conflict) throw new Error("Сначала разрешите сохранение текущих изменений.");
+      const baseVersion = version,
+        proposal = await api(`/projects/${projectId}/ai/zero-proposal`, "POST", {
+          prompt,
+          pageId,
+          blockId,
+          version: baseVersion,
+        });
+      if (proposal.baseVersion !== version)
+        throw new Error("Версия проекта успела измениться. Запросите новый вариант.");
+      if (!Array.isArray(proposal.elements) || proposal.elements.length < 2)
+        throw new Error("AI не подготовил достаточно безопасных элементов.");
+      aiCandidateData = copy(data);
+      aiCandidateData.elements = proposal.elements;
+      aiCandidateBaseVersion = proposal.baseVersion;
+      const stage = $("#zero-ai-preview"),
+        candidateStatus = $("#zero-ai-candidate-status");
+      stage.innerHTML = renderZero(aiCandidateData, blockId, "desktop");
+      candidateStatus.textContent = proposal.metadata?.photoSelection === "completed"
+        ? "Подобраны открытые фото с указанием автора и лицензии. Предложение не сохранено."
+        : "Фото из Commons не подобраны; предложение не сохранено.";
+      $("#zero-ai-prompt").close();
+      $("#zero-ai-candidate").showModal();
+      requestAnimationFrame(() => {
+        const board = aiCandidateData?.artboards?.desktop,
+          section = stage.firstElementChild;
+        if (!board || !section) return;
+        const scale = Math.min(0.72, Math.max(0.2, (stage.clientWidth - 16) / board.width));
+        section.style.transformOrigin = "top left";
+        section.style.transform = `scale(${scale})`;
+        stage.style.height = `${board.height * scale}px`;
+      });
+    } catch (error) {
+      message.textContent = error.message || "Не удалось подготовить предложение.";
+    } finally {
+      submit.disabled = false;
+    }
+  }
   async function action(key) {
     flushField();
     $("#zero-context").hidden = true;
+    if (key === "ai-zero") return openZeroAiPrompt();
+    if (key === "ai-prompt-close") {
+      $("#zero-ai-prompt").close();
+      return;
+    }
+    if (key === "ai-generate") return generateZeroAiProposal();
+    if (key === "ai-candidate-cancel") {
+      $("#zero-ai-candidate").close();
+      aiCandidateData = null;
+      aiCandidateBaseVersion = null;
+      return;
+    }
+    if (key === "ai-candidate-apply") {
+      if (!aiCandidateData || aiCandidateBaseVersion !== version || conflict) {
+        status("Версия изменилась. Закройте предложение и запросите новый вариант.");
+        return;
+      }
+      data = aiCandidateData;
+      aiCandidateData = null;
+      aiCandidateBaseVersion = null;
+      selection.clear();
+      $("#zero-ai-candidate").close();
+      changed();
+      return;
+    }
     if (key === "breakpoints") {
       closeElementMenu();
       if (breakpointDraft) {
@@ -1580,6 +1667,26 @@ export async function openZeroEditor({
       } else if (input.dataset.code) {
         i.element.code ??= { html: "", css: "", js: "" };
         i.element.code[input.dataset.code] = input.value;
+      } else if (input.dataset.animation) {
+        const key = input.dataset.animation;
+        if (key === "effect") {
+          if (input.value === "none") delete i.element.animation;
+          else if (["fade", "move", "scale"].includes(input.value))
+            i.element.animation = {
+              effect: input.value,
+              duration: i.element.animation?.duration ?? 700,
+              delay: i.element.animation?.delay ?? 0,
+              easing: i.element.animation?.easing ?? "ease",
+            };
+        } else if (i.element.animation && ["duration", "delay", "easing"].includes(key)) {
+          const value = key === "easing" ? input.value : Number(input.value);
+          if (key === "duration" && Number.isInteger(value) && value >= 100 && value <= 3000)
+            i.element.animation.duration = value;
+          else if (key === "delay" && Number.isInteger(value) && value >= 0 && value <= 5000)
+            i.element.animation.delay = value;
+          else if (key === "easing" && ["linear", "ease", "ease-in", "ease-out", "ease-in-out"].includes(value))
+            i.element.animation.easing = value;
+        }
       } else if (input.dataset.formField && i.element.type === "form") {
         const field = i.element.formFields?.find(
           (candidate) => candidate.id === input.dataset.formField,
@@ -1669,6 +1776,8 @@ export async function openZeroEditor({
   }
   app.addEventListener("change", (event) => {
     if (event.target.matches("[data-breakpoint-width]")) return;
+    if (!event.target.closest("#zero-inspector") && event.target.id !== "zero-zoom")
+      return;
     if (
       event.target.dataset.formProp === "label" &&
       !event.target.value.trim()
@@ -1690,6 +1799,7 @@ export async function openZeroEditor({
       return;
     const key =
       event.target.dataset.key ||
+      (event.target.dataset.animation ? `animation:${event.target.dataset.animation}` : "") ||
       event.target.dataset.element ||
       (event.target.dataset.formField
         ? `form-field:${event.target.dataset.formField}:${event.target.dataset.formProp}`

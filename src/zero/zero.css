@@ -368,6 +368,20 @@
   box-shadow: 0 14px 38px #0008;
   scrollbar-width: thin;
 }
+.zero-element-ai {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  margin-bottom: 8px;
+  text-align: left;
+  background: var(--jz-ui-hover, #303a3f) !important;
+  border-color: var(--jz-ui-accent-secondary, #61892f) !important;
+}
+.zero-element-ai .zero-element-icon {
+  display: inline-flex;
+  color: var(--jz-ui-accent, #86c232);
+}
 .zero-element-group {
   display: grid;
   gap: 2px;
@@ -890,6 +904,27 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.zero-app #zero-ai-prompt textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.zero-app #zero-ai-preview {
+  width: 100%;
+  min-height: 80px;
+  max-height: 58vh;
+  margin: 12px 0;
+  overflow: auto;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--jz-ui-bg, #14181b);
+  border-radius: 8px;
+}
+.zero-app .zero-ai-candidate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 .zero-app .zero-asset-list {
   display: flex;

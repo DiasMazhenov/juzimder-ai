@@ -7,6 +7,7 @@ require_once __DIR__ . '/AiCredentials.php';
 require_once __DIR__ . '/AiSkills.php';
 require_once __DIR__ . '/AiGenerationJobs.php';
 require_once __DIR__ . '/SkillAnalyzer.php';
+require_once __DIR__ . '/AiZeroComposer.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
@@ -328,6 +329,22 @@ try {
         } catch (Juzimder\AiProviderFailure $failure) {
             throw new Problem(502,$failure->userMessage());
         }
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/zero-proposal$~D', $path, $zeroAiMatch) && $method === 'POST') {
+        if(array_diff(array_keys($body),['prompt','pageId','blockId','version'])||count($body)!==4||!is_int($body['version']??null)||$body['version']<0)throw new Problem(422,'Передайте описание, страницу, Zero Block и текущую версию проекта.');
+        $prompt=$body['prompt'];$pageId=$body['pageId'];$blockId=$body['blockId'];
+        if(!is_string($prompt)||trim($prompt)===''||mb_strlen(trim($prompt),'UTF-8')>2000||!is_string($pageId)||$pageId===''||strlen($pageId)>120||!is_string($blockId)||$blockId===''||strlen($blockId)>120)throw new Problem(422,'Проверьте описание композиции и выбранный Zero Block.');
+        $projectId=$zeroAiMatch[1];$project=$store->owned($projectId,$user);
+        if($project['version']!==$body['version'])throw new Problem(409,'Версия проекта изменилась. Обновите Zero Editor и запросите композицию заново.');
+        $found=[];
+        foreach($project['document']->data->pages as $page)if(($page->id??null)===$pageId){$walk=function($node)use(&$walk,&$found,$blockId){if(($node->attributes->id??null)===$blockId){if(($node->type??'')!=='zero-block'||!isset($node->zeroData))throw new Problem(422,'Выбранный компонент не является Zero Block.');$found[]=$node->zeroData;}foreach($node->components??[] as $child)$walk($child);};$walk($page->frames[0]->component);}
+        if(count($found)!==1)throw new Problem(count($found)?409:404,'Zero Block не найден однозначно на выбранной странице.');
+        $credentials=new Juzimder\AiCredentialVault($store);$settings=$credentials->failoverSettings($projectId,$user);if(!$settings)throw new Problem(503,'AI-провайдер не настроен на сервере.');
+        $now=time();$storedRequests=$_SESSION['ai_requests']??[];if(!is_array($storedRequests))$storedRequests=[];$requests=array_values(array_filter($storedRequests,static fn($at)=>is_int($at)&&$at>$now-60));if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');$requests[]=$now;$_SESSION['ai_requests']=$requests;
+        set_time_limit(150);
+        try{$proposal=Juzimder\AiZeroComposer::create($prompt,$found[0],new Juzimder\ProfileFailoverProvider($settings));$latest=$store->owned($projectId,$user);if($latest['version']!==$project['version'])throw new Problem(409,'Пока AI готовил композицию, версия проекта изменилась. Запросите новый вариант.');$proposal['baseVersion']=$project['version'];result($proposal);}
+        catch(Juzimder\AiProviderFailure $failure){throw new Problem(502,$failure->userMessage());}
+        catch(InvalidArgumentException $failure){throw new Problem(422,$failure->getMessage());}
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/ai/edit-component$~D', $path, $aiEditMatch) && $method === 'POST') {
         if (array_diff(array_keys($body), ['prompt','pageId','componentPath','componentId','version']) || count($body) !== 5 || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Передайте описание, страницу, путь компонента и текущую версию проекта.');

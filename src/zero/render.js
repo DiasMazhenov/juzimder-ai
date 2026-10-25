@@ -111,7 +111,8 @@ export function renderZero(
 ) {
   const scope = "jz-zero-" + String(blockId).replace(/[^a-zA-Z0-9_-]/g, "");
   const modes = breakpointEntries(data).map(([id]) => id),
-    sourceModes = [...modes].reverse().filter((mode) => mode !== "desktop");
+    sourceModes = [...modes].reverse().filter((mode) => mode !== "desktop"),
+    animationEffects = new Set();
   let css =
     `.${scope}{position:relative!important;display:block!important;width:${activeMode ? `${data.artboards[activeMode].width}px` : "100%"}!important;box-sizing:border-box;isolation:isolate}.` +
     scope +
@@ -176,6 +177,31 @@ export function renderZero(
               autoScale && el.type === "button"
                 ? `padding:${scaledGridLength(12, board, true)} ${scaledGridLength(16, board, true)};`
                 : "";
+          let animationStyle = "";
+          const animation = el.animation,
+            validAnimation =
+              animation &&
+              (!activeMode || runScripts) &&
+              ["fade", "move", "scale"].includes(animation.effect) &&
+              Number.isInteger(animation.duration) &&
+              animation.duration >= 100 &&
+              animation.duration <= 3000 &&
+              Number.isInteger(animation.delay) &&
+              animation.delay >= 0 &&
+              animation.delay <= 5000 &&
+              ["linear", "ease", "ease-in", "ease-out", "ease-in-out"].includes(animation.easing);
+          if (validAnimation) {
+            if (!animationEffects.has(animation.effect)) {
+              animationEffects.add(animation.effect);
+              const frames = {
+                fade: "from{opacity:0}to{opacity:var(--jz-zero-end-opacity,1)}",
+                move: "from{opacity:0;translate:0 16px}to{opacity:var(--jz-zero-end-opacity,1);translate:0 0}",
+                scale: "from{opacity:0;scale:.92}to{opacity:var(--jz-zero-end-opacity,1);scale:1}",
+              }[animation.effect];
+              css += `@keyframes ${scope}-${animation.effect}{${frames}}`;
+            }
+            animationStyle = `--jz-zero-end-opacity:${Number(s.opacity ?? 1)};animation:${scope}-${animation.effect} ${animation.duration}ms ${animation.easing} ${animation.delay}ms both;`;
+          }
           if (el.type === "gallery") {
             const options = el.galleryOptions || { columns: 3, gap: 16, objectFit: "cover" };
             const columns = Math.min(options.columns, Math.max(1, el.galleryItems?.length || 1), board.width <= 480 ? 1 : board.width <= 820 ? 2 : options.columns);
@@ -186,7 +212,7 @@ export function renderZero(
           }
           css += wrap(
             mode,
-              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
+              `${sel}{${geometryCSS(e.geometry, board, nested, autoScale)}${appearance}${buttonPadding}${animationStyle}z-index:${index + 1};display:${e.visible ? (el.type === "button" ? "flex" : el.type === "tooltip" ? "grid" : el.type === "vector" ? "flex" : "block") : "none"};${el.type === "ellipse" ? "border-radius:50%;" : ""}${el.type === "image" && !s.objectFit ? "object-fit:cover;" : ""}${el.type === "tooltip" ? "overflow:visible;" : ""}${el.type === "video" ? "overflow:hidden;" : ""}}${s.hoverFill || s.hoverColor ? `${sel}:hover{${s.hoverFill ? `background-color:${s.hoverFill};` : ""}${s.hoverColor ? `color:${s.hoverColor};` : ""}}` : ""}`,
           );
         }
         const childGrid = Object.fromEntries(
@@ -228,5 +254,7 @@ export function renderZero(
       })
       .join("");
   const html = walk(data.elements);
+  if (animationEffects.size)
+    css += `@media(prefers-reduced-motion:reduce){.${scope} .jz-zero-element{animation:none!important;translate:none!important;scale:none!important}}`;
   return `<section class="jz-zero-block ${scope}" data-zero-id="${escapeHTML(blockId)}"><style>${css}</style>${html}</section>`;
 }

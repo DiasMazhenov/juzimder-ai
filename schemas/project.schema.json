@@ -390,6 +390,17 @@
         "locked": {
           "type": "boolean"
         },
+        "animation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "effect": { "enum": ["fade", "move", "scale"] },
+            "duration": { "type": "integer", "minimum": 100, "maximum": 3000 },
+            "delay": { "type": "integer", "minimum": 0, "maximum": 5000 },
+            "easing": { "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"] }
+          },
+          "required": ["effect", "duration", "delay", "easing"]
+        },
         "content": {
           "type": "string",
           "maxLength": 10000

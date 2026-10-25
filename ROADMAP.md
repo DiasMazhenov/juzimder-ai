@@ -1,5 +1,11 @@
 # План Juzimder AI
 
+- [x] 00.00.144: AutoScale сверён на 19 viewport ширинах/ориентациях; saved preview, ZIP и публикация дают согласованную геометрию, горизонтального overflow нет. ZIP прошёл integrity check, публикация обновлена до v7/revision 303. Качество существующей QA-композиции на мобильном не принято из-за перекрытия объектов.
+- [x] 00.00.144: Автоматические Z6 проверки покрывают лимит 300 элементов и конкурирующие PHP CAS-сохранения 200/409. Физическое мобильное устройство и полная ручная browser conflict/performance матрица остаются открыты.
+- [x] 00.00.144: Реализованы безопасные Fade/Move/Scale CSS-анимации с серверной allowlist-валидацией и `prefers-reduced-motion`; в Zero Editor они запускаются только в режиме Preview.
+- [x] 00.00.144: Реализован Zero AI proposal через сохранённый AI-профиль: типизированные абсолютные элементы, до двух фото Wikimedia Commons с автором/лицензией, отдельный предпросмотр и явное применение через существующие history/autosave/CAS.
+- [ ] Live Codex Browser/provider acceptance AI proposal → Apply → Undo → Reload: после schema/token budget сокращения короткий запрос вернул предпросмотр, но обычный текст был с тёмной непрозрачной заливкой; предложение отменено и revision 303 не изменён. Стиль прозрачного текста/контраста и изоляция prompt change-события исправлены и покрыты тестами. Следующая live-попытка завершилась временной недоступностью OpenRouter; исправленный preview, Apply/Undo/Reload и фото-проверка пока не приняты.
+
 Обновлено 25.10.2026. Галочка означает реализованное и проверенное поведение, а не обещание полного MVP.
 
 - [x] 00.00.143: В Codex Browser без изменения Project Data проверены переходы Desktop 1200 ↔ Mobile 360; выступающий за границу артборда элемент виден в Zero Editor. Сохранённый HTML Preview и опубликованная страница Zero Engine QA (проектная публикация v5, ревизия 296) визуально совпали. Полная AutoScale матрица на разных ориентациях/ширинах и custom breakpoint остаётся открытой. Zero Editor вкладка с несохранёнными правками не перезагружалась (вкладка показывает 00.00.140).
@@ -111,11 +117,11 @@
 - [x] 00.00.132 Browser QA follow-up: using the existing two tabs, changed page SEO separately from a stale Zero Editor. The stale save retained local X=101; safe rebase kept the SEO edit and saved revision 256. Cleared the temporary SEO value at 257, restored line X=100 through the same safe rebase path at revision 258, and confirmed it after reload. Viewport checks at 360, 390, 480, 640, 768, 980, 1200, and 1440 px found no horizontal overflow of the editor document; Mobile artboard selection worked at 390 px. The fixture still contains an off-artboard mobile line/link. Publication was not changed. Overlapping remote Zero edits and visual ZIP/public acceptance remain open.
 - [x] Интеграция в существующие saved preview, ZIP и public snapshots; standalone scoped HTML/CSS без JS runtime. Автоматические API/export проверки.
 - [x] Autoscale в сохранённом HTML preview: при viewport 1228 → 1440 px высота Desktop-секции масштабировалась 1023.33 → 1200 px и Grid-линия 496.55 → 582.27 px; Window Container сохранил ширину 1200 px. `fixed` восстановлен, reload подтвердил исходные 1000 px / 485.23 px в revision 225.
-- [ ] Полная визуальная матрица Autoscale для ориентаций, ширин и каждого breakpoint.
-- [ ] Ручная визуальная QA ZIP-экспорта и публикации с включённым Autoscale.
-- [ ] Z6: визуальная проверка конфликтов, performance на 300 элементах и физическом мобильном устройстве.
+- [x] 00.00.144: AutoScale preview/public геометрия совпадает на 19 ширинах/ориентациях; ZIP integrity и стили проверены. Мобильная композиция QA-данных отдельно не принята из-за перекрытия.
+- [x] 00.00.144: Автотесты проверяют лимит 300 элементов и CAS race 200/409. Ручная визуальная conflict матрица и browser performance profile на 300 слоях остаются открыты.
+- [ ] Z6: ручная визуальная проверка конфликтов, browser interaction performance на 300 элементах и работа на физическом мобильном устройстве.
 - [x] Z6 revision restore and conflict reload keep the active page selected when it exists; browser acceptance on the dedicated Zero QA page.
-- [ ] Анимации и Zero AI generation после приёмки геометрии/сохранения/публикации. Контракт и критерии: docs/ZERO_BLOCK.md.
+- [x] 00.00.144: базовые Zero-анимации и AI proposal UI/endpoint реализованы; live acceptance отдельно остаётся открыта.
 
 Предыдущее ограничение «только архитектура после остальных P0/P1» заменено прямым новым требованием владельца. Для обычных секций Flex/Grid сохраняются; внутри Zero расположение исключительно absolute.
 

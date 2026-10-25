@@ -694,6 +694,14 @@ test("Project Data schema carries one strict zeroData contract and rejects secon
       },
     };
   assert.equal(validate(doc), true, JSON.stringify(validate.errors));
+  const animationDocument = structuredClone(doc),
+    animatedElement = animationDocument.data.pages[0].frames[0].component.components[0].zeroData.elements[0];
+  animatedElement.animation = { effect: "fade", duration: 700, delay: 100, easing: "ease-out" };
+  assert.equal(validate(animationDocument), true, JSON.stringify(validate.errors));
+  animatedElement.animation.effect = "url(javascript:alert(1))";
+  assert.equal(validate(animationDocument), false);
+  animatedElement.animation = { effect: "fade", duration: 700, delay: 100, easing: "ease-out", script: "alert(1)" };
+  assert.equal(validate(animationDocument), false);
   const htmlDocument = structuredClone(doc),
     htmlElement = structuredClone(fixture.elements[0]);
   htmlElement.id = "ze-schema-html";
@@ -1084,5 +1092,40 @@ test("layer move supports sibling reordering and rejects cycles, locked ancestor
   assert.throws(
     () => moveLayer(d, sourceGroup.id, parent.id, 0),
     /восьми уровней/,
+  );
+});
+
+test("basic Zero animations are allowlisted, scoped, preview-only in editor, and reduced-motion aware", () => {
+  const data = structuredClone(fixture),
+    element = data.elements[0];
+  element.animation = { effect: "move", duration: 900, delay: 200, easing: "ease-out" };
+  const published = renderZero(data, "animation-safe"),
+    editor = renderZero(data, "animation-safe", "desktop"),
+    preview = renderZero(data, "animation-safe", "desktop", { runScripts: true });
+  assert.match(published, /@keyframes jz-zero-animation-safe-move\{from\{opacity:0;translate:0 16px\}to\{opacity:var\(--jz-zero-end-opacity,1\);translate:0 0\}\}/);
+  assert.match(published, /animation:jz-zero-animation-safe-move 900ms ease-out 200ms both/);
+  assert.match(published, /@media\(prefers-reduced-motion:reduce\).*animation:none!important/s);
+  assert.doesNotMatch(editor, /animation:jz-zero-animation-safe-move/);
+  assert.match(preview, /animation:jz-zero-animation-safe-move 900ms ease-out 200ms both/);
+  const inspector = renderInspector({
+    items: [{ element, parent: null }],
+    mode: "desktop",
+    board: data.artboards.desktop,
+    project: {},
+  });
+  assert.match(inspector, /<h2>Анимация<\/h2>/);
+  assert.match(inspector, /data-animation="effect"/);
+  assert.match(inspector, /data-animation="duration" min="100" max="3000"/);
+  assert.match(inspector, /сокращения движения/);
+});
+
+test("Zero AI dialog changes are isolated from inspector edits", () => {
+  const editor = readFileSync(
+    new URL("../src/zero/editor/app.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    editor,
+    /if \(!event\.target\.closest\("#zero-inspector"\) && event\.target\.id !== "zero-zoom"\)\s+return;/,
   );
 });
