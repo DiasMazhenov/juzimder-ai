@@ -17,6 +17,9 @@ selectionCheck($result['design']['photoSelection']['assignments']===['hero'=>'co
 selectionCheck($result['design']['photoSelection']['photos']===[$photo],'Persist selected photo source author and licence');
 $result=AiPhotoSelection::enrich($base,new PhotoProvider('invalid'),$search);
 selectionCheck($result['design']['photoSelection']['status']==='unavailable'&&$result['design']['photoSelection']['photos']===[],'Selection failure preserves design without random photos');
+$automatic=['design'=>['imageSlots'=>[['id'=>'hero-auto','query'=>'dental clinic','automatic'=>true]]]];
+$result=AiPhotoSelection::enrich($automatic,new PhotoProvider('invalid'),static fn()=>[$photo]);
+selectionCheck($result['design']['photoSelection']['status']==='completed'&&$result['design']['photoSelection']['assignments']===['hero-auto'=>'commons:1']&&$result['design']['photoSelection']['photos']===[$photo],'Automatic Hero photography uses the top verified Commons result when model ranking fails');
 $result=AiPhotoSelection::enrich($base,new PhotoProvider('{"selections":[{"slotId":"hero","photoId":""}]}'),$search);
 selectionCheck($result['design']['photoSelection']['assignments']===[],'Model can reject all unsuitable candidates');
 

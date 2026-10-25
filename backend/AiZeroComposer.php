@@ -94,31 +94,37 @@ final class AiZeroComposer {
         $decoded['elements']=self::promoteExplicitButtonLabels($decoded['elements'],$quotedRequirements);
         $decoded['elements']=self::normalizeIconTextElements($decoded['elements']);
         $decoded['elements']=self::removeDuplicateTextLayers($decoded['elements']);
-
-        $slots=[];
-        foreach($decoded['elements'] as $index=>$item){
-            if(!is_array($item)||($item['type']??null)!=='image')continue;
-            $query=trim(is_string($item['photoQuery']??null)?$item['photoQuery']:'');
-            if($query!==''&&count($slots)<2)$slots[]=['id'=>'slot-'.$index,'query'=>mb_substr($query,0,100)];
-        }
-        $photoResult=['design'=>['imageSlots'=>$slots]];
-        if($slots)$photoResult=AiPhotoSelection::enrich($photoResult,$provider,$photoSearch);
-        $photos=[];foreach($photoResult['design']['photoSelection']['photos']??[] as $photo)if(is_array($photo)&&is_string($photo['id']??null))$photos[$photo['id']]=$photo;
-        if($photoRequired&&!$photos)throw new AiProviderFailure('An explicitly requested open-source photo could not be selected.',false,'photo_unavailable');
-        $assignments=$photoResult['design']['photoSelection']['assignments']??[];
         $decoded['elements']=self::withoutUntrustedPhotoCredits($decoded['elements']);
         $decoded['elements']=self::withoutDecorativeBadgeIcons($decoded['elements']);
         $generatedCardSurfaceCount=0;
         $cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);
         if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
+        $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
+        $autoPhotoAdded=false;$automaticPhotoIndex=null;
+        if($autoPhotoQuery!==null&&!self::hasImageElement($decoded['elements'])&&count($decoded['elements'])<=14){
+            $autoPhoto=self::automaticHeroPhotoElement($autoPhotoQuery,(int)$board->width,(int)$board->height);
+            if($autoPhoto!==null){$automaticPhotoIndex=count($decoded['elements']);$decoded['elements'][]=$autoPhoto;self::fitHeroCopyBesidePhoto($decoded['elements'],$autoPhoto);$autoPhotoAdded=true;}
+        }
         self::normalizeLargeHeadingGeometry($decoded['elements'],(int)$board->width);
         $badgeIndex=self::promotePillBadge($decoded['elements'],(int)$board->width);
         if($badgeIndex===null)$badgeIndex=self::insertPillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor']);
+        if($generatedCardSurfaceCount===0&&($autoPhotoAdded||self::isHeroIntent($prompt)))self::normalizeHeroTextFlow($decoded['elements'],$badgeIndex,(int)$board->height);
         self::normalizeMediaCornerRadius($decoded['elements']);
         $mobileStack=$generatedCardSurfaceCount===3?self::mobileGeneratedCardStack($decoded['elements'],$zeroData,$badgeIndex,$generatedCardSurfaceCount):[];
         if(!$mobileStack)$mobileStack=self::mobilePhotoStack($decoded['elements'],$zeroData,$badgeIndex);
         if(!$mobileStack)$mobileStack=self::mobileCardStack($decoded['elements'],$zeroData,$badgeIndex);
+        $slots=[];
+        foreach($decoded['elements'] as $index=>$item){
+            if(!is_array($item)||($item['type']??null)!=='image')continue;
+            $query=trim(is_string($item['photoQuery']??null)?$item['photoQuery']:'');
+            if($query!==''&&count($slots)<2){$slots[]=['id'=>'slot-'.$index,'query'=>mb_substr($query,0,100),'fallbackAllowed'=>!self::explicitlyForbidsPhoto($prompt)];if($autoPhotoAdded&&$index===$automaticPhotoIndex)$slots[array_key_last($slots)]['automatic']=true;}
+        }
+        $photoResult=['design'=>['imageSlots'=>$slots]];
+        if($slots)$photoResult=AiPhotoSelection::enrich($photoResult,$provider,$photoSearch);
+        $photos=[];foreach($photoResult['design']['photoSelection']['photos']??[] as $photo)if(is_array($photo)&&is_string($photo['id']??null))$photos[$photo['id']]=$photo;
+        if($photoRequired&&!$photos)throw new AiProviderFailure('An explicitly requested open-source photo could not be selected.',false,'photo_unavailable');
+        $assignments=$photoResult['design']['photoSelection']['assignments']??[];
         $elements=[];
         foreach($decoded['elements'] as $index=>$item){
             self::validateModelElement($item,(int)$board->width,(int)$board->height);
@@ -150,7 +156,7 @@ final class AiZeroComposer {
         $artboardBackground=['backgroundColor'=>$decoded['artboard']['backgroundColor'],'backgroundImageMode'=>$decoded['artboard']['backgroundImageMode']];
         $candidate=json_decode(json_encode($zeroData,JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);$candidate->elements=$elements;self::applyArtboardBackground($candidate,$artboardBackground);
         try{ZeroBlock::validate($candidate);}catch(\Throwable $failure){throw new AiProviderFailure('Zero composition failed the safe output validator.',false,'invalid_output','zero:'.$failure->getMessage());}
-        return ['elements'=>$elements,'artboardBackground'=>$artboardBackground,'baseVersion'=>null,'metadata'=>['provider'=>'openrouter','resolvedModel'=>$completion['model']??null,'resolvedProfileName'=>$completion['profileName']??null,'usage'=>$completion['usage']??['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],'photoSelection'=>$photoResult['design']['photoSelection']['status']??'no_matches']];
+        return ['elements'=>$elements,'artboardBackground'=>$artboardBackground,'baseVersion'=>null,'metadata'=>['provider'=>'openrouter','resolvedModel'=>$completion['model']??null,'resolvedProfileName'=>$completion['profileName']??null,'usage'=>$completion['usage']??['promptTokens'=>null,'completionTokens'=>null,'totalTokens'=>null,'costUsd'=>null],'photoSelection'=>$photoResult['design']['photoSelection']['status']??'no_matches','photoSlotCount'=>count($slots),'automaticHeroPhoto'=>$autoPhotoAdded]];
     }
 
     private static function normalizeArtboardDefaults(mixed $value,\stdClass $current): array {
@@ -209,6 +215,104 @@ final class AiZeroComposer {
             return true;
         }
         return false;
+    }
+    private static function explicitlyForbidsPhoto(string $prompt): bool {
+        return preg_match('/(?:\b(?:text[- ]only|typography[- ]only|no[- ](?:photo|image|picture)|without[- ](?:photo|image|picture))\b|\b(?:no|without|avoid)\s+(?:(?:any|extra|additional)\s+)?(?:photos?|images?|pictures?|photographs?)\b|\b(?:photos?|images?|pictures?|photographs?)\s+(?:are\s+)?(?:not\s+(?:needed|required|wanted|requested|necessary)|unnecessary)\b|(?:без|не\s+(?:нужно|нужны|требуется|требуются|добавляй|используй|включай))\s+(?:фото|фотограф\w*|изображен\w*|картин\w*)|(?:фото|фотограф\w*|изображен\w*|картин\w*)\s+не\s+(?:нужно|нужны|требуется|требуются|нужен|нужна))/iu',$prompt)===1;
+    }
+    private static function isHeroIntent(string $prompt): bool {
+        return preg_match('/(?:\bhero\b|\bfirst\s+screen\b|\babove\s+the\s+fold\b|\blanding\s+page\b|\bhome\s+page\b|перв(?:ый|ого)\s+экран|главн\w*\s+экран|обложк\w*\s+сайт|главн\w*\s+страниц\w*)/iu',$prompt)===1;
+    }
+    /** Add a contextual public photo only for a photographic first-screen subject and never against an explicit no-image brief. */
+    private static function automaticHeroPhotoQuery(string $prompt,array $items): ?string {
+        if(!self::isHeroIntent($prompt)||self::explicitlyForbidsPhoto($prompt)||self::hasImageElement($items))return null;
+        $largeHeading=false;$copyCount=0;$rectangleCount=0;
+        foreach($items as $item){
+            if(!is_array($item))continue;
+            $type=$item['type']??'';
+            if($type==='text'&&trim((string)($item['content']??''))!==''){
+                $copyCount++;
+                if((float)($item['fontSize']??0)>=36)$largeHeading=true;
+            }
+            if($type==='button')$copyCount++;
+            if($type==='rectangle')$rectangleCount++;
+        }
+        if(!$largeHeading||$copyCount<2||$rectangleCount>1)return null;
+        $subject=mb_strtolower($prompt,'UTF-8');
+        if(preg_match('/(?:стоматолог|зубн\w*\s+клиник|dental|dentist)/iu',$subject)===1)return 'dentist dental clinic patient consultation';
+        if(preg_match('/(?:клиник|медицин|врач|доктор|здоров|больниц|поликлиник|clinic|medical|doctor|healthcare|hospital)/iu',$subject)===1)return 'modern medical clinic healthcare professional';
+        if(preg_match('/(?:путешеств|туризм|отел|гостиниц|курорт|travel|tourism|hotel|resort)/iu',$subject)===1)return 'travel destination hotel landscape';
+        if(preg_match('/(?:ресторан|кафе|пекар|еда|кухн|restaurant|cafe|bakery|food|cuisine)/iu',$subject)===1)return 'restaurant fresh food dining';
+        if(preg_match('/(?:косметолог|салон\s+красот|уход\s+за\s+кож|beauty|skincare|spa)/iu',$subject)===1)return 'beauty skincare treatment professional';
+        if(preg_match('/(?:команд|сотрудник|специалист|team|staff|professionals)/iu',$subject)===1)return 'professional team portrait workplace';
+        if(preg_match('/(?:товар|продукт|product|e-?commerce|магазин|shop|store)/iu',$subject)===1)return 'consumer product close-up';
+        return null;
+    }
+    private static function automaticHeroPhotoElement(string $query,int $boardWidth,int $boardHeight): ?array {
+        if($boardWidth<760||$boardHeight<360)return null;
+        $margin=max(32,(int)round($boardWidth*.055));
+        $width=min((int)round($boardWidth*.405),$boardWidth-2*$margin-32);
+        $x=max($margin,$boardWidth-$margin-$width);
+        $y=max(32,(int)round($boardHeight*.12));
+        $height=min((int)round($boardHeight*.76),$boardHeight-$y-max(32,(int)round($boardHeight*.1)));
+        if($width<240||$height<180)return null;
+        return ['type'=>'image','name'=>'Hero photo','content'=>'','photoQuery'=>$query,'icon'=>'','x'=>$x,'y'=>$y,'width'=>$width,'height'=>$height,'fill'=>'#FFFFFF','color'=>'#222629','stroke'=>'transparent','radius'=>16,'fontSize'=>16,'fontWeight'=>400,'textAlign'=>'center'];
+    }
+    /** Keep the injected image in its own right column and constrain the copy column before calculating wrapped text height. */
+    private static function fitHeroCopyBesidePhoto(array &$items,array $image): void {
+        $photoX=(float)$image['x'];$gap=32;$leftMargin=max(32,(int)round((float)$image['x']*.08));
+        foreach($items as &$item){
+            if(!is_array($item)||!in_array($item['type']??null,['text','button'],true))continue;
+            $x=max(0,(float)($item['x']??0));
+            if($x>=$photoX-$gap)$x=$leftMargin;
+            $maxWidth=max(160,$photoX-$x-$gap);
+            $isBadge=$item['type']==='text'&&(float)($item['radius']??0)>=12&&(float)($item['height']??0)<=52;
+            $item['x']=$x;
+            $oldWidth=(float)($item['width']??$maxWidth);$targetWidth=$isBadge||$item['type']==='button'?$oldWidth:$maxWidth;
+            $item['width']=min($maxWidth,max($oldWidth,$targetWidth));
+        }
+        unset($item);
+    }
+    /** Size an AI title for wrapped lines, then push following copy and CTA down without reflowing unrelated layers. */
+    private static function normalizeHeroTextFlow(array &$items,?int $badgeIndex,int $boardHeight): void {
+        $headingIndex=null;
+        foreach($items as $index=>$item){
+            if(!is_array($item)||($item['type']??null)!=='text'||(float)($item['fontSize']??0)<36||trim((string)($item['content']??''))==='')continue;
+            if($headingIndex===null||(float)$item['fontSize']>(float)$items[$headingIndex]['fontSize']||((float)$item['fontSize']===(float)$items[$headingIndex]['fontSize']&&(float)$item['y']<(float)$items[$headingIndex]['y']))$headingIndex=$index;
+        }
+        if($headingIndex===null)return;
+        $heading=&$items[$headingIndex];$font=(float)$heading['fontSize'];$content=trim(preg_replace('/\s+/u',' ',(string)$heading['content'])??'');
+        $headingWidth=max(1,(float)$heading['width']);$lineCount=self::estimatedTextLines($content,$font,$headingWidth);
+        $heading['height']=max((float)$heading['height'],(int)ceil($lineCount*$font*1.22+6));
+        $headingX=(float)$heading['x'];$headingY=(float)$heading['y'];$headingRight=$headingX+(float)$heading['width'];$cursor=$headingY+(float)$heading['height']+18;
+        unset($heading);
+        $flow=[];$flowBottom=$headingY+(float)$items[$headingIndex]['height'];
+        foreach($items as $index=>$item){
+            if($index===$headingIndex||$index===$badgeIndex||!is_array($item)||!in_array($item['type']??null,['text','button'],true)||(float)($item['y']??0)<$headingY)continue;
+            $x=(float)($item['x']??0);$right=$x+(float)($item['width']??1);
+            if($right<$headingX-40||$x>$headingRight+80)continue;
+            $flow[]=$index;
+        }
+        usort($flow,static fn(int $a,int $b):int=>((float)$items[$a]['y']<=>(float)$items[$b]['y'])?:($a<=>$b));
+        foreach($flow as $index){
+            $item=&$items[$index];$font=max(8,(float)($item['fontSize']??16));$type=$item['type'];$isCompactSurface=$type==='button'||((float)($item['radius']??0)>=12&&(float)($item['height']??0)<=52);
+            $minimumHeight=$isCompactSurface?(float)$item['height']:(int)ceil(self::estimatedTextLines((string)($item['content']??''),$font,max(1,(float)$item['width']))*$font*1.24+4);
+            $item['height']=max((float)$item['height'],$minimumHeight);
+            $item['y']=max((float)$item['y'],$cursor);
+            $cursor=(float)$item['y']+(float)$item['height']+($type==='button'?20:12);
+            $flowBottom=max($flowBottom,(float)$item['y']+(float)$item['height']);
+            unset($item);
+        }
+        $top=$headingY;if($badgeIndex!==null&&isset($items[$badgeIndex])&&is_array($items[$badgeIndex]))$top=min($top,(float)$items[$badgeIndex]['y']);
+        $overflow=max(0.0,$flowBottom-($boardHeight-max(24,(int)round($boardHeight*.05))));$shift=min($overflow,max(0.0,$top-24));
+        if($shift>0){
+            $items[$headingIndex]['y']=max(24.0,(float)$items[$headingIndex]['y']-$shift);
+            foreach($flow as $index)$items[$index]['y']=max(24.0,(float)$items[$index]['y']-$shift);
+            if($badgeIndex!==null&&isset($items[$badgeIndex])&&is_array($items[$badgeIndex]))$items[$badgeIndex]['y']=max(24.0,(float)$items[$badgeIndex]['y']-$shift);
+        }
+    }
+    private static function estimatedTextLines(string $content,float $fontSize,float $width): int {
+        $content=trim(preg_replace('/\s+/u',' ',$content)??'');if($content==='')return 1;
+        return max(1,(int)ceil(mb_strlen($content,'UTF-8')*max(8,$fontSize)*.54/max(1,$width)));
     }
     private static function explicitQuotedRequirements(string $prompt): array {
         preg_match_all('/«([^»\r\n]{1,80})»|“([^”\r\n]{1,80})”|"([^"\r\n]{1,80})"/u',$prompt,$matches,PREG_SET_ORDER|PREG_OFFSET_CAPTURE);
@@ -335,8 +439,13 @@ final class AiZeroComposer {
     /** Keep generated large headings on a readable line length and size their boxes for any remaining wraps. */
     private static function normalizeLargeHeadingGeometry(array &$items,int $boardWidth): void {
         $margin=max(24,(int)round($boardWidth*.0667));
+        $primaryHeading=null;
+        foreach($items as $index=>$candidate){
+            if(!is_array($candidate)||($candidate['type']??null)!=='text'||(float)($candidate['fontSize']??0)<36||trim((string)($candidate['content']??''))==='')continue;
+            if($primaryHeading===null||(float)$candidate['fontSize']>(float)$items[$primaryHeading]['fontSize']||((float)$candidate['fontSize']===(float)$items[$primaryHeading]['fontSize']&&(float)$candidate['y']<(float)$items[$primaryHeading]['y']))$primaryHeading=$index;
+        }
         foreach($items as $index=>&$item){
-            if(!is_array($item)||($item['type']??null)!=='text'||(float)($item['fontSize']??0)<36||preg_match('/(?:heading|headline|title|hero|заголовок|заглавие)/iu',(string)($item['name']??''))!==1)continue;
+            if(!is_array($item)||($item['type']??null)!=='text'||(float)($item['fontSize']??0)<36||($index!==$primaryHeading&&preg_match('/(?:heading|headline|title|hero|заголовок|заглавие)/iu',(string)($item['name']??''))!==1))continue;
             $content=trim(preg_replace('/\s+/u',' ',(string)($item['content']??''))??'');if($content==='')continue;
             $x=max(0,(float)($item['x']??0));$y=max(0,(float)($item['y']??0));$font=max(8,(float)$item['fontSize']);$available=max(1,$boardWidth-$x-$margin);
             foreach($items as $otherIndex=>$other){

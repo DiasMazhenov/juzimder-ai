@@ -1291,9 +1291,23 @@ export async function openZeroEditor({
       applyAiArtboardBackground(aiCandidateData, proposal.artboardBackground);
       aiCandidateBaseVersion = proposal.baseVersion;
       const candidateStatus = $("#zero-ai-candidate-status");
-      candidateStatus.textContent = proposal.metadata?.photoSelection === "completed"
-        ? "Подобраны открытые фото с указанием автора и лицензии. Предложение не сохранено."
-        : "Фото из Commons не подобраны; предложение не сохранено.";
+      const photoStatus = proposal.metadata?.photoSelection;
+      if (photoStatus === "completed") {
+        candidateStatus.textContent =
+          "Подобраны открытые фото с указанием автора и лицензии. Предложение не сохранено.";
+      } else if (photoStatus === "unavailable") {
+        candidateStatus.textContent =
+          "Поиск Wikimedia Commons или подбор фото временно недоступен. Предложение не сохранено.";
+      } else if (proposal.metadata?.photoSlotCount > 0) {
+        candidateStatus.textContent =
+          "Подходящее фото из Wikimedia Commons не найдено. Предложение не сохранено.";
+      } else if (proposal.metadata?.automaticHeroPhoto) {
+        candidateStatus.textContent =
+          "Для Hero не найдено подходящее фото. Предложение не сохранено.";
+      } else {
+        candidateStatus.textContent =
+          "Для этой композиции фото не подбирались. Предложение не сохранено.";
+      }
       $("#zero-ai-prompt").close();
       $("#zero-ai-candidate").showModal();
       renderZeroAiCandidatePreview("desktop");

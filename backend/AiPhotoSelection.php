@@ -8,9 +8,10 @@ final class AiPhotoSelection {
     public static function enrich(array $result, StructuredAiProvider $provider, ?callable $search=null): array {
         $result['design']['photoSelection']=['status'=>'completed','photos'=>[],'assignments'=>[]];
         $search??=StockPhotos::search(...);
-        $slots=[];$allowed=[];$searchFailed=false;
+        $slots=[];$allowed=[];$fallbackSlots=[];$searchFailed=false;
         foreach(array_slice($result['design']['imageSlots']??[],0,8) as $slot){
             if(!is_string($slot['query']??null)||trim($slot['query'])==='')continue;
+            if((($slot['fallbackAllowed']??false)===true||($slot['automatic']??false)===true)&&is_string($slot['id']??null))$fallbackSlots[$slot['id']]=true;
             try{$photos=$search($slot['query']);}catch(\Throwable){$searchFailed=true;continue;}
             if(!$photos)continue;
             $slots[]=['slotId'=>$slot['id'],'subject'=>$slot['query'],'candidates'=>array_map(static fn($p)=>['id'=>$p['id'],'title'=>$p['name'],'description'=>$p['description']??''],$photos)];
@@ -32,6 +33,18 @@ final class AiPhotoSelection {
             if(!$result['design']['photoSelection']['photos'])$result['design']['photoSelection']['status']='no_matches';
             $result['metadata']['photoSelectionUsage']=$completion['usage']??null;
         }catch(\Throwable){$result['design']['photoSelection']=['status'=>'unavailable','photos'=>[],'assignments'=>[]];}
+        // Keep photo-led AI compositions useful when ranking times out or rejects every candidate.
+        // Commons results are relevance-ranked, license- and URL-validated; an explicit no-photo brief
+        // never sets fallbackAllowed and therefore cannot receive a fallback image.
+        foreach(array_keys($fallbackSlots) as $slotId){
+            if(isset($result['design']['photoSelection']['assignments'][$slotId])||empty($allowed[$slotId]))continue;
+            $photo=reset($allowed[$slotId]);
+            if(!is_array($photo)||!is_string($photo['id']??null))continue;
+            $result['design']['photoSelection']['assignments'][$slotId]=$photo['id'];
+            $result['design']['photoSelection']['photos'][$photo['id']]=$photo;
+        }
+        $result['design']['photoSelection']['photos']=array_values($result['design']['photoSelection']['photos']??[]);
+        if($result['design']['photoSelection']['photos'])$result['design']['photoSelection']['status']='completed';
         return $result;
     }
 }
