@@ -924,3 +924,7 @@ Browser QA на отдельной странице Zero Engine QA — 00.00.098
 00.00.231: Typed operations API получил `rename_component`: изменение `name` только целевого компонента по stable ID, с непустой строкой до 100 символов и запретом управляющих символов. `docs/DATA_MODEL.md` синхронизирован с уже реализованными операциями, включая дублирование и его remap ID/ссылок/CSS selectors. Общая универсализация typed operations остаётся открытой.
 
 Проверка 00.00.231: PHP operation unit tests, полный npm test, npm run build, backend PHP syntax и git diff --check; Browser UI acceptance для этого server API изменения не требуется.
+
+00.00.232: Typed operations API получил `update_attributes` для безопасного обновления и удаления разрешённых атрибутов (`null` удаляет поле). `attributes.id` неизменяем, чтобы не нарушать стабильную идентичность; весь документ повторно проходит актуальную серверную Document policy после операции.
+
+Проверка 00.00.232: PHP operation unit tests, полный npm test, npm run build, PHP syntax и git diff --check. Остаток roadmap-пункта универсализации typed operations остаётся открытым.

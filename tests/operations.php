@@ -39,6 +39,13 @@ $renamed = ProjectOperations::apply($fixture, [operationObject(['operation'=>'re
 operationCheck(operationNode($renamed, 'ieg3')->name === 'Новая карточка', 'Typed rename updates only the requested component name');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>'  '])]),422,'Typed rename rejects empty names');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>str_repeat('x',101)])]),422,'Typed rename enforces the 100 character limit');
+$attributesUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['title'=>'Записаться','target'=>'_blank','rel'=>'noopener']])]);
+operationCheck(operationNode($attributesUpdated, 'iwnjm')->attributes->title === 'Записаться', 'Typed attribute update changes only allowlisted attributes');
+$attributesCleared = ProjectOperations::apply($attributesUpdated, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['title'=>null]])]);
+operationCheck(!isset(operationNode($attributesCleared, 'iwnjm')->attributes->title), 'Typed attribute update removes fields with null');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['id'=>'changed']])]),422,'Typed attribute update cannot replace stable IDs');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['onclick'=>'alert(1)']])]),422,'Typed attribute update rejects executable attributes');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['href'=>'javascript:alert(1)']])]),422,'Typed attribute update validates URLs through the document policy');
 $textReplaced = ProjectOperations::apply($fixture, [operationObject(['operation'=>'replace_text','componentId'=>'ii57','content'=>'Сохранённый текст'])]);
 $selectedText = operationNode($textReplaced, 'ii57');
 operationCheck(!isset($selectedText->content) && ($selectedText->components[0]->content ?? null) === 'Сохранённый текст', 'Focused text replacement replaces nested GrapesJS text without changing the stable element');

@@ -130,6 +130,21 @@ final class ProjectOperations {
                 $component =& self::atPath($document, $location['path']);
                 $component->name = trim($operation->name);
                 return;
+            case 'update_attributes':
+                self::fields($operation, ['operation','componentId','attributes'], ['operation','componentId','attributes']);
+                if (!$operation->attributes instanceof \stdClass || get_object_vars($operation->attributes) === []) throw new Problem(422, 'Укажите атрибуты объектом.');
+                foreach (get_object_vars($operation->attributes) as $attribute => $value) {
+                    if (!in_array($attribute, self::ATTRIBUTE_FIELDS, true) || $attribute === 'id') throw new Problem(422, 'Атрибут не входит в разрешённый список или является стабильным ID.');
+                    if ($value !== null && (!is_string($value) || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value))) throw new Problem(422, 'Значение атрибута должно быть строкой до 2048 символов без управляющих символов; null удаляет атрибут.');
+                }
+                $location = self::findComponent($document, self::identifier($operation->componentId));
+                $component =& self::atPath($document, $location['path']);
+                if (!($component->attributes ?? null) instanceof \stdClass) $component->attributes = new \stdClass();
+                foreach (get_object_vars($operation->attributes) as $attribute => $value) {
+                    if ($value === null) unset($component->attributes->{$attribute});
+                    else $component->attributes->{$attribute} = $value;
+                }
+                return;
             case 'replace_text':
                 self::fields($operation, ['operation','componentId','content'], ['operation','componentId','content']);
                 if (!is_string($operation->content) || mb_strlen($operation->content, 'UTF-8') > 1000 || preg_match('/[<>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|https?:\/\/|www\./iu', $operation->content)) throw new Problem(422, 'Текст должен быть обычным текстом без разметки и URL.');
