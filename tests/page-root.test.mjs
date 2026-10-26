@@ -26,3 +26,16 @@ test('project page list exposes accessible multi-select and guarded bulk operati
   assert.match(source, /selected\.length >= pages\.length/);
   assert.match(source, /project\.version = result\.version/);
 });
+
+test('project Forms settings expose the private submission inbox and safe CSV export', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /\/projects\/\$\{id\}\/form-submissions`/);
+  assert.match(source, /id="form-submission-list"/);
+  assert.match(source, /id="forms-search"/);
+  assert.match(source, /id="forms-export"/);
+  assert.match(source, /data-delete-submission=/);
+  assert.match(source, /Удалить эту заявку\?/);
+  assert.ok(source.includes("text.replace(/\"/g,'\"\"')"), 'CSV fields escape embedded quotes');
+  assert.match(source, /if\(\/\^\[\\s\]\*\[=\+\\-@\]\/\.test\(text\)\)/);
+  assert.match(source, /Автоматическая доставка на email и CRM пока не подключена/);
+});
