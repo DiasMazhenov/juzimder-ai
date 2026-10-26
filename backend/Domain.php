@@ -354,7 +354,7 @@ final class Store {
         $validatedFiles = [];
         foreach ($files as $path => $contents) {
             $isMedia = is_string($path) && preg_match('~^media/([a-f0-9]{24})/([a-f0-9]{24})\.(jpg|png|gif|webp)$~D', $path, $mediaMatch);
-            if (!is_string($path) || (!preg_match('~^(?:index\.html|assets/site\.css|forms\.json|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) && !$isMedia) || !is_string($contents)) {
+            if (!is_string($path) || (!preg_match('~^(?:index\.html|404\.html|assets/site\.css|forms\.json|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) && !$isMedia) || !is_string($contents)) {
                 throw new Problem(422, 'Статический снимок содержит недопустимый файл.');
             }
             if ($isMedia) {

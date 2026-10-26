@@ -425,6 +425,7 @@ let about=await publicCall(project.id,'/o-nas/');assert.equal(about.status,200);
 let stylesheet=await publicCall(project.id,'/assets/site.css');assert.equal(stylesheet.status,200);assert.match(stylesheet.headers['content-type'],/text\/css/);
 let redirect=await publicCall(project.id,'/o-nas');assert.equal(redirect.status,308);assert.equal(redirect.headers.location,`${result.data.publicUrl}o-nas/`);
 assert.equal((await publicCall(project.id,'/README.txt')).status,404,'Only rendered site routes and shared CSS are public');
+const unknownPublicRoute=await publicCall(project.id,'/missing-page/');assert.equal(unknownPublicRoute.status,404,'Unknown published paths keep the real HTTP 404 status');assert.match(unknownPublicRoute.body,/Страница не найдена/);assert.match(unknownPublicRoute.body,/href="\/">Вернуться на главную<\/a>/,'Unknown published paths render the project 404 page with a home link');
 assert.equal((await publicCall(project.id,'/api/session')).status,404,'The public origin does not expose the editor API');
 assert.equal((await publicCall(project.id,'/','POST')).status,405,'The public origin is read-only');
 assert.equal((await other.call(`/projects/${project.id}/publish`,'POST',{version:2})).status,404,'Only the project owner can publish');

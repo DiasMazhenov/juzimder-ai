@@ -40,6 +40,7 @@ if ($publicProjectId !== null) {
     if (!in_array($method, ['GET','HEAD'], true)) {
         http_response_code(405); header('Allow: GET, HEAD'); echo 'Method not allowed'; return true;
     }
+    $isNotFound = false;
     if ($path === '/') $filePath = 'index.html';
     elseif ($path === '/assets/site.css') $filePath = 'assets/site.css';
     elseif (preg_match('~^/media/([a-f0-9]{24})/([a-f0-9]{24}\.(?:jpg|png|gif|webp))$~D', $path, $mediaMatch) && hash_equals($publicProjectId, $mediaMatch[1])) $filePath = 'media/' . $mediaMatch[1] . '/' . $mediaMatch[2];
@@ -47,16 +48,21 @@ if ($publicProjectId !== null) {
         header('Location: ' . Juzimder\PublicOrigin::url($publicProjectId) . $routeMatch[1] . '/', true, 308);
         return true;
     } elseif (preg_match('~^/([a-z0-9]+(?:-[a-z0-9]+)*)/$~D', $path, $routeMatch)) $filePath = $routeMatch[1] . '/index.html';
-    else { http_response_code(404); echo 'Not found'; return true; }
+    else { $filePath = '404.html'; $isNotFound = true; }
     try {
         require_once __DIR__ . '/../backend/Domain.php';
         $databasePath = getenv('JUZIMDER_DB') ?: __DIR__ . '/../var/app.sqlite';
         $store = new Juzimder\Store($databasePath);
         $publishedFile = $store->publicFile($publicProjectId, $filePath);
+        if ($publishedFile === null && !$isNotFound) {
+            $isNotFound = true;
+            $publishedFile = $store->publicFile($publicProjectId, '404.html');
+        }
     } catch (Throwable) {
         http_response_code(503); echo 'Publication unavailable'; return true;
     }
     if ($publishedFile === null) { http_response_code(404); echo 'Not found'; return true; }
+    if ($isNotFound) http_response_code(404);
     header('Content-Type: ' . ($publishedFile['mime'] ?? 'text/html; charset=utf-8'));
     header('Content-Length: ' . strlen($publishedFile['content']));
     header('ETag: "pub-' . $publishedFile['version'] . '-' . hash('sha256', $publishedFile['content']) . '"');

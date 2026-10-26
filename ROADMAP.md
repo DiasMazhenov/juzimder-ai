@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.215: Публичный статический renderer добавляет безопасный `404.html`; неизвестные URL на опубликованном проектном домене показывают эту страницу с HTTP 404. ZIP включает fallback для настроек статического хостинга. Редактируемая 404 и общие Header/Footer ещё открыты.
+
 - [x] 00.00.214: В ограниченный project CSS добавлены безопасные интерактивные псевдоклассы и клавиатурный `:focus-visible`, фиксированные курсоры и outline/focus ring; произвольные состояния/функции CSS не разрешены.
 
 - [x] 00.00.213: Ограниченный CSS subset расширен до безопасных `@media (min-width|max-width: Npx)` breakpoint 320–2560 px; nested at-rules, внешние ресурсы и небезопасные свойства остаются запрещены.
@@ -317,6 +319,7 @@
 - [ ] Custom HEAD/HTML/JS capabilities and broader CSS support; any executable content must remain isolated from the admin origin and requires a separate security design. Safe bounded project CSS subset, min/max-width media rules, and selected interaction states are implemented in 00.00.212–214.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
 - [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
+- [x] Базовая опубликованная 404-страница и HTTP 404 для неизвестного пути реализованы в 00.00.215; настраиваемый контент 404 и per-page inclusion остаются открытыми.
 
 ## Phase 6 — MCP
 
