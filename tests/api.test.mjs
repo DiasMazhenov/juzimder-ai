@@ -68,6 +68,11 @@ assert.equal((await a.call('/register','POST',{email:'one@example.test',password
 const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`,aiGeneratePath=`/projects/${aiProject.id}/ai/generate-page`,aiSkillsPath=`/projects/${aiProject.id}/ai/skills`;
 assert.equal(aiProject.slug,'ai-credentials','New projects get a readable stable slug');
 assert.deepEqual((await a.call(`/projects/resolve/${aiProject.slug}`)).data,{id:aiProject.id,slug:aiProject.slug},'An owner can resolve a readable project URL to its internal ID');
+for(const route of [`/projects/${aiProject.slug}`,`/projects/${aiProject.slug}/settings`,`/projects/${aiProject.slug}/pages/home/edit`]){
+  const shell=await fetch(base+route,{headers:{Cookie:a.cookie}});
+  assert.equal(shell.status,200,`Readable project route serves the app shell: ${route}`);
+  assert.match(await shell.text(),/juzimder-csp-nonce/);
+}
 assert.equal((await anon.call(`/projects/resolve/${aiProject.slug}`)).status,401,'Slug resolution requires authentication');
 assert.equal((await anon.call(`/projects/${aiProject.id}/stock-photos?q=pottery`)).status,401);
 assert.equal((await a.call(`/projects/${aiProject.id}/stock-photos?q=`)).status,422);

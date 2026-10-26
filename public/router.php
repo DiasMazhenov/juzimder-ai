@@ -74,7 +74,7 @@ if (in_array(strtolower((string)($_SERVER['HTTP_HOST'] ?? '')), ['127.0.0.1:8080
     return true;
 }
 if (str_starts_with($path, '/api/')) { require __DIR__ . '/../backend/api.php'; return true; }
-if ($path === '/' || $path === '/index.html' || preg_match('~^/projects/[a-f0-9]{24}(?:/settings|/pages/[A-Za-z0-9_-]{1,128}/(?:edit|zero/[A-Za-z][A-Za-z0-9_-]{0,127}/edit))?$~D',$path)) {
+if ($path === '/' || $path === '/index.html' || preg_match('~^/projects/(?:[a-f0-9]{24}|[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)(?:/settings|/pages/[A-Za-z0-9_-]{1,128}/(?:edit|zero/[A-Za-z][A-Za-z0-9_-]{0,127}/edit))?$~D',$path)) {
     $index = is_file(__DIR__ . '/index.html') ? file_get_contents(__DIR__ . '/index.html') : false;
     if (is_string($index)) {
         header('Content-Type: text/html; charset=utf-8');
