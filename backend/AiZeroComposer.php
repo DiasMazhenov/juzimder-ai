@@ -64,6 +64,7 @@ final class AiZeroComposer {
         if(!is_array($decoded)||!is_array($decoded['elements']??null)||!array_is_list($decoded['elements'])||count($decoded['elements'])<3||count($decoded['elements'])>16)throw new AiProviderFailure('Zero composition has an invalid element list.',false,'invalid_output','zero:invalid_element_list');
         $decoded['artboard']=self::normalizeArtboardDefaults($decoded['artboard']??[],$board);
         $decoded['elements']=self::normalizeModelElementDefaults($decoded['elements']);
+        $decoded['elements']=self::completeExplicitThreeServiceCopy($prompt,$decoded['elements'],(int)$board->width);
         $quotedRequirements=self::explicitQuotedRequirements($prompt);
         $earlyRequirements=$quotedRequirements;
         if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)===1&&preg_match('/(?:из\s+)?(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
@@ -561,12 +562,35 @@ final class AiZeroComposer {
             $surfaces[]=['type'=>'rectangle','name'=>sprintf('AI service card %02d',$cardIndex+1),'content'=>'','photoQuery'=>'','icon'=>'','x'=>$x,'y'=>$cardTop,'width'=>$cardWidth,'height'=>$height,'fill'=>$fill,'color'=>self::readableTextColor('#222629',$fill),'stroke'=>$stroke,'strokeWidth'=>1,'radius'=>16,'fontSize'=>16,'fontWeight'=>400,'textAlign'=>'left'];$maxCardBottom=max($maxCardBottom,$cardTop+$height);
             if($medical)$icons[]=['type'=>'vector','name'=>sprintf('AI service icon %02d',$cardIndex+1),'content'=>'','photoQuery'=>'','icon'=>self::contextualMedicalCardIcon($pairs[$cardIndex]['title'],$cardIndex),'x'=>$x+20,'y'=>$cardTop+20,'width'=>28,'height'=>28,'fill'=>'transparent','color'=>'#61892F','stroke'=>'transparent','radius'=>0,'fontSize'=>28,'fontWeight'=>400,'textAlign'=>'center'];
         }
+        $uniformCardHeight=0;foreach($surfaces as $surface)$uniformCardHeight=max($uniformCardHeight,(int)$surface['height']);
+        foreach($surfaces as &$surface)$surface['height']=$uniformCardHeight;unset($surface);
+        $maxCardBottom=$cardTop+$uniformCardHeight;
         if($maxCardBottom>$boardHeight-64)return null;
         $keep=array_fill_keys(array_merge([$heading],array_filter([$badge,$intro],static fn($index)=>$index!==null),array_merge(...array_map(static fn($pair)=>array_values($pair),$pairIndexes))),true);$rest=[];
         foreach($items as $index=>$item){if(isset($removeRectangles[$index]))continue;if(is_array($item)&&($item['type']??null)==='text'&&!isset($keep[$index])&&(preg_match('/badge|pill|eyebrow|kicker/iu',(string)($item['name']??''))===1||(float)($item['y']??0)<$headingY))continue;if($medical&&is_array($item)&&($item['type']??null)==='vector'){$x=(float)$item['x'];$y=(float)$item['y'];$right=$x+(float)$item['width'];$bottom=$y+(float)$item['height'];foreach($surfaces as $surface){if($x<(float)$surface['x']+(float)$surface['width']&&$right>(float)$surface['x']&&$y<(float)$surface['y']+(float)$surface['height']&&$bottom>(float)$surface['y'])continue 2;}}$rest[]=$item;}
         foreach($rest as &$item)if(is_array($item)&&($item['type']??null)==='button'){$item['x']=$margin;$item['y']=$maxCardBottom+24;$item['width']=min($contentWidth,max(220,min(340,(float)$item['width'])));$item['height']=52;$item['fontSize']=16;$item['textAlign']='center';}unset($item);
         if($maxCardBottom+24>$boardHeight-52)return null;
         return array_merge($surfaces,$rest,$icons);
+    }
+
+    /** Recover exact service copy from an explicitly structured brief when a provider underproduces text layers. */
+    private static function completeExplicitThreeServiceCopy(string $prompt,array $items,int $boardWidth): array {
+        if(preg_match('/(?:\b(?:three|3)\b.{0,80}\bcards?\b|тр(?:и|емя|ёх|ех).{0,80}карточк\w*)/iu',$prompt)!==1)return $items;
+        if(preg_match('/карточки\s*:\s*(.+)$/iu',$prompt,$section)!==1)return $items;
+        preg_match_all('/(?:^|;)\s*([^;—–-]{2,50}?)\s+[—–-]\s*[«“"]([^»”"]{4,160})[»”"]/u',$section[1],$matches,PREG_SET_ORDER);
+        if(count($matches)!==3)return $items;
+        $required=[];
+        if(preg_match('/заголовок\s*[«“"]([^»”"]{2,100})[»”"]/iu',$prompt,$heading)===1)$required[]=['content'=>trim($heading[1]),'name'=>'Section heading','fontSize'=>48,'fontWeight'=>700];
+        foreach($matches as $match){$required[]=['content'=>trim($match[1]),'name'=>trim($match[1]).' title','fontSize'=>22,'fontWeight'=>600];$required[]=['content'=>trim($match[2]),'name'=>trim($match[1]).' description','fontSize'=>16,'fontWeight'=>400];}
+        $width=max(1,$boardWidth-64);$y=32;
+        foreach($required as $requiredText){
+            $found=false;
+            foreach($items as $item)if(is_array($item)&&in_array($item['type']??null,['text','button'],true)&&mb_stripos((string)($item['content']??''),$requiredText['content'],0,'UTF-8')!==false){$found=true;break;}
+            if($found)continue;
+            $items[]=['type'=>'text','name'=>$requiredText['name'],'content'=>$requiredText['content'],'photoQuery'=>'','icon'=>'','x'=>32,'y'=>$y,'width'=>$width,'height'=>max(32,(int)ceil($requiredText['fontSize']*1.4)),'rotation'=>0,'fill'=>'transparent','color'=>'#222629','stroke'=>'transparent','strokeWidth'=>0,'radius'=>0,'opacity'=>1,'fontSize'=>$requiredText['fontSize'],'fontWeight'=>$requiredText['fontWeight'],'textAlign'=>'left'];
+            $y+=max(36,(int)ceil($requiredText['fontSize']*1.5));
+        }
+        return $items;
     }
 
     private static function normalizeNamedCardSurfaceVectors(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): ?array {
