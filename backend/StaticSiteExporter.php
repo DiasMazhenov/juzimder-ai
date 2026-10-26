@@ -305,7 +305,7 @@ final class StaticSiteExporter {
         if ($attributes instanceof \stdClass) foreach (get_object_vars($attributes) as $name => $value) {
             if(in_array($name,['multiple','required','checked','selected','disabled','readonly','open','hidden'],true)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
             $safeDataAttribute = preg_match('/^data-(?!jz-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $name) === 1;
-            if ((!in_array($name, self::ATTRIBUTES, true) && !$safeDataAttribute) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
+            if ((!in_array($name, self::ATTRIBUTES, true) && !$safeDataAttribute) || !is_string($value) || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
             if ($name === 'id' && !preg_match('/^[A-Za-z][A-Za-z0-9_:-]{0,127}$/D', $value)) continue;
             if ($name === 'class' && !preg_match('/^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/D', $value)) continue;
             if ($name === 'target' && !in_array($value, ['_blank','_self'], true)) continue;
