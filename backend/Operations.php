@@ -12,6 +12,11 @@ final class ProjectOperations {
         'aria-expanded'=>['true','false'],
         'aria-pressed'=>['true','false','mixed'],
     ];
+    private const SEMANTIC_TAGS_BY_TYPE = [
+        'text'=>['h1','h2','h3','h4','p','span','strong','em','b','i','li','summary','figcaption','time'],
+        'default'=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
+        ''=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
+    ];
     private const STYLE_FIELDS = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
@@ -135,6 +140,15 @@ final class ProjectOperations {
                 $location = self::findComponent($document, self::identifier($operation->componentId));
                 $component =& self::atPath($document, $location['path']);
                 $component->name = trim($operation->name);
+                return;
+            case 'update_tag_name':
+                self::fields($operation, ['operation','componentId','tagName'], ['operation','componentId','tagName']);
+                $location = self::findComponent($document, self::identifier($operation->componentId));
+                $component =& self::atPath($document, $location['path']);
+                $type = is_string($component->type ?? null) ? $component->type : '';
+                $allowedTags = self::SEMANTIC_TAGS_BY_TYPE[$type] ?? [];
+                if (!is_string($operation->tagName) || !in_array($operation->tagName, $allowedTags, true)) throw new Problem(422, 'Для этого типа компонента недопустим HTML-тег.');
+                $component->tagName = $operation->tagName;
                 return;
             case 'update_attributes':
                 self::fields($operation, ['operation','componentId','attributes'], ['operation','componentId','attributes']);

@@ -39,6 +39,13 @@ $renamed = ProjectOperations::apply($fixture, [operationObject(['operation'=>'re
 operationCheck(operationNode($renamed, 'ieg3')->name === 'Новая карточка', 'Typed rename updates only the requested component name');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>'  '])]),422,'Typed rename rejects empty names');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>str_repeat('x',101)])]),422,'Typed rename enforces the 100 character limit');
+$tagUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_tag_name','componentId'=>'ij4p','tagName'=>'h2'])]);
+operationCheck(operationNode($tagUpdated, 'ij4p')->tagName === 'h2' && operationNode($tagUpdated, 'ij4p')->content === operationNode($fixture, 'ij4p')->content, 'Typed semantic tag update preserves selected text and stable component identity');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_tag_name','componentId'=>'ij4p','tagName'=>'script'])]),422,'Typed semantic tag update rejects tags outside the safe text allowlist');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_tag_name','componentId'=>'ij4p','tagName'=>'form'])]),422,'Typed semantic tag update cannot turn text into an interactive form');
+$containerTagUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_tag_name','componentId'=>'ieg3','tagName'=>'article'])]);
+operationCheck(operationNode($containerTagUpdated, 'ieg3')->tagName === 'article', 'Typed semantic tag update supports safe structural container tags');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_tag_name','componentId'=>'iwnjm','tagName'=>'section'])]),422,'Typed semantic tag update rejects structural tags for special component types');
 $attributesUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['title'=>'Записаться','target'=>'_blank','rel'=>'noopener']])]);
 operationCheck(operationNode($attributesUpdated, 'iwnjm')->attributes->title === 'Записаться', 'Typed attribute update changes only allowlisted attributes');
 $attributesCleared = ProjectOperations::apply($attributesUpdated, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['title'=>null]])]);
