@@ -48,6 +48,20 @@ final class StaticSiteExporter {
         $home = null;
         foreach ($pages as $page) if (($settings['pages'][(string)$page->id]['isHome'] ?? false) === true) { $home = (string)$page->id; break; }
         if ($home === null && isset($pages[0])) $home = (string)$pages[0]->id;
+        $sharedComponents = [];
+        foreach ($pages as $sourcePage) {
+            $sourceRoot = $sourcePage->frames[0]->component ?? null;
+            if (!$sourceRoot instanceof \stdClass) continue;
+            foreach (($sourceRoot->components ?? []) as $component) {
+                $id = $component instanceof \stdClass ? ($component->attributes->id ?? null) : null;
+                if (is_string($id) && $id !== '') $sharedComponents[$id] = $component;
+            }
+        }
+        $sharedSettings = $settings['sharedSections'] ?? ProjectSettings::sharedSectionDefaults();
+        $headerId = $sharedSettings['headerComponentId'] ?? '';
+        $footerId = $sharedSettings['footerComponentId'] ?? '';
+        $sharedHeader = $headerId !== '' ? ($sharedComponents[$headerId] ?? null) : null;
+        $sharedFooter = $footerId !== '' ? ($sharedComponents[$footerId] ?? null) : null;
 
         foreach ($assetPaths as $assetId=>$assetPath) $css = str_replace('/api/projects/'.$projectId.'/assets/'.$assetId.'/file', '../'.$assetPath, $css);
         $files = ['assets/site.css' => $css];
@@ -63,12 +77,17 @@ final class StaticSiteExporter {
             $path = $isHome ? 'index.html' : $slug . '/index.html';
             $root = $page->frames[0]->component ?? null;
             if (!$root instanceof \stdClass) throw new Problem(422, 'У страницы отсутствует корневой компонент.');
+            $pageShared = $sharedSettings['pages'][$pageId] ?? ['header'=>true,'footer'=>true];
+            $pageHeader = ($pageShared['header'] ?? true) ? $sharedHeader : null;
+            $pageFooter = ($pageShared['footer'] ?? true) ? $sharedFooter : null;
             $pageForms = [];
             $formComponents = [];
             self::collectForms($root, $pageId, $path, [], $pageForms, $formComponents);
+            if ($pageHeader instanceof \stdClass) self::collectForms($pageHeader, $pageId, $path, ['shared-header'], $pageForms, $formComponents);
+            if ($pageFooter instanceof \stdClass) self::collectForms($pageFooter, $pageId, $path, ['shared-footer'], $pageForms, $formComponents);
             $relativeAssetPaths = [];
             foreach ($assetPaths as $assetId=>$assetPath) $relativeAssetPaths['/api/projects/' . $projectId . '/assets/' . $assetId . '/file'] = ($isHome ? '' : '../') . $assetPath;
-            $html = self::pageHtml($page, $root, $route['seo'] ?? [], $isHome ? 'assets/site.css' : '../assets/site.css', $relativeAssetPaths, $formComponents);
+            $html = self::pageHtml($page, $root, $route['seo'] ?? [], $isHome ? 'assets/site.css' : '../assets/site.css', $relativeAssetPaths, $formComponents, $pageHeader, $pageFooter, [$headerId, $footerId]);
             foreach ($relativeAssetPaths as $source=>$target) $html = str_replace($source,$target,$html);
             $files[$path] = $html;
             foreach ($pageForms as $formId=>$schema) $allForms[$formId] = $schema;
@@ -151,7 +170,7 @@ final class StaticSiteExporter {
         }
     }
 
-    private static function pageHtml(\stdClass $page, \stdClass $root, array $seo, string $stylesheetPath, array $assetPaths = [], array $formComponents = []): string {
+    private static function pageHtml(\stdClass $page, \stdClass $root, array $seo, string $stylesheetPath, array $assetPaths = [], array $formComponents = [], ?\stdClass $sharedHeader = null, ?\stdClass $sharedFooter = null, array $sharedIds = []): string {
         $title = trim((string)($seo['title'] ?? '')) ?: trim((string)($page->name ?? '')) ?: 'Страница';
         $description = trim((string)($seo['description'] ?? ''));
         $robots = ($seo['robots'] ?? 'index') === 'noindex' ? 'noindex,follow' : 'index,follow';
@@ -166,12 +185,18 @@ final class StaticSiteExporter {
             ($socialDescription !== '' ? '<meta property="og:description" content="' . self::escape($socialDescription) . '">' : '');
         $metadata .= '<meta property="og:type" content="website"><meta name="twitter:card" content="' . ($socialImage !== '' ? 'summary_large_image' : 'summary') . '">' . '<meta name="twitter:title" content="' . self::escape($socialTitle) . '">' . ($socialDescription !== '' ? '<meta name="twitter:description" content="' . self::escape($socialDescription) . '">' : '') . ($socialImage !== '' ? '<meta name="twitter:image" content="' . self::escape($socialImage) . '">' : '');
         $hasForms = $formComponents !== [];
-        $hasRuntime = self::containsCustomCode($root) || $hasForms;
+        $hasRuntime = self::containsCustomCode($root) || ($sharedHeader instanceof \stdClass && self::containsCustomCode($sharedHeader)) || ($sharedFooter instanceof \stdClass && self::containsCustomCode($sharedFooter)) || $hasForms;
         $nonce = $hasRuntime ? bin2hex(random_bytes(16)) : null;
         $nonceMarker = $nonce === null ? '' : '<meta name="jz-custom-code-nonce" content="' . $nonce . '">';
         $bodyAttributes = self::renderAttributes(self::componentAttributes($root), $root->style ?? null, $assetPaths);
         $content = '';
-        foreach (($root->components ?? []) as $component) $content .= self::renderComponent($component, 0, $assetPaths, $nonce, $formComponents);
+        if ($sharedHeader instanceof \stdClass) $content .= self::renderComponent($sharedHeader, 0, $assetPaths, $nonce, $formComponents);
+        foreach (($root->components ?? []) as $component) {
+            $componentId = $component instanceof \stdClass ? ($component->attributes->id ?? '') : '';
+            if (is_string($componentId) && $componentId !== '' && in_array($componentId, $sharedIds, true)) continue;
+            $content .= self::renderComponent($component, 0, $assetPaths, $nonce, $formComponents);
+        }
+        if ($sharedFooter instanceof \stdClass) $content .= self::renderComponent($sharedFooter, 0, $assetPaths, $nonce, $formComponents);
         $frameSources = $nonce === null ? [] : ["&#39;self&#39;", 'data:'];
         if (self::hasTrustedVideoFrame($content)) $frameSources = array_merge($frameSources, ['https://www.youtube-nocookie.com', 'https://player.vimeo.com']);
         $frames = $frameSources ? 'frame-src ' . implode(' ', $frameSources) : 'frame-src &#39;none&#39;';

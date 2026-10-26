@@ -18,6 +18,8 @@ function exportRejects(callable $callback, int $status, string $message): void {
 
 $document = json_decode(file_get_contents(__DIR__ . '/grapesjs-0.23.8.fixture.json'), false, 64, JSON_THROW_ON_ERROR);
 Document::validate($document);
+$document->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'nav','name'=>'Shared navigation','attributes'=>(object)['id'=>'shared-header'],'components'=>[(object)['tagName'=>'a','type'=>'link','content'=>'Home','attributes'=>(object)['href'=>'#home']]]];
+$document->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'footer','name'=>'Shared footer','attributes'=>(object)['id'=>'shared-footer'],'components'=>[(object)['tagName'=>'p','type'=>'text','content'=>'Shared footer copy']]];
 $document->data->styles[] = (object)[
     'selectors' => ['#ij4p'],
     'style' => (object)['color' => '#123456', 'font-size' => 'clamp(28px, calc(18px + 2.35vw), 72px)'],
@@ -36,6 +38,7 @@ $settings['pages'][$homeId]['seo'] = ['title' => 'Home <Page>', 'description' =>
 $settings['pages']['about']['seo'] = ['title' => 'About page', 'description' => '', 'robots' => 'noindex', 'socialImage' => ''];
 $settings['designTokens']['ink'] = '#123456';
 $settings['notFound'] = ['title'=>'Lost <page>','message'=>'This page & that page','homeLabel'=>'Back home','backgroundColor'=>'#eeeeee','textColor'=>'#112233','buttonColor'=>'#86c232','buttonTextColor'=>'#222629'];
+$settings['sharedSections'] = ['headerComponentId'=>'shared-header','footerComponentId'=>'shared-footer','pages'=>['about'=>['header'=>false,'footer'=>true]]];
 $settings['customCss'] = ProjectSettings::validateCustomCss('.hero { color: #ffffff; padding: 24px; } .card { box-sizing: border-box; min-height: 240px; font-family: Georgia, serif; line-height: 1.4; } img { object-fit: cover; } .cta:hover { background-color: #61892f; cursor: pointer; } @media (max-width: 640px) { .hero { padding: 16px; } }');
 $project = ['name' => 'Export project', 'version' => 4, 'document' => $document, 'settings' => $settings];
 $files = StaticSiteExporter::files($project);
@@ -47,6 +50,8 @@ exportCheck(str_contains($files['404.html'], 'style="--jz-not-found-bg:#eeeeee;-
 exportCheck(str_contains($files['index.html'], '<title>Home &lt;Page&gt;</title>') && str_contains($files['index.html'], 'name="description" content="A useful &amp; safe description"') && str_contains($files['index.html'], 'property="og:image"'), 'SEO metadata is escaped and included in page head');
 exportCheck(str_contains($files['o-nas/index.html'], 'name="robots" content="noindex,follow"') && str_contains($files['o-nas/index.html'], 'href="../assets/site.css"'), 'Subpage route, relative stylesheet and robots directive are preserved');
 exportCheck(str_contains($files['o-nas/index.html'], '<span style="color:#123456;font-weight:700">О проекте</span>'), 'Safe inline rich-text formatting is retained');
+exportCheck(substr_count($files['index.html'], '<nav id="shared-header">')===1 && strpos($files['index.html'], '<nav id="shared-header">') < strpos($files['index.html'], '<section id="ieg3">') && substr_count($files['index.html'], '<footer id="shared-footer">')===1, 'Shared header and footer render once in configured order without duplicating their source sections');
+exportCheck(!str_contains($files['o-nas/index.html'], '<nav id="shared-header">') && substr_count($files['o-nas/index.html'], '<footer id="shared-footer">')===1, 'Per-page shared section visibility is honored in static output');
 exportCheck(str_contains($files['assets/site.css'], '@media (max-width: 576px)') && str_contains($files['assets/site.css'], '#ij4p{color:#123456'), 'Responsive Project Data styles and design tokens reach static CSS');
 exportCheck(str_contains($files['assets/site.css'], '.hero{color: #ffffff; padding: 24px;}'), 'Validated project CSS is appended to the static site stylesheet');
 exportCheck(str_contains($files['assets/site.css'], '.card{box-sizing: border-box; min-height: 240px; font-family: Georgia, serif; line-height: 1.4;}') && str_contains($files['assets/site.css'], 'img{object-fit: cover;}'), 'Safe typography, element sizing and image fitting CSS reach the exported site');

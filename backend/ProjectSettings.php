@@ -58,6 +58,7 @@ final class ProjectSettings {
     private const FONT_FAMILIES = ['Arial, sans-serif', 'system-ui, sans-serif', 'Georgia, serif'];
     private const SEO_DEFAULTS = ['title' => '', 'description' => '', 'robots' => 'index', 'socialImage' => '', 'socialTitle' => '', 'socialDescription' => ''];
     private const NOT_FOUND_DEFAULTS = ['title' => '404', 'message' => 'Страница не найдена или была перемещена.', 'homeLabel' => 'Вернуться на главную', 'backgroundColor' => '', 'textColor' => '', 'buttonColor' => '', 'buttonTextColor' => ''];
+    private const SHARED_SECTION_DEFAULTS = ['headerComponentId' => '', 'footerComponentId' => '', 'pages' => []];
     private const FORM_DEFAULTS = [
         'notificationsEnabled' => false, 'recipients' => [], 'senderName' => '', 'senderEmail' => '',
         'subject' => 'Новая заявка с сайта {{site}}', 'body' => "Новая заявка\n\n{{fields}}",
@@ -78,12 +79,12 @@ final class ProjectSettings {
             $used[$slug] = true;
             $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0, 'seo' => self::SEO_DEFAULTS];
         }
-        return ['schemaVersion' => 9, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS, 'customCss' => '', 'notFound' => self::NOT_FOUND_DEFAULTS];
+        return ['schemaVersion' => 10, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS, 'customCss' => '', 'notFound' => self::NOT_FOUND_DEFAULTS, 'sharedSections' => self::SHARED_SECTION_DEFAULTS];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6, 7, 8, 9], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -102,7 +103,7 @@ final class ProjectSettings {
             $routes[$id] = ['slug' => $slug, 'isHome' => $isHome, 'seo' => $seo];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 9;
+        $settings['schemaVersion'] = 10;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
         try { $settings['forms'] = self::validateFormsSettings($settings['forms'] ?? [], self::FORM_DEFAULTS); }
@@ -111,7 +112,49 @@ final class ProjectSettings {
         catch (Problem) { $settings['customCss'] = ''; }
         try { $settings['notFound'] = self::validateNotFoundSettings($settings['notFound'] ?? [], self::NOT_FOUND_DEFAULTS); }
         catch (Problem) { $settings['notFound'] = self::NOT_FOUND_DEFAULTS; }
+        $sectionIds = self::topLevelSectionIds($document);
+        try { $settings['sharedSections'] = self::validateSharedSections($settings['sharedSections'] ?? [], array_keys($routes), $sectionIds); }
+        catch (Problem) { $settings['sharedSections'] = self::SHARED_SECTION_DEFAULTS; }
         return $settings;
+    }
+
+    public static function sharedSectionDefaults(): array { return self::SHARED_SECTION_DEFAULTS; }
+
+    public static function validateSharedSections(mixed $value, array $pageIds, array $componentIds = []): array {
+        if ($value instanceof \stdClass) $value = get_object_vars($value);
+        if (!is_array($value) || array_diff(array_keys($value), array_keys(self::SHARED_SECTION_DEFAULTS))) throw new Problem(422, 'Настройки общих шапки и подвала содержат недопустимые поля.');
+        $result = self::SHARED_SECTION_DEFAULTS;
+        foreach (['headerComponentId', 'footerComponentId'] as $key) {
+            $id = $value[$key] ?? '';
+            if (!is_string($id) || ($id !== '' && !preg_match('/^[A-Za-z0-9_-]{1,120}$/D', $id))) throw new Problem(422, 'Выберите корректную секцию для шапки или подвала.');
+            if ($id !== '' && !in_array($id, $componentIds, true)) throw new Problem(422, 'Выбранная секция больше не существует на страницах проекта.');
+            $result[$key] = $id;
+        }
+        if ($result['headerComponentId'] !== '' && $result['headerComponentId'] === $result['footerComponentId']) throw new Problem(422, 'Для шапки и подвала выберите разные секции.');
+        $pages = $value['pages'] ?? [];
+        if ($pages instanceof \stdClass) $pages = get_object_vars($pages);
+        if (!is_array($pages) || array_diff(array_keys($pages), $pageIds)) throw new Problem(422, 'Настройки общих секций ссылаются на неизвестную страницу.');
+        foreach ($pages as $pageId => $flags) {
+            if ($flags instanceof \stdClass) $flags = get_object_vars($flags);
+            if (!is_array($flags) || array_diff(array_keys($flags), ['header', 'footer'])) throw new Problem(422, 'Настройки отображения общих секций некорректны.');
+            $result['pages'][$pageId] = ['header' => ($flags['header'] ?? true) === true, 'footer' => ($flags['footer'] ?? true) === true];
+            foreach ($flags as $flag) if (!is_bool($flag)) throw new Problem(422, 'Настройки отображения общих секций должны быть переключателями.');
+        }
+        return $result;
+    }
+
+    public static function topLevelSectionIds(mixed $document): array {
+        $ids = [];
+        foreach (self::documentPages($document) as $page) {
+            $root = $page->frames[0]->component ?? null;
+            if (!$root instanceof \stdClass) continue;
+            foreach (($root->components ?? []) as $component) {
+                if (!$component instanceof \stdClass) continue;
+                $id = $component->attributes->id ?? null;
+                if (is_string($id) && preg_match('/^[A-Za-z0-9_-]{1,120}$/D', $id)) $ids[$id] = true;
+            }
+        }
+        return array_keys($ids);
     }
 
     public static function notFoundDefaults(): array { return self::NOT_FOUND_DEFAULTS; }

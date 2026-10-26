@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.219: Настройки «Шапка и подвал» позволяют назначить существующие верхнеуровневые секции проекта и независимо включать их на каждой странице. Сервер проверяет ID секций и страниц, настройки входят в schemaVersion 10 и CAS/revisions; static preview, публикация и ZIP используют один безопасный renderer, а назначенные исходные секции не дублируются в содержимом страниц. Полный `npm test`, `npm run build`, PHP syntax и `git diff --check` PASS; Codex Browser на существующей вкладке подтвердил UI, список блоков, per-page переключатели и версию 00.00.219 без изменения ревизии проекта 361.
+
 - [x] 00.00.218: Оформление 404 можно переопределить четырьмя HEX цветами; по умолчанию каждый цвет наследуется из токенов проекта. Backend принимает только #RRGGBB, renderer пишет только фиксированные CSS variables на 404-страницу; остальные страницы не затрагиваются. Полный тестовый набор и build PASS; существующая Browser-вкладка подтвердила все поля и наследование без изменения project revision 361.
 
 - [x] 00.00.217: Добавлены редактируемые заголовок, описание и подпись ссылки для страницы 404 в настройках сайта. Ограниченный plain text проходит server validation и escaping, сохраняется через CAS/revisions и попадает в публикацию/ZIP; HTTP 404 сохраняется. Полный API regression проверяет публикацию кастомного текста на неизвестном маршруте. Полные тесты, build, PHP syntax и UI настроек через существующую вкладку PASS; опубликованный 404 визуально не открывался. Общие Header/Footer и per-page inclusion остаются открытыми.
@@ -324,8 +326,8 @@
 - [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. SMTP notification/autoreply delivery is implemented in 00.00.209; CRM integrations remain unimplemented.
 - [ ] Custom HEAD/HTML/JS capabilities and broader CSS support; any executable content must remain isolated from the admin origin and requires a separate security design. Safe bounded project CSS subset, min/max-width media rules, interaction states and additional typography/layout/image properties are implemented in 00.00.212–216. Remaining properties require a separate security review.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
-- [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
-- [x] Базовая опубликованная 404-страница и HTTP 404 для неизвестного пути реализованы в 00.00.215; текст 404 настраивается в 00.00.217. Отдельное оформление, per-page inclusion и общие Header/Footer остаются открытыми.
+- [x] Общие Header/Footer назначаются из существующих верхнеуровневых секций и включаются отдельно на страницах; static preview, publication и ZIP используют безопасный renderer (00.00.219).
+- [x] Базовая опубликованная 404-страница и HTTP 404 для неизвестного пути реализованы в 00.00.215; текст 404 настраивается в 00.00.217, оформление — в 00.00.218.
 
 ## Phase 6 — MCP
 
