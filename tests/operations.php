@@ -56,6 +56,24 @@ $formInputId = $createdForm->components[0]->attributes->id;
 $formUpdated = ProjectOperations::apply($formCreated, [operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['required'=>false,'placeholder'=>null,'disabled'=>true]])]);
 $updatedFormInput = operationNode($formUpdated, $formInputId);
 operationCheck(!isset($updatedFormInput->attributes->required, $updatedFormInput->attributes->placeholder) && $updatedFormInput->attributes->disabled === true, 'Typed attribute update removes false/null optional fields and persists true boolean fields');
+operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['open'=>'true']])]),422,'Typed boolean open attribute rejects string values');
+operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-selected'=>'sometimes']])]),422,'Typed aria-selected only accepts standard ARIA values');
+$detailsCreated = ProjectOperations::apply(operationObject(Document::empty()), [operationObject([
+    'operation'=>'create_component','parentId'=>'page:home','index'=>0,
+    'component'=>['type'=>'default','tagName'=>'details','attributes'=>['open'=>true],'components'=>[
+        ['type'=>'text','tagName'=>'summary','content'=>'Подробнее'],
+        ['type'=>'text','tagName'=>'p','attributes'=>['aria-controls'=>'details-panel','aria-selected'=>'false'],'content'=>'Описание']
+    ]]
+])]);
+$createdDetails = $detailsCreated->data->pages[0]->frames[0]->component->components[0];
+operationCheck($createdDetails->attributes->open === true && $createdDetails->components[1]->attributes->{'aria-controls'} === 'details-panel' && $createdDetails->components[1]->attributes->{'aria-selected'} === 'false', 'Typed create supports exporter-safe disclosure and ARIA state attributes');
+$detailsClosed = ProjectOperations::apply($detailsCreated, [operationObject(['operation'=>'update_attributes','componentId'=>$createdDetails->attributes->id,'attributes'=>['open'=>false]])]);
+operationCheck(!isset(operationNode($detailsClosed, $createdDetails->attributes->id)->attributes->open), 'Typed update removes the native details open attribute');
+$timeCreated = ProjectOperations::apply(operationObject(Document::empty()), [operationObject([
+    'operation'=>'create_component','parentId'=>'page:home','index'=>0,
+    'component'=>['type'=>'text','tagName'=>'time','attributes'=>['datetime'=>'2026-10-27T12:00:00Z'],'content'=>'12:00']
+])]);
+operationCheck($timeCreated->data->pages[0]->frames[0]->component->components[0]->attributes->datetime === '2026-10-27T12:00:00Z', 'Typed create supports the export-safe time datetime attribute');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['id'=>'changed']])]),422,'Typed attribute update cannot replace stable IDs');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['onclick'=>'alert(1)']])]),422,'Typed attribute update rejects executable attributes');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['href'=>'javascript:alert(1)']])]),422,'Typed attribute update validates URLs through the document policy');

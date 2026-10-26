@@ -280,6 +280,7 @@
 - [x] 00.00.206 Server-side duplicate operation с безопасным remap ID, внутренних ссылок и CSS selectors.
 - [x] 00.00.231 Добавлена типизированная операция `rename_component` с серверной проверкой стабильного ID, непустого имени до 100 символов и управляющих символов; это частичный шаг, универсализация typed operations остаётся открытой.
 - [x] 00.00.232 Добавлена `update_attributes`: allowlist атрибутов, null для удаления, неизменяемый stable ID и повторная серверная валидация всего Project Data.
+- [x] 00.00.243 Синхронизирован typed attribute allowlist с уже разрешённым static exporter: `aria-controls`, типизированные `aria-selected`, `time[datetime]` и boolean `details[open]`; runtime и schema контракт покрыты regression tests. Общая универсализация typed operations остаётся открытой.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
