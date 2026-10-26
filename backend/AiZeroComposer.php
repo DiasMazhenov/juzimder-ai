@@ -67,7 +67,7 @@ final class AiZeroComposer {
         $decoded['elements']=self::completeExplicitThreeServiceCopy($prompt,$decoded['elements'],(int)$board->width);
         $quotedRequirements=self::explicitQuotedRequirements($prompt);
         $earlyRequirements=$quotedRequirements;
-        if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)===1&&preg_match('/(?:из\s+)?(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
+        if(self::hasTestimonialIntent($prompt)&&preg_match('/(?:из\s+)?(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
         $missingRequirements=self::missingQuotedRequirements($earlyRequirements,$decoded['elements']);
         $photoMissing=$photoRequired&&!self::hasImageElement($decoded['elements']);
         $textImageOverlap=self::hasTextImageOverlap($decoded['elements']);
@@ -109,7 +109,7 @@ final class AiZeroComposer {
         $decoded['elements']=self::withoutUntrustedPhotoCredits($decoded['elements']);
         $decoded['elements']=self::withoutDecorativeBadgeIcons($decoded['elements']);
         $generatedCardSurfaceCount=0;
-        $testimonialIntent=preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)===1;
+        $testimonialIntent=self::hasTestimonialIntent($prompt);
         if(!$testimonialIntent){
             $explicitServiceCards=self::normalizeExplicitThreeServiceCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
             if($explicitServiceCards!==null){$decoded['elements']=$explicitServiceCards;$generatedCardSurfaceCount=3;}
@@ -124,6 +124,7 @@ final class AiZeroComposer {
         if(self::missingQuotedRequirements($quotedRequirements,$decoded['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label.',false,'invalid_output','zero:missing_explicit_copy');
         foreach($decoded['elements'] as $item)if(($item['type']??null)==='rectangle'&&str_starts_with((string)($item['name']??''),'AI testimonial card ')){$generatedCardSurfaceCount=0;break;}
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
+        $decoded['elements']=self::normalizeSingleHeroPhoto($prompt,$decoded['elements']);
         $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
         $autoPhotoAdded=false;$automaticPhotoIndex=null;
         if($autoPhotoQuery!==null&&!self::hasImageElement($decoded['elements'])&&count($decoded['elements'])<=14){
@@ -265,7 +266,7 @@ final class AiZeroComposer {
         }
         if(!$largeHeading||$copyCount<2||$rectangleCount>1)return null;
         $subject=mb_strtolower($prompt,'UTF-8');
-        if(preg_match('/(?:стоматолог|зубн\w*\s+клиник|dental|dentist)/iu',$subject)===1)return 'dentist dental clinic patient consultation';
+        if(preg_match('/(?:стоматолог|зубн\w*\s+клиник|dental|dentist)/iu',$subject)===1)return 'modern dentist dental clinic interior patient consultation';
         if(preg_match('/(?:клиник|медицин|врач|доктор|здоров|больниц|поликлиник|clinic|medical|doctor|healthcare|hospital)/iu',$subject)===1)return 'modern medical clinic healthcare professional';
         if(preg_match('/(?:путешеств|туризм|отел|гостиниц|курорт|travel|tourism|hotel|resort)/iu',$subject)===1)return 'travel destination hotel landscape';
         if(preg_match('/(?:ресторан|кафе|пекар|еда|кухн|restaurant|cafe|bakery|food|cuisine)/iu',$subject)===1)return 'restaurant food dishes dining room';
@@ -273,6 +274,17 @@ final class AiZeroComposer {
         if(preg_match('/(?:команд|сотрудник|специалист|team|staff|professionals)/iu',$subject)===1)return 'professional team portrait workplace';
         if(preg_match('/(?:товар|продукт|product|e-?commerce|магазин|shop|store)/iu',$subject)===1)return 'consumer product close-up';
         return null;
+    }
+
+    /** Keep a first-screen Hero to one photo unless the brief asks for a gallery or several images. */
+    private static function normalizeSingleHeroPhoto(string $prompt,array $items): array {
+        if(!self::isHeroIntent($prompt)||preg_match('/(?:галере\w*|карусел\w*|нескольк\w*\s+(?:фото|снимк\w*|изображен\w*)|\b(?:two|three|multiple|several)\s+(?:photos?|images?)\b|\bphotos\b|\bimages\b)/iu',$prompt)===1)return $items;
+        $images=[];
+        foreach($items as $index=>$item)if(is_array($item)&&($item['type']??null)==='image')$images[$index]=(float)($item['width']??0)*(float)($item['height']??0);
+        if(count($images)<=1)return $items;
+        arsort($images,SORT_NUMERIC);$keep=(int)array_key_first($images);
+        foreach(array_keys($images) as $index)if($index!==$keep)unset($items[$index]);
+        return array_values($items);
     }
     private static function automaticHeroPhotoElement(string $query,int $boardWidth,int $boardHeight): ?array {
         if($boardWidth<760||$boardHeight<360)return null;
@@ -455,8 +467,12 @@ final class AiZeroComposer {
     }
 
     /** Replace a mismatched generated label with a concise testimonial section badge. */
+    private static function hasTestimonialIntent(string $prompt): bool {
+        $positive=preg_replace('/(?:не\s+(?:добавляй|используй|включай|выдумывай|придумывай|создавай)|do\s+not|don.t|without|avoid)[^.!?;\n]{0,140}(?:отзыв\w*|testimon\w*|reviews?)[^.!?;\n]*/iu',' ',$prompt)??$prompt;
+        return preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$positive)===1;
+    }
     private static function normalizeTestimonialBadge(string $prompt,array &$items,?int $badgeIndex,int $boardWidth): void {
-        if($badgeIndex===null||!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text'||preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1)return;
+        if($badgeIndex===null||!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text'||!self::hasTestimonialIntent($prompt))return;
         $items[$badgeIndex]['content']='Отзывы';$font=max(11,min(14,(int)($items[$badgeIndex]['fontSize']??14)));$items[$badgeIndex]['width']=min(max(1,$boardWidth-(int)$items[$badgeIndex]['x']),max(88,(int)ceil(mb_strlen('Отзывы','UTF-8')*$font*.62+24)));
     }
 
@@ -490,7 +506,7 @@ final class AiZeroComposer {
 
     /** Keep explicit quote/author pairs together when a testimonial model emits duplicate mobile layers. */
     private static function normalizeRequestedTestimonialCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
-        if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1||count($items)>18)return $items;
+        if(!self::hasTestimonialIntent($prompt)||count($items)>18)return $items;
         $requestedCount=preg_match('/(?:из\s+)?(?:две|двух|2|two)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?2:(preg_match('/(?:из\s+)?(?:три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?3:0);
         if($requestedCount===0&&preg_match('/(?:карточ\w*|\bcards?\b)/iu',$prompt)===1){
             preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*([\p{L}][\p{L}-]{1,40}(?:\s+[\p{L}][\p{L}-]{1,40}){0,2})/u',$prompt,$explicitQuotes,PREG_SET_ORDER);
@@ -952,7 +968,7 @@ final class AiZeroComposer {
 
     /** Preserve the explicit quote/author order and padding independently of model layer order. */
     private static function mobileTestimonialStack(string $prompt,array $items,\stdClass $data,?int $badgeIndex): array {
-        if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1)return [];
+        if(!self::hasTestimonialIntent($prompt))return [];
         preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*([\p{L}][\p{L}-]{1,40}(?:\s+[\p{L}][\p{L}-]{1,40}){0,2})/u',$prompt,$matches,PREG_SET_ORDER);
         if(!in_array(count($matches),[2,3],true))return [];
         $cards=[];$used=[];
