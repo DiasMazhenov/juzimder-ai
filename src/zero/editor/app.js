@@ -1622,7 +1622,9 @@ export async function openZeroEditor({
       await save();
       if (dirty && !window.confirm("Изменения не сохранены. Закрыть окно?"))
         return;
-      window.close();
+      // Zero Editor can be opened in the current tab, where window.close() is
+      // ignored by browsers. Always return to its owning GrapesJS page.
+      location.assign(`/projects/${projectId}/pages/${pageId}/edit`);
       return;
     }
     if (key === "undo" || key === "redo") {
