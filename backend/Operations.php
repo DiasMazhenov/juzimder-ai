@@ -5,7 +5,8 @@ namespace Juzimder;
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
     private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','style','components','zeroData'];
-    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby'];
+    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
+    private const BOOLEAN_ATTRIBUTE_FIELDS = ['required','disabled','checked','multiple','readonly','selected'];
     private const STYLE_FIELDS = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
@@ -135,13 +136,16 @@ final class ProjectOperations {
                 if (!$operation->attributes instanceof \stdClass || get_object_vars($operation->attributes) === []) throw new Problem(422, 'Укажите атрибуты объектом.');
                 foreach (get_object_vars($operation->attributes) as $attribute => $value) {
                     if (!in_array($attribute, self::ATTRIBUTE_FIELDS, true) || $attribute === 'id') throw new Problem(422, 'Атрибут не входит в разрешённый список или является стабильным ID.');
-                    if ($value !== null && (!is_string($value) || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value))) throw new Problem(422, 'Значение атрибута должно быть строкой до 2048 символов без управляющих символов; null удаляет атрибут.');
+                    if ($value === null) continue;
+                    if (in_array($attribute, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
+                        if (!is_bool($value)) throw new Problem(422, 'Логический атрибут должен иметь значение true или false; false и null удаляют его.');
+                    } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value)) throw new Problem(422, 'Значение атрибута должно быть строкой до 2048 символов без управляющих символов; null удаляет атрибут.');
                 }
                 $location = self::findComponent($document, self::identifier($operation->componentId));
                 $component =& self::atPath($document, $location['path']);
                 if (!($component->attributes ?? null) instanceof \stdClass) $component->attributes = new \stdClass();
                 foreach (get_object_vars($operation->attributes) as $attribute => $value) {
-                    if ($value === null) unset($component->attributes->{$attribute});
+                    if ($value === null || ($value === false && in_array($attribute, self::BOOLEAN_ATTRIBUTE_FIELDS, true))) unset($component->attributes->{$attribute});
                     else $component->attributes->{$attribute} = $value;
                 }
                 return;
@@ -302,7 +306,12 @@ final class ProjectOperations {
         $attributes = $node->attributes ?? new \stdClass();
         if (!$attributes instanceof \stdClass) throw new Problem(422, 'Атрибуты компонента должны быть объектом.');
         self::fields($attributes, self::ATTRIBUTE_FIELDS, []);
-        foreach (get_object_vars($attributes) as $name => $value) if (!is_string($value) || mb_strlen($value, 'UTF-8') > 1000) throw new Problem(422, 'Значения атрибутов должны быть строками до 1000 символов.');
+        foreach (get_object_vars($attributes) as $name => $value) {
+            if (in_array($name, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
+                if (!is_bool($value)) throw new Problem(422, 'Логические HTML-атрибуты должны иметь значения true или false.');
+                if ($value === false) unset($attributes->{$name});
+            } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > 2048) throw new Problem(422, 'Значения атрибутов должны быть строками до 2048 символов.');
+        }
         $id = $attributes->id ?? ('cmp-' . bin2hex(random_bytes(12)));
         if (!is_string($id) || $id === '' || mb_strlen($id, 'UTF-8') > 128 || preg_match('/[\x00-\x1F\x7F]/', $id)) throw new Problem(422, 'Некорректный стабильный ID компонента.');
         if (isset($ids[$id])) throw new Problem(422, 'ID нового компонента уже используется.');

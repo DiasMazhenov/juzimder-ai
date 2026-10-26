@@ -1,6 +1,10 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.241 (npm SemVer 0.1.241). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.242 (npm SemVer 0.1.242). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.242: Typed component create/update поддерживают распространённые безопасные атрибуты HTML-форм: `name`, `type`, `value`, `placeholder`, ограничения, режим ввода и boolean `required`/`disabled`/`checked`/`multiple`/`readonly`/`selected`. Для boolean атрибутов разрешены только JSON boolean; `false` и `null` удаляют атрибут. JSON Schema описывает новые поля. Static exporter сохраняет разрешённые native attributes, включая `readonly`, `accept`, `inputmode` и `size`. Внешний envelope schemaVersion не менялся.
+
+Проверки 00.00.242: полный `npm test`, `npm run build`, `php -l` изменённых PHP-файлов и `git diff --check` прошли. Build сохраняет предупреждение о GrapesJS chunk размером около 1.1 MB. UI не менялся, визуальная Browser-проверка не требуется. Релиз ещё не отправлен.
 
 00.00.241: AI rate limit больше не хранится в PHP session. SQLite-таблица событий и `BEGIN IMMEDIATE` обеспечивают общий для аккаунта скользящий лимит пяти AI-запросов в минуту через все проекты, сессии, вкладки и PHP workers, использующие тот же файл базы. Генерация, Zero AI, планирование, edit, Skill analysis и probe используют один limiter; проверка job-версии идёт до списания. Независимые application nodes с разными файлами SQLite не разделяют квоту, денежный бюджет провайдера не настраивается.
 

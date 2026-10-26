@@ -6,7 +6,7 @@ require_once __DIR__ . '/ZeroBlockRenderer.php';
 final class StaticSiteExporter {
     private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','figure','figcaption','time'];
     private const VOID_TAGS = ['img','br','hr','input'];
-    private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','for','min','max','step','minlength','maxlength','pattern','autocomplete','datetime','open'];
+    private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','readonly','for','min','max','step','minlength','maxlength','pattern','autocomplete','inputmode','accept','size','datetime','open'];
     private const STYLE_PROPERTIES = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
@@ -303,7 +303,7 @@ final class StaticSiteExporter {
         $targetBlank = $attributes instanceof \stdClass && ($attributes->target ?? null) === '_blank';
         $hasRel = false;
         if ($attributes instanceof \stdClass) foreach (get_object_vars($attributes) as $name => $value) {
-            if(in_array($name,['multiple','required','checked','selected','disabled','open'],true)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
+            if(in_array($name,['multiple','required','checked','selected','disabled','readonly','open'],true)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
             if (!in_array($name, self::ATTRIBUTES, true) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
             if ($name === 'id' && !preg_match('/^[A-Za-z][A-Za-z0-9_:-]{0,127}$/D', $value)) continue;
             if ($name === 'class' && !preg_match('/^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/D', $value)) continue;

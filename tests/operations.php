@@ -43,9 +43,23 @@ $attributesUpdated = ProjectOperations::apply($fixture, [operationObject(['opera
 operationCheck(operationNode($attributesUpdated, 'iwnjm')->attributes->title === 'Записаться', 'Typed attribute update changes only allowlisted attributes');
 $attributesCleared = ProjectOperations::apply($attributesUpdated, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['title'=>null]])]);
 operationCheck(!isset(operationNode($attributesCleared, 'iwnjm')->attributes->title), 'Typed attribute update removes fields with null');
+$formCreated = ProjectOperations::apply(operationObject(Document::empty()), [operationObject([
+    'operation'=>'create_component','parentId'=>'page:home','index'=>0,
+    'component'=>['type'=>'form','tagName'=>'form','components'=>[
+        ['type'=>'input','tagName'=>'input','attributes'=>['name'=>'email','type'=>'email','placeholder'=>'name@example.test','required'=>true]],
+        ['type'=>'textarea','tagName'=>'textarea','attributes'=>['name'=>'message','rows'=>'4']]
+    ]]
+])]);
+$createdForm = $formCreated->data->pages[0]->frames[0]->component->components[0];
+operationCheck($createdForm->components[0]->attributes->name === 'email' && $createdForm->components[0]->attributes->required === true && $createdForm->components[1]->attributes->rows === '4', 'Typed create accepts safe native form field attributes and boolean required');
+$formInputId = $createdForm->components[0]->attributes->id;
+$formUpdated = ProjectOperations::apply($formCreated, [operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['required'=>false,'placeholder'=>null,'disabled'=>true]])]);
+$updatedFormInput = operationNode($formUpdated, $formInputId);
+operationCheck(!isset($updatedFormInput->attributes->required, $updatedFormInput->attributes->placeholder) && $updatedFormInput->attributes->disabled === true, 'Typed attribute update removes false/null optional fields and persists true boolean fields');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['id'=>'changed']])]),422,'Typed attribute update cannot replace stable IDs');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['onclick'=>'alert(1)']])]),422,'Typed attribute update rejects executable attributes');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['href'=>'javascript:alert(1)']])]),422,'Typed attribute update validates URLs through the document policy');
+operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['required'=>'true']])]),422,'Typed boolean attributes reject string values');
 $textReplaced = ProjectOperations::apply($fixture, [operationObject(['operation'=>'replace_text','componentId'=>'ii57','content'=>'Сохранённый текст'])]);
 $selectedText = operationNode($textReplaced, 'ii57');
 operationCheck(!isset($selectedText->content) && ($selectedText->components[0]->content ?? null) === 'Сохранённый текст', 'Focused text replacement replaces nested GrapesJS text without changing the stable element');
