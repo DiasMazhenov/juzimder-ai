@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.211: В настройках цветов, типографики и SEO заменены устаревшие сообщения, будто предпросмотр, ZIP-экспорт и публикация не работают; добавлена проверка этих подписей.
+
 - [x] 00.00.210: Скриншот «Настройки сайта → Формы» выявил, что общий вертикальный стиль `label` ставит checkbox над текстом и центрирует его. Два переключателя email-уведомлений явно переведены на горизонтальный flex-row; добавлена регрессия против CSS-конфликта.
 
 - [x] 00.00.209: В «Настройки сайта → Формы» добавлены уведомления получателям и автоответ по шаблонам с переменными, SMTP настройки, защищённое шифрование пароля, тестовое письмо и серверная доставка после commit заявки. Inbox заявок остаётся отдельным действием проекта. Внешний SMTP и визуальная browser-приёмка ещё не проверены.
@@ -302,7 +304,7 @@
 - [x] Подключить tokens к renderer/export: статический renderer/export реализован в Phase 7 и использует validated project design tokens.
 - [x] Per-page SEO title, description, robots directive and HTTPS social image metadata; validated and stored in project settings/revisions.
 - [x] Inject SEO metadata into the public renderer: title, description, robots и social metadata используются статическим renderer/export в Phase 7.
-- [ ] Analytics ids; accept only when a public renderer can consume them.
+- [ ] Analytics ids; before third-party visitor tracking, owner must select the provider and confirm the data-sharing behavior. Analytics section is not marked complete until the public renderer and settings are both implemented.
 - [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. SMTP notification/autoreply delivery is implemented in 00.00.209; CRM integrations remain unimplemented.
 - [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
@@ -331,7 +333,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** версия продукта 00.00.198 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
+**Текущее состояние:** версия продукта 00.00.211 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037

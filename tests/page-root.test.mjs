@@ -43,3 +43,11 @@ test('Form settings configure delivery while the private submission inbox stays 
   assert.match(inbox, /form-submissions\/\$\{submission\.id\}\/delete/);
   assert.match(inbox, /Заявки/);
 });
+
+test('project settings describe publication and SEO metadata as connected', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /Токены сохраняются отдельной ревизией и включаются в CSS предпросмотра, ZIP-экспорта и опубликованного сайта/);
+  assert.match(source, /Типографические токены входят в предпросмотр, ZIP-экспорт и опубликованный сайт/);
+  assert.match(source, /SEO-метаданные сохраняются для каждой страницы вместе с ревизиями проекта и используются в предпросмотре, ZIP-экспорте и опубликованном сайте/);
+  assert.doesNotMatch(source, /Публичная публикация и static export ещё не подключены|значения пока не влияют на внешний сайт|публикацией, которой ещё нет/);
+});
