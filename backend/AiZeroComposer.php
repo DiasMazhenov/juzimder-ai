@@ -128,6 +128,7 @@ final class AiZeroComposer {
         $badgeIndex=self::promotePillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor']);
         if($badgeIndex===null)$badgeIndex=self::insertPillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor'],$prompt);
         self::normalizeGenericProcessBadge($prompt,$decoded['elements'],$badgeIndex,(int)$board->width);
+        self::normalizeTestimonialBadge($prompt,$decoded['elements'],$badgeIndex,(int)$board->width);
         if($badgeIndex!==null){$badgeCleanup=self::removeDuplicatePillBadgeLayers($decoded['elements'],$badgeIndex);$decoded['elements']=$badgeCleanup[0];$badgeIndex=$badgeCleanup[1];$badgeCleanup=self::removeBadgeOverlappingVectors($decoded['elements'],$badgeIndex);$decoded['elements']=$badgeCleanup[0];$badgeIndex=$badgeCleanup[1];}
         $faqLayout=self::normalizeFaqDesktopLayout($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$badgeIndex);
         if($faqLayout)self::neutralizeUngroundedFaqAnswers($prompt,$decoded['elements'],$badgeIndex);
@@ -445,6 +446,12 @@ final class AiZeroComposer {
         if($badgeIndex===null||!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text'||preg_match('/(?:этап\w*|шаг\w*|процесс\w*|workflow|\bsteps?\b|\bprocess\b)/iu',$prompt)!==1)return;
         if(preg_match('/^(?:как|что|где|когда|почему|кто|how|what|where|when|why|who)[?!.,:;]*$/iu',trim((string)($items[$badgeIndex]['content']??'')))!==1)return;
         $items[$badgeIndex]['content']='Этапы работы';$font=max(11,min(14,(int)($items[$badgeIndex]['fontSize']??14)));$items[$badgeIndex]['width']=min(max(1,$boardWidth-(int)$items[$badgeIndex]['x']),max(88,(int)ceil(mb_strlen('Этапы работы','UTF-8')*$font*.62+24)));
+    }
+
+    /** Replace a mismatched generated label with a concise testimonial section badge. */
+    private static function normalizeTestimonialBadge(string $prompt,array &$items,?int $badgeIndex,int $boardWidth): void {
+        if($badgeIndex===null||!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text'||preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1)return;
+        $items[$badgeIndex]['content']='Отзывы';$font=max(11,min(14,(int)($items[$badgeIndex]['fontSize']??14)));$items[$badgeIndex]['width']=min(max(1,$boardWidth-(int)$items[$badgeIndex]['x']),max(88,(int)ceil(mb_strlen('Отзывы','UTF-8')*$font*.62+24)));
     }
 
     /** Keep one identical label above the section heading after model and server badge normalization. */
