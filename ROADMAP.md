@@ -280,10 +280,10 @@
 
 - [x] Базовые tokens (8 цветов, общий системный шрифт, radius) сохраняются в versioned project settings и revisions; forms валидируются на сервере.
 - [x] Editor и AI presets используют общую тему; изменения синхронизируют page roots и сохраняют локальные overrides.
-- [ ] Полная typography: раздельные heading/body fonts, weights, base size, H1–H6, line height, letter spacing и responsive шкала.
-- [ ] Подключить tokens к будущему renderer/export; пока public output не существует.
+- [x] Полная typography: раздельные heading/body fonts, weights, base size, H1–H6, line height, letter spacing и responsive шкала (реализация уже отмечена в Phase 3).
+- [x] Подключить tokens к renderer/export: статический renderer/export реализован в Phase 7 и использует validated project design tokens.
 - [x] Per-page SEO title, description, robots directive and HTTPS social image metadata; validated and stored in project settings/revisions.
-- [ ] Inject SEO metadata into the public renderer when publication exists; settings do not affect external pages yet.
+- [x] Inject SEO metadata into the public renderer: title, description, robots и social metadata используются статическим renderer/export в Phase 7.
 - [ ] Analytics ids; accept only when a public renderer can consume them.
 - [ ] Forms: validated submission endpoints, rate limiting, safe integrations and spam protections.
 - [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
@@ -313,7 +313,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** Zero Block Absolute Positioning Engine, версия продукта 00.00.120; остальные пункты выше имеют собственные актуальные отметки.
+**Текущее состояние:** версия продукта 00.00.198 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
