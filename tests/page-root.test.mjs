@@ -30,12 +30,14 @@ test('project page list exposes accessible multi-select and guarded bulk operati
 test('Form settings configure delivery while the private submission inbox stays separate', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const inbox = readFileSync(new URL('../src/form-inbox.js', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
   assert.match(source, /installFormInbox\(id, api\)/);
   assert.match(source, /\/projects\/\$\{id\}\/form-mail`/);
   assert.match(source, /id="smtp-settings-form"/);
   assert.match(source, /name="subject"/);
   assert.match(source, /name="autoresponderEnabled"/);
   assert.match(source, /id="smtp-test"/);
+  assert.match(styles, /\.form-delivery-settings \.settings-check\{display:flex;flex-direction:row;align-items:center;/, 'notification toggles override the global stacked-label style');
   assert.match(inbox, /\/projects\/\$\{projectId\}\/form-submissions/);
   assert.match(inbox, /form-inbox-dialog/);
   assert.match(inbox, /form-submissions\/\$\{submission\.id\}\/delete/);

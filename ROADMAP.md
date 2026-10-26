@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.210: Скриншот «Настройки сайта → Формы» выявил, что общий вертикальный стиль `label` ставит checkbox над текстом и центрирует его. Два переключателя email-уведомлений явно переведены на горизонтальный flex-row; добавлена регрессия против CSS-конфликта.
+
 - [x] 00.00.209: В «Настройки сайта → Формы» добавлены уведомления получателям и автоответ по шаблонам с переменными, SMTP настройки, защищённое шифрование пароля, тестовое письмо и серверная доставка после commit заявки. Inbox заявок остаётся отдельным действием проекта. Внешний SMTP и визуальная browser-приёмка ещё не проверены.
 
 - [x] 00.00.208: Кнопки «Опубликовать» на дашборде, в основном редакторе и Zero Block отражают актуальность опубликованного снимка: яркий акцент, когда проект не опубликован или есть более свежие изменения, и графитовый вид, когда опубликована текущая ревизия. Состояние обновляется при редактировании, сохранении, загрузке редактора и успешной публикации; добавлены regression assertions.
@@ -301,7 +303,7 @@
 - [x] Per-page SEO title, description, robots directive and HTTPS social image metadata; validated and stored in project settings/revisions.
 - [x] Inject SEO metadata into the public renderer: title, description, robots и social metadata используются статическим renderer/export в Phase 7.
 - [ ] Analytics ids; accept only when a public renderer can consume them.
-- [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. Email/CRM integrations remain unimplemented.
+- [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. SMTP notification/autoreply delivery is implemented in 00.00.209; CRM integrations remain unimplemented.
 - [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
 - [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
@@ -717,7 +719,7 @@ Unit fixtures проверяют все18 options во всех4 directions, н�
 - [x] 00.00.080: расширить библиотеку до 37 позиций с 20 дополнительными native presets и тематическими категориями; PNG placeholders, gallery Undo/Redo/save QA.
 
 - [x] 00.00.081: native конструктор форм и 7 карточек полей; schema/backend/save/export без разрешения scripts/actions.
-- [ ] Обработчик заявок и интеграция отправки формы (пока явно отключена).
+- [x] Обработчик опубликованных заявок, приватный inbox, SMTP-уведомления и автоответ (00.00.199, 00.00.209). CRM-интеграции остаются открытыми.
 
 - [x] 00.00.082: единое окно фото, upload с компьютера, личная библиотека сайта, поиск/выбор/alt и native replacement; реальный upload/save/reopen QA.
 
@@ -825,5 +827,5 @@ Codex Browser в существующей вкладке подтвердил: �
 
 API regression test проверяет Zero Gallery на изолированном проекте: после создания и редактирования блока restore возвращает полное нормализованное состояние первой ревизии, включая project asset, alt-текст, настройки сетки, абсолютные координаты и соседний слой. Saved preview встраивает восстановленное приватное изображение; ZIP и public snapshot содержат ту же Gallery и старый alt-текст. Дополнительно `package.json.version` и `productVersion` синхронизированы на 0.1.131 / 00.00.131, откуда их читают дашборд и редактор. Полный `npm test`, build, синтаксис и `git diff --check` пройдены. Визуальная browser-приёмка restore/export и работа на реальном телефоне остаются открыты.
 - [x] 00.00.201: Кнопка Zero Editor показывает «Сохранено» после подтверждённой записи и меняет подпись на «Сохранить», «Сохранение…» или «Конфликт» согласно состоянию; синхронно обновляются aria-label/title. Добавлен regression test.
-- [x] 00.00.203: Settings → Forms is connected to the owner-only submission inbox. It displays the latest 100 entries with source page and submitted fields, supports search, refresh, CSV export with formula-injection mitigation, and confirmed deletion. Email and CRM delivery remain open and are disclosed in the UI.
+- [x] 00.00.203: Settings → Forms inbox baseline was subsequently moved to the separate project "Заявки" action. The inbox displays latest submissions, supports search, refresh, CSV export with formula-injection mitigation, and confirmed deletion. SMTP delivery was added in 00.00.209; CRM remains open.
 - [x] 00.00.202: Список страниц поддерживает чекбоксы и меню массовых действий: дублирование, удаление, установка единственной выбранной главной; есть select-all, подтверждение удаления, защита последней страницы, актуальная CAS-версия для каждой операции и понятное сообщение о частичном завершении.
