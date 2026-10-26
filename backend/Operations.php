@@ -123,6 +123,13 @@ final class ProjectOperations {
                 if (!in_array($type, ['text','textnode','link'], true)) throw new Problem(422, 'Этот компонент не поддерживает изменение текста.');
                 $component->content = $operation->content;
                 return;
+            case 'rename_component':
+                self::fields($operation, ['operation','componentId','name'], ['operation','componentId','name']);
+                if (!is_string($operation->name) || trim($operation->name) === '' || mb_strlen($operation->name, 'UTF-8') > 100 || preg_match('/[\x00-\x1F\x7F]/u', $operation->name)) throw new Problem(422, 'Название компонента должно содержать от 1 до 100 символов без управляющих символов.');
+                $location = self::findComponent($document, self::identifier($operation->componentId));
+                $component =& self::atPath($document, $location['path']);
+                $component->name = trim($operation->name);
+                return;
             case 'replace_text':
                 self::fields($operation, ['operation','componentId','content'], ['operation','componentId','content']);
                 if (!is_string($operation->content) || mb_strlen($operation->content, 'UTF-8') > 1000 || preg_match('/[<>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|https?:\/\/|www\./iu', $operation->content)) throw new Problem(422, 'Текст должен быть обычным текстом без разметки и URL.');

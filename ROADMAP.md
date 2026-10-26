@@ -260,6 +260,7 @@
 - [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
 - [x] Component context menu on canvas, inspector and Layers with copy/cut/paste/duplicate/reorder/select-parent/delete; Codex Browser confirmed right-click on a layer row selects that component and opens the shared menu; duplicate→Undo/reload, delete confirmation, keyboard navigation and reference remapping are also checked.
 - [x] 00.00.206 Server-side duplicate operation с безопасным remap ID, внутренних ссылок и CSS selectors.
+- [x] 00.00.231 Добавлена типизированная операция `rename_component` с серверной проверкой стабильного ID, непустого имени до 100 символов и управляющих символов; это частичный шаг, универсализация typed operations остаётся открытой.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 

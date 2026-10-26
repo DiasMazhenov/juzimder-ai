@@ -35,6 +35,10 @@ $original = json_decode(json_encode($fixture, JSON_THROW_ON_ERROR), false, 64, J
 $contentUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_content','componentId'=>'ij4p','content'=>'Локальное изменение'])]);
 operationCheck(operationNode($contentUpdated, 'ij4p')->content === 'Локальное изменение', 'Typed content update targets one stable component ID');
 operationCheck(operationNode($fixture, 'ij4p')->content === operationNode($original, 'ij4p')->content, 'Applying operations never mutates the caller document');
+$renamed = ProjectOperations::apply($fixture, [operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>'Новая карточка'])]);
+operationCheck(operationNode($renamed, 'ieg3')->name === 'Новая карточка', 'Typed rename updates only the requested component name');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>'  '])]),422,'Typed rename rejects empty names');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'rename_component','componentId'=>'ieg3','name'=>str_repeat('x',101)])]),422,'Typed rename enforces the 100 character limit');
 $textReplaced = ProjectOperations::apply($fixture, [operationObject(['operation'=>'replace_text','componentId'=>'ii57','content'=>'Сохранённый текст'])]);
 $selectedText = operationNode($textReplaced, 'ii57');
 operationCheck(!isset($selectedText->content) && ($selectedText->components[0]->content ?? null) === 'Сохранённый текст', 'Focused text replacement replaces nested GrapesJS text without changing the stable element');
