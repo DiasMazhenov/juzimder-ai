@@ -66,6 +66,9 @@ await a.call('/session');assert.equal((await a.call('/register','POST',{email:'o
 const isolatedDatabaseClient=new Client(devBase);await isolatedDatabaseClient.call('/session');assert.notEqual(a.cookie.split('=')[0],isolatedDatabaseClient.cookie.split('=')[0],'separate SQLite databases use separate browser session cookie names');
 assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
 const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`,aiGeneratePath=`/projects/${aiProject.id}/ai/generate-page`,aiSkillsPath=`/projects/${aiProject.id}/ai/skills`;
+assert.equal(aiProject.slug,'ai-credentials','New projects get a readable stable slug');
+assert.deepEqual((await a.call(`/projects/resolve/${aiProject.slug}`)).data,{id:aiProject.id,slug:aiProject.slug},'An owner can resolve a readable project URL to its internal ID');
+assert.equal((await anon.call(`/projects/resolve/${aiProject.slug}`)).status,401,'Slug resolution requires authentication');
 assert.equal((await anon.call(`/projects/${aiProject.id}/stock-photos?q=pottery`)).status,401);
 assert.equal((await a.call(`/projects/${aiProject.id}/stock-photos?q=`)).status,422);
 assert.equal((await anon.call(aiSkillsPath)).status,401,'User Skills require an authenticated session');
@@ -186,6 +189,8 @@ assert.equal(aiSaved.data.configured,false);assert.equal(aiSaved.data.version,9,
 assert.equal((await a.call(aiSettingsPath,'PUT',{version:8,apiKey:testApiKey,model:'openai/test-model'})).status,409,'Clearing credentials does not reset the config version');
 assert.equal((await a.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'})).status,503,'AI planning stays disabled after the project key is removed');
 assert.equal((await a.call('/projects')).data.length,1,'AI planning does not create additional projects');
+const sameNameProject=(await a.call('/projects','POST',{name:'AI credentials'})).data;
+assert.equal(sameNameProject.slug,'ai-credentials-2','Duplicate project names receive unique slugs');
 const operationProject=(await a.call('/projects','POST',{name:'Typed operations'})).data;
 assert.equal(operationProject.version,0);
 const idlessProject=(await a.call('/projects','POST',{name:'ID-less AI target'})).data,idlessDocument=structuredClone(idlessProject.document);
@@ -227,6 +232,7 @@ const renamePath=`/projects/${p.id}/name`;assert.equal((await anon.call(renamePa
 assert.equal((await anon.download(`/projects/${p.id}/export/static`)).status,401,'Static exports require an authenticated session');
 const archive=await a.download(`/projects/${p.id}/export/static`);assert.equal(archive.status,200);assert.equal(archive.type,'application/zip');assert.equal(archive.body.subarray(0,2).toString(),'PK','Authenticated owner receives a ZIP archive');
 await b.call('/session');await b.call('/register','POST',{email:'two@example.test',password:'another-test-password'});
+assert.equal((await b.call(`/projects/resolve/${aiProject.slug}`)).status,404,'Slug resolution does not reveal another owner project');
 assert.equal((await b.call(`/projects/${aiProject.id}/stock-photos?q=pottery`)).status,404);
 assert.deepEqual((await b.call('/projects')).data,[]);assert.equal((await b.call('/projects/'+p.id)).status,404);assert.equal((await b.call(`/projects/${p.id}/name`,'PUT',{version:0,expectedName:p.name,name:'Foreign rename'})).status,404,'Project rename enforces project ownership');assert.equal((await b.download(`/projects/${p.id}/export/static`)).status,404,'Static export enforces project ownership');
 assert.equal((await b.call(`/projects/${operationProject.id}/operations`,'POST',{version:3,operations:[{operation:'update_content',componentId:generatedHeading.attributes.id,content:'foreign'}]})).status,404,'Typed operations enforce project ownership');

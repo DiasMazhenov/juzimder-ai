@@ -93,6 +93,9 @@ try {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
     }
+    if (preg_match('~^/api/projects/resolve/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$~D', $path, $slugMatch) && $method === 'GET') {
+        result($store->resolveProjectSlug($slugMatch[1], $user));
+    }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/form-submissions$~D', $path, $formInboxMatch) && $method === 'GET') {
         result(['submissions'=>$store->listFormSubmissions($formInboxMatch[1],$user)]);
     }
@@ -496,7 +499,7 @@ try {
     }
     if ($path === '/api/logout' && $method === 'POST') { $_SESSION=[]; session_destroy(); result(['ok'=>true]); }
     if ($path === '/api/projects') {
-        if ($method === 'GET') result($store->query('SELECT p.id,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC',[$user])->fetchAll());
+        if ($method === 'GET') result($store->query('SELECT p.id,p.slug,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC',[$user])->fetchAll());
         if ($method === 'POST') { if (!is_string($body['name'] ?? null)) throw new Problem(422,'Укажите название.'); result($store->create($user,$body['name']),201); }
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/name$~D', $path, $renameMatch) && $method === 'PUT') {

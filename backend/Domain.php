@@ -257,6 +257,17 @@ final class Store {
                 throw $error;
             }
         }
+        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 12) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 12) $this->db->exec(file_get_contents(__DIR__.'/migrations/013_project_slugs.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
+        $this->backfillProjectSlugs();
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();
@@ -279,8 +290,44 @@ final class Store {
         }
     }
     public function query(string $sql, array $args = []): \PDOStatement { $stmt = $this->db->prepare($sql); $stmt->execute($args); return $stmt; }
+    private function projectSlugBase(string $name): string {
+        $name = mb_strtolower(trim($name), 'UTF-8');
+        $map = ['а'=>'a','ә'=>'a','б'=>'b','в'=>'v','г'=>'g','ғ'=>'gh','д'=>'d','е'=>'e','ё'=>'yo','ж'=>'zh','з'=>'z','и'=>'i','й'=>'i','к'=>'k','қ'=>'q','л'=>'l','м'=>'m','н'=>'n','ң'=>'ng','о'=>'o','ө'=>'o','п'=>'p','р'=>'r','с'=>'s','т'=>'t','у'=>'u','ұ'=>'u','ү'=>'u','ф'=>'f','х'=>'kh','һ'=>'h','ц'=>'ts','ч'=>'ch','ш'=>'sh','щ'=>'shch','ъ'=>'','ы'=>'y','і'=>'i','ь'=>'','э'=>'e','ю'=>'yu','я'=>'ya'];
+        $name = strtr($name, $map);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $name) ?? '';
+        $slug = trim($slug, '-');
+        if ($slug === '') $slug = 'project';
+        return substr($slug, 0, 80);
+    }
+    private function uniqueProjectSlug(string $name): string {
+        $base = $this->projectSlugBase($name);
+        $slug = $base; $suffix = 2;
+        while ($this->query('SELECT 1 FROM projects WHERE slug=?', [$slug])->fetchColumn()) {
+            $tail = '-'.$suffix++;
+            $slug = rtrim(substr($base, 0, 80 - strlen($tail)), '-').$tail;
+        }
+        return $slug;
+    }
+    private function backfillProjectSlugs(): void {
+        if (!$this->query("SELECT 1 FROM projects WHERE slug IS NULL OR slug='' LIMIT 1")->fetchColumn()) return;
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            foreach ($this->query("SELECT id,name FROM projects WHERE slug IS NULL OR slug='' ORDER BY created_at,id")->fetchAll() as $row) {
+                $this->query('UPDATE projects SET slug=? WHERE id=?', [$this->uniqueProjectSlug((string)$row['name']), $row['id']]);
+            }
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+    public function resolveProjectSlug(string $slug, string $user): array {
+        $row = $this->query('SELECT id,slug FROM projects WHERE slug=? AND owner_id=?', [$slug,$user])->fetch();
+        if (!$row) throw new Problem(404, 'Проект не найден.');
+        return $row;
+    }
     public function owned(string $id, string $user): array {
-        $row = $this->query('SELECT p.id,p.name,p.settings_payload,d.version,d.payload,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE p.id=? AND p.owner_id=?', [$id,$user])->fetch();
+        $row = $this->query('SELECT p.id,p.slug,p.name,p.settings_payload,d.version,d.payload,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE p.id=? AND p.owner_id=?', [$id,$user])->fetch();
         if (!$row) throw new Problem(404, 'Проект не найден.');
         $row['document'] = json_decode($row['payload'], false, 64, JSON_THROW_ON_ERROR);
         $settings = json_decode($row['settings_payload'] ?: '{}', true, 64, JSON_THROW_ON_ERROR);
@@ -483,7 +530,7 @@ final class Store {
         $id = bin2hex(random_bytes(12)); $document = Document::empty(); $payload = json_encode($document, JSON_THROW_ON_ERROR);
         $settings = json_encode(ProjectSettings::initial(json_decode($payload, false, 64, JSON_THROW_ON_ERROR)), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
-        try { $this->query('INSERT INTO projects(id,owner_id,name,settings_payload) VALUES(?,?,?,?)',[$id,$user,$name,$settings]); $this->query('INSERT INTO documents(project_id,payload) VALUES(?,?)',[$id,$payload]); $this->db->commit(); } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        try { $slug=$this->uniqueProjectSlug($name); $this->query('INSERT INTO projects(id,owner_id,name,settings_payload,slug) VALUES(?,?,?,?,?)',[$id,$user,$name,$settings,$slug]); $this->query('INSERT INTO documents(project_id,payload) VALUES(?,?)',[$id,$payload]); $this->db->commit(); } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         return $this->owned($id,$user);
     }
     public function renameProject(string $id, string $user, int $version, string $expectedName, string $name): array {

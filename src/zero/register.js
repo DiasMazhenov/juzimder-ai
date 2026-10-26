@@ -5,7 +5,7 @@ import { renderZero } from "./render.js";
 
 export function registerZero(
   editor,
-  { projectId, beforeOpen, isClean, onRemote, notify },
+  { projectId, projectSlug, beforeOpen, isClean, onRemote, notify },
 ) {
   const open = async (model) => {
     if (!model || model.get("type") !== "zero-block") return;
@@ -22,7 +22,7 @@ export function registerZero(
       notify("Сначала сохраните изменения и разрешите конфликт.", true);
       return;
     }
-    popup.location.href = `/projects/${projectId}/pages/${pageId}/zero/${model.getAttributes().id}/edit`;
+    popup.location.href = `/projects/${encodeURIComponent(projectSlug || projectId)}/pages/${pageId}/zero/${model.getAttributes().id}/edit`;
   };
   editor.Commands.add("zero:edit", { run: () => open(editor.getSelected()) });
   editor.Components.addType("zero-block", {

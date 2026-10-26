@@ -476,7 +476,8 @@ test("Zero preferences menu and grid dialog are available after Close", () => {
   const app = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8"),
     schema = JSON.parse(readFileSync(new URL("../schemas/project.schema.json", import.meta.url), "utf8"));
   assert.match(app, /data-action="close"[^<]*<span>Закрыть<\/span><\/button><button data-action="preferences-menu"/);
-  assert.match(app, /if \(key === "close"\) \{[\s\S]*?location\.assign\(`\/projects\/\$\{projectId\}\/pages\/\$\{pageId\}\/edit`\);/);
+  assert.match(app, /const projectRoute = `\/projects\/\$\{encodeURIComponent\(project\.slug \|\| projectId\)\}`;/);
+  assert.match(app, /if \(key === "close"\) \{[\s\S]*?location\.assign\(`\$\{projectRoute\}\/pages\/\$\{pageId\}\/edit`\);/);
   assert.doesNotMatch(app, /if \(key === "close"\) \{[\s\S]*?window\.close\(\);/);
   assert.match(app, /data-action="artboard-settings"/);
   assert.match(app, /id="zero-grid-settings"[\s\S]*data-grid-setting="gridColumns"[\s\S]*data-grid-setting="gridBorderOpacity"/);

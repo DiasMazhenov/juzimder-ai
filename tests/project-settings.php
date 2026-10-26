@@ -18,8 +18,10 @@ try {
     unset($legacy);
 
     $store=new Store($path);
-    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===12,'Upgrade existing database through schema 12');
+    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===13,'Upgrade existing database through schema 13');
     $project=$store->owned('0123456789abcdef01234567','legacy');
+    settingsCheck($project['slug']==='legacy-site','Existing project receives a readable slug without changing its internal ID');
+    settingsCheck($store->resolveProjectSlug('legacy-site','legacy')['id']===$project['id'],'Legacy slug resolves for the owning account');
     settingsCheck($project['settings']['schemaVersion']===5,'Project settings migrate to schema version 5');
     settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');
     settingsCheck(count($project['document']->data->pages)===2,'Legacy page content preserved');
@@ -92,7 +94,7 @@ try {
     $migratedAi=new Store($profileMigrationPath);
     $profile=$migratedAi->query('SELECT id,name,api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
     $profileState=$migratedAi->query('SELECT active_profile_id,version FROM project_ai_profile_state WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
-    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===12,'Upgrade schema 4 AI credentials through profile, asset, fallback-model, skill and form migrations');
+    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===13,'Upgrade schema 4 AI credentials through profiles, assets, skills, forms and slugs');
     settingsCheck($profile!==false&&$profile['name']==='Основной профиль'&&$profile['api_key_ciphertext']==='encrypted-legacy-fixture'&&$profile['model']==='openai/legacy-model'&&$profile['fallback_model']===null,'Migration preserves the existing encrypted key and model and leaves fallback disabled');
     settingsCheck($profileState!==false&&$profileState['active_profile_id']===$profile['id']&&(int)$profileState['version']===7,'Migration preserves active selection and optimistic version');
     settingsCheck($migratedAi->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='project_ai_credentials'")->fetchColumn()===false,'Migration removes the obsolete single-profile credential table');
