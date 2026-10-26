@@ -12,6 +12,7 @@ require_once __DIR__ . '/AiZeroComposer.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
+require_once __DIR__ . '/SessionPolicy.php';
 use Juzimder\{Store, Problem, CustomCode};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -22,7 +23,7 @@ $defaultDatabaseIdentity = realpath($defaultDatabasePath) ?: $defaultDatabasePat
 $sessionName = $databaseIdentity === $defaultDatabaseIdentity
     ? 'juzimder_session'
     : 'juzimder_' . substr(hash('sha256', $databaseIdentity), 0, 16);
-session_name($sessionName); session_set_cookie_params(['httponly'=>true,'samesite'=>'Strict','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off','path'=>'/']); session_start();
+session_name($sessionName); session_set_cookie_params(['lifetime'=>Juzimder\SessionPolicy::ABSOLUTE_TIMEOUT_SECONDS,'httponly'=>true,'samesite'=>'Strict','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off','path'=>'/']); session_start();
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $devAuth = getenv('JUZIMDER_DEV_AUTH') === '1' && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1'], true);
 function result(mixed $data,int $status=200): never { http_response_code($status); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR); exit; }
@@ -30,6 +31,20 @@ function expireLocalSession(): void { $_SESSION=[]; session_regenerate_id(true);
 try {
     $store = new Store($databasePath);
     $method = $_SERVER['REQUEST_METHOD']; $path = parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);
+    $sessionExpired = false;
+    $shouldExpireSession = false;
+    $sessionUser = $_SESSION['user'] ?? null;
+    if (is_array($sessionUser)) {
+        $now = time();
+        $shouldExpireSession = Juzimder\SessionPolicy::isExpired($_SESSION['created_at'] ?? null, $_SESSION['last_activity_at'] ?? null, $now)
+            || !is_string($sessionUser['id'] ?? null)
+            || $store->query('SELECT 1 FROM users WHERE id=?', [$sessionUser['id']])->fetchColumn() === false;
+        if ($shouldExpireSession) {
+            $sessionExpired = true;
+        } else {
+            $_SESSION['last_activity_at'] = $now;
+        }
+    }
     $sandboxRequest = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox$~D', $path) === 1;
     $sandboxPreviewRequest = $method === 'GET' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox/[a-f0-9]{64}$~D', $path) === 1;
     $assetUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/assets$~D', $path) === 1;
@@ -53,14 +68,11 @@ try {
             $body = get_object_vars($decodedBody);
         }
     }
+    if ($shouldExpireSession) {
+        expireLocalSession();
+        $sessionUser = null;
+    }
     if ($path === '/api/session' && $method === 'GET') {
-        $sessionUser = $_SESSION['user'] ?? null;
-        $sessionExpired = false;
-        if (is_array($sessionUser) && is_string($sessionUser['id'] ?? null) && $store->query('SELECT 1 FROM users WHERE id=?', [$sessionUser['id']])->fetchColumn() === false) {
-            expireLocalSession();
-            $sessionUser = null;
-            $sessionExpired = true;
-        }
         result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired]);
     }
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {
@@ -87,9 +99,9 @@ try {
             }
             if (!$user || !password_verify($password,$user['password_hash'])) throw new Problem(401,'Неверный email или пароль.');
         }
-        session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
+        session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['created_at']=time(); $_SESSION['last_activity_at']=$_SESSION['created_at']; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
     }
-    $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,'Войдите в аккаунт.');
+    $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,$sessionExpired ? 'Локальная сессия устарела. Войдите снова.' : 'Войдите в аккаунт.');
     if ($store->query('SELECT 1 FROM users WHERE id=?', [$user])->fetchColumn() === false) {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');

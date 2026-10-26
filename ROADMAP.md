@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.221: Сессия входа истекает после 30 минут бездействия или 12 часов абсолютного срока; сервер проверяет таймстемпы при каждом запросе и сбрасывает устаревшие/некорректные сессии. Граничные тесты политики и полный release QA описаны в CONTEXT.md. Migration runner и восстановление аккаунта остаются открытыми.
+
 - [x] 00.00.220: Дашборд показывает актуальное состояние общих Header/Footer вместо постоянного «Не подключено»: имя выбранной секции, число включённых страниц и ссылку на настройки; 404 ведёт в её раздел настроек. Unit и Codex Browser smoke PASS, ревизия проекта не менялась.
 
 - [x] 00.00.219: Настройки «Шапка и подвал» позволяют назначить существующие верхнеуровневые секции проекта и независимо включать их на каждой странице. Сервер проверяет ID секций и страниц, настройки входят в schemaVersion 10 и CAS/revisions; static preview, публикация и ZIP используют один безопасный renderer, а назначенные исходные секции не дублируются в содержимом страниц. Полный `npm test`, `npm run build`, PHP syntax и `git diff --check` PASS; Codex Browser на существующей вкладке подтвердил UI, список блоков, per-page переключатели и версию 00.00.219 без изменения ревизии проекта 361.
@@ -215,7 +217,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Migration runner, account recovery, production session expiry and hardening.
+- [ ] Migration runner and account recovery; production session idle/absolute expiry implemented in 00.00.221, broader hardening remains.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout
