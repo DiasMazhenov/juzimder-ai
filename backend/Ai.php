@@ -66,6 +66,16 @@ final class AiProviderFailure extends \RuntimeException {
         return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit','photo_unavailable'],true)?$category:'provider';
     }
     public function userMessage(): string {
+        $zeroReason = str_starts_with($this->validationRule ?? '', 'zero:') ? substr($this->validationRule, 5) : null;
+        $zeroReason = match ($zeroReason) {
+            'invalid_json', 'repair_invalid_json' => 'модель вернула некорректный JSON',
+            'invalid_element_list', 'repair_invalid_element_list' => 'модель вернула некорректный список элементов',
+            'too_few_elements', 'invalid_usable_element_count' => 'в ответе не хватает элементов для композиции',
+            'missing_required_photo' => 'модель не добавила явно запрошенное фото',
+            'missing_explicit_copy' => 'модель пропустила текст, указанный в описании',
+            'text_image_overlap' => 'фото перекрывает текстовый элемент',
+            default => $zeroReason,
+        };
         return match ($this->category) {
             'cancelled' => 'Генерация отменена. Проект не изменён. Уже потраченные токены могут быть учтены провайдером.',
             'timeout' => 'Модель не успела вернуть полный ответ за отведённое время. Попробуйте более быструю модель в «Настройки сайта → AI Engine». Проект не изменён.',
@@ -79,7 +89,7 @@ final class AiProviderFailure extends \RuntimeException {
             'invalid_css' => 'Стили модели не прошли безопасную проверку. Упростите описание визуального стиля и попробуйте ещё раз. Проект не изменён.',
             'contact_requirements' => 'Модель добавила контакт или внешнюю ссылку, которых нет в вашем описании. Укажите нужные контакты явно или попросите внутреннюю кнопку. Проект не изменён.',
             'skill_requirements' => 'Дизайн не прошёл обязательные проверки выбранного профиля. Уточните описание и попробуйте ещё раз. Проект не изменён.',
-            'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание сайта и попробуйте ещё раз. Проект не изменён.' . (str_starts_with($this->validationRule ?? '', 'zero:') ? ' Причина: ' . substr($this->validationRule, 5) : ''),
+            'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание и попробуйте ещё раз. Проект не изменён.' . ($zeroReason !== null ? ' Причина: ' . $zeroReason : ''),
             'invalid_component_edit' => 'Предложение AI не прошло проверку изменений выбранного элемента. Проект не изменён.',
             default => 'AI-провайдер отклонил запрос. Проверьте выбранную модель и её настройки в «Настройки сайта → AI Engine». Проект не изменён.',
         };

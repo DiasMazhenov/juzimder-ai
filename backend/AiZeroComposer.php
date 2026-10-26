@@ -55,8 +55,8 @@ final class AiZeroComposer {
         try{$userPrompt=json_encode(['brief'=>$prompt,'desktopArtboard'=>['width'=>$board->width,'height'=>$board->height,'backgroundColor'=>$board->background??'#ffffff','hasBackgroundImage'=>!empty($board->backgroundImage)],'breakpoints'=>$breakpoints],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}catch(\JsonException){throw new \InvalidArgumentException('Не удалось подготовить описание композиции.');}
         $schema=self::schema($board->width,$board->height);
         $completion=$provider->completeJson(self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT,$userPrompt,$schema,'juzimder_zero_composition',3000);
-        try{$decoded=json_decode($completion['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition returned invalid JSON.',false,'invalid_output');}
-        if(!is_array($decoded)||!is_array($decoded['elements']??null)||!array_is_list($decoded['elements'])||count($decoded['elements'])<3||count($decoded['elements'])>16)throw new AiProviderFailure('Zero composition has an invalid element list.',false,'invalid_output');
+        try{$decoded=json_decode($completion['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition returned invalid JSON.',false,'invalid_output','zero:invalid_json');}
+        if(!is_array($decoded)||!is_array($decoded['elements']??null)||!array_is_list($decoded['elements'])||count($decoded['elements'])<3||count($decoded['elements'])>16)throw new AiProviderFailure('Zero composition has an invalid element list.',false,'invalid_output','zero:invalid_element_list');
         $decoded['artboard']=self::normalizeArtboardDefaults($decoded['artboard']??[],$board);
         $decoded['elements']=self::normalizeModelElementDefaults($decoded['elements']);
         $quotedRequirements=self::explicitQuotedRequirements($prompt);
@@ -77,14 +77,14 @@ final class AiZeroComposer {
             if($invalidArtboardReason!==null)$strictRequirements[]='The previous draft contains an invalid artboard background. Return a valid six-digit HEX background color and choose whether to clear or preserve its current background image.';
             $repairPrompt=$userPrompt."\n\nSTRICT REQUIREMENTS: ".implode(' ',$strictRequirements)." Regenerate the full JSON, keep all other requested content, and fit the composition inside the supplied artboard.";
             $repair=$provider->completeJson(self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT,$repairPrompt,$schema,$photoMissing?'juzimder_zero_photo_repair':'juzimder_zero_brief_repair',3000);
-            try{$repaired=json_decode($repair['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition repair returned invalid JSON.',false,'invalid_output');}
-            if(!is_array($repaired)||!is_array($repaired['elements']??null)||!array_is_list($repaired['elements'])||count($repaired['elements'])<3||count($repaired['elements'])>16)throw new AiProviderFailure('Zero composition repair returned an invalid element list.',false,'invalid_output');
+            try{$repaired=json_decode($repair['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition repair returned invalid JSON.',false,'invalid_output','zero:repair_invalid_json');}
+            if(!is_array($repaired)||!is_array($repaired['elements']??null)||!array_is_list($repaired['elements'])||count($repaired['elements'])<3||count($repaired['elements'])>16)throw new AiProviderFailure('Zero composition repair returned an invalid element list.',false,'invalid_output','zero:repair_invalid_element_list');
             $repaired['artboard']=self::normalizeArtboardDefaults($repaired['artboard']??[],$board);
             $repaired['elements']=self::normalizeModelElementDefaults($repaired['elements']);
-            if(count($repaired['elements'])<3)throw new AiProviderFailure('Zero composition repair returned too few non-empty elements.',false,'invalid_output');
-            if($photoMissing&&!self::hasImageElement($repaired['elements']))throw new AiProviderFailure('Zero composition omitted the explicitly requested photo.',false,'invalid_output');
-            if(self::missingQuotedRequirements($earlyRequirements,$repaired['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label after repair.',false,'invalid_output');
-            if(self::hasTextImageOverlap($repaired['elements']))throw new AiProviderFailure('Zero composition overlaps its image with text after repair.',false,'invalid_output');
+            if(count($repaired['elements'])<3)throw new AiProviderFailure('Zero composition repair returned too few non-empty elements.',false,'invalid_output','zero:too_few_elements');
+            if($photoMissing&&!self::hasImageElement($repaired['elements']))throw new AiProviderFailure('Zero composition omitted the explicitly requested photo.',false,'invalid_output','zero:missing_required_photo');
+            if(self::missingQuotedRequirements($earlyRequirements,$repaired['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label after repair.',false,'invalid_output','zero:missing_explicit_copy');
+            if(self::hasTextImageOverlap($repaired['elements']))throw new AiProviderFailure('Zero composition overlaps its image with text after repair.',false,'invalid_output','zero:text_image_overlap');
             $invalidElementReason=self::modelElementsValidationError($repaired['elements'],(int)$board->width,(int)$board->height);
             if($invalidElementReason!==null)throw new AiProviderFailure('Zero composition still contains fields outside the safe element schema after repair.',false,'invalid_output','zero:'.$invalidElementReason);
             $invalidArtboardReason=self::modelArtboardValidationError($repaired['artboard']);
@@ -109,7 +109,7 @@ final class AiZeroComposer {
         $decoded['elements']=self::normalizeModelNumberedProcessCardSurfaces($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         $decoded['elements']=self::normalizeRequestedNumberedProcessCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         $decoded['elements']=self::normalizeRequestedTestimonialCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
-        if(self::missingQuotedRequirements($quotedRequirements,$decoded['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label.',false,'invalid_output');
+        if(self::missingQuotedRequirements($quotedRequirements,$decoded['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label.',false,'invalid_output','zero:missing_explicit_copy');
         foreach($decoded['elements'] as $item)if(($item['type']??null)==='rectangle'&&str_starts_with((string)($item['name']??''),'AI testimonial card ')){$generatedCardSurfaceCount=0;break;}
         self::normalizeRequestedThreeCardHeading($prompt,$decoded['elements'],(int)$board->width);
         $autoPhotoQuery=$generatedCardSurfaceCount===0?self::automaticHeroPhotoQuery($prompt,$decoded['elements']):null;
@@ -165,7 +165,7 @@ final class AiZeroComposer {
             self::addResponsiveOverrides($element,$zeroData,$mobileStack[$index]??[]);
             $elements[]=$element;
         }
-        if(count($elements)<2||count($elements)>20)throw new AiProviderFailure('Zero composition has too few usable elements.',false,'invalid_output');
+        if(count($elements)<2||count($elements)>20)throw new AiProviderFailure('Zero composition has too few usable elements.',false,'invalid_output','zero:invalid_usable_element_count');
         $artboardBackground=['backgroundColor'=>$decoded['artboard']['backgroundColor'],'backgroundImageMode'=>$decoded['artboard']['backgroundImageMode']];
         $candidate=json_decode(json_encode($zeroData,JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);$candidate->elements=$elements;self::applyArtboardBackground($candidate,$artboardBackground);
         try{ZeroBlock::validate($candidate);}catch(\Throwable $failure){throw new AiProviderFailure('Zero composition failed the safe output validator.',false,'invalid_output','zero:'.$failure->getMessage());}
