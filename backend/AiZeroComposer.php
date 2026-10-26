@@ -64,6 +64,7 @@ final class AiZeroComposer {
         if(!is_array($decoded)||!is_array($decoded['elements']??null)||!array_is_list($decoded['elements'])||count($decoded['elements'])<3||count($decoded['elements'])>16)throw new AiProviderFailure('Zero composition has an invalid element list.',false,'invalid_output','zero:invalid_element_list');
         $decoded['artboard']=self::normalizeArtboardDefaults($decoded['artboard']??[],$board);
         $decoded['elements']=self::normalizeModelElementDefaults($decoded['elements']);
+        $decoded['elements']=self::withoutForbiddenPhotos($decoded['elements'],$photoForbidden);
         $decoded['elements']=self::completeExplicitThreeServiceCopy($prompt,$decoded['elements'],(int)$board->width);
         $quotedRequirements=self::explicitQuotedRequirements($prompt);
         $earlyRequirements=$quotedRequirements;
@@ -88,6 +89,7 @@ final class AiZeroComposer {
             if(!is_array($repaired)||!is_array($repaired['elements']??null)||!array_is_list($repaired['elements'])||count($repaired['elements'])<3||count($repaired['elements'])>16)throw new AiProviderFailure('Zero composition repair returned an invalid element list.',false,'invalid_output','zero:repair_invalid_element_list');
             $repaired['artboard']=self::normalizeArtboardDefaults($repaired['artboard']??[],$board);
             $repaired['elements']=self::normalizeModelElementDefaults($repaired['elements']);
+            $repaired['elements']=self::withoutForbiddenPhotos($repaired['elements'],$photoForbidden);
             if(count($repaired['elements'])<3)throw new AiProviderFailure('Zero composition repair returned too few non-empty elements.',false,'invalid_output','zero:too_few_elements');
             if($photoMissing&&!self::hasImageElement($repaired['elements']))throw new AiProviderFailure('Zero composition omitted the explicitly requested photo.',false,'invalid_output','zero:missing_required_photo');
             if(self::missingQuotedRequirements($earlyRequirements,$repaired['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label after repair.',false,'invalid_output','zero:missing_explicit_copy');
@@ -245,7 +247,13 @@ final class AiZeroComposer {
         return false;
     }
     private static function explicitlyForbidsPhoto(string $prompt): bool {
-        return preg_match('/(?:\b(?:text[- ]only|typography[- ]only|no[- ](?:photo|image|picture)|without[- ](?:photo|image|picture))\b|\b(?:no|without|avoid)\s+(?:(?:any|extra|additional)\s+)?(?:photos?|images?|pictures?|photographs?)\b|\b(?:photos?|images?|pictures?|photographs?)\s+(?:are\s+)?(?:not\s+(?:needed|required|wanted|requested|necessary)|unnecessary)\b|(?:без|не\s+(?:нужно|нужны|требуется|требуются|добавляй|используй|включай))\s+(?:фото|фотограф\w*|изображен\w*|картин\w*)|(?:фото|фотограф\w*|изображен\w*|картин\w*)\s+не\s+(?:нужно|нужны|требуется|требуются|нужен|нужна)|(?:не\s+(?:добавляй|используй|включай)|do\s+not\s+(?:add|use|include))\s+(?:другие\s+)?[^.!?;\n]{0,80}(?:фото|фотограф\w*|изображен\w*|картин\w*|photos?|images?|pictures?|photographs?))/iu',$prompt)===1;
+        return preg_match('/(?:\b(?:text[- ]only|typography[- ]only|no[- ](?:photo|image|picture)|without[- ](?:photo|image|picture))\b|\b(?:no|without|avoid)\s+(?:(?:any|extra|additional)\s+)?(?:photos?|images?|pictures?|photographs?)\b|\b(?:photos?|images?|pictures?|photographs?)\s+(?:are\s+)?(?:not\s+(?:needed|required|wanted|requested|necessary)|unnecessary)\b|(?:без|не\s+(?:нужно|нужны|требуется|требуются|добавляй|используй|включай))\s+(?:фото|фотограф\w*|изображен\w*|картин\w*)|(?:фото|фотограф\w*|изображен\w*|картин\w*)\s+не\s+(?:нужно|нужны|требуется|требуются|нужен|нужна)|(?:не\s+(?:добавляй|используй|включай)|do\s+not\s+(?:add|use|include))\s+(?:другие\s+)?[^.!?;\n]{0,80}(?:фото|фотограф\w*|изображен\w*|картин\w*|photos?|images?|pictures?|photographs?)|(?:\b(?:no|without|avoid)\s+|без\s+)[^.!?;\n]{0,64}(?:photos?|images?|pictures?|photographs?|фото|фотограф\w*|изображен\w*|картин\w*))/iu',$prompt)===1;
+    }
+
+    /** Explicitly forbidden photos from model output are discarded before geometry checks and photo selection. */
+    private static function withoutForbiddenPhotos(array $items,bool $photoForbidden): array {
+        if(!$photoForbidden)return $items;
+        return array_values(array_filter($items,static fn($item):bool=>!is_array($item)||($item['type']??null)!=='image'));
     }
     private static function isHeroIntent(string $prompt): bool {
         return preg_match('/(?:\bhero\b|\bfirst\s+screen\b|\babove\s+the\s+fold\b|\blanding\s+page\b|\bhome\s+page\b|перв(?:ый|ого)\s+экран|главн\w*\s+экран|обложк\w*\s+сайт|главн\w*\s+страниц\w*)/iu',$prompt)===1;
