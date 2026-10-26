@@ -1154,6 +1154,10 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+.zero-app #zero-ai-candidate.zero-ai-candidate-desktop {
+  width: min(880px, calc(100vw - 32px));
+  max-width: none;
+}
 .zero-app #zero-ai-preview-controls button {
   display: inline-flex;
   align-items: center;

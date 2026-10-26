@@ -1404,6 +1404,7 @@ export async function openZeroEditor({
       })
       .join("");
     stage.dataset.previewMode = activeMode;
+    stage.closest("dialog")?.classList.toggle("zero-ai-candidate-desktop", activeMode === "desktop");
     stage.innerHTML = `<div class="zero-ai-preview-frame">${renderZero(
       candidate,
       `${blockId}-ai-preview`,
