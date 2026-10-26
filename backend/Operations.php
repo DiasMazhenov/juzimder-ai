@@ -207,12 +207,14 @@ final class ProjectOperations {
                 $styles = new \stdClass();
                 foreach (get_object_vars($layout) as $field => $value) {
                     if (!isset(self::LAYOUT_FIELDS[$field])) throw new Problem(422, 'Неизвестное свойство компоновки.');
-                    if (!is_string($value)) throw new Problem(422, 'Значение компоновки должно быть строкой.');
-                    if ($field === 'display' && !in_array($value, ['block','flex','grid','inline','inline-block'], true)) throw new Problem(422, 'Недопустимое значение display.');
-                    if ($field === 'flexDirection' && !in_array($value, ['row','row-reverse','column','column-reverse'], true)) throw new Problem(422, 'Недопустимое направление Flex.');
-                    if ($field === 'justifyContent' && !in_array($value, ['flex-start','flex-end','center','space-between','space-around','space-evenly'], true)) throw new Problem(422, 'Недопустимое выравнивание.');
-                    if ($field === 'alignItems' && !in_array($value, ['stretch','flex-start','flex-end','center','baseline'], true)) throw new Problem(422, 'Недопустимое выравнивание.');
-                    if ($field === 'flexWrap' && !in_array($value, ['nowrap','wrap','wrap-reverse'], true)) throw new Problem(422, 'Недопустимое значение flex-wrap.');
+                    if ($value !== null) {
+                        if (!is_string($value)) throw new Problem(422, 'Значение компоновки должно быть строкой или null для сброса.');
+                        if ($field === 'display' && !in_array($value, ['block','flex','grid','inline','inline-block'], true)) throw new Problem(422, 'Недопустимое значение display.');
+                        if ($field === 'flexDirection' && !in_array($value, ['row','row-reverse','column','column-reverse'], true)) throw new Problem(422, 'Недопустимое направление Flex.');
+                        if ($field === 'justifyContent' && !in_array($value, ['flex-start','flex-end','center','space-between','space-around','space-evenly'], true)) throw new Problem(422, 'Недопустимое выравнивание.');
+                        if ($field === 'alignItems' && !in_array($value, ['stretch','flex-start','flex-end','center','baseline'], true)) throw new Problem(422, 'Недопустимое выравнивание.');
+                        if ($field === 'flexWrap' && !in_array($value, ['nowrap','wrap','wrap-reverse'], true)) throw new Problem(422, 'Недопустимое значение flex-wrap.');
+                    }
                     $styles->{self::LAYOUT_FIELDS[$field]} = $value;
                 }
                 $location = self::findComponent($document, self::identifier($operation->componentId));

@@ -1,6 +1,7 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.248: typed `update_layout` принимает `null` для сброса типизированных CSS layout полей; строковые enum остаются проверенными, несвязанные декларации сохраняются.
 - [x] 00.00.247: typed `update_styles` принимает `null` для удаления allowlisted CSS-свойства, сохраняя остальные, и удаляет пустой `style`. Unit/API regression проверяют persisted CAS/revision flow; `null` не сохраняется в Project Data.
 - [x] 00.00.246: Typed operations позволяют безопасно заменять CSS-классы компонента. GrapesJS class-tag сохраняется в Project Data, JSON Schema и backend ограничивают список 32 уникальными токенами, а static export выдаёт только проверенные имена. Полная универсализация typed operations и live keyboard copy/paste QA остаются открытыми.
 
@@ -288,6 +289,7 @@
 - [x] 00.00.243 Синхронизирован typed attribute allowlist с уже разрешённым static exporter: `aria-controls`, типизированные `aria-selected`, `time[datetime]` и boolean `details[open]`; runtime и schema контракт покрыты regression tests. Общая универсализация typed operations остаётся открытой.
 - [x] 00.00.246 Добавлена `update_classes`: замена/очистка CSS-классов по стабильному ID с ограничением количества, формата и уникальности; Project Data validator и JSON Schema синхронизированы, static export regression добавлена.
 - [x] 00.00.247 Добавлено удаление отдельного CSS-свойства через `update_styles` + `null`; empty `style` удаляется, unit и authenticated API coverage подтверждают сохранение через CAS.
+- [x] 00.00.248 `update_layout` поддерживает `null` как сброс display/flex/grid/size полей через общий CSS allowlist; backend unit и authenticated API regressions.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 

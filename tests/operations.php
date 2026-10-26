@@ -116,6 +116,9 @@ $styleFullyCleared = ProjectOperations::apply($styleOnly, [operationObject(['ope
 operationCheck(!isset(operationNode($styleFullyCleared,$styleOnlyId)->style), 'Clearing the last typed style removes the empty style object');
 $layoutUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_layout','componentId'=>'ieg3','layout'=>['display'=>'grid','gridTemplateColumns'=>'repeat(3, minmax(0, 1fr))','gap'=>'20px']])]);
 operationCheck($layoutUpdated->data->pages[0]->frames[0]->component->components[0]->style->display === 'grid', 'Layout updates map typed fields to validated CSS properties');
+$layoutPartiallyReset = ProjectOperations::apply($layoutUpdated, [operationObject(['operation'=>'update_layout','componentId'=>'ieg3','layout'=>['display'=>null,'gap'=>null]])]);
+$resetLayoutNode = operationNode($layoutPartiallyReset,'ieg3');
+operationCheck(!isset($resetLayoutNode->style->display) && !isset($resetLayoutNode->style->gap) && $resetLayoutNode->style->{'grid-template-columns'} === 'repeat(3, minmax(0, 1fr))', 'Typed layout null resets selected fields while preserving unrelated layout settings');
 $classesUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_classes','componentId'=>'ieg3','classes'=>['hero','content-wrap']])]);
 $classTarget = operationNode($classesUpdated, 'ieg3');
 operationCheck(($classTarget->classes[0]->name ?? null) === 'hero' && ($classTarget->classes[1]->name ?? null) === 'content-wrap' && $classTarget->attributes->id === 'ieg3', 'Typed CSS class updates use GrapesJS class-tag data and preserve stable identity');
