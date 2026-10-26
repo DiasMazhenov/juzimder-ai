@@ -479,6 +479,19 @@ test("both editors publish only a saved project revision", () => {
   assert.match(zero, /if \(key === "publish"\)[\s\S]*?if \(dirty\) await save\(\)[\s\S]*?if \(dirty \|\| saving \|\| conflict\)[\s\S]*?\/publish`/);
   assert.match(main, /id="publish-editor"[^>]*>Опубликовать<\/button>/);
   assert.match(main, /#publish-editor'\)\.onclick=async\(\)=>[\s\S]*?if\(dirty\)await saveDocument\(false\)[\s\S]*?if\(dirty\|\|saving\|\|conflicted\)[\s\S]*?\/publish`/);
+  assert.match(main, /editorPublication\.sourceProjectVersion===current\.version/);
+  assert.match(main, /publishButton\.dataset\.publicationState=published\?'published':'unpublished'/);
+  assert.match(zero, /publication\.sourceProjectVersion === version/);
+  assert.match(zero, /button\.dataset\.publishState = published \? \"published\" : \"unpublished\"/);
+  const ui = readFileSync(new URL("../src/ui-overrides.css", import.meta.url), "utf8"),
+    mainCss = readFileSync(new URL("../src/style.css", import.meta.url), "utf8"),
+    zeroCss = readFileSync(new URL("../src/zero/zero.css", import.meta.url), "utf8");
+  assert.match(ui, /#publish-editor\[data-publish-state=\"unpublished\"\]/);
+  assert.match(ui, /#publish-editor\[data-publish-state=\"published\"\]/);
+  assert.match(mainCss, /#publish-site\[data-publication-state=\"unpublished\"\]/);
+  assert.match(mainCss, /#publish-site\[data-publication-state=\"published\"\]/);
+  assert.match(zeroCss, /\[data-action=\"publish\"\]\[data-publish-state=\"unpublished\"\]/);
+  assert.match(zeroCss, /\[data-action=\"publish\"\]\[data-publish-state=\"published\"\]/);
 });
 
 test("Zero preferences menu and grid dialog are available after Close", () => {

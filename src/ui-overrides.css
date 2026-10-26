@@ -93,6 +93,23 @@
   cursor: progress;
 }
 
+#app:not(:has(.zero-app)) #publish-editor[data-publish-state="unpublished"] {
+  border-color: var(--jz-ui-save-active);
+  background: var(--jz-ui-save-active);
+  color: var(--jz-ui-save-active-text);
+}
+
+#app:not(:has(.zero-app)) #publish-editor[data-publish-state="published"] {
+  border-color: var(--jz-ui-save-saved);
+  background: var(--jz-ui-save-saved);
+  color: var(--jz-ui-save-saved-text);
+}
+
+#app:not(:has(.zero-app)) #publish-editor[data-publish-state="published"]:hover:not(:disabled) {
+  border-color: var(--jz-ui-save-saved-hover);
+  background: var(--jz-ui-save-saved-hover);
+}
+
 #app:not(:has(.zero-app)) :is(.error, #create-error, #page-dialog-error, .page-rename-error, .ai-component-editor [data-status="error"]) {
   color: var(--jz-ui-error) !important;
 }

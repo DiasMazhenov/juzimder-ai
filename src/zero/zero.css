@@ -59,6 +59,20 @@
   opacity: 1;
   cursor: progress;
 }
+#app .zero-app .zero-top [data-action="publish"][data-publish-state="unpublished"] {
+  background: var(--jz-ui-save-active);
+  border-color: var(--jz-ui-save-active);
+  color: var(--jz-ui-save-active-text);
+}
+#app .zero-app .zero-top [data-action="publish"][data-publish-state="published"] {
+  background: var(--jz-ui-save-saved);
+  border-color: var(--jz-ui-save-saved);
+  color: var(--jz-ui-save-saved-text);
+}
+#app .zero-app .zero-top [data-action="publish"][data-publish-state="published"]:hover:not(:disabled) {
+  background: var(--jz-ui-save-saved-hover);
+  border-color: var(--jz-ui-save-saved-hover);
+}
 .zero-app h2 {
   font-size: 13px;
   margin: 18px 0 10px;

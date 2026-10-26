@@ -73,6 +73,7 @@ export async function openZeroEditor({
     aiCandidateData = null,
     baseData,
     version = project.version,
+    publication = null,
     mode = "desktop",
     selection = new Set(),
     zoom = 1,
@@ -98,6 +99,7 @@ export async function openZeroEditor({
     smartLines = [],
     preview = false,
     destroyed = false;
+  try { publication = (await api(`/projects/${projectId}/publication`)).publication; } catch {}
   const projectRoute = `/projects/${encodeURIComponent(project.slug || projectId)}`;
   const locate = (p) => {
     const page = p.document.data.pages.find((page) => page.id === pageId);
@@ -172,6 +174,16 @@ export async function openZeroEditor({
     button.title = label;
     button.setAttribute("aria-busy", String(saving));
     button.disabled = conflict;
+    syncPublishButtonState();
+  };
+  const syncPublishButtonState = () => {
+    const button = $('[data-action="publish"]');
+    if (!button) return;
+    const published = Boolean(publication && !dirty && !saving && publication.sourceProjectVersion === version);
+    button.dataset.publishState = published ? "published" : "unpublished";
+    const label = published ? "Опубликовано" : "Опубликовать";
+    button.setAttribute("aria-label", label);
+    button.title = published ? `Опубликована текущая версия · ревизия ${version}` : "Есть изменения для публикации";
   };
   const status = (message) => {
       $("#zero-status").textContent = message;
@@ -1634,6 +1646,9 @@ export async function openZeroEditor({
         const publishVersion = latest.version;
         if (!window.confirm(`Будет опубликована сохранённая ревизия ${publishVersion}. Сайт станет доступен без входа на отдельном публичном адресе. Продолжить?`)) return;
         const result = await api(`/projects/${projectId}/publish`, "POST", { version: publishVersion });
+        publication = result.publication;
+        version = result.publication.sourceProjectVersion;
+        syncPublishButtonState();
         status(`Опубликована ревизия ${result.publication.sourceProjectVersion} · ${result.publicUrl}`);
       } catch (error) {
         status(error.message);
