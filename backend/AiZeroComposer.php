@@ -12,11 +12,14 @@ final class AiZeroComposer {
     private const CARD_LAYOUT = 'For exactly three requested service cards on Desktop, place the three equal-width cards in one top-aligned row with even gutters. Make each card a visibly distinct rounded surface, not floating text, and place its own icon, title and description inside that surface. Keep each icon beside or above the matching title, and use a distinct icon that fits each card rather than repeating a generic plus icon. Never put two cards in one column with the third on a separate row. On Mobile, arrange the badge, heading, introduction, each card title/description/icon pair in the same card order, and the action last.';
     private const FACTUALITY = 'Use only concrete business facts explicitly provided by the brief. Never invent timelines, prices, terms, guarantees, credentials, availability, statistics, testimonials, or legal/compliance claims. For FAQ sections, do not infer services, packages, service areas, or consultation options. If the brief contains no source facts for an answer, use a neutral response that says the detail should be clarified with the business; do not assert an offering or promise.';
 
-    public static function schema(int $width, int $height): array {
+    public static function schema(int $width, int $height, bool $allowImages=true): array {
+        $elementTypes=['text','button','rectangle','ellipse','line'];
+        if($allowImages)$elementTypes[]='image';
+        $elementTypes[]='vector';
         $item=[
             'type'=>'object','additionalProperties'=>false,
             'properties'=>[
-                'type'=>['type'=>'string','enum'=>['text','button','rectangle','ellipse','line','image','vector']],
+                'type'=>['type'=>'string','enum'=>$elementTypes],
                 'name'=>['type'=>'string','minLength'=>1,'maxLength'=>120],
                 'content'=>['type'=>'string','maxLength'=>300],
                 'photoQuery'=>['type'=>'string','maxLength'=>100],
@@ -47,21 +50,23 @@ final class AiZeroComposer {
     public static function create(string $prompt, \stdClass $zeroData, StructuredAiProvider $provider, ?callable $photoSearch=null): array {
         $prompt=trim($prompt);
         if($prompt===''||mb_strlen($prompt,'UTF-8')>2000)throw new \InvalidArgumentException('Опишите композицию: от 1 до 2000 символов.');
-        $photoRequired=self::explicitlyRequestsPhoto($prompt);
+        $photoForbidden=self::explicitlyForbidsPhoto($prompt);
+        $photoRequired=!$photoForbidden&&self::explicitlyRequestsPhoto($prompt);
         ZeroBlock::validate($zeroData);
         $board=$zeroData->artboards->desktop;
         $breakpoints=[];
         foreach($zeroData->artboards as $id=>$item)$breakpoints[]=['id'=>$id,'width'=>$item->width,'height'=>$item->height];
         try{$userPrompt=json_encode(['brief'=>$prompt,'desktopArtboard'=>['width'=>$board->width,'height'=>$board->height,'backgroundColor'=>$board->background??'#ffffff','hasBackgroundImage'=>!empty($board->backgroundImage)],'breakpoints'=>$breakpoints],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}catch(\JsonException){throw new \InvalidArgumentException('Не удалось подготовить описание композиции.');}
-        $schema=self::schema($board->width,$board->height);
-        $completion=$provider->completeJson(self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT,$userPrompt,$schema,'juzimder_zero_composition',3000);
+        $schema=self::schema($board->width,$board->height,!$photoForbidden);
+        $systemPrompt=self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT.($photoForbidden?"\nThe brief explicitly prohibits photos. Do not create image elements or photo search slots.":'');
+        $completion=$provider->completeJson($systemPrompt,$userPrompt,$schema,'juzimder_zero_composition',3000);
         try{$decoded=json_decode($completion['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition returned invalid JSON.',false,'invalid_output','zero:invalid_json');}
         if(!is_array($decoded)||!is_array($decoded['elements']??null)||!array_is_list($decoded['elements'])||count($decoded['elements'])<3||count($decoded['elements'])>16)throw new AiProviderFailure('Zero composition has an invalid element list.',false,'invalid_output','zero:invalid_element_list');
         $decoded['artboard']=self::normalizeArtboardDefaults($decoded['artboard']??[],$board);
         $decoded['elements']=self::normalizeModelElementDefaults($decoded['elements']);
         $quotedRequirements=self::explicitQuotedRequirements($prompt);
         $earlyRequirements=$quotedRequirements;
-        if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)===1&&preg_match('/(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:отдельн\w*\s+)?(?:карточк\w*|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
+        if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)===1&&preg_match('/(?:из\s+)?(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
         $missingRequirements=self::missingQuotedRequirements($earlyRequirements,$decoded['elements']);
         $photoMissing=$photoRequired&&!self::hasImageElement($decoded['elements']);
         $textImageOverlap=self::hasTextImageOverlap($decoded['elements']);
@@ -76,7 +81,7 @@ final class AiZeroComposer {
             if($invalidElements)$strictRequirements[]='The previous draft contains fields or geometry outside the required element schema. Return only schema-compliant elements with valid types, non-empty text where required, valid allowlisted vector icon names, colors that are exactly six-digit HEX or the literal transparent, and finite in-range geometry.';
             if($invalidArtboardReason!==null)$strictRequirements[]='The previous draft contains an invalid artboard background. Return a valid six-digit HEX background color and choose whether to clear or preserve its current background image.';
             $repairPrompt=$userPrompt."\n\nSTRICT REQUIREMENTS: ".implode(' ',$strictRequirements)." Regenerate the full JSON, keep all other requested content, and fit the composition inside the supplied artboard.";
-            try{$repair=$provider->completeJson(self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT,$repairPrompt,$schema,$photoMissing?'juzimder_zero_photo_repair':'juzimder_zero_brief_repair',3000);}
+            try{$repair=$provider->completeJson($systemPrompt,$repairPrompt,$schema,$photoMissing?'juzimder_zero_photo_repair':'juzimder_zero_brief_repair',3000);}
             catch(AiProviderFailure $failure){if($failure->category==='cancelled')throw $failure;throw new AiProviderFailure('Zero composition repair did not finish after the draft failed validation.',false,'invalid_output','zero:repair_incomplete');}
             try{$repaired=json_decode($repair['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition repair returned invalid JSON.',false,'invalid_output','zero:repair_invalid_json');}
             if(!is_array($repaired)||!is_array($repaired['elements']??null)||!array_is_list($repaired['elements'])||count($repaired['elements'])<3||count($repaired['elements'])>16)throw new AiProviderFailure('Zero composition repair returned an invalid element list.',false,'invalid_output','zero:repair_invalid_element_list');
@@ -221,6 +226,7 @@ final class AiZeroComposer {
     }
 
     private static function explicitlyRequestsPhoto(string $prompt): bool {
+        if(self::explicitlyForbidsPhoto($prompt))return false;
         $subject='(?:\bphotos?\b|\bimages?\b|\bpictures?\b|\bphotographs?\b|фото|фотограф\w*|изображен\w*|картин\w*)';
         $negative='(?:\b(?:no|without)\s+(?:(?:any|extra|additional)\s+)?(?:photos?|images?|pictures?|photographs?)\b|\b(?:photos?|images?|pictures?|photographs?)\s+(?:are\s+)?(?:not\s+(?:needed|required|wanted|requested|necessary)|unnecessary)\b|(?:без|не\s+(?:нужно|нужны|требуется|требуются|добавляй|используй|включай))\s+(?:фото|фотограф\w*|изображен\w*|картин\w*)|(?:фото|фотограф\w*|изображен\w*|картин\w*)\s+не\s+(?:нужно|нужны|требуется|требуются|нужен|нужна))';
         foreach(preg_split('/(?<=[.!?;])\s+|\R/u',$prompt)?:[$prompt] as $clause){
@@ -231,7 +237,7 @@ final class AiZeroComposer {
         return false;
     }
     private static function explicitlyForbidsPhoto(string $prompt): bool {
-        return preg_match('/(?:\b(?:text[- ]only|typography[- ]only|no[- ](?:photo|image|picture)|without[- ](?:photo|image|picture))\b|\b(?:no|without|avoid)\s+(?:(?:any|extra|additional)\s+)?(?:photos?|images?|pictures?|photographs?)\b|\b(?:photos?|images?|pictures?|photographs?)\s+(?:are\s+)?(?:not\s+(?:needed|required|wanted|requested|necessary)|unnecessary)\b|(?:без|не\s+(?:нужно|нужны|требуется|требуются|добавляй|используй|включай))\s+(?:фото|фотограф\w*|изображен\w*|картин\w*)|(?:фото|фотограф\w*|изображен\w*|картин\w*)\s+не\s+(?:нужно|нужны|требуется|требуются|нужен|нужна))/iu',$prompt)===1;
+        return preg_match('/(?:\b(?:text[- ]only|typography[- ]only|no[- ](?:photo|image|picture)|without[- ](?:photo|image|picture))\b|\b(?:no|without|avoid)\s+(?:(?:any|extra|additional)\s+)?(?:photos?|images?|pictures?|photographs?)\b|\b(?:photos?|images?|pictures?|photographs?)\s+(?:are\s+)?(?:not\s+(?:needed|required|wanted|requested|necessary)|unnecessary)\b|(?:без|не\s+(?:нужно|нужны|требуется|требуются|добавляй|используй|включай))\s+(?:фото|фотограф\w*|изображен\w*|картин\w*)|(?:фото|фотограф\w*|изображен\w*|картин\w*)\s+не\s+(?:нужно|нужны|требуется|требуются|нужен|нужна)|(?:не\s+(?:добавляй|используй|включай)|do\s+not\s+(?:add|use|include))\s+(?:другие\s+)?[^.!?;\n]{0,80}(?:фото|фотограф\w*|изображен\w*|картин\w*|photos?|images?|pictures?|photographs?))/iu',$prompt)===1;
     }
     private static function isHeroIntent(string $prompt): bool {
         return preg_match('/(?:\bhero\b|\bfirst\s+screen\b|\babove\s+the\s+fold\b|\blanding\s+page\b|\bhome\s+page\b|перв(?:ый|ого)\s+экран|главн\w*\s+экран|обложк\w*\s+сайт|главн\w*\s+страниц\w*)/iu',$prompt)===1;
@@ -472,11 +478,12 @@ final class AiZeroComposer {
     /** Keep explicit quote/author pairs together when a testimonial model emits duplicate mobile layers. */
     private static function normalizeRequestedTestimonialCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
         if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1||count($items)>18)return $items;
-        $requestedCount=preg_match('/(?:две|двух|2|two)\s+(?:отдельн\w*\s+)?(?:карточк\w*|cards?)/iu',$prompt)===1?2:(preg_match('/(?:три|трёх|трех|3|three)\s+(?:отдельн\w*\s+)?(?:карточк\w*|cards?)/iu',$prompt)===1?3:0);
+        $requestedCount=preg_match('/(?:из\s+)?(?:две|двух|2|two)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?2:(preg_match('/(?:из\s+)?(?:три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?3:0);
         if($requestedCount===0)return $items;
         foreach($items as $item)if(is_array($item)&&($item['type']??null)==='image')return $items;
         $originalItems=$items;
         preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*([\p{L}][\p{L}-]{1,40}(?:\s+[\p{L}][\p{L}-]{1,40}){0,2})/u',$prompt,$matches,PREG_SET_ORDER);
+        if(count($matches)!==$requestedCount)preg_match_all('/(?:текст|цитата)\s*[«“]([^»”]{20,260})[»”]\s*(?:и\s+)?автор\s*[«“]([^»”]{1,80})[»”]/iu',$prompt,$matches,PREG_SET_ORDER);
         if(count($matches)!==$requestedCount)return $items;
         $pairs=[];$keep=[];$quotedTexts=[];$authors=[];
         foreach($matches as $match){
@@ -486,7 +493,7 @@ final class AiZeroComposer {
                 $content=trim((string)($item['content']??''));
                 $combined=preg_match('/^'.preg_quote($quoteText,'/').'\s*[—–-]\s*'.preg_quote($authorText,'/').'$/u',$content)===1;
                 $score=(preg_match('/mobile|мобил/iu',(string)($item['name']??''))===1?0:100000)+(float)$item['width'];
-                if(($content===$quoteText||$combined)&&($quoteIndex===null||$score>((preg_match('/mobile|мобил/iu',(string)($items[$quoteIndex]['name']??''))===1?0:100000)+(float)$items[$quoteIndex]['width'])))$quoteIndex=$index;
+                if(($content===$quoteText||trim($content,'«»“” ' )===trim($quoteText,'«»“” ' )||$combined)&&($quoteIndex===null||$score>((preg_match('/mobile|мобил/iu',(string)($items[$quoteIndex]['name']??''))===1?0:100000)+(float)$items[$quoteIndex]['width'])))$quoteIndex=$index;
                 if($content===$authorText&&($authorIndex===null||$score>((preg_match('/mobile|мобил/iu',(string)($items[$authorIndex]['name']??''))===1?0:100000)+(float)$items[$authorIndex]['width'])))$authorIndex=$index;
             }
             if($quoteIndex===null&&$authorIndex!==null){$items[]=array_replace($items[$authorIndex],['name'=>'AI testimonial quote '.(count($pairs)+1),'content'=>$quoteText,'fontSize'=>18,'fontWeight'=>400,'height'=>80,'fill'=>'transparent','radius'=>0]);$quoteIndex=array_key_last($items);}
