@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.246: Typed operations позволяют безопасно заменять CSS-классы компонента. GrapesJS class-tag сохраняется в Project Data, JSON Schema и backend ограничивают список 32 уникальными токенами, а static export выдаёт только проверенные имена. Полная универсализация typed operations и live keyboard copy/paste QA остаются открытыми.
+
 - [x] 00.00.245: Добавлена typed operation `update_tag_name` для безопасного изменения семантического HTML-тега у обычных текстовых/структурных компонентов. Значения ограничены tag/type allowlists, специальные runtime-компоненты, формы, void и произвольные теги не принимаются. Unit/API regression подтверждают сохранение текста, стабильного ID и CAS-пути; полная универсализация typed operations остаётся открытой.
 - [x] 00.00.244: Typed create/update поддерживают `aria-expanded` (`true`/`false`) и `aria-pressed` (`true`/`false`/`mixed`) с одинаковой enum-валидацией в backend и JSON Schema. Static exporter сериализует эти атрибуты; regression покрывает создание, изменение, отклонение неверных значений и HTML export. Универсализация typed operations остаётся открытой.
 - [x] 00.00.242: Typed component create/update расширены безопасными common form attributes; boolean attrs используют тип JSON boolean, `false`/`null` удаляют атрибут. Схема и static export синхронизированы; regression покрывает input/textarea, типы boolean и экспорт HTML. Большая универсализация typed operations остаётся открытой.
@@ -283,6 +285,7 @@
 - [x] 00.00.231 Добавлена типизированная операция `rename_component` с серверной проверкой стабильного ID, непустого имени до 100 символов и управляющих символов; это частичный шаг, универсализация typed operations остаётся открытой.
 - [x] 00.00.232 Добавлена `update_attributes`: allowlist атрибутов, null для удаления, неизменяемый stable ID и повторная серверная валидация всего Project Data.
 - [x] 00.00.243 Синхронизирован typed attribute allowlist с уже разрешённым static exporter: `aria-controls`, типизированные `aria-selected`, `time[datetime]` и boolean `details[open]`; runtime и schema контракт покрыты regression tests. Общая универсализация typed operations остаётся открытой.
+- [x] 00.00.246 Добавлена `update_classes`: замена/очистка CSS-классов по стабильному ID с ограничением количества, формата и уникальности; Project Data validator и JSON Schema синхронизированы, static export regression добавлена.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 

@@ -4,7 +4,7 @@ namespace Juzimder;
 
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
-    private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','style','components','zeroData'];
+    private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','classes','style','components','zeroData'];
     private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','datetime','open','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
     private const BOOLEAN_ATTRIBUTE_FIELDS = ['required','disabled','checked','multiple','readonly','selected','open'];
     private const ENUM_ATTRIBUTE_VALUES = [
@@ -149,6 +149,18 @@ final class ProjectOperations {
                 $allowedTags = self::SEMANTIC_TAGS_BY_TYPE[$type] ?? [];
                 if (!is_string($operation->tagName) || !in_array($operation->tagName, $allowedTags, true)) throw new Problem(422, 'Для этого типа компонента недопустим HTML-тег.');
                 $component->tagName = $operation->tagName;
+                return;
+            case 'update_classes':
+                self::fields($operation, ['operation','componentId','classes'], ['operation','componentId','classes']);
+                if (!is_array($operation->classes) || !array_is_list($operation->classes) || count($operation->classes) > 32) throw new Problem(422, 'Передайте до 32 CSS-классов списком.');
+                $classes = [];
+                foreach ($operation->classes as $class) {
+                    if (!is_string($class) || !preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $class) || isset($classes[$class])) throw new Problem(422, 'CSS-класс должен быть уникальным безопасным именем длиной от 1 до 128 символов.');
+                    $classes[$class] = (object)['name'=>$class];
+                }
+                $location = self::findComponent($document, self::identifier($operation->componentId));
+                $component =& self::atPath($document, $location['path']);
+                $component->classes = array_values($classes);
                 return;
             case 'update_attributes':
                 self::fields($operation, ['operation','componentId','attributes'], ['operation','componentId','attributes']);

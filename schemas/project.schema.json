@@ -91,6 +91,16 @@
             "href": { "type": "string", "pattern": "^(?:https:\\/\\/[^\\s<>\\x22\\x00-\\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$" }
           }
         },
+        "classes": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "anyOf": [
+              {"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"},
+              {"type":"object","required":["name"],"properties":{"name":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,128}$"}}}
+            ]
+          }
+        },
         "style": { "type": "object" },
         "content": { "type": "string" },
         "components": {

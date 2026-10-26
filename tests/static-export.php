@@ -74,6 +74,13 @@ $captionProject['document']->data->pages[0]->frames[0]->component->components[] 
 $captionFiles = StaticSiteExporter::files($captionProject);
 exportCheck(str_contains($captionFiles['index.html'],'position:absolute;left:0px;right:0px;bottom:0px;font-size:8px'), 'Photo caption offsets and small text survive saved HTML export');
 
+$classProject=$project;
+$classProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$classProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['type'=>'text','tagName'=>'p','classes'=>[(object)['name'=>'qa-card'],'qa-extra'],'content'=>'Tagged section'];
+Document::validate($classProject['document']);
+$classFiles=StaticSiteExporter::files($classProject);
+exportCheck(str_contains($classFiles['index.html'],'class="qa-card qa-extra"'), 'Static export renders validated GrapesJS class tags');
+
 $mainPhotoProject=$project;
 $mainPhotoProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
 $mainPhotoProject['document']->data->pages[0]->frames[0]->component->components[]=(object)['type'=>'wrapper','tagName'=>'figure','name'=>'Фото','style'=>(object)['display'=>'inline-flex','flex-direction'=>'column','margin'=>'0'],'components'=>[(object)['type'=>'image','tagName'=>'img','attributes'=>(object)['src'=>'https://example.test/photo.jpg','alt'=>'A portrait'],'style'=>(object)['display'=>'block','width'=>'100%']],(object)['type'=>'text','tagName'=>'figcaption','name'=>'Копирайт','content'=>'Photo & Author · CC BY-SA 4.0','style'=>(object)['font-size'=>'8px','line-height'=>'1.2','margin-top'=>'2px','width'=>'100%','text-align'=>'left','color'=>'inherit']]]];

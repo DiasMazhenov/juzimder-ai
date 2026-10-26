@@ -20,6 +20,12 @@ test('Project Data v1 JSON Schema matches the fixture corpus', () => {
   const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
   assert.equal(validate(realProject), true, `GrapesJS fixture should validate: ${JSON.stringify(validate.errors)}`);
 
+  const withClasses = structuredClone(realProject);
+  withClasses.data.pages[0].frames[0].component.components[0].classes = [{ name: 'hero' }, 'content-wrap'];
+  assert.equal(validate(withClasses), true, `GrapesJS CSS class tags should validate: ${JSON.stringify(validate.errors)}`);
+  withClasses.data.pages[0].frames[0].component.components[0].classes = ['unsafe class'];
+  assert.equal(validate(withClasses), false, 'Project Data schema rejects unsafe CSS class tokens');
+
   const managedImage = structuredClone(realProject);
   managedImage.data.pages[0].frames[0].component.components[0].attributes = {
     src: `/api/projects/${'a'.repeat(24)}/assets/${'b'.repeat(24)}/file`,

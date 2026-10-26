@@ -60,6 +60,17 @@ final class Document {
             $fields['style'] = $node->style;
         }
         foreach (['attributes','style'] as $field) if (array_key_exists($field, $fields) && self::objectFields($fields[$field]) === null) throw new Problem(422,'Некорректное свойство компонента: ' . $field . '.');
+        if (array_key_exists('classes', $fields)) {
+            $classes = $fields['classes'];
+            if (!is_array($classes) || !array_is_list($classes) || count($classes) > 32) throw new Problem(422, 'CSS-классы компонента должны быть списком до 32 элементов.');
+            $seenClasses = [];
+            foreach ($classes as $class) {
+                $classFields = self::objectFields($class);
+                $className = is_string($class) ? $class : ($classFields['name'] ?? null);
+                if (!is_string($className) || !preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $className) || isset($seenClasses[$className])) throw new Problem(422, 'CSS-класс должен быть уникальным безопасным именем длиной от 1 до 128 символов.');
+                $seenClasses[$className] = true;
+            }
+        }
         if (array_key_exists('content', $fields) && !is_string($fields['content'])) throw new Problem(422,'Некорректный текст компонента.');
         if (($fields['tagName'] ?? null) === 'figcaption' && (($fields['type'] ?? null) !== 'text' || !is_string($fields['content'] ?? null) || mb_strlen($fields['content'], 'UTF-8') > 500 || !empty($fields['components']))) throw new Problem(422,'Подпись фото должна быть простым текстом длиной до 500 символов.');
         if (array_key_exists('type', $fields) && (!is_string($fields['type']) || !in_array($fields['type'], self::COMPONENT_TYPES, true))) throw new Problem(422,'Недопустимый тип компонента.');
