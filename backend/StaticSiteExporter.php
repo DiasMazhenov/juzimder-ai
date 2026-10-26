@@ -73,7 +73,7 @@ final class StaticSiteExporter {
             $files[$path] = $html;
             foreach ($pageForms as $formId=>$schema) $allForms[$formId] = $schema;
         }
-        $files['404.html'] = self::notFoundHtml();
+        $files['404.html'] = self::notFoundHtml($settings['notFound'] ?? ProjectSettings::notFoundDefaults());
         $files['assets/site.css'] .= '.jz-not-found{min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}.jz-not-found h1{font-size:clamp(2rem,6vw,4rem);margin:0 0 12px}.jz-not-found p{max-width:36rem;margin:0 0 24px}.jz-not-found a{display:inline-flex;align-items:center;justify-content:center;padding:12px 20px;border-radius:var(--juzimder-radius,8px);background:var(--juzimder-color-accent,#86c232);color:var(--juzimder-color-ink,#222629);text-decoration:none;font-weight:600}';
         if (!empty($allForms)) {
             $files['assets/site.css'] .= '.jz-form-trap{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}.jz-form-trap input{position:absolute!important;left:-10000px!important}';
@@ -83,8 +83,10 @@ final class StaticSiteExporter {
         return $files;
     }
 
-    private static function notFoundHtml(): string {
-        return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;none&#39;; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;"><title>Страница не найдена</title><meta name="robots" content="noindex,follow"><link rel="stylesheet" href="/assets/site.css"></head><body><main class="jz-not-found"><h1>404</h1><p>Страница не найдена или была перемещена.</p><a href="/">Вернуться на главную</a></main></body></html>';
+    private static function notFoundHtml(array $config): string {
+        $config = ProjectSettings::validateNotFoundSettings($config, ProjectSettings::notFoundDefaults());
+        $title = self::escape($config['title']); $message = self::escape($config['message']); $homeLabel = self::escape($config['homeLabel']);
+        return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; script-src &#39;none&#39;; connect-src &#39;none&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; https: data:; font-src &#39;self&#39; data:; object-src &#39;none&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;"><title>'.$title.'</title><meta name="robots" content="noindex,follow"><link rel="stylesheet" href="/assets/site.css"></head><body><main class="jz-not-found"><h1>'.$title.'</h1><p>'.$message.'</p><a href="/">'.$homeLabel.'</a></main></body></html>';
     }
 
     public static function inlineBackgroundStyles(string $css,array $assets,string $projectId): string {

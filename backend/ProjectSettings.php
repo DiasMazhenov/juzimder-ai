@@ -57,6 +57,7 @@ final class ProjectSettings {
     ];
     private const FONT_FAMILIES = ['Arial, sans-serif', 'system-ui, sans-serif', 'Georgia, serif'];
     private const SEO_DEFAULTS = ['title' => '', 'description' => '', 'robots' => 'index', 'socialImage' => '', 'socialTitle' => '', 'socialDescription' => ''];
+    private const NOT_FOUND_DEFAULTS = ['title' => '404', 'message' => 'Страница не найдена или была перемещена.', 'homeLabel' => 'Вернуться на главную'];
     private const FORM_DEFAULTS = [
         'notificationsEnabled' => false, 'recipients' => [], 'senderName' => '', 'senderEmail' => '',
         'subject' => 'Новая заявка с сайта {{site}}', 'body' => "Новая заявка\n\n{{fields}}",
@@ -77,12 +78,12 @@ final class ProjectSettings {
             $used[$slug] = true;
             $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0, 'seo' => self::SEO_DEFAULTS];
         }
-        return ['schemaVersion' => 7, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS, 'customCss' => ''];
+        return ['schemaVersion' => 8, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS, 'customCss' => '', 'notFound' => self::NOT_FOUND_DEFAULTS];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6, 7], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6, 7, 8], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -101,14 +102,34 @@ final class ProjectSettings {
             $routes[$id] = ['slug' => $slug, 'isHome' => $isHome, 'seo' => $seo];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 7;
+        $settings['schemaVersion'] = 8;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
         try { $settings['forms'] = self::validateFormsSettings($settings['forms'] ?? [], self::FORM_DEFAULTS); }
         catch (Problem) { $settings['forms'] = self::FORM_DEFAULTS; }
         try { $settings['customCss'] = self::validateCustomCss($settings['customCss'] ?? ''); }
         catch (Problem) { $settings['customCss'] = ''; }
+        try { $settings['notFound'] = self::validateNotFoundSettings($settings['notFound'] ?? [], self::NOT_FOUND_DEFAULTS); }
+        catch (Problem) { $settings['notFound'] = self::NOT_FOUND_DEFAULTS; }
         return $settings;
+    }
+
+    public static function notFoundDefaults(): array { return self::NOT_FOUND_DEFAULTS; }
+
+    public static function validateNotFoundSettings(mixed $value, array $fallback = []): array {
+        if ($value instanceof \stdClass) $value = get_object_vars($value);
+        if (!is_array($value) || array_diff(array_keys($value), array_keys(self::NOT_FOUND_DEFAULTS))) throw new Problem(422, 'Настройки страницы 404 содержат недопустимые поля.');
+        $result = array_replace(self::NOT_FOUND_DEFAULTS, $fallback);
+        foreach (self::NOT_FOUND_DEFAULTS as $key => $_) {
+            if (!array_key_exists($key, $value)) continue;
+            $text = $value[$key];
+            $limits = ['title'=>100,'message'=>400,'homeLabel'=>80];
+            if (!is_string($text) || mb_strlen($text, 'UTF-8') > $limits[$key] || preg_match('/[\x00-\x1F\x7F]/u', $text)) throw new Problem(422, 'Проверьте текст страницы 404.');
+            $text = trim($text);
+            if ($text === '') throw new Problem(422, 'Текст страницы 404 не должен быть пустым.');
+            $result[$key] = $text;
+        }
+        return $result;
     }
 
     public static function validateCustomCss(mixed $value): string {

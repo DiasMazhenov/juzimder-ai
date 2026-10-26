@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.217: Добавлены редактируемые заголовок, описание и подпись ссылки для страницы 404 в настройках сайта. Ограниченный plain text проходит server validation и escaping, сохраняется через CAS/revisions и попадает в публикацию/ZIP; HTTP 404 сохраняется. Полный API regression проверяет публикацию кастомного текста на неизвестном маршруте. Полные тесты, build, PHP syntax и UI настроек через существующую вкладку PASS; опубликованный 404 визуально не открывался. Общие Header/Footer и per-page inclusion остаются открытыми.
+
 - [x] 00.00.216: Безопасный CSS subset расширен типографикой, размерами, box sizing, flex/grid alignment, object-fit и overflow. Значения проверяются allowlist и bounded grammar; произвольные функции, URL, позиционирование и код запрещены.
 
 - [x] 00.00.215: Публичный статический renderer добавляет безопасный `404.html`; неизвестные URL на опубликованном проектном домене показывают эту страницу с HTTP 404. ZIP включает fallback для настроек статического хостинга. Редактируемая 404 и общие Header/Footer ещё открыты.
@@ -321,7 +323,7 @@
 - [ ] Custom HEAD/HTML/JS capabilities and broader CSS support; any executable content must remain isolated from the admin origin and requires a separate security design. Safe bounded project CSS subset, min/max-width media rules, interaction states and additional typography/layout/image properties are implemented in 00.00.212–216. Remaining properties require a separate security review.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
 - [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
-- [x] Базовая опубликованная 404-страница и HTTP 404 для неизвестного пути реализованы в 00.00.215; настраиваемый контент 404 и per-page inclusion остаются открытыми.
+- [x] Базовая опубликованная 404-страница и HTTP 404 для неизвестного пути реализованы в 00.00.215; текст 404 настраивается в 00.00.217. Отдельное оформление, per-page inclusion и общие Header/Footer остаются открытыми.
 
 ## Phase 6 — MCP
 
