@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.237: Восстановление аккаунта через 8 одноразовых резервных кодов: пользователь выпускает их после подтверждения пароля, сервер хранит только SHA-256 хеши, сброс пароля удаляет остаток кодов и отзывает старые сессии. Ответ сброса не раскрывает, существует ли аккаунт или код.
+
 - [x] 00.00.228: Карточка пунктов настроек больше не растягивается в пустоту; её высота соответствует меню, с прокруткой лишь при нехватке места.
 
 - [x] 00.00.229: Формы уведомлений и SMTP в настройках почты имеют доступные имена, связанные с видимыми заголовками; добавлена регрессия.
@@ -243,7 +245,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Account recovery and broader production hardening; migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235, trusted reverse-proxy policy — в 00.00.236. Account recovery, shared/distributed quotas and deployment firewall acceptance remain open.
+- [ ] Broader production hardening: migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235, trusted reverse-proxy policy — в 00.00.236, account recovery codes — в 00.00.237. Shared/distributed quotas and deployment firewall acceptance remain open.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout

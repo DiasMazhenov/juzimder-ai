@@ -316,6 +316,30 @@ assert.equal((await dev.call('/projects')).status,200);assert.deepEqual((await d
 await secondDev.call('/session');assert.equal((await secondDev.call('/login','POST',{email:'admin',password:'admin'})).status,200,'the seeded local account persists in SQLite');
 });
 
+test('Account recovery codes are one-time, private and revoke sessions after password reset',async()=>{
+const account=new Client();await account.call('/session');
+assert.equal((await account.call('/register','POST',{email:'recoverable@example.test',password:'initial-recovery-password'})).status,200);
+assert.equal((await account.call('/account/recovery-codes','POST',{password:'wrong-recovery-password'})).status,403,'issuing codes requires the current password');
+const issued=await account.call('/account/recovery-codes','POST',{password:'initial-recovery-password'});
+assert.equal(issued.status,200);assert.equal(issued.data.codes.length,8);assert.equal(typeof issued.data.createdAt,'number');
+const code=issued.data.codes[0];
+const stored=execFileSync('php',['-r',"$db=new PDO('sqlite:'.$argv[1]);$row=$db->query(\"SELECT COUNT(*),SUM(code_hash GLOB '*[^0-9a-f]*') FROM account_recovery_codes\")->fetch(PDO::FETCH_NUM);echo $row[0].':'.$row[1];",testDbPath],{encoding:'utf8'}).trim();
+assert.equal(stored,'8:0','only eight one-way hexadecimal code hashes are persisted');
+const invalidExisting=await account.call('/recover','POST',{email:'recoverable@example.test',code:'AAAAAA-AAAAAA-AAAAAA-AAAAAA',password:'replacement-long-password'});
+const invalidUnknown=await account.call('/recover','POST',{email:'missing@example.test',code:'AAAAAA-AAAAAA-AAAAAA-AAAAAA',password:'replacement-long-password'});
+assert.deepEqual(invalidExisting.data,invalidUnknown.data,'recovery responses do not reveal whether an account or code exists');
+assert.equal((await account.call('/login','POST',{email:'recoverable@example.test',password:'initial-recovery-password'})).status,200,'an invalid recovery attempt leaves the password unchanged');
+const recovered=await account.call('/recover','POST',{email:'recoverable@example.test',code:code.toLowerCase(),password:'replacement-long-password'});
+assert.deepEqual(recovered.data,invalidExisting.data,'valid recovery uses the same non-enumerating response');
+assert.equal((await account.call('/projects')).status,401,'password reset invalidates the previously authenticated session');
+await account.call('/session');
+assert.equal((await account.call('/login','POST',{email:'recoverable@example.test',password:'replacement-long-password'})).status,200,'the replacement password is accepted');
+const replay=await account.call('/recover','POST',{email:'recoverable@example.test',code,password:'another-replacement-password'});
+assert.deepEqual(replay.data,invalidExisting.data,'a consumed code cannot be replayed');
+await account.call('/logout','POST',{});await account.call('/session');
+assert.equal((await account.call('/login','POST',{email:'recoverable@example.test',password:'another-replacement-password'})).status,401,'replaying the consumed code does not change the password');
+});
+
 test('Project pages have stable routes, atomic home selection and versioned mutations',async()=>{
 const owner=new Client(),other=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'pages@example.test',password:'a-long-pages-password'});await other.call('/session');await other.call('/register','POST',{email:'other-pages@example.test',password:'another-pages-password'});
 const createdProject=await owner.call('/projects','POST',{name:'Pages workspace'}),project=createdProject.data;assert.equal(createdProject.status,201);

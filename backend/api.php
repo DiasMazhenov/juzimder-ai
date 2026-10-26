@@ -14,6 +14,7 @@ require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
 require_once __DIR__ . '/SessionPolicy.php';
 require_once __DIR__ . '/TrustedProxyPolicy.php';
+require_once __DIR__ . '/AccountRecovery.php';
 use Juzimder\{Store, Problem, CustomCode};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -37,9 +38,12 @@ try {
     $sessionUser = $_SESSION['user'] ?? null;
     if (is_array($sessionUser)) {
         $now = time();
+        $sessionAccount = is_string($sessionUser['id'] ?? null)
+            ? $store->query('SELECT auth_version FROM users WHERE id=?', [$sessionUser['id']])->fetch()
+            : false;
         $shouldExpireSession = Juzimder\SessionPolicy::isExpired($_SESSION['created_at'] ?? null, $_SESSION['last_activity_at'] ?? null, $now)
-            || !is_string($sessionUser['id'] ?? null)
-            || $store->query('SELECT 1 FROM users WHERE id=?', [$sessionUser['id']])->fetchColumn() === false;
+            || !$sessionAccount
+            || (int)($_SESSION['auth_version'] ?? 0) !== (int)$sessionAccount['auth_version'];
         if ($shouldExpireSession) {
             $sessionExpired = true;
         } else {
@@ -77,6 +81,32 @@ try {
     if ($path === '/api/session' && $method === 'GET') {
         result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired]);
     }
+    if ($path === '/api/recover' && $method === 'POST') {
+        $store->consumeAuthAttemptAllowance(Juzimder\TrustedProxyPolicy::clientIp($_SERVER) ?? '');
+        if (array_diff(array_keys($body), ['email','code','password']) || !is_string($body['email'] ?? null) || !is_string($body['code'] ?? null) || !is_string($body['password'] ?? null)) throw new Problem(422,'Укажите email, резервный код и новый пароль.');
+        $email = strtolower(trim($body['email'])); $password = $body['password']; $code = Juzimder\AccountRecoveryCodes::normalize($body['code']);
+        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || strlen($password)<12 || strlen($password)>72 || $code===null) throw new Problem(422,'Проверьте email, код и пароль от 12 до 72 байт.');
+        $store->db->exec('BEGIN IMMEDIATE');
+        try {
+            $account = $store->query('SELECT id FROM users WHERE email=?', [$email])->fetch();
+            if ($account) {
+                $codeHash = Juzimder\AccountRecoveryCodes::hash($code);
+                $recovery = $store->query('SELECT id FROM account_recovery_codes WHERE user_id=? AND code_hash=?', [$account['id'],$codeHash])->fetch();
+                if ($recovery) {
+                    $consumed = $store->query('DELETE FROM account_recovery_codes WHERE id=? AND user_id=?', [$recovery['id'],$account['id']])->rowCount() === 1;
+                    if ($consumed) {
+                        $store->query('UPDATE users SET password_hash=?,auth_version=auth_version+1 WHERE id=?', [password_hash($password,PASSWORD_DEFAULT),$account['id']]);
+                        $store->query('DELETE FROM account_recovery_codes WHERE user_id=?', [$account['id']]);
+                    }
+                }
+            }
+            $store->db->commit();
+        } catch (Throwable $error) {
+            if ($store->db->inTransaction()) $store->db->rollBack();
+            throw $error;
+        }
+        result(['ok'=>true,'message'=>'Если email и резервный код верны, пароль обновлён. Войдите с новым паролем.']);
+    }
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {
         $store->consumeAuthAttemptAllowance(Juzimder\TrustedProxyPolicy::clientIp($_SERVER) ?? '');
         $identity = strtolower(trim(is_string($body['email'] ?? null) ? $body['email'] : ''));
@@ -97,12 +127,29 @@ try {
             }
             if (!$user || !password_verify($password,$user['password_hash'])) throw new Problem(401,'Неверный email или пароль.');
         }
-        session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['created_at']=time(); $_SESSION['last_activity_at']=$_SESSION['created_at']; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
+        session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['auth_version']=(int)$store->query('SELECT auth_version FROM users WHERE id=?', [$user['id']])->fetchColumn(); $_SESSION['created_at']=time(); $_SESSION['last_activity_at']=$_SESSION['created_at']; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
     }
     $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,$sessionExpired ? 'Локальная сессия устарела. Войдите снова.' : 'Войдите в аккаунт.');
     if ($store->query('SELECT 1 FROM users WHERE id=?', [$user])->fetchColumn() === false) {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
+    }
+    if ($path === '/api/account/recovery-codes' && $method === 'POST') {
+        $store->consumeAuthAttemptAllowance(Juzimder\TrustedProxyPolicy::clientIp($_SERVER) ?? '');
+        if (array_diff(array_keys($body), ['password']) || !is_string($body['password'] ?? null) || strlen($body['password'])>72) throw new Problem(422,'Подтвердите пароль аккаунта.');
+        $account = $store->query('SELECT password_hash FROM users WHERE id=?', [$user])->fetch();
+        if (!$account || !password_verify($body['password'],$account['password_hash'])) throw new Problem(403,'Пароль аккаунта не подтверждён.');
+        $codes = Juzimder\AccountRecoveryCodes::generate(); $createdAt = time();
+        $store->db->exec('BEGIN IMMEDIATE');
+        try {
+            $store->query('DELETE FROM account_recovery_codes WHERE user_id=?', [$user]);
+            foreach ($codes as $code) $store->query('INSERT INTO account_recovery_codes(id,user_id,code_hash,created_at) VALUES(?,?,?,?)', [bin2hex(random_bytes(12)),$user,Juzimder\AccountRecoveryCodes::hash((string)Juzimder\AccountRecoveryCodes::normalize($code)),$createdAt]);
+            $store->db->commit();
+        } catch (Throwable $error) {
+            if ($store->db->inTransaction()) $store->db->rollBack();
+            throw $error;
+        }
+        result(['codes'=>$codes,'createdAt'=>$createdAt]);
     }
     if (preg_match('~^/api/projects/resolve/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$~D', $path, $slugMatch) && $method === 'GET') {
         result($store->resolveProjectSlug($slugMatch[1], $user));

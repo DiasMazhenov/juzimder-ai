@@ -410,3 +410,49 @@
 .zero-app ::-webkit-scrollbar-thumb {
   background: var(--jz-ui-muted-surface);
 }
+
+.auth-form .text-button {
+  display: block;
+  margin-top: 12px;
+}
+
+.dash-user #manage-recovery-codes {
+  min-height: 32px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.recovery-dialog {
+  max-width: 480px;
+}
+
+.recovery-dialog form label {
+  margin: 14px 0;
+}
+
+.recovery-codes-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #161b18;
+  color: var(--accent);
+  font: 600 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 700px) {
+  .dash-user #manage-recovery-codes {
+    max-width: 115px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .recovery-codes-list {
+    font-size: 11px;
+    gap: 5px;
+  }
+}
