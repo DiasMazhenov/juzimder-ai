@@ -57,6 +57,7 @@ test('site settings sidebar stays fixed at viewport height with an independently
   assert.match(styles, /\.settings-dashboard\{min-height:100dvh;height:100dvh;overflow:hidden\}/);
   assert.match(styles, /\.settings-dashboard>\.dash-sidebar\{position:fixed;inset:0 auto 0 0;width:236px;height:100vh;height:100dvh/);
   assert.match(styles, /\.settings-dashboard \.dash-sidebar \.sidebar-settings-nav\{max-height:none;min-height:0;flex:1 1 auto\}/);
+  assert.match(styles, /\.settings-dashboard \.dash-footer\{display:none\}/);
   assert.match(styles, /@media\(max-width:800px\)\{\.settings-dashboard\{height:auto;min-height:100dvh;overflow:visible\}/);
 });
 
