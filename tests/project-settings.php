@@ -18,7 +18,7 @@ try {
     unset($legacy);
 
     $store=new Store($path);
-    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===16,'Upgrade existing database through schema 16');
+    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===17,'Upgrade existing database through schema 17');
     $project=$store->owned('0123456789abcdef01234567','legacy');
     settingsCheck($project['slug']==='legacy-site','Existing project receives a readable slug without changing its internal ID');
     settingsCheck($store->resolveProjectSlug('legacy-site','legacy')['id']===$project['id'],'Legacy slug resolves for the owning account');
@@ -113,7 +113,7 @@ try {
 $futureSchemaPath=sys_get_temp_dir().'/juzimder-future-schema-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
     $futureSchema=new PDO('sqlite:'.$futureSchemaPath,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-    $futureSchema->exec('PRAGMA user_version = 17');
+    $futureSchema->exec('PRAGMA user_version = 18');
     unset($futureSchema);
     $futureSchemaRejected=false;
     try { new Store($futureSchemaPath); } catch (RuntimeException $error) { $futureSchemaRejected=str_contains($error->getMessage(),'newer than this application'); }
@@ -134,7 +134,7 @@ try {
     $migratedAi=new Store($profileMigrationPath);
     $profile=$migratedAi->query('SELECT id,name,api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
     $profileState=$migratedAi->query('SELECT active_profile_id,version FROM project_ai_profile_state WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
-    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===16,'Upgrade schema 4 through AI credentials, assets, skills, forms, slugs, mail vault and account recovery');
+    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===17,'Upgrade schema 4 through AI credentials, assets, skills, forms, slugs, mail vault, recovery codes and AI quotas');
     settingsCheck($profile!==false&&$profile['name']==='Основной профиль'&&$profile['api_key_ciphertext']==='encrypted-legacy-fixture'&&$profile['model']==='openai/legacy-model'&&$profile['fallback_model']===null,'Migration preserves the existing encrypted key and model and leaves fallback disabled');
     settingsCheck($profileState!==false&&$profileState['active_profile_id']===$profile['id']&&(int)$profileState['version']===7,'Migration preserves active selection and optimistic version');
     settingsCheck($migratedAi->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='project_ai_credentials'")->fetchColumn()===false,'Migration removes the obsolete single-profile credential table');

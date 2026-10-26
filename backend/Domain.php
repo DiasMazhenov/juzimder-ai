@@ -179,6 +179,21 @@ final class Store {
             throw $error;
         }
     }
+    public function consumeAiRequestAllowance(string $userId, ?int $now = null): void {
+        $now ??= time();
+        $windowStart = $now - 60;
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $this->query('DELETE FROM ai_request_limits WHERE requested_at<=?', [$windowStart]);
+            $requests = (int)$this->query('SELECT COUNT(*) FROM ai_request_limits WHERE user_id=? AND requested_at>?', [$userId, $windowStart])->fetchColumn();
+            if ($requests >= 5) throw new Problem(429, 'Слишком много AI-запросов. Повторите через минуту.');
+            $this->query('INSERT INTO ai_request_limits(user_id,requested_at) VALUES(?,?)', [$userId, $now]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
     private function projectSlugBase(string $name): string {
         $name = mb_strtolower(trim($name), 'UTF-8');
         $map = ['а'=>'a','ә'=>'a','б'=>'b','в'=>'v','г'=>'g','ғ'=>'gh','д'=>'d','е'=>'e','ё'=>'yo','ж'=>'zh','з'=>'z','и'=>'i','й'=>'i','к'=>'k','қ'=>'q','л'=>'l','м'=>'m','н'=>'n','ң'=>'ng','о'=>'o','ө'=>'o','п'=>'p','р'=>'r','с'=>'s','т'=>'t','у'=>'u','ұ'=>'u','ү'=>'u','ф'=>'f','х'=>'kh','һ'=>'h','ц'=>'ts','ч'=>'ch','ш'=>'sh','щ'=>'shch','ъ'=>'','ы'=>'y','і'=>'i','ь'=>'','э'=>'e','ю'=>'yu','я'=>'ya'];

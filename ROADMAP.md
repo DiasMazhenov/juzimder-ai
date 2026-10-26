@@ -1,6 +1,7 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.241: AI rate limit перенесён из пользовательской PHP-сессии в SQLite и атомарно применяется к аккаунту: пять вызовов за скользящую минуту на все AI endpoints, проекты, сессии и вкладки; все PHP workers на одном файле БД разделяют quota. Успешно валидный вызов учитывается до обращения к провайдеру, неверные и устаревшие job-запросы не расходуют лимит. Независимые узлы с разными SQLite файлами остаются вне общего лимита.
 - [x] 00.00.240: Screenshot QA Zero AI для повторного живого запуска полного и краткого брифа отзывов. После анализа Mobile-скриншота расстояние автора от цитаты увеличено до 16 px; имена placeholder-векторов `mobileCardNIcon` теперь также распознаются и удаляются, а единичное CTA сохраняется. Оба запроса повторно сгенерировали candidate: Desktop показывает две ровные карточки, Mobile — читаемый стек с автором после цитаты; без фото и декоративных стрелок. Скриншоты: `/tmp/juzimder-zero-ai-240-182-full-desktop.png`, `...-full-mobile.png`, `...-short-desktop.png`, `...-short-mobile.png`. Один запуск временно получил `unavailable` на обоих профилях; повтор завершился успешно. Кандидаты отменены без Apply, Zero revision 361 не изменилась.
 
 - [x] 00.00.239: Negative photo list («Без рейтингов, фото, иконок…») запрещает изображения даже если модель нарушает prompt: фото удаляется до overlap validation, поиск Commons не запускается. Regression проверяет сохранение трёх цитат, авторов, поверхностей и mobile-порядка. Live screenshot acceptance для трёх карточек прошла Desktop 1200/Mobile 360; кандидат отменён, revision 361.
@@ -251,7 +252,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Broader production hardening: migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235, trusted reverse-proxy policy — в 00.00.236, account recovery codes — в 00.00.237. Shared/distributed quotas and deployment firewall acceptance remain open.
+- [ ] Broader production hardening: migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235, trusted reverse-proxy policy — в 00.00.236, account recovery codes — в 00.00.237, shared SQLite AI quota — в 00.00.241. Multi-node distributed quotas and deployment firewall acceptance remain open.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout

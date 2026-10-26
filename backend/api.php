@@ -321,10 +321,7 @@ try {
         if($body['version']!==$status['version'])throw new Problem(409,'Профили изменились. Обновите страницу.');
         if(!in_array($probeMatch[2],array_column($status['profiles'],'id'),true))throw new Problem(404,'Профиль AI не найден.');
         $settings=$vault->settings($probeMatch[1],$user,$probeMatch[2]);
-        $stored=$_SESSION['ai_requests']??[];$now=time();
-        $requests=array_values(array_filter(is_array($stored)?$stored:[],static fn($at)=>is_int($at)&&$at>$now-60));
-        if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
-        $requests[]=$now;$_SESSION['ai_requests']=$requests;set_time_limit(30);
+        $store->consumeAiRequestAllowance($user);set_time_limit(30);
         $probeSettings=Juzimder\OpenRouterSettings::fromCredentials($settings->apiKey,$settings->model);
         try{result(Juzimder\AiProfileProbe::check(new Juzimder\OpenRouterProvider($probeSettings,null,microtime(true)+20,false)));}
         catch(Juzimder\AiProviderFailure $failure){throw new Problem(502,$failure->userMessage());}
@@ -362,10 +359,7 @@ try {
         try{$content=Juzimder\SkillAnalyzer::validateSource($body['content']);}catch(InvalidArgumentException $error){throw new Problem(422,$error->getMessage());}
         $settings=(new Juzimder\AiCredentialVault($store))->failoverSettings($skillAnalysisMatch[1],$user);
         if(!$settings)throw new Problem(503,'Настройте профиль OpenRouter в AI Engine.');
-        $now=time();$stored=$_SESSION['ai_requests']??[];
-        $requests=array_values(array_filter(is_array($stored)?$stored:[],static fn($at)=>is_int($at)&&$at>$now-60));
-        if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
-        $requests[]=$now;$_SESSION['ai_requests']=$requests;set_time_limit(120);
+        $store->consumeAiRequestAllowance($user);set_time_limit(120);
         try{result(Juzimder\SkillAnalyzer::create($content,new Juzimder\ProfileFailoverProvider($settings)));}
         catch(Juzimder\AiProviderFailure $error){throw new Problem(502,Juzimder\SkillAnalyzer::failureMessage($error));}
     }
@@ -396,13 +390,7 @@ try {
         $credentials = new Juzimder\AiCredentialVault($store);
         $settings = $credentials->failoverSettings($aiPlanMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
-        $now = time();
-        $storedRequests = $_SESSION['ai_requests'] ?? [];
-        if (!is_array($storedRequests)) $storedRequests = [];
-        $requests = array_values(array_filter($storedRequests, static fn($at) => is_int($at) && $at > $now - 60));
-        if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
-        $requests[] = $now;
-        $_SESSION['ai_requests'] = $requests;
+        $store->consumeAiRequestAllowance($user);
         // Each provider attempt may wait up to 25 seconds; primary retry and an
         // optional fallback can together exceed PHP's usual 30-second limit.
         set_time_limit(120);
@@ -422,7 +410,7 @@ try {
         foreach($project['document']->data->pages as $page)if(($page->id??null)===$pageId){$walk=function($node)use(&$walk,&$found,$blockId){if(($node->attributes->id??null)===$blockId){if(($node->type??'')!=='zero-block'||!isset($node->zeroData))throw new Problem(422,'Выбранный компонент не является Zero Block.');$found[]=$node->zeroData;}foreach($node->components??[] as $child)$walk($child);};$walk($page->frames[0]->component);}
         if(count($found)!==1)throw new Problem(count($found)?409:404,'Zero Block не найден однозначно на выбранной странице.');
         $credentials=new Juzimder\AiCredentialVault($store);$settings=$credentials->failoverSettings($projectId,$user);if(!$settings)throw new Problem(503,'AI-провайдер не настроен на сервере.');
-        $now=time();$storedRequests=$_SESSION['ai_requests']??[];if(!is_array($storedRequests))$storedRequests=[];$requests=array_values(array_filter($storedRequests,static fn($at)=>is_int($at)&&$at>$now-60));if(count($requests)>=5)throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');$requests[]=$now;$_SESSION['ai_requests']=$requests;
+        $store->consumeAiRequestAllowance($user);
         set_time_limit(150);
         $provider=new Juzimder\ProfileFailoverProvider($settings);
         try{$proposal=Juzimder\AiZeroComposer::create($prompt,$found[0],$provider);$latest=$store->owned($projectId,$user);if($latest['version']!==$project['version'])throw new Problem(409,'Пока AI готовил композицию, версия проекта изменилась. Запросите новый вариант.');$proposal['baseVersion']=$project['version'];result($proposal);}
@@ -444,13 +432,7 @@ try {
         $credentials = new Juzimder\AiCredentialVault($store);
         $settings = $credentials->failoverSettings($projectId, $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
-        $now = time();
-        $storedRequests = $_SESSION['ai_requests'] ?? [];
-        if (!is_array($storedRequests)) $storedRequests = [];
-        $requests = array_values(array_filter($storedRequests, static fn($at) => is_int($at) && $at > $now - 60));
-        if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
-        $requests[] = $now;
-        $_SESSION['ai_requests'] = $requests;
+        $store->consumeAiRequestAllowance($user);
         set_time_limit(120);
         try {
             $proposal = Juzimder\AiComponentEditor::create($prompt, $target['component'], new Juzimder\ProfileFailoverProvider($settings));
@@ -485,20 +467,18 @@ try {
         $settings = $credentials->failoverSettings($aiDesignMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $userSkill=$skillId===null?null:(new Juzimder\ProjectAiSkills($store))->forGeneration($aiDesignMatch[1],$user,$skillId);
-        $now = time();
-        $storedRequests = $_SESSION['ai_requests'] ?? [];
-        if (!is_array($storedRequests)) $storedRequests = [];
-        $requests = array_values(array_filter($storedRequests, static fn($at) => is_int($at) && $at > $now - 60));
-        if (count($requests) >= 5) throw new Problem(429,'Слишком много AI-запросов. Повторите через минуту.');
-        $requests[] = $now;
-        $_SESSION['ai_requests'] = $requests;
         if($aiDesignMatch[2]==='generation-jobs'){
             if(!is_string($body['pageId']??null)||!is_int($body['version']??null)||$body['version']<0)throw new Problem(422,'Укажите страницу и текущую версию проекта.');
+            $quotaProject=$store->owned($aiDesignMatch[1],$user);
+            if($quotaProject['version']!==$body['version'])throw new Problem(409,'Версия проекта изменилась. Обновите страницу и попробуйте снова.');
+            if(!in_array($body['pageId'],array_column($quotaProject['document']->data->pages,'id'),true))throw new Problem(404,'Страница не найдена.');
+            $store->consumeAiRequestAllowance($user);
             $jobs=new Juzimder\AiGenerationJobs($store);
             $job=$jobs->create($aiDesignMatch[1],$user,$body['pageId'],$body['version'],['prompt'=>$prompt,'skillProfile'=>$skillProfile,'userSkill'=>$userSkill]);
             $jobs->launch($job['id']);
             result($jobs->get($aiDesignMatch[1],$user,$job['id']),202);
         }
+        $store->consumeAiRequestAllowance($user);
         set_time_limit(120);
         try {
             result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\ProfileFailoverProvider($settings), $skillProfile, $userSkill));

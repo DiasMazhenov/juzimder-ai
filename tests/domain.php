@@ -8,8 +8,15 @@ function sameJson(mixed $left,mixed $right): bool { return json_encode($left,JSO
 $path=sys_get_temp_dir().'/juzimder-test-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
 $s=new Store($path);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['a','a@example.test','hash']);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['b','b@example.test','hash']);
-check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===16,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['slug']==='studio','Create project with readable slug');check($p['version']===0,'Create empty project');
+check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===17,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['slug']==='studio','Create project with readable slug');check($p['version']===0,'Create empty project');
 $authIp='192.0.2.44';for($attempt=0;$attempt<15;$attempt++)$s->consumeAuthAttemptAllowance($authIp,1000);rejects(fn()=>$s->consumeAuthAttemptAllowance($authIp,1000),429,'authentication attempt cap is atomic and bounded');$s->consumeAuthAttemptAllowance($authIp,1900);$authWindow=$s->query('SELECT attempts,started_at FROM auth_attempts WHERE ip=?',[$authIp])->fetch();check((int)$authWindow['attempts']===1&&(int)$authWindow['started_at']===1900,'Authentication attempt window resets exactly after 15 minutes');
+for($attempt=0;$attempt<5;$attempt++)$s->consumeAiRequestAllowance('a',10000);
+rejects(fn()=>$s->consumeAiRequestAllowance('a',10000),429,'AI quota caps an account at five requests in a rolling minute');
+$quotaPeer=new Store($path);rejects(fn()=>$quotaPeer->consumeAiRequestAllowance('a',10001),429,'AI quota is shared by independent application connections and sessions');
+$quotaPeer->consumeAiRequestAllowance('b',10001);
+$quotaPeer->consumeAiRequestAllowance('a',10060);
+check((int)$s->query('SELECT COUNT(*) FROM ai_request_limits WHERE user_id=?', ['a'])->fetchColumn()===1,'AI quota expires at the exact rolling-window boundary and removes stale events');
+$s->query('DELETE FROM ai_request_limits');
 $empty=Document::empty()['data']['pages'][0]['frames'][0]['component'];check($empty['style']['display']==='flex'&&$empty['style']['flex-direction']==='column','New project Body defaults to vertical Flex');
 rejects(fn()=>$s->owned($id,'b'),404);rejects(fn()=>$s->save($id,'b',0,Document::empty()),404);
 Document::validate(json_decode(file_get_contents(__DIR__.'/grapesjs-0.23.8.fixture.json'),false,64,JSON_THROW_ON_ERROR));
