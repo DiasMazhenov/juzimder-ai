@@ -60,5 +60,7 @@ test('site custom CSS is validated, saved and previewed only in a sandboxed publ
   assert.match(source, /id="custom-css-preview-frame" sandbox=""/);
   assert.match(source, /Сначала сохраните изменения CSS/);
   assert.match(source, /previewFrame\.srcdoc/);
+  assert.match(source, /max-width: 640px/);
+  assert.match(source, /min-width\/max-width breakpoint 320–2560 px/);
   assert.match(styles, /#custom-css-input/);
 });

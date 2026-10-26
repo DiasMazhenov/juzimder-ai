@@ -115,6 +115,33 @@ final class ProjectSettings {
         if (!is_string($value) || strlen($value) > 12000 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value)) throw new Problem(422, 'CSS: максимум 12 000 символов и без управляющих символов.');
         $css = trim($value);
         if ($css === '') return '';
+        if (preg_match('~/\*|\*/|[<>\\\\]|url\s*\(|expression\s*\(|javascript:|behavior\s*:|position\s*:~i', $css)) throw new Problem(422, 'CSS содержит запрещённую конструкцию.');
+        $mediaPattern = '/@media\s*\(\s*(max|min)-width\s*:\s*(\d{3,4})px\s*\)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/i';
+        preg_match_all($mediaPattern, $css, $mediaRules, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        if (count($mediaRules) > 10) throw new Problem(422, 'CSS: не более 10 media breakpoint правил.');
+        if ($mediaRules) {
+            $lastMedia = $mediaRules[count($mediaRules) - 1];
+            $lastMediaEnd = $lastMedia[0][1] + strlen($lastMedia[0][0]);
+            if (trim(substr($css, $lastMediaEnd)) !== '') throw new Problem(422, 'CSS: разместите media breakpoint правила после обычных правил.');
+        }
+        $baseCss = trim(preg_replace($mediaPattern, '', $css) ?? $css);
+        $result = self::validateSimpleCss($baseCss);
+        $ruleCount = substr_count($result, '{');
+        foreach ($mediaRules as $media) {
+            $mediaType = strtolower($media[1][0]);
+            $width = (int)$media[2][0];
+            if ($width < 320 || $width > 2560) throw new Problem(422, 'CSS: ширина media breakpoint должна быть от 320 до 2560 px.');
+            $inner = self::validateSimpleCss(trim($media[3][0]));
+            if ($inner === '') throw new Problem(422, 'CSS: media breakpoint должен содержать хотя бы одно правило.');
+            $ruleCount += substr_count($inner, '{');
+            if ($ruleCount > 100) throw new Problem(422, 'CSS: не более 100 правил суммарно.');
+            $result .= ($result === '' ? '' : "\n").'@media ('.$mediaType.'-width: '.$width.'px){'.$inner.'}';
+        }
+        return $result;
+    }
+
+    private static function validateSimpleCss(string $css): string {
+        if ($css === '') return '';
         if (preg_match('~/\*|\*/|[<>@\\\\]|url\s*\(|expression\s*\(|javascript:|behavior\s*:|position\s*:~i', $css)) throw new Problem(422, 'CSS содержит запрещённую конструкцию.');
         preg_match_all('/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER);
         if (!$rules || count($rules) > 100 || trim(preg_replace('/([^{}]+)\{([^{}]*)\}/', '', $css) ?? $css) !== '') throw new Problem(422, 'CSS должен содержать до 100 простых правил вида .class { property: value; }.');

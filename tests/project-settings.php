@@ -48,7 +48,11 @@ try {
     settingsReject(fn()=>ProjectSettings::validateCustomCss('#admin { color: red; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { background-color: red; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { background-color: #222629; background-image: url(https://example.test/x); }'),422);
-    settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (max-width: 600px) { .hero { display: block; } }'),422);
+    settingsCheck(ProjectSettings::validateCustomCss('.hero { display: flex; } @media (max-width: 600px) { .hero { display: block; } }')===".hero{display: flex;}\n@media (max-width: 600px){.hero{display: block;}}",'Bounded min/max-width media rules preserve safe responsive overrides');
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (orientation: portrait) { .hero { display: block; } }'),422);
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (max-width: 319px) { .hero { display: block; } }'),422);
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (max-width: 640px) { @supports (display: grid) { .hero { display: grid; } } }'),422);
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (max-width: 640px) { .hero { display: block; } } .hero { display: flex; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { position: fixed; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss(str_repeat('x',12001)),422);
 

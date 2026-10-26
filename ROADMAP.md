@@ -1,7 +1,9 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
-- [x] 00.00.212: Добавлен ограниченный проектный CSS для static export и ZIP с серверной allowlist-валидацией, сохранением через CAS/revisions и preview сохранённой страницы в sandboxed iframe. Полная вставка HEAD/HTML/JS, `@`-правила и внешние CSS-ресурсы не входят в этот безопасный CSS subset.
+- [x] 00.00.213: Ограниченный CSS subset расширен до безопасных `@media (min-width|max-width: Npx)` breakpoint 320–2560 px; nested at-rules, внешние ресурсы и небезопасные свойства остаются запрещены.
+
+- [x] 00.00.212: Добавлен ограниченный проектный CSS для static export и ZIP с серверной allowlist-валидацией, сохранением через CAS/revisions и preview сохранённой страницы в sandboxed iframe. Поддержка ограниченных responsive media breakpoints добавлена в 00.00.213. Полная вставка HEAD/HTML/JS и внешние CSS-ресурсы не входят в этот безопасный CSS subset.
 
 - [x] 00.00.211: В настройках цветов, типографики и SEO заменены устаревшие сообщения, будто предпросмотр, ZIP-экспорт и публикация не работают; добавлена проверка этих подписей.
 
@@ -310,7 +312,7 @@
 - [x] Inject SEO metadata into the public renderer: title, description, robots и social metadata используются статическим renderer/export в Phase 7.
 - [ ] Analytics ids; before third-party visitor tracking, owner must select the provider and confirm the data-sharing behavior. Analytics section is not marked complete until the public renderer and settings are both implemented.
 - [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. SMTP notification/autoreply delivery is implemented in 00.00.209; CRM integrations remain unimplemented.
-- [ ] Custom HEAD/HTML/JS capabilities and broader CSS support; any executable content must remain isolated from the admin origin and requires a separate security design. Safe bounded project CSS subset is implemented in 00.00.212.
+- [ ] Custom HEAD/HTML/JS capabilities and broader CSS support; any executable content must remain isolated from the admin origin and requires a separate security design. Safe bounded project CSS subset and min/max-width media rules are implemented in 00.00.212–213.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
 - [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
 
@@ -337,7 +339,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** версия продукта 00.00.212 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
+**Текущее состояние:** версия продукта 00.00.213 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
