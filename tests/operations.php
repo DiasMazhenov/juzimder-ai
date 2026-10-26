@@ -108,6 +108,12 @@ operationCheck(($unstableText->data->pages[0]->frames[0]->component->components[
 
 $styleUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['background-color'=>'#122334','border-radius'=>'12px']])]);
 operationCheck($styleUpdated->data->pages[0]->frames[0]->component->components[0]->style->{'background-color'} === '#122334', 'Style updates preserve the existing component tree');
+$stylePartiallyCleared = ProjectOperations::apply($styleUpdated, [operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['border-radius'=>null]])]);
+operationCheck(!isset(operationNode($stylePartiallyCleared,'ieg3')->style->{'border-radius'}) && operationNode($stylePartiallyCleared,'ieg3')->style->{'background-color'} === '#122334', 'Typed style updates remove one property with null and preserve other styles');
+$styleOnly = ProjectOperations::apply(operationObject(Document::empty()), [operationObject(['operation'=>'create_component','parentId'=>'page:home','component'=>['tagName'=>'div','style'=>['color'=>'#123456']]])]);
+$styleOnlyId = $styleOnly->data->pages[0]->frames[0]->component->components[0]->attributes->id;
+$styleFullyCleared = ProjectOperations::apply($styleOnly, [operationObject(['operation'=>'update_styles','componentId'=>$styleOnlyId,'styles'=>['color'=>null]])]);
+operationCheck(!isset(operationNode($styleFullyCleared,$styleOnlyId)->style), 'Clearing the last typed style removes the empty style object');
 $layoutUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_layout','componentId'=>'ieg3','layout'=>['display'=>'grid','gridTemplateColumns'=>'repeat(3, minmax(0, 1fr))','gap'=>'20px']])]);
 operationCheck($layoutUpdated->data->pages[0]->frames[0]->component->components[0]->style->display === 'grid', 'Layout updates map typed fields to validated CSS properties');
 $classesUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_classes','componentId'=>'ieg3','classes'=>['hero','content-wrap']])]);

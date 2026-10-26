@@ -364,15 +364,23 @@ final class ProjectOperations {
 
     private static function applyStyles(\stdClass $component, mixed $styles): void {
         self::validateStyles($styles);
-        if (!isset($component->style)) $component->style = new \stdClass();
-        if (!$component->style instanceof \stdClass) throw new Problem(422, 'Стили компонента должны быть объектом.');
-        foreach (get_object_vars($styles) as $property => $value) $component->style->{$property} = $value;
+        if (isset($component->style) && !$component->style instanceof \stdClass) throw new Problem(422, 'Стили компонента должны быть объектом.');
+        foreach (get_object_vars($styles) as $property => $value) {
+            if ($value === null) {
+                if (isset($component->style)) unset($component->style->{$property});
+                continue;
+            }
+            if (!isset($component->style)) $component->style = new \stdClass();
+            $component->style->{$property} = $value;
+        }
+        if (isset($component->style) && get_object_vars($component->style) === []) unset($component->style);
     }
 
     private static function validateStyles(mixed $styles): void {
         if (!$styles instanceof \stdClass || get_object_vars($styles) === []) throw new Problem(422, 'Укажите CSS-свойства объектом.');
         foreach (get_object_vars($styles) as $property => $value) {
             if (!in_array($property, self::STYLE_FIELDS, true)) throw new Problem(422, 'CSS-свойство не входит в разрешённый список.');
+            if ($value === null) continue;
             if (!is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512 || preg_match('/[\x00-\x1F\x7F;{}<>\\\\]/', $value)) throw new Problem(422, 'CSS-значение содержит недопустимые символы или превышает 512 символов.');
         }
     }

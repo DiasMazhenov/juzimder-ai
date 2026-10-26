@@ -1,6 +1,7 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.247: typed `update_styles` принимает `null` для удаления allowlisted CSS-свойства, сохраняя остальные, и удаляет пустой `style`. Unit/API regression проверяют persisted CAS/revision flow; `null` не сохраняется в Project Data.
 - [x] 00.00.246: Typed operations позволяют безопасно заменять CSS-классы компонента. GrapesJS class-tag сохраняется в Project Data, JSON Schema и backend ограничивают список 32 уникальными токенами, а static export выдаёт только проверенные имена. Полная универсализация typed operations и live keyboard copy/paste QA остаются открытыми.
 
 - [x] 00.00.245: Добавлена typed operation `update_tag_name` для безопасного изменения семантического HTML-тега у обычных текстовых/структурных компонентов. Значения ограничены tag/type allowlists, специальные runtime-компоненты, формы, void и произвольные теги не принимаются. Unit/API regression подтверждают сохранение текста, стабильного ID и CAS-пути; полная универсализация typed operations остаётся открытой.
@@ -286,6 +287,7 @@
 - [x] 00.00.232 Добавлена `update_attributes`: allowlist атрибутов, null для удаления, неизменяемый stable ID и повторная серверная валидация всего Project Data.
 - [x] 00.00.243 Синхронизирован typed attribute allowlist с уже разрешённым static exporter: `aria-controls`, типизированные `aria-selected`, `time[datetime]` и boolean `details[open]`; runtime и schema контракт покрыты regression tests. Общая универсализация typed operations остаётся открытой.
 - [x] 00.00.246 Добавлена `update_classes`: замена/очистка CSS-классов по стабильному ID с ограничением количества, формата и уникальности; Project Data validator и JSON Schema синхронизированы, static export regression добавлена.
+- [x] 00.00.247 Добавлено удаление отдельного CSS-свойства через `update_styles` + `null`; empty `style` удаляется, unit и authenticated API coverage подтверждают сохранение через CAS.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
