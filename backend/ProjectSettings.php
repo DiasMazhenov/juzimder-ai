@@ -64,7 +64,7 @@ final class ProjectSettings {
         'autoresponderSubject' => 'Мы получили вашу заявку',
         'autoresponderBody' => "Здравствуйте!\n\nМы получили вашу заявку и свяжемся с вами.\n\n{{site}}",
     ];
-    private const CUSTOM_CSS_PROPERTIES = ['color','background-color','display','flex-direction','justify-content','align-items','gap','width','max-width','min-height','margin','padding','border','border-radius','font-size','font-weight','line-height','text-align','text-decoration','opacity'];
+    private const CUSTOM_CSS_PROPERTIES = ['color','background-color','display','flex-direction','justify-content','align-items','gap','width','max-width','min-height','margin','padding','border','border-radius','outline','outline-offset','cursor','font-size','font-weight','line-height','text-align','text-decoration','opacity'];
 
     public static function initial(mixed $document): array {
         $pages = self::documentPages($document);
@@ -157,6 +157,8 @@ final class ProjectSettings {
             'text-align' => '/^(?:start|end|left|right|center|justify)$/i',
             'text-decoration' => '/^(?:none|underline|overline|line-through)$/i',
             'border' => '/^(?:0|(?:[0-9]{1,3}px)\s+(?:solid|dashed|dotted)\s+(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|transparent))$/i',
+            'outline' => '/^(?:0|(?:[0-9]{1,3}px)\s+(?:solid|dashed|dotted)\s+(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|transparent))$/i',
+            'cursor' => '/^(?:default|pointer|text|not-allowed|help|wait|grab|grabbing)$/i',
         ];
         $length = '(?:0|(?:-?[0-9]{1,4}(?:\.[0-9]{1,2})?(?:px|rem|em|%|vw|vh)))';
         $lengthList = '/^'.$length.'(?:\s+'.$length.'){0,3}$/i';
@@ -167,8 +169,10 @@ final class ProjectSettings {
                 $parts = preg_split('/\s+/', $selector, -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 if (!$parts || count($parts) > 5) throw new Problem(422, 'CSS: используйте простые селекторы классов и HTML-элементов.');
                 foreach ($parts as $part) {
-                    if (str_starts_with($part, '.')) { if (!preg_match('/^\.[A-Za-z_][A-Za-z0-9_-]{0,63}$/D', $part)) throw new Problem(422, 'CSS: некорректный селектор класса.'); }
-                    elseif (!in_array(strtolower($part), $tags, true)) throw new Problem(422, 'CSS: разрешены только классы и базовые HTML-селекторы.');
+                    if (!preg_match('/^(.+?)(?::(hover|focus|focus-visible|active|disabled|checked))?$/iD', $part, $selectorMatch)) throw new Problem(422, 'CSS: разрешены только простые селекторы и состояния элементов.');
+                    $baseSelector = $selectorMatch[1];
+                    if (str_starts_with($baseSelector, '.')) { if (!preg_match('/^\.[A-Za-z_][A-Za-z0-9_-]{0,63}$/D', $baseSelector)) throw new Problem(422, 'CSS: некорректный селектор класса.'); }
+                    elseif (!in_array(strtolower($baseSelector), $tags, true)) throw new Problem(422, 'CSS: разрешены только классы и базовые HTML-селекторы.');
                 }
             }
             $declarations = array_filter(array_map('trim', explode(';', $rule[2])), static fn($item)=>$item !== '');
@@ -179,6 +183,7 @@ final class ProjectSettings {
                 if (!in_array($property, self::CUSTOM_CSS_PROPERTIES, true) || $item === '') throw new Problem(422, 'CSS: свойство не входит в безопасный список.');
                 $valid = isset($valuePatterns[$property]) ? preg_match($valuePatterns[$property], $item) === 1 : preg_match($lengthList, $item) === 1;
                 if (in_array($property, ['gap','padding','border-radius'], true)) $valid = preg_match($lengthList, $item) === 1;
+                if ($property === 'outline-offset') $valid = preg_match('/^'.$length.'$/i', $item) === 1;
                 if ($property === 'margin') $valid = preg_match('/^(?:auto|'.$length.')(?:\\s+(?:auto|'.$length.')){0,3}$/i', $item) === 1;
                 if (in_array($property, ['width','max-width','min-height','font-size'], true)) $valid = preg_match('/^'.$length.'$/i', $item) === 1;
                 if ($property === 'opacity') $valid = preg_match('/^(?:0|1|0?\.[0-9]{1,2})$/D', $item) === 1;

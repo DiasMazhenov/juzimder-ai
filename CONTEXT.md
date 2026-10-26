@@ -1,6 +1,10 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 26.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.213 (npm SemVer 0.1.213). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 26.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.214 (npm SemVer 0.1.214). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.214: Безопасный project CSS поддерживает ограниченные состояния `:hover`, `:focus`, `:focus-visible`, `:active`, `:disabled`, `:checked`, курсоры из списка и outline/focus-ring со строгими значениями. Другие псевдоклассы и функции значений отклоняются. Эти правила сохраняются через API/CAS и выводятся в static export/ZIP.
+
+Проверка 00.00.214: полный `npm test`, `npm run build`, PHP syntax, API save/CSRF/CAS и static export проверки проходят. Codex Browser на существующей вкладке показал новую подсказку и sample с hover/focus-visible; QA-проект не изменялся и остался на ревизии 361.
 
 00.00.213: Safe project CSS subset теперь поддерживает до 10 простых `@media (min-width|max-width: Npx)` breakpoint-правил в диапазоне 320–2560 px. Всё содержимое проходит прежнюю allowlist-проверку; вложенные/произвольные at-rules запрещены, media rules размещаются после обычных правил, общий лимит — 100 правил. API и static export включают responsive CSS.
 

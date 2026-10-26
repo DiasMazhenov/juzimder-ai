@@ -49,6 +49,9 @@ try {
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { background-color: red; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { background-color: #222629; background-image: url(https://example.test/x); }'),422);
     settingsCheck(ProjectSettings::validateCustomCss('.hero { display: flex; } @media (max-width: 600px) { .hero { display: block; } }')===".hero{display: flex;}\n@media (max-width: 600px){.hero{display: block;}}",'Bounded min/max-width media rules preserve safe responsive overrides');
+    settingsCheck(ProjectSettings::validateCustomCss('.cta:hover { background-color: #61892f; cursor: pointer; } .field:focus-visible { outline: 2px solid #86c232; outline-offset: 2px; } button:disabled { opacity: 0.5; cursor: not-allowed; }')===".cta:hover{background-color: #61892f; cursor: pointer;}\n.field:focus-visible{outline: 2px solid #86c232; outline-offset: 2px;}\nbutton:disabled{opacity: 0.5; cursor: not-allowed;}",'Interactive and keyboard focus states accept only the bounded pseudo-class and outline rules');
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('.link:visited { color: #ffffff; }'),422);
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('.cta:hover { cursor: url(cursor.cur); }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (orientation: portrait) { .hero { display: block; } }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (max-width: 319px) { .hero { display: block; } }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('@media (max-width: 640px) { @supports (display: grid) { .hero { display: grid; } } }'),422);

@@ -35,7 +35,7 @@ $homeId = (string)$document->data->pages[0]->id;
 $settings['pages'][$homeId]['seo'] = ['title' => 'Home <Page>', 'description' => 'A useful & safe description', 'robots' => 'index', 'socialImage' => 'https://example.test/social.jpg', 'socialTitle'=>'Social <Title>', 'socialDescription'=>'Social & description'];
 $settings['pages']['about']['seo'] = ['title' => 'About page', 'description' => '', 'robots' => 'noindex', 'socialImage' => ''];
 $settings['designTokens']['ink'] = '#123456';
-$settings['customCss'] = ProjectSettings::validateCustomCss('.hero { color: #ffffff; padding: 24px; } @media (max-width: 640px) { .hero { padding: 16px; } }');
+$settings['customCss'] = ProjectSettings::validateCustomCss('.hero { color: #ffffff; padding: 24px; } .cta:hover { background-color: #61892f; cursor: pointer; } @media (max-width: 640px) { .hero { padding: 16px; } }');
 $project = ['name' => 'Export project', 'version' => 4, 'document' => $document, 'settings' => $settings];
 $files = StaticSiteExporter::files($project);
 exportCheck(str_contains($files['index.html'], 'property="og:title" content="Social &lt;Title&gt;"') && str_contains($files['index.html'], 'name="twitter:description" content="Social &amp; description"') && str_contains($files['index.html'], 'name="twitter:card" content="summary_large_image"'), 'Separate social metadata is escaped and exported as Open Graph and Twitter Card');
@@ -46,6 +46,7 @@ exportCheck(str_contains($files['o-nas/index.html'], 'name="robots" content="noi
 exportCheck(str_contains($files['o-nas/index.html'], '<span style="color:#123456;font-weight:700">О проекте</span>'), 'Safe inline rich-text formatting is retained');
 exportCheck(str_contains($files['assets/site.css'], '@media (max-width: 576px)') && str_contains($files['assets/site.css'], '#ij4p{color:#123456'), 'Responsive Project Data styles and design tokens reach static CSS');
 exportCheck(str_contains($files['assets/site.css'], '.hero{color: #ffffff; padding: 24px;}'), 'Validated project CSS is appended to the static site stylesheet');
+exportCheck(str_contains($files['assets/site.css'], '.cta:hover{background-color: #61892f; cursor: pointer;}'), 'Validated interaction states reach static CSS');
 exportCheck(str_contains($files['assets/site.css'], '@media (max-width: 640px){.hero{padding: 16px;}}'), 'Validated responsive project CSS is included in the static stylesheet');
 exportCheck(str_contains($files['index.html'], 'http-equiv="Content-Security-Policy"') && !preg_match('/<script\b|onerror\s*=|javascript:/i', implode("\n", $files)), 'Static output applies a restrictive CSP and contains no executable markup');
 
