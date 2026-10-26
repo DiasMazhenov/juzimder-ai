@@ -65,6 +65,10 @@ test('site settings sidebar stays fixed at viewport height with an independently
   assert.match(settingsMarkup, /<div class="workspace-label">ПРОЕКТ<\/div><div class="project-sidebar-title">\$\{esc\(project\.name\)\}<\/div>/);
   assert.doesNotMatch(settingsMarkup, /<div class="version-label">Версия продукта <strong>\$\{productVersion\}<\/strong><\/div><p>\$\{esc\(project\.name\)\}<\/p>/);
   assert.match(styles, /\.project-sidebar-title\{margin:16px 8px 14px;color:#e9edeb/);
+  assert.match(styles, /\.settings-dashboard>\.dash-sidebar\{padding:20px 18px;gap:10px\}/);
+  assert.match(styles, /\.settings-dashboard \.workspace-label\{margin-top:12px\}/);
+  assert.match(styles, /\.settings-dashboard \.project-sidebar-title\{margin:0 8px 4px\}/);
+  assert.match(styles, /\.settings-dashboard \.project-side-link,\.settings-dashboard \.dash-sidebar>\.nav-active\{padding:10px 12px\}/);
 });
 
 test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {

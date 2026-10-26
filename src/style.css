@@ -223,4 +223,8 @@
 .settings-dashboard .dash-sidebar .sidebar-settings-nav{max-height:none;min-height:0;flex:1 1 auto}
 .settings-dashboard .dash-footer{display:none}
 .project-sidebar-title{margin:16px 8px 14px;color:#e9edeb;font-size:16px;font-weight:550;line-height:1.35;letter-spacing:-.3px;overflow-wrap:anywhere}
+.settings-dashboard>.dash-sidebar{padding:20px 18px;gap:10px}
+.settings-dashboard .workspace-label{margin-top:12px}
+.settings-dashboard .project-sidebar-title{margin:0 8px 4px}
+.settings-dashboard .project-side-link,.settings-dashboard .dash-sidebar>.nav-active{padding:10px 12px}
 @media(max-width:800px){.settings-dashboard{height:auto;min-height:100dvh;overflow:visible}.settings-dashboard>.dash-sidebar{position:static;inset:auto;width:auto;height:auto;min-height:0;overflow:visible}.settings-dashboard>.dash-main{grid-column:1;height:auto;min-height:0;overflow:visible}.settings-dashboard .dash-sidebar .sidebar-settings-nav{flex:0 0 calc(100% + 40px);max-height:none}}
