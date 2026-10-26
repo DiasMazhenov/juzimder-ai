@@ -80,6 +80,7 @@
             "aria-expanded": { "enum": ["true", "false"] },
             "aria-pressed": { "enum": ["true", "false", "mixed"] },
             "datetime": { "type": "string", "maxLength": 64 },
+            "hidden": { "type": "boolean" },
             "open": { "type": "boolean" },
             "required": { "type": "boolean" },
             "disabled": { "type": "boolean" },

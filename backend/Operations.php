@@ -5,8 +5,8 @@ namespace Juzimder;
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
     private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','classes','style','components','zeroData'];
-    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','datetime','open','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
-    private const BOOLEAN_ATTRIBUTE_FIELDS = ['required','disabled','checked','multiple','readonly','selected','open'];
+    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','datetime','hidden','open','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
+    private const BOOLEAN_ATTRIBUTE_FIELDS = ['required','disabled','checked','multiple','readonly','selected','open','hidden'];
     private const ENUM_ATTRIBUTE_VALUES = [
         'aria-selected'=>['true','false','undefined'],
         'aria-expanded'=>['true','false'],

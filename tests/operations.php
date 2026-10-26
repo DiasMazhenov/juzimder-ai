@@ -60,10 +60,13 @@ $formCreated = ProjectOperations::apply(operationObject(Document::empty()), [ope
 $createdForm = $formCreated->data->pages[0]->frames[0]->component->components[0];
 operationCheck($createdForm->components[0]->attributes->name === 'email' && $createdForm->components[0]->attributes->required === true && $createdForm->components[1]->attributes->rows === '4', 'Typed create accepts safe native form field attributes and boolean required');
 $formInputId = $createdForm->components[0]->attributes->id;
-$formUpdated = ProjectOperations::apply($formCreated, [operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['required'=>false,'placeholder'=>null,'disabled'=>true]])]);
+$formUpdated = ProjectOperations::apply($formCreated, [operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['required'=>false,'placeholder'=>null,'disabled'=>true,'hidden'=>true]])]);
 $updatedFormInput = operationNode($formUpdated, $formInputId);
-operationCheck(!isset($updatedFormInput->attributes->required, $updatedFormInput->attributes->placeholder) && $updatedFormInput->attributes->disabled === true, 'Typed attribute update removes false/null optional fields and persists true boolean fields');
+operationCheck(!isset($updatedFormInput->attributes->required, $updatedFormInput->attributes->placeholder) && $updatedFormInput->attributes->disabled === true && $updatedFormInput->attributes->hidden === true, 'Typed attribute update removes false/null optional fields and persists true boolean fields');
+$formUnhidden = ProjectOperations::apply($formUpdated, [operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['hidden'=>false]])]);
+operationCheck(!isset(operationNode($formUnhidden, $formInputId)->attributes->hidden), 'Typed update restores visibility by removing the native hidden attribute');
 operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['open'=>'true']])]),422,'Typed boolean open attribute rejects string values');
+operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['hidden'=>'true']])]),422,'Typed hidden visibility rejects string values');
 operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-selected'=>'sometimes']])]),422,'Typed aria-selected only accepts standard ARIA values');
 operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-expanded'=>'yes']])]),422,'Typed aria-expanded only accepts true or false');
 operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-pressed'=>'on']])]),422,'Typed aria-pressed only accepts true, false or mixed');
