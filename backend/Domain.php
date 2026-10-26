@@ -331,6 +331,24 @@ final class Store {
         }
         return ['accepted'=>true];
     }
+    public function consumeFormMailTestAllowance(string $projectId, string $userId, ?int $now = null): void {
+        $this->owned($projectId, $userId);
+        $now ??= time();
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $row = $this->query('SELECT window_started_at,requests FROM project_form_mail_test_limits WHERE project_id=? AND user_id=?', [$projectId,$userId])->fetch();
+            if ($row && (int)$row['window_started_at'] > $now - 600 && (int)$row['requests'] >= 3) throw new Problem(429, 'Слишком много проверок SMTP. Повторите через 10 минут.');
+            if ($row && (int)$row['window_started_at'] > $now - 600) {
+                $this->query('UPDATE project_form_mail_test_limits SET requests=requests+1 WHERE project_id=? AND user_id=?', [$projectId,$userId]);
+            } else {
+                $this->query('INSERT INTO project_form_mail_test_limits(project_id,user_id,window_started_at,requests) VALUES(?,?,?,1) ON CONFLICT(project_id,user_id) DO UPDATE SET window_started_at=excluded.window_started_at,requests=1', [$projectId,$userId,$now]);
+            }
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
     public function listFormSubmissions(string $projectId, string $user): array {
         $this->owned($projectId,$user);
         $rows = $this->query('SELECT id,form_id,page_path,fields_json,created_at FROM project_form_submissions WHERE project_id=? ORDER BY created_at DESC,id DESC LIMIT 100', [$projectId])->fetchAll();

@@ -528,6 +528,7 @@ try {
         if ($status['version'] !== $body['version'] || !$status['configured']) throw new Problem(409,'Сначала сохраните настройки SMTP и обновите страницу.');
         $project = $store->owned($formMailTestMatch[1], $user); $mailSettings = $project['settings']['forms'] ?? [];
         if (!is_string($mailSettings['senderEmail'] ?? null) || !filter_var($mailSettings['senderEmail'], FILTER_VALIDATE_EMAIL)) throw new Problem(422,'Сначала сохраните корректный email отправителя в настройках писем.');
+        $store->consumeFormMailTestAllowance($formMailTestMatch[1], $user);
         $config = $vault->deliverySettings($formMailTestMatch[1]);
         (new Juzimder\SmtpTransport())->send($config, $mailSettings['senderEmail'], (string)($mailSettings['senderName'] ?? ''), [$body['to']], 'Тест почтового транспорта', 'SMTP-подключение настроено и может отправлять письма.');
         result(['sent'=>true]);

@@ -8,7 +8,7 @@ function sameJson(mixed $left,mixed $right): bool { return json_encode($left,JSO
 $path=sys_get_temp_dir().'/juzimder-test-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
 $s=new Store($path);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['a','a@example.test','hash']);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['b','b@example.test','hash']);
-check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===14,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['slug']==='studio','Create project with readable slug');check($p['version']===0,'Create empty project');
+check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===15,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['slug']==='studio','Create project with readable slug');check($p['version']===0,'Create empty project');
 $empty=Document::empty()['data']['pages'][0]['frames'][0]['component'];check($empty['style']['display']==='flex'&&$empty['style']['flex-direction']==='column','New project Body defaults to vertical Flex');
 rejects(fn()=>$s->owned($id,'b'),404);rejects(fn()=>$s->save($id,'b',0,Document::empty()),404);
 Document::validate(json_decode(file_get_contents(__DIR__.'/grapesjs-0.23.8.fixture.json'),false,64,JSON_THROW_ON_ERROR));

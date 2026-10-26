@@ -11,6 +11,12 @@ try {
     $status=$vault->status($project['id'],'mail-owner');mailCheck($status['version']===0&&!$status['configured']&&!array_key_exists('password',$status),'SMTP status never returns credentials');
     $saved=$vault->save($project['id'],'mail-owner',0,['host'=>'smtp.example.test','port'=>587,'security'=>'starttls','username'=>'user@example.test','password'=>'smtp-test-secret']);
     mailCheck($saved['configured']&&$saved['version']===1&&$saved['hasPassword']&&!array_key_exists('password',$saved),'SMTP settings save with redacted secret');
+    $store->consumeFormMailTestAllowance($project['id'],'mail-owner',1000);
+    $store->consumeFormMailTestAllowance($project['id'],'mail-owner',1001);
+    $store->consumeFormMailTestAllowance($project['id'],'mail-owner',1002);
+    mailReject(fn()=>$store->consumeFormMailTestAllowance($project['id'],'mail-owner',1003),429);
+    $store->consumeFormMailTestAllowance($project['id'],'mail-owner',1600);
+    mailCheck((int)$store->query('SELECT requests FROM project_form_mail_test_limits WHERE project_id=? AND user_id=?',[$project['id'],'mail-owner'])->fetchColumn()===1,'SMTP test rate limit allows three attempts per ten minutes and resets the next window');
     $cipher=$store->query('SELECT settings_ciphertext FROM project_form_mail_settings WHERE project_id=?',[$project['id']])->fetchColumn();
     mailCheck(is_string($cipher)&&!str_contains($cipher,'smtp-test-secret')&&$vault->deliverySettings($project['id'])['password']==='smtp-test-secret','SMTP password is encrypted at rest and available to server delivery only');
     mailReject(fn()=>$vault->save($project['id'],'mail-owner',0,['host'=>'smtp.example.test','port'=>587,'security'=>'starttls','username'=>'user@example.test','password'=>'new-secret']),409);

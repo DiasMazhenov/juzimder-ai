@@ -928,3 +928,7 @@ Browser QA на отдельной странице Zero Engine QA — 00.00.098
 00.00.232: Typed operations API получил `update_attributes` для безопасного обновления и удаления разрешённых атрибутов (`null` удаляет поле). `attributes.id` неизменяем, чтобы не нарушать стабильную идентичность; весь документ повторно проходит актуальную серверную Document policy после операции.
 
 Проверка 00.00.232: PHP operation unit tests, полный npm test, npm run build, PHP syntax и git diff --check. Остаток roadmap-пункта универсализации typed operations остаётся открытым.
+
+00.00.233: Проверка SMTP ограничена тремя попытками за десять минут для пары проект/владелец. Лимит SQLite хранится отдельно от rate limit посетительских форм, проверяется и увеличивается транзакционно до TCP connect; неудачные соединения также учитываются.
+
+Проверка 00.00.233: Store boundary/window тесты и API regression проверяют HTTP 429 до подключения к сохранённому SMTP host; миграция 14→15 и полный набор тестов/build/syntax/diff должны пройти. Общая SMTP egress policy и production security acceptance остаются открытыми.
