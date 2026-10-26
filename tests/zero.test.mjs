@@ -490,6 +490,7 @@ test("Zero preferences menu and grid dialog are available after Close", () => {
 test("photo copyright is editable and rendered as an 8px caption below the image", () => {
   const data = structuredClone(fixture);
   data.elements[1].copyright = "Фото: A & B · CC BY-SA 4.0";
+  data.artboards.desktop.background = "#f7faf6";
   const html = renderZero(data, "zero-photo-credit"),
     pictureEnd = html.indexOf("</picture>"),
     creditStart = html.indexOf('<span class="jz-zero-photo-credit">'),
@@ -502,8 +503,11 @@ test("photo copyright is editable and rendered as an 8px caption below the image
   assert.ok(creditStart > pictureEnd);
   assert.match(html, /Фото: A &amp; B · CC BY-SA 4\.0/);
   assert.match(html, /jz-zero-photo-credit\{position:absolute;left:0;top:calc\(100% \+ 2px\);[^}]*font-size:8px;line-height:1\.2/);
+  assert.match(html, /\.jz-zero-photo-credit\{color:#222629!important\}/);
   assert.match(inspector, /Копирайт<textarea data-element="copyright"[^>]*maxlength="500"/);
   assert.match(inspector, /Alt<input data-element="alt"[^>]*maxlength="300"/);
+  data.artboards.desktop.background = "#172024";
+  assert.match(renderZero(data, "zero-photo-credit-dark"), /\.jz-zero-photo-credit\{color:#ffffff!important\}/);
 });
 
 test("the exported frontend renderer contains no layout flow or editor UI and scopes block copies", () => {

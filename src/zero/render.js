@@ -54,6 +54,15 @@ function hasGallery(elements) {
       (element.children?.length && hasGallery(element.children)),
   );
 }
+function photoCreditColor(background) {
+  const match = /^#([a-f\d]{6})$/i.exec(String(background || ""));
+  if (!match) return "#222629";
+  const channels = [0, 2, 4].map((index) => parseInt(match[1].slice(index, index + 2), 16) / 255);
+  const luminance = channels
+    .map((channel) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  return luminance > 0.179 ? "#222629" : "#ffffff";
+}
 function isPillBadge(element, style = element?.style || {}) {
   if (element?.type !== "text") return false;
   if (/(?:badge|pill|бейдж|пилюля)/iu.test(String(element.name || "")))
@@ -201,6 +210,7 @@ export function renderZero(
       mode,
       `.${scope}{height:${autoScale ? scaledGridLength(b.height, b, true) : `${b.height}px`};${artboardBackgroundCSS(b)}overflow:${b.overflow}}`,
     );
+    css += wrap(mode, `.${scope} .jz-zero-photo-credit{color:${photoCreditColor(b.background)}!important}`);
   }
   const walk = (list, nested = false, inheritedGrid = {}) =>
     list
@@ -317,7 +327,7 @@ export function renderZero(
       })
       .join("");
   const html = walk(data.elements);
-  css += `.${scope} .jz-zero-photo-credit{position:absolute;left:0;top:calc(100% + 2px);display:block;box-sizing:border-box;width:100%;height:auto;min-height:0;margin:0;padding:0;border:0;background:transparent;color:inherit;font-size:8px;line-height:1.2;font-family:inherit;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}`;
+  css += `.${scope} .jz-zero-photo-credit{position:absolute;left:0;top:calc(100% + 2px);display:block;box-sizing:border-box;width:100%;height:auto;min-height:0;margin:0;padding:0;border:0;background:transparent;font-size:8px;line-height:1.2;font-family:inherit;font-weight:400;text-align:left;white-space:normal;overflow-wrap:anywhere}`;
   if (animationEffects.size)
     css += `@media(prefers-reduced-motion:reduce){.${scope} .jz-zero-element{animation:none!important;translate:none!important;scale:none!important}}`;
   return `<section class="jz-zero-block ${scope}" data-zero-id="${escapeHTML(blockId)}"><style>${css}</style>${html}</section>`;
