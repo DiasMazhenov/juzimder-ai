@@ -158,7 +158,17 @@ export async function openZeroEditor({
   const syncSaveButtonState = () => {
     const button = $('[data-action="save"]');
     if (!button) return;
-    button.dataset.saveState = conflict ? "conflict" : saving ? "saving" : dirty ? "unsaved" : "saved";
+    const state = conflict ? "conflict" : saving ? "saving" : dirty ? "unsaved" : "saved";
+    const label = {
+      conflict: "Конфликт",
+      saving: "Сохранение…",
+      saved: "Сохранено",
+      unsaved: "Сохранить",
+    }[state];
+    button.dataset.saveState = state;
+    button.querySelector("span").textContent = label;
+    button.setAttribute("aria-label", label);
+    button.title = label;
     button.setAttribute("aria-busy", String(saving));
     button.disabled = conflict;
   };

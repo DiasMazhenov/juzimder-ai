@@ -489,6 +489,12 @@ test("Zero preferences menu and grid dialog are available after Close", () => {
     assert.equal(artboard.gridColor.pattern, "^#[a-fA-F0-9]{6}$");
   }
 });
+test("Zero save button label reflects saved, unsaved, saving, and conflict states", () => {
+  const app = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8");
+  assert.match(app, /const label = \{[\s\S]*?conflict: "Конфликт"[\s\S]*?saving: "Сохранение…"[\s\S]*?saved: "Сохранено"[\s\S]*?unsaved: "Сохранить"/);
+  assert.match(app, /button\.querySelector\("span"\)\.textContent = label/);
+  assert.match(app, /button\.setAttribute\("aria-label", label\)/);
+});
 test("photo copyright is editable and rendered as an 8px caption below the image", () => {
   const data = structuredClone(fixture);
   data.elements[1].copyright = "Фото: A & B · CC BY-SA 4.0";
