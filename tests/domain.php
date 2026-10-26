@@ -64,3 +64,4 @@ $s->unpublish($id,'a',$savedForPublication['version']);
 check($s->publicFile($id,'index.html')===null,'Unpublishing removes the public pointer');
 check((int)$s->query('SELECT COUNT(*) FROM publication_versions WHERE project_id=?',[$id])->fetchColumn()===3,'Unpublishing preserves immutable publication history');
 } finally {unset($s);@unlink($path);}
+require __DIR__.'/backup.php';

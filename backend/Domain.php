@@ -7,6 +7,7 @@ require_once __DIR__ . '/BackgroundImage.php';
 require_once __DIR__ . '/CustomCode.php';
 require_once __DIR__ . '/ZeroBlock.php';
 require_once __DIR__ . '/MigrationRunner.php';
+require_once __DIR__ . '/SkillRequirements.php';
 
 final class Problem extends \RuntimeException {
     public function __construct(public int $status, string $message) { parent::__construct($message); }
@@ -344,6 +345,83 @@ final class Store {
         $this->owned($id, $user);
         $rows = $this->query('SELECT id,name,mime,byte_length,width,height,created_at FROM project_assets WHERE project_id=? ORDER BY created_at DESC,id DESC', [$id])->fetchAll();
         return array_map(static fn(array $row): array => ['id'=>$row['id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>(int)$row['byte_length'],'width'=>(int)$row['width'],'height'=>(int)$row['height'],'createdAt'=>$row['created_at'],'url'=>'/api/projects/' . $id . '/assets/' . $row['id'] . '/file'], $rows);
+    }
+    public function backup(string $id, string $user): array {
+        $project = $this->owned($id, $user);
+        $assets = $this->query('SELECT id,name,mime,byte_length,width,height,sha256,content FROM project_assets WHERE project_id=? ORDER BY id', [$id])->fetchAll();
+        $packedAssets = [];
+        foreach ($assets as $asset) {
+            $content = $asset['content'];
+            if (!is_string($content) || strlen($content) !== (int)$asset['byte_length'] || !hash_equals((string)$asset['sha256'], hash('sha256', $content))) throw new Problem(500, 'Не удалось проверить изображение для резервной копии.');
+            $packedAssets[] = ['id'=>$asset['id'],'name'=>$asset['name'],'mime'=>$asset['mime'],'width'=>(int)$asset['width'],'height'=>(int)$asset['height'],'sha256'=>$asset['sha256'],'content'=>base64_encode($content)];
+        }
+        $skillState = $this->query('SELECT active_skill_id,version FROM project_ai_skill_state WHERE project_id=?', [$id])->fetch() ?: ['active_skill_id'=>null,'version'=>0];
+        $skills = $this->query('SELECT id,name,content,manual_checks_json FROM project_ai_skills WHERE project_id=? ORDER BY created_at,id', [$id])->fetchAll();
+        $packedSkills = array_map(static fn(array $skill): array => ['id'=>$skill['id'],'name'=>$skill['name'],'content'=>$skill['content'],'manualChecks'=>json_decode($skill['manual_checks_json'],true,16,JSON_THROW_ON_ERROR)], $skills);
+        return ['format'=>'juzimder-project-backup','backupVersion'=>1,'createdAt'=>gmdate('c'),'sourceProjectId'=>$id,'project'=>['name'=>$project['name'],'slug'=>$project['slug'],'document'=>$project['document'],'settings'=>$project['settings'],'assets'=>$packedAssets,'aiSkills'=>['version'=>(int)$skillState['version'],'activeSkillId'=>$skillState['active_skill_id'],'skills'=>$packedSkills]]];
+    }
+    public function restoreBackup(string $id, string $user, int $version, mixed $backup): array {
+        $this->owned($id, $user);
+        $fields = $backup instanceof \stdClass ? get_object_vars($backup) : (is_array($backup) && !array_is_list($backup) ? $backup : null);
+        $projectValue = $fields['project'] ?? null;
+        if ($fields === null || ($fields['format'] ?? null) !== 'juzimder-project-backup' || ($fields['backupVersion'] ?? null) !== 1 || ($fields['sourceProjectId'] ?? null) !== $id || !($projectValue instanceof \stdClass || (is_array($projectValue) && !array_is_list($projectValue)))) throw new Problem(422, 'Файл не является резервной копией этого проекта или имеет неподдерживаемую версию.');
+        $project = $projectValue instanceof \stdClass ? get_object_vars($projectValue) : $projectValue;
+        if (array_diff(array_keys($project), ['name','slug','document','settings','assets','aiSkills']) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
+        $slug = ProjectSettings::validateSlug($project['slug']);
+        $document = $project['document'] ?? null;
+        Document::validate($document);
+        $backupSettings = $project['settings'] ?? null;
+        if ($backupSettings instanceof \stdClass) $backupSettings = json_decode(json_encode($backupSettings, JSON_THROW_ON_ERROR), true, 64, JSON_THROW_ON_ERROR);
+        $settings = ProjectSettings::reconcile($backupSettings, $document);
+        $payload = json_encode($document, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $settingsPayload = json_encode($settings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        if (strlen($payload) > 2000000) throw new Problem(413, 'Данные проекта в резервной копии превышают лимит 2 МБ.');
+        $assets = []; $totalBytes = 0;
+        foreach ($project['assets'] as $asset) {
+            if (!$asset instanceof \stdClass && (!is_array($asset) || array_is_list($asset))) throw new Problem(422, 'Некорректная запись изображения в резервной копии.');
+            $item = $asset instanceof \stdClass ? get_object_vars($asset) : $asset; $assetId = $item['id'] ?? null; $name = $item['name'] ?? null; $mime = $item['mime'] ?? null; $encoded = $item['content'] ?? null;
+            if (array_diff(array_keys($item), ['id','name','mime','width','height','sha256','content']) || !is_string($assetId) || !preg_match('/^[a-f0-9]{24}$/D', $assetId) || isset($assets[$assetId]) || !is_string($name) || trim($name) === '' || mb_strlen($name, 'UTF-8') > 160 || !is_string($mime) || !in_array($mime, ['image/jpeg','image/png','image/gif','image/webp'], true) || !is_string($encoded) || strlen($encoded) > 5592408) throw new Problem(422, 'Некорректные сведения об изображении в резервной копии.');
+            $content = base64_decode($encoded, true); if (!is_string($content) || $content === '' || strlen($content) > 4194304) throw new Problem(422, 'Повреждено изображение в резервной копии.');
+            $detectedMime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($content); $image = @getimagesizefromstring($content); $expected = ['image/jpeg'=>IMAGETYPE_JPEG,'image/png'=>IMAGETYPE_PNG,'image/gif'=>IMAGETYPE_GIF,'image/webp'=>IMAGETYPE_WEBP];
+            if ($detectedMime !== $mime || !is_array($image) || ($image[2] ?? null) !== $expected[$mime] || $image[0] < 1 || $image[1] < 1 || $image[0] > 8192 || $image[1] > 8192 || $image[0] * $image[1] > 40000000 || (int)($item['width'] ?? 0) !== $image[0] || (int)($item['height'] ?? 0) !== $image[1] || !is_string($item['sha256'] ?? null) || !hash_equals($item['sha256'], hash('sha256', $content))) throw new Problem(422, 'Изображение резервной копии не прошло проверку целостности.');
+            $totalBytes += strlen($content); if ($totalBytes > 20000000) throw new Problem(413, 'Общий размер изображений превышает лимит проекта 20 МБ.');
+            $assets[$assetId] = ['name'=>$name,'mime'=>$mime,'width'=>$image[0],'height'=>$image[1],'content'=>$content];
+        }
+        foreach (Document::assetReferences($document) as $reference) if ($reference['projectId'] !== $id || !isset($assets[$reference['assetId']])) throw new Problem(422, 'В резервной копии отсутствует изображение страницы или оно принадлежит другому проекту.');
+        $skillsValue = $project['aiSkills'] ?? null;
+        $skillState = $skillsValue instanceof \stdClass ? get_object_vars($skillsValue) : (is_array($skillsValue) && !array_is_list($skillsValue) ? $skillsValue : null);
+        if ($skillState === null || !is_int($skillState['version'] ?? null) || $skillState['version'] < 0 || !is_array($skillState['skills'] ?? null) || !array_is_list($skillState['skills']) || count($skillState['skills']) > 10 || !(($skillState['activeSkillId'] ?? null) === null || is_string($skillState['activeSkillId']))) throw new Problem(422, 'Некорректная библиотека AI Skills в резервной копии.');
+        $packedSkills=[];
+        foreach ($skillState['skills'] as $skillValue) {
+            $skill=$skillValue instanceof \stdClass ? get_object_vars($skillValue) : (is_array($skillValue) && !array_is_list($skillValue) ? $skillValue : null);
+            if ($skill===null || array_diff(array_keys($skill),['id','name','content','manualChecks']) || !is_string($skill['id']??null) || !preg_match('/^[a-f0-9]{24}$/D',$skill['id']) || isset($packedSkills[$skill['id']]) || !is_string($skill['name']??null) || trim($skill['name'])==='' || mb_strlen($skill['name'],'UTF-8')>64 || !is_string($skill['content']??null) || trim($skill['content'])==='' || mb_strlen($skill['content'],'UTF-8')>16000 || !is_array($skill['manualChecks']??null) || !array_is_list($skill['manualChecks']) || count($skill['manualChecks'])<1 || count($skill['manualChecks'])>12) throw new Problem(422,'Некорректная запись AI Skill в резервной копии.');
+            foreach($skill['manualChecks'] as $check) if(!is_string($check)||trim($check)===''||mb_strlen($check,'UTF-8')>240) throw new Problem(422,'Некорректный пункт проверки AI Skill в резервной копии.');
+            try { SkillRequirements::parse($skill['content']); } catch (\InvalidArgumentException $error) { throw new Problem(422,$error->getMessage()); }
+            $packedSkills[$skill['id']]=['name'=>trim($skill['name']),'content'=>$skill['content'],'checks'=>$skill['manualChecks']];
+        }
+        $activeSkillId=$skillState['activeSkillId'];if($activeSkillId!==null&&!isset($packedSkills[$activeSkillId])) throw new Problem(422,'Активный AI Skill отсутствует в резервной копии.');
+        $current = $this->owned($id, $user); if ($current['version'] !== $version) throw new Problem(409, 'Проект изменился. Обновите страницу и повторите восстановление.');
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $currentRow = $this->query('SELECT d.version FROM documents d JOIN projects p ON p.id=d.project_id WHERE d.project_id=? AND p.owner_id=?', [$id,$user])->fetchColumn();
+            if ($currentRow === false || (int)$currentRow !== $version) throw new Problem(409, 'Проект изменился. Обновите страницу и повторите восстановление.');
+            $slugOwner = $this->query('SELECT id FROM projects WHERE slug=? AND id<>?', [$slug,$id])->fetchColumn();
+            if ($slugOwner !== false) throw new Problem(409, 'Адрес проекта из бэкапа уже занят. Измените адрес проекта и повторите восстановление.');
+            $stmt = $this->query('UPDATE documents SET payload=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE project_id=? AND version=?', [$payload,$id,$version]);
+            if ($stmt->rowCount() !== 1) throw new Problem(409, 'Проект изменился. Обновите страницу и повторите восстановление.');
+            $this->query('UPDATE projects SET name=?,slug=?,settings_payload=? WHERE id=? AND owner_id=?', [trim($project['name']),$slug,$settingsPayload,$id,$user]);
+            $this->query('DELETE FROM project_assets WHERE project_id=?', [$id]);
+            $insert = $this->db->prepare('INSERT INTO project_assets(id,project_id,name,mime,byte_length,width,height,sha256,content) VALUES(?,?,?,?,?,?,?,?,?)');
+            foreach ($assets as $assetId=>$asset) { $values=[$assetId,$id,$asset['name'],$asset['mime'],strlen($asset['content']),$asset['width'],$asset['height'],hash('sha256',$asset['content']),$asset['content']]; foreach ($values as $index=>$value) $insert->bindValue($index+1,$value,$index===8 ? \PDO::PARAM_LOB : (is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR)); $insert->execute(); }
+            $currentSkillVersion=$this->query('SELECT version FROM project_ai_skill_state WHERE project_id=?',[$id])->fetchColumn();$nextSkillVersion=$currentSkillVersion===false?1:(int)$currentSkillVersion+1;
+            $this->query('DELETE FROM project_ai_skills WHERE project_id=?',[$id]);
+            foreach($packedSkills as $skillId=>$skill){$this->query('INSERT INTO project_ai_skills(id,project_id,name,content,manual_checks_json) VALUES(?,?,?,?,?)',[$skillId,$id,$skill['name'],$skill['content'],json_encode($skill['checks'],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)]);}
+            $this->query('INSERT INTO project_ai_skill_state(project_id,active_skill_id,version) VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET active_skill_id=excluded.active_skill_id,version=excluded.version,updated_at=CURRENT_TIMESTAMP',[$id,$activeSkillId,$nextSkillVersion]);
+            $this->query('INSERT INTO revisions(project_id,version,payload,settings_payload) VALUES(?,?,?,?)', [$id,$version+1,$payload,$settingsPayload]);
+            $this->query('DELETE FROM revisions WHERE project_id=? AND version NOT IN (SELECT version FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 200)', [$id,$id]);
+            $this->db->commit();
+        } catch (\Throwable $error) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $error; }
+        return $this->owned($id,$user);
     }
     public function uploadAsset(string $id, string $user, string $name, string $content): array {
         $this->owned($id, $user);

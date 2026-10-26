@@ -66,6 +66,15 @@ await a.call('/session');assert.equal((await a.call('/register','POST',{email:'o
 const isolatedDatabaseClient=new Client(devBase);await isolatedDatabaseClient.call('/session');assert.notEqual(a.cookie.split('=')[0],isolatedDatabaseClient.cookie.split('=')[0],'separate SQLite databases use separate browser session cookie names');
 assert.equal((await a.call('/register','POST',{email:'one@example.test',password:'a-long-test-password'})).status,200);
 const aiProject=(await a.call('/projects','POST',{name:'AI credentials'})).data,aiSettingsPath=`/projects/${aiProject.id}/ai/settings`,aiPlanPath=`/projects/${aiProject.id}/ai/design-plan`,aiGeneratePath=`/projects/${aiProject.id}/ai/generate-page`,aiSkillsPath=`/projects/${aiProject.id}/ai/skills`;
+await isolatedDatabaseClient.call('/register','POST',{email:'backup@example.test',password:'a-long-test-password'});
+const backupProject=(await isolatedDatabaseClient.call('/projects','POST',{name:'Backup API QA'})).data,backupPath=`/projects/${backupProject.id}/backup`;
+assert.equal((await anon.download(backupPath)).status,401,'Downloading a project backup requires authentication');
+const backupDownload=await isolatedDatabaseClient.download(backupPath);assert.equal(backupDownload.status,200);assert.match(backupDownload.type,/application\/json/);assert.match(backupDownload.body.toString('utf8'),/juzimder-project-backup/,'Backup endpoint returns a versioned project archive');
+const backupPayload=JSON.parse(backupDownload.body.toString('utf8'));
+assert.equal((await isolatedDatabaseClient.call(backupPath,'POST',{version:0,backup:backupPayload},'bad')).status,403,'Restoring a backup requires CSRF');
+assert.equal((await isolatedDatabaseClient.call(backupPath,'POST',{version:1,backup:backupPayload})).status,409,'Restoring a backup enforces the current project version');
+const backupRestore=await isolatedDatabaseClient.call(backupPath,'POST',{version:0,backup:backupPayload});assert.equal(backupRestore.status,200);assert.equal(backupRestore.data.version,1,'Restoring a valid backup records a new project revision');
+assert.equal((await isolatedDatabaseClient.call(backupPath,'POST',{version:1,backup:{...backupPayload,sourceProjectId:aiProject.id}})).status,422,'Backup files cannot be restored across projects');
 assert.equal(aiProject.slug,'ai-credentials','New projects get a readable stable slug');
 assert.deepEqual((await a.call(`/projects/resolve/${aiProject.slug}`)).data,{id:aiProject.id,slug:aiProject.slug},'An owner can resolve a readable project URL to its internal ID');
 for(const route of [`/projects/${aiProject.slug}`,`/projects/${aiProject.slug}/settings`,`/projects/${aiProject.slug}/pages/home/edit`]){

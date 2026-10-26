@@ -48,10 +48,11 @@ try {
     $sandboxRequest = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox$~D', $path) === 1;
     $sandboxPreviewRequest = $method === 'GET' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox/[a-f0-9]{64}$~D', $path) === 1;
     $assetUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/assets$~D', $path) === 1;
+    $backupUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/backup$~D', $path) === 1;
     $body = [];
     if ($method !== 'GET') {
         if (!$sandboxRequest && !hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
-        $bodyLimit = $assetUpload ? 4194304 : ($sandboxRequest ? 100000 : 2100000);
+        $bodyLimit = $assetUpload ? 4194304 : ($backupUpload ? 33554432 : ($sandboxRequest ? 100000 : 2100000));
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $bodyLimit) throw new Problem(413,'Запрос слишком большой.');
         $raw = file_get_contents('php://input',false,null,0,$bodyLimit+1);
         if (!is_string($raw) || strlen($raw)>$bodyLimit) throw new Problem(413,'Запрос слишком большой.');
@@ -108,6 +109,19 @@ try {
     }
     if (preg_match('~^/api/projects/resolve/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$~D', $path, $slugMatch) && $method === 'GET') {
         result($store->resolveProjectSlug($slugMatch[1], $user));
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/backup$~D', $path, $backupMatch)) {
+        if ($method === 'GET') {
+            $backup = $store->backup($backupMatch[1], $user);
+            $filename = 'juzimder-backup-' . $backupMatch[1] . '-' . gmdate('Ymd-His') . '.json';
+            header('Content-Type: application/json; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            echo json_encode($backup, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR); exit;
+        }
+        if ($method === 'POST') {
+            if (array_diff(array_keys($body), ['version','backup']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию проекта и файл резервной копии.');
+            result($store->restoreBackup($backupMatch[1], $user, $body['version'], $body['backup'] ?? null));
+        }
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/form-submissions$~D', $path, $formInboxMatch) && $method === 'GET') {
         result(['submissions'=>$store->listFormSubmissions($formInboxMatch[1],$user)]);
