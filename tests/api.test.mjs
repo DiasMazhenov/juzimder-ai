@@ -48,7 +48,7 @@ async function publicBinaryCall(projectId,path,method='GET'){
   });
 }
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath,JUZIMDER_PUBLIC_HOST_SUFFIX:'juzimder-ai.localhost:18081',JUZIMDER_PUBLIC_SCHEME:'http'};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
+before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath,JUZIMDER_PUBLIC_HOST_SUFFIX:'juzimder-ai.localhost:18081',JUZIMDER_PUBLIC_SCHEME:'http',JUZIMDER_TRUSTED_PROXY_IPS:'127.0.0.1'};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 beforeEach(()=>{if(testDbPath)execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->exec('DELETE FROM auth_attempts');",testDbPath]);});
 test('Editor shell issues the CSP nonce shared with isolated child frames',async()=>{
@@ -58,6 +58,14 @@ test('Editor shell issues the CSP nonce shared with isolated child frames',async
   assert.match(csp,/frame-src 'self' blob: https:\/\/www\.youtube-nocookie\.com https:\/\/player\.vimeo\.com/,'the app shell permits only the two canonical Zero Video player origins');
   assert.doesNotMatch(csp,/frame-src[^;]*\bhttps:(?:\s|;)/,'the app shell does not allow arbitrary HTTPS frames');
   assert.doesNotMatch(csp,/unsafe-inline.*script-src|script-src[^;]*unsafe-inline/);
+});
+test('Trusted reverse proxy controls Secure cookies and auth client-IP limiting',async()=>{
+const response=await fetch(`${base}/api/session`,{headers:{'X-Forwarded-Proto':'https','X-Forwarded-For':'198.51.100.77'}}),setCookie=response.headers.get('set-cookie')||'',session=await response.json();
+assert.match(setCookie,/;\s*secure(?:;|$)/i,'an allowlisted proxy can mark the external request HTTPS for session-cookie policy');
+const cookie=setCookie.split(';')[0],attempt=await fetch(`${base}/api/login`,{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json','X-CSRF-Token':session.csrf,'X-Forwarded-Proto':'https','X-Forwarded-For':'198.51.100.77'},body:JSON.stringify({email:'invalid',password:''})});
+assert.equal(attempt.status,422,'the malformed login is validated after consuming one attempt');
+const recordedIp=execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);echo $db->query('SELECT ip FROM auth_attempts LIMIT 1')->fetchColumn();",testDbPath],{encoding:'utf8'}).trim();
+assert.equal(recordedIp,'198.51.100.77','auth limiter uses the verified client IP from the trusted proxy chain');
 });
 test('Authenticated persistence, tenant isolation, CSRF, validation, revisions and login',async()=>{
 const a=new Client(),b=new Client(),anon=new Client();

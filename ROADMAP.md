@@ -13,6 +13,8 @@
 
 - [x] 00.00.235: Лимит входа/регистрации на source IP проверяется и увеличивается атомарно под SQLite `BEGIN IMMEDIATE`; некорректные credential requests тоже учитываются. Проверены 15 попыток/15 минут и API 429. Несколько узлов с независимыми SQLite базами по-прежнему требуют общей rate-limit инфраструктуры.
 
+- [x] 00.00.236: Secure session cookies и лимиты по client IP корректно работают за явно перечисленными trusted reverse proxies. `X-Forwarded-Proto`/`X-Forwarded-For` игнорируются от неразрешённых peer, malformed цепочки используют адрес proxy, CIDR и wildcard allowlist не допускаются. Production proxy/firewall deployment по-прежнему требует отдельной приёмки.
+
 - [x] 00.00.227: Уменьшены избыточные вертикальные промежутки сайдбара настроек; меню получает больше места по высоте.
 
 - [x] 00.00.226: Название проекта в сайдбаре настроек расположено сразу под меткой «Проект», а не внизу рядом с версией.
@@ -241,7 +243,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Account recovery and broader production hardening; migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235. Account recovery and shared/distributed quotas remain open.
+- [ ] Account recovery and broader production hardening; migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235, trusted reverse-proxy policy — в 00.00.236. Account recovery, shared/distributed quotas and deployment firewall acceptance remain open.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout

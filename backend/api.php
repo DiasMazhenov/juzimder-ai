@@ -13,6 +13,7 @@ require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/StaticSiteExporter.php';
 require_once __DIR__ . '/PublicOrigin.php';
 require_once __DIR__ . '/SessionPolicy.php';
+require_once __DIR__ . '/TrustedProxyPolicy.php';
 use Juzimder\{Store, Problem, CustomCode};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -23,7 +24,7 @@ $defaultDatabaseIdentity = realpath($defaultDatabasePath) ?: $defaultDatabasePat
 $sessionName = $databaseIdentity === $defaultDatabaseIdentity
     ? 'juzimder_session'
     : 'juzimder_' . substr(hash('sha256', $databaseIdentity), 0, 16);
-session_name($sessionName); session_set_cookie_params(['lifetime'=>Juzimder\SessionPolicy::ABSOLUTE_TIMEOUT_SECONDS,'httponly'=>true,'samesite'=>'Strict','secure'=>!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off','path'=>'/']); session_start();
+session_name($sessionName); session_set_cookie_params(['lifetime'=>Juzimder\SessionPolicy::ABSOLUTE_TIMEOUT_SECONDS,'httponly'=>true,'samesite'=>'Strict','secure'=>Juzimder\TrustedProxyPolicy::isHttps($_SERVER),'path'=>'/']); session_start();
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $devAuth = getenv('JUZIMDER_DEV_AUTH') === '1' && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1','::1'], true);
 function result(mixed $data,int $status=200): never { http_response_code($status); echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR); exit; }
@@ -77,8 +78,7 @@ try {
         result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired]);
     }
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        $store->consumeAuthAttemptAllowance(is_string($ip) ? $ip : '');
+        $store->consumeAuthAttemptAllowance(Juzimder\TrustedProxyPolicy::clientIp($_SERVER) ?? '');
         $identity = strtolower(trim(is_string($body['email'] ?? null) ? $body['email'] : ''));
         $devAdminLogin = $devAuth && $path === '/api/login' && $identity === 'admin';
         $email = $devAdminLogin ? 'admin@localhost.test' : $identity;
