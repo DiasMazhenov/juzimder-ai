@@ -109,11 +109,14 @@ final class AiZeroComposer {
         $decoded['elements']=self::withoutUntrustedPhotoCredits($decoded['elements']);
         $decoded['elements']=self::withoutDecorativeBadgeIcons($decoded['elements']);
         $generatedCardSurfaceCount=0;
-        $explicitServiceCards=self::normalizeExplicitThreeServiceCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
-        if($explicitServiceCards!==null){$decoded['elements']=$explicitServiceCards;$generatedCardSurfaceCount=3;}
-        else{$namedCardSurfaces=self::normalizeNamedCardSurfaceVectors($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
-            if($namedCardSurfaces!==null){$decoded['elements']=$namedCardSurfaces;$generatedCardSurfaceCount=3;}
-            else{$cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}}}
+        $testimonialIntent=preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)===1;
+        if(!$testimonialIntent){
+            $explicitServiceCards=self::normalizeExplicitThreeServiceCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
+            if($explicitServiceCards!==null){$decoded['elements']=$explicitServiceCards;$generatedCardSurfaceCount=3;}
+            else{$namedCardSurfaces=self::normalizeNamedCardSurfaceVectors($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
+                if($namedCardSurfaces!==null){$decoded['elements']=$namedCardSurfaces;$generatedCardSurfaceCount=3;}
+                else{$cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}}}
+        }
         $decoded['elements']=self::normalizeNumberedProcessIcons($prompt,$decoded['elements'],(int)$board->width);
         $decoded['elements']=self::normalizeModelNumberedProcessCardSurfaces($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         $decoded['elements']=self::normalizeRequestedNumberedProcessCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
@@ -489,6 +492,10 @@ final class AiZeroComposer {
     private static function normalizeRequestedTestimonialCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
         if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1||count($items)>18)return $items;
         $requestedCount=preg_match('/(?:из\s+)?(?:две|двух|2|two)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?2:(preg_match('/(?:из\s+)?(?:три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?3:0);
+        if($requestedCount===0&&preg_match('/(?:карточ\w*|\bcards?\b)/iu',$prompt)===1){
+            preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*([\p{L}][\p{L}-]{1,40}(?:\s+[\p{L}][\p{L}-]{1,40}){0,2})/u',$prompt,$explicitQuotes,PREG_SET_ORDER);
+            if(in_array(count($explicitQuotes),[2,3],true))$requestedCount=count($explicitQuotes);
+        }
         if($requestedCount===0)return $items;
         foreach($items as $item)if(is_array($item)&&($item['type']??null)==='image')return $items;
         $originalItems=$items;
@@ -520,12 +527,14 @@ final class AiZeroComposer {
         if($introBottom>0)$quoteY=max($quoteY,$introBottom+32);
         $light=self::colorLuminance($background)>=.42;$fill=self::blendColor($background,$light?'#DDEBDD':'#FFFFFF',$light?.68:.12);$stroke=self::blendColor($background,$light?'#8FAF8F':'#FFFFFF',$light?.45:.3);$surfaces=[];
         foreach($pairs as $index=>$pair){
-            $quote=&$items[$pair['quote']];$author=&$items[$pair['author']];$cardX=$margin+$index*($cardWidth+$gap);$font=max(16,(float)$quote['fontSize']);$quote['x']=$cardX+20;$quote['y']=$quoteY;$quote['width']=$cardWidth-40;$quote['height']=max(48,ceil(self::estimatedTextLines($quotedTexts[$index],$font,$cardWidth-40,true)*$font*1.3+4));$quote['content']=$quotedTexts[$index];$quote['fill']='transparent';$quote['stroke']='transparent';$quote['radius']=0;$author['x']=$cardX+20;$author['y']=$quoteY+(float)$quote['height']+12;$author['width']=$cardWidth-40;$author['height']=max(24,min(40,(float)$author['height']));$author['fontSize']=16;$author['fontWeight']=600;$author['content']=$authors[$index];$author['fill']='transparent';$author['stroke']='transparent';$author['radius']=0;$height=(float)$author['y']+(float)$author['height']+20-($quoteY-20);unset($quote,$author);
+            $quote=&$items[$pair['quote']];$author=&$items[$pair['author']];$cardX=$margin+$index*($cardWidth+$gap);$font=max(16,(float)$quote['fontSize']);$quote['x']=$cardX+20;$quote['y']=$quoteY;$quote['width']=$cardWidth-40;$quote['height']=max(48,ceil(self::estimatedTextLines($quotedTexts[$index],$font,$cardWidth-40,true)*$font*1.3+4));$quote['content']=$quotedTexts[$index];$quote['fill']='transparent';$quote['stroke']='transparent';$quote['radius']=0;$author['x']=$quote['x'];$author['y']=$quoteY+(float)$quote['height']+12;$author['width']=$cardWidth-40;$author['height']=max(24,min(40,(float)$author['height']));$author['fontSize']=16;$author['fontWeight']=600;$author['content']=$authors[$index];$author['fill']='transparent';$author['stroke']='transparent';$author['radius']=0;
+            foreach([$pair['quote'],$pair['author']] as $textIndex)if(isset($items[$textIndex]['overrides'])&&is_array($items[$textIndex]['overrides']))foreach($items[$textIndex]['overrides'] as &$override)if(is_array($override))unset($override['geometry']);unset($override);
+            $height=(float)$author['y']+(float)$author['height']+20-($quoteY-20);unset($quote,$author);
             if($quoteY-20<0||$quoteY-20+$height>$boardHeight)return $originalItems;
             $surfaces[]=['type'=>'rectangle','name'=>sprintf('AI testimonial card %02d',$index+1),'content'=>'','photoQuery'=>'','icon'=>'','x'=>$cardX,'y'=>$quoteY-20,'width'=>$cardWidth,'height'=>$height,'fill'=>$fill,'color'=>$fill,'stroke'=>$stroke,'radius'=>18,'fontSize'=>16,'fontWeight'=>400,'textAlign'=>'left'];
         }
         $plainQuotes=array_map(static fn(string $quote):string=>trim($quote,'«»“” '),$quotedTexts);
-        $items=array_values(array_filter($items,static function($item,$index)use($quotedTexts,$plainQuotes,$authors,$keep):bool{if(!is_array($item))return true;$name=(string)($item['name']??'');if(($item['type']??null)==='rectangle'&&preg_match('/^(?:Основа карточки \d+|AI testimonial card \d{2})$/u',$name)===1)return false;if(($item['type']??null)==='vector'&&preg_match('/^card\d+(?:Icon|Surface)$/i',$name)===1)return false;if(($item['type']??null)!=='text'||isset($keep[$index]))return true;if(preg_match('/^card\d+(?:Body|Quote|Title)(?:Mobile)?$/i',$name)===1)return false;$content=trim((string)($item['content']??''));if(in_array($content,$authors,true)||in_array(trim($content,'«»“” '),$plainQuotes,true))return false;foreach($quotedTexts as $quote)if(str_starts_with($content,$quote))return false;return true;},ARRAY_FILTER_USE_BOTH));
+        $items=array_values(array_filter($items,static function($item,$index)use($quotedTexts,$plainQuotes,$authors,$keep):bool{if(!is_array($item))return true;$name=(string)($item['name']??'');if(($item['type']??null)==='rectangle'&&preg_match('/^(?:Основа карточки \d+|AI testimonial card \d{2})$/u',$name)===1)return false;if(($item['type']??null)==='vector'&&(preg_match('/^card\d+Surface$/i',$name)===1||(preg_match('/^card\d+Icon$/i',$name)===1&&($item['icon']??null)==='photo')))return false;if(($item['type']??null)!=='text'||isset($keep[$index]))return true;if(preg_match('/^card\d+(?:Body|Quote|Title)(?:Mobile)?$/i',$name)===1)return false;$content=trim((string)($item['content']??''));if(in_array($content,$authors,true)||in_array(trim($content,'«»“” '),$plainQuotes,true))return false;foreach($quotedTexts as $quote)if(str_starts_with($content,$quote))return false;return true;},ARRAY_FILTER_USE_BOTH));
         if(count($items)+$requestedCount>20)return $originalItems;
         return array_merge($surfaces,$items);
     }
