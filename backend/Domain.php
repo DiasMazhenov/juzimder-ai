@@ -6,6 +6,7 @@ require_once __DIR__ . '/IconCatalogue.php';
 require_once __DIR__ . '/BackgroundImage.php';
 require_once __DIR__ . '/CustomCode.php';
 require_once __DIR__ . '/ZeroBlock.php';
+require_once __DIR__ . '/MigrationRunner.php';
 
 final class Problem extends \RuntimeException {
     public function __construct(public int $status, string $message) { parent::__construct($message); }
@@ -158,146 +159,8 @@ final class Store {
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0700, true);
         $this->db = new \PDO('sqlite:' . $path, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC]);
         $this->db->exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 0) {
-            $this->db->exec(file_get_contents(__DIR__ . '/migrations/001_initial.sql'));
-            $schemaVersion = 1;
-        }
-        if ($schemaVersion === 1) $this->migrateProjectSettings();
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 2) $this->db->exec(file_get_contents(__DIR__ . '/migrations/003_ai_credentials.sql'));
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 3) $this->db->exec(file_get_contents(__DIR__ . '/migrations/004_publications.sql'));
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 4) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-                if ($schemaVersion === 4) $this->db->exec(file_get_contents(__DIR__ . '/migrations/005_ai_profiles.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 5) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-                if ($schemaVersion === 5) $this->db->exec(file_get_contents(__DIR__ . '/migrations/006_project_assets.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 6) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-                if ($schemaVersion === 6) $this->db->exec(file_get_contents(__DIR__ . '/migrations/007_ai_fallback_model.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 7) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-                if ($schemaVersion === 7) $this->db->exec(file_get_contents(__DIR__ . '/migrations/008_ai_skills.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        $schemaVersion = (int)$this->db->query('PRAGMA user_version')->fetchColumn();
-        if ($schemaVersion === 8) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 8) $this->db->exec(file_get_contents(__DIR__.'/migrations/009_ai_generation_jobs.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 9) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 9) $this->db->exec(file_get_contents(__DIR__.'/migrations/010_ai_job_cancellation.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 10) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 10) $this->db->exec(file_get_contents(__DIR__.'/migrations/011_ai_job_diagnostics.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 11) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 11) $this->db->exec(file_get_contents(__DIR__.'/migrations/012_form_submissions.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 12) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 12) $this->db->exec(file_get_contents(__DIR__.'/migrations/013_project_slugs.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
-        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 13) {
-            $this->db->exec('BEGIN IMMEDIATE');
-            try {
-                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 13) $this->db->exec(file_get_contents(__DIR__.'/migrations/014_form_mail.sql'));
-                $this->db->commit();
-            } catch (\Throwable $error) {
-                if ($this->db->inTransaction()) $this->db->rollBack();
-                throw $error;
-            }
-        }
+        (new MigrationRunner($this->db))->run();
         $this->backfillProjectSlugs();
-    }
-    private function migrateProjectSettings(): void {
-        $this->db->beginTransaction();
-        try {
-            $this->db->exec(file_get_contents(__DIR__ . '/migrations/002_project_settings.sql'));
-            foreach ($this->query('SELECT p.id,d.payload FROM projects p JOIN documents d ON d.project_id=p.id')->fetchAll() as $row) {
-                $document = json_decode($row['payload'], false, 64, JSON_THROW_ON_ERROR);
-                $settings = ProjectSettings::initial($document);
-                $this->query('UPDATE projects SET settings_payload=? WHERE id=?', [json_encode($settings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), $row['id']]);
-            }
-            foreach ($this->query('SELECT id,payload FROM revisions')->fetchAll() as $row) {
-                $document = json_decode($row['payload'], false, 64, JSON_THROW_ON_ERROR);
-                $settings = ProjectSettings::initial($document);
-                $this->query('UPDATE revisions SET settings_payload=? WHERE id=?', [json_encode($settings, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), $row['id']]);
-            }
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
-            throw $e;
-        }
     }
     public function query(string $sql, array $args = []): \PDOStatement { $stmt = $this->db->prepare($sql); $stmt->execute($args); return $stmt; }
     private function projectSlugBase(string $name): string {

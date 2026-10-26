@@ -110,6 +110,16 @@ try {
     settingsCheck($root->components[2]->style->{'font-size'}==='30px'&&$root->components[2]->style->{'font-weight'}==='800','Custom local heading styles remain overrides');
 } finally { unset($store); @unlink($path); }
 
+$futureSchemaPath=sys_get_temp_dir().'/juzimder-future-schema-'.bin2hex(random_bytes(6)).'.sqlite';
+try {
+    $futureSchema=new PDO('sqlite:'.$futureSchemaPath,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $futureSchema->exec('PRAGMA user_version = 15');
+    unset($futureSchema);
+    $futureSchemaRejected=false;
+    try { new Store($futureSchemaPath); } catch (RuntimeException $error) { $futureSchemaRejected=str_contains($error->getMessage(),'newer than this application'); }
+    settingsCheck($futureSchemaRejected,'Migration runner refuses to open a database from a newer schema version');
+} finally { unset($futureSchema); @unlink($futureSchemaPath); @unlink($futureSchemaPath.'-journal'); }
+
 $profileMigrationPath=sys_get_temp_dir().'/juzimder-ai-profile-migration-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
     $legacyAi=new PDO('sqlite:'.$profileMigrationPath,null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);

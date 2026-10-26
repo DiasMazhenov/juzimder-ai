@@ -1,7 +1,9 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
-- [x] 00.00.221: Сессия входа истекает после 30 минут бездействия или 12 часов абсолютного срока; сервер проверяет таймстемпы при каждом запросе и сбрасывает устаревшие/некорректные сессии. Граничные тесты политики и полный release QA описаны в CONTEXT.md. Migration runner и восстановление аккаунта остаются открытыми.
+- [x] 00.00.222: Добавлен последовательный SQLite `MigrationRunner` с транзакционной защитой каждого шага, проверкой версии под write lock, сохранённым backfill схемы 1→2 и отказом при более новой неизвестной схеме. Legacy migration и запрет downgrade покрыты `tests/project-settings.php`.
+
+- [x] 00.00.221: Сессия входа истекает после 30 минут бездействия или 12 часов абсолютного срока; сервер проверяет таймстемпы при каждом запросе и сбрасывает устаревшие/некорректные сессии. Граничные тесты политики и полный release QA описаны в CONTEXT.md. Остались восстановление аккаунта и прочее production hardening.
 
 - [x] 00.00.220: Дашборд показывает актуальное состояние общих Header/Footer вместо постоянного «Не подключено»: имя выбранной секции, число включённых страниц и ссылку на настройки; 404 ведёт в её раздел настроек. Unit и Codex Browser smoke PASS, ревизия проекта не менялась.
 
@@ -217,7 +219,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Migration runner and account recovery; production session idle/absolute expiry implemented in 00.00.221, broader hardening remains.
+- [ ] Account recovery and broader production hardening; migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout
@@ -356,7 +358,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** версия продукта 00.00.214 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
+**Текущее состояние:** версия продукта 00.00.222 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037
