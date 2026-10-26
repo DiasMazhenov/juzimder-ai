@@ -65,7 +65,7 @@ final class AiZeroComposer {
         $missingRequirements=self::missingQuotedRequirements($earlyRequirements,$decoded['elements']);
         $photoMissing=$photoRequired&&!self::hasImageElement($decoded['elements']);
         $textImageOverlap=self::hasTextImageOverlap($decoded['elements']);
-        $invalidElementReason=self::modelElementsValidationError($decoded['elements'],(int)$board->width,(int)$board->height);
+        $invalidElementReason=count($decoded['elements'])<3?'too few non-empty elements':self::modelElementsValidationError($decoded['elements'],(int)$board->width,(int)$board->height);
         $invalidElements=$invalidElementReason!==null;
         $invalidArtboardReason=self::modelArtboardValidationError($decoded['artboard']);
         if($photoMissing||$missingRequirements||$textImageOverlap||$invalidElements||$invalidArtboardReason!==null){
@@ -81,6 +81,7 @@ final class AiZeroComposer {
             if(!is_array($repaired)||!is_array($repaired['elements']??null)||!array_is_list($repaired['elements'])||count($repaired['elements'])<3||count($repaired['elements'])>16)throw new AiProviderFailure('Zero composition repair returned an invalid element list.',false,'invalid_output');
             $repaired['artboard']=self::normalizeArtboardDefaults($repaired['artboard']??[],$board);
             $repaired['elements']=self::normalizeModelElementDefaults($repaired['elements']);
+            if(count($repaired['elements'])<3)throw new AiProviderFailure('Zero composition repair returned too few non-empty elements.',false,'invalid_output');
             if($photoMissing&&!self::hasImageElement($repaired['elements']))throw new AiProviderFailure('Zero composition omitted the explicitly requested photo.',false,'invalid_output');
             if(self::missingQuotedRequirements($earlyRequirements,$repaired['elements']))throw new AiProviderFailure('Zero composition omitted an explicit brief label after repair.',false,'invalid_output');
             if(self::hasTextImageOverlap($repaired['elements']))throw new AiProviderFailure('Zero composition overlaps its image with text after repair.',false,'invalid_output');
@@ -215,7 +216,7 @@ final class AiZeroComposer {
             $item+=['content'=>'','photoQuery'=>'','icon'=>'','fill'=>$type==='button'?'#1D4ED8':'#FFFFFF','color'=>'#1F2937','stroke'=>'#1F2937','radius'=>in_array($type,['button','rectangle','image'],true)?12:0,'fontSize'=>in_array($type,['text','button'],true)?18:16,'fontWeight'=>in_array($type,['text','button'],true)?600:400,'textAlign'=>'left'];
         }
         unset($item);
-        return $items;
+        return array_values(array_filter($items,static fn(mixed $item):bool=>!is_array($item)||!in_array($item['type']??null,['text','button'],true)||(is_string($item['content']??null)&&trim($item['content'])!=='')));
     }
 
     private static function explicitlyRequestsPhoto(string $prompt): bool {
@@ -958,6 +959,7 @@ final class AiZeroComposer {
     /** Arrange text-only FAQ layers in a consistent reading order on desktop before deriving responsive overrides. */
     private static function normalizeFaqDesktopLayout(string $prompt,array &$items,int $boardWidth,int $boardHeight,?int $badgeIndex=null): bool {
         if(preg_match('/(?:\bfaq\b|frequently\s+asked|часто\s+задаваем|вопрос\w*.{0,32}ответ\w*)/iu',$prompt)!==1)return false;
+        if(self::normalizeFaqCardRow($items,$boardWidth,$boardHeight,$badgeIndex))return true;
         foreach($items as $item)if(!is_array($item)||!in_array($item['type']??null,['text','button','vector'],true))return false;
         $questions=[];$texts=[];$dividers=[];$actions=[];
         foreach($items as $index=>$item){$type=$item['type'];if($type==='button'){$actions[]=$index;continue;}if($type==='vector'){if(preg_match('/divider|separator|line/iu',(string)($item['name']??''))===1)$dividers[]=$index;continue;}if(trim((string)($item['content']??''))==='')continue;if(preg_match('/(?:\?|？)\s*$/u',trim((string)$item['content']))===1)$questions[]=$index;else $texts[]=$index;}
@@ -974,7 +976,7 @@ final class AiZeroComposer {
         $introIndex=$intro?array_pop($intro):null;
         $answers=array_values(array_filter($remaining,static fn(int $index):bool=>$index!==$introIndex));
         if(count($answers)<count($questions))return false;
-        $margin=max(36,(int)round($boardWidth*.1));$contentWidth=max(1,$boardWidth-2*$margin);$cursor=max(24,(int)round($boardHeight*.07));
+        $margin=max(36,(int)round($boardWidth*.05));$contentWidth=max(1,$boardWidth-2*$margin);$cursor=max(24,(int)round($boardHeight*.07));
         if($badgeIndex!==null&&isset($items[$badgeIndex])){$badge=&$items[$badgeIndex];$badge['x']=$margin;$badge['y']=$cursor;$badge['height']=32;$badge['fontSize']=14;$badge['width']=min($contentWidth,max(88,(int)ceil(mb_strlen(trim((string)$badge['content']),'UTF-8')*14*.62+24)));$badge['radius']=max(14,min(50,(int)($badge['radius']??16)));unset($badge);$cursor+=40;}
         $headingItem=&$items[$heading];$headingFont=max(40,min(56,(float)$headingItem['fontSize']));$headingLines=self::estimatedTextLines((string)$headingItem['content'],$headingFont,$contentWidth,true);$headingHeight=max((float)$headingItem['height'],(int)ceil($headingLines*$headingFont*1.2+4));$headingItem['x']=$margin;$headingItem['y']=$cursor;$headingItem['width']=$contentWidth;$headingItem['height']=$headingHeight;$headingItem['fontSize']=$headingFont;$headingItem['textAlign']='left';unset($headingItem);$cursor+=(int)$headingHeight+10;
         if($introIndex!==null){$introItem=&$items[$introIndex];$introFont=max(16,min(20,(float)$introItem['fontSize']));$introLines=self::estimatedTextLines((string)$introItem['content'],$introFont,$contentWidth,false);$introHeight=max((float)$introItem['height'],(int)ceil($introLines*$introFont*1.35+4));$introItem['x']=$margin;$introItem['y']=$cursor;$introItem['width']=$contentWidth;$introItem['height']=$introHeight;$introItem['fontSize']=$introFont;$introItem['textAlign']='left';unset($introItem);$cursor+=(int)$introHeight+12;}
@@ -984,14 +986,43 @@ final class AiZeroComposer {
             if(isset($dividers[$dividerCursor])&&$questionOffset<count($questions)-1){$divider=&$items[$dividers[$dividerCursor++]];$divider['x']=$margin;$divider['y']=$cursor;$divider['width']=$contentWidth;$divider['height']=1;unset($divider);$cursor+=10;}
         }
         foreach(array_slice($answers,count($questions)) as $index){$extra=&$items[$index];$font=max(15,min(18,(float)$extra['fontSize']));$extraLines=self::estimatedTextLines((string)$extra['content'],$font,$contentWidth,false);$extraHeight=max((float)$extra['height'],(int)ceil($extraLines*$font*1.35+4));$extra['x']=$margin;$extra['y']=$cursor;$extra['width']=$contentWidth;$extra['height']=$extraHeight;$extra['fontSize']=$font;$extra['textAlign']='left';unset($extra);$cursor+=(int)$extraHeight+8;}
-        foreach($actions as $index){$action=&$items[$index];$action['x']=$margin;$action['y']=$cursor+4;$action['width']=min($contentWidth,max(200,min(280,(int)$action['width'])));$action['height']=48;$action['fontSize']=16;$action['textAlign']='center';unset($action);$cursor+=58;}
+        foreach($actions as $index){$action=&$items[$index];$action['x']=$margin;$action['y']=$cursor+12;$action['width']=min($contentWidth,max(200,min(320,(int)$action['width'])));$action['height']=48;$action['fontSize']=16;$action['textAlign']='center';unset($action);$cursor+=68;}
+        return true;
+    }
+
+    /** Align a three-card FAQ row with its heading and keep a clear gap before its CTA. */
+    private static function normalizeFaqCardRow(array &$items,int $boardWidth,int $boardHeight,?int $badgeIndex=null): bool {
+        $surfaces=[];$questions=[];$texts=[];$actions=[];$vectors=[];
+        foreach($items as $index=>$item){if(!is_array($item))return false;$type=$item['type']??null;if($type==='rectangle'&&(float)($item['width']??0)>=$boardWidth*.15&&(float)($item['width']??0)<=$boardWidth*.6)$surfaces[]=$index;elseif($type==='button')$actions[]=$index;elseif($type==='vector'){if(preg_match('/divider|separator|line/iu',(string)($item['name']??''))===1)continue;$vectors[]=$index;}elseif($type==='text'&&trim((string)($item['content']??''))!==''){if(preg_match('/(?:\?|？)\s*$/u',trim((string)$item['content']))===1)$questions[]=$index;else$texts[]=$index;}elseif(!in_array($type,['text','button','rectangle','vector'],true))return false;}
+        if(count($surfaces)!==3||count($questions)!==3||count($actions)>1)return false;
+        usort($surfaces,static fn(int $a,int $b):int=>(float)$items[$a]['x']<=>(float)$items[$b]['x']);
+        $heading=null;foreach($texts as $index){if($index===$badgeIndex)continue;$font=(float)($items[$index]['fontSize']??0);if($font>=30&&($heading===null||$font>(float)$items[$heading]['fontSize']))$heading=$index;}
+        if($heading===null){foreach($texts as $index)if($index!==$badgeIndex&&preg_match('/heading|headline|title|заголов/iu',(string)($items[$index]['name']??''))===1){$heading=$index;break;}}
+        if($heading===null)return false;
+        $questionsByCard=[];$claimed=[];
+        foreach($questions as $index){$center=(float)$items[$index]['x']+(float)$items[$index]['width']/2;$best=null;$distance=PHP_FLOAT_MAX;foreach($surfaces as $card=>$surface){if(isset($claimed[$card]))continue;$surfaceCenter=(float)$items[$surface]['x']+(float)$items[$surface]['width']/2;$delta=abs($center-$surfaceCenter);if($delta<$distance){$best=$card;$distance=$delta;}}if($best===null)return false;$claimed[$best]=true;$questionsByCard[$best]=$index;}
+        $answers=array_values(array_filter($texts,static fn(int $index):bool=>$index!==$heading&&$index!==$badgeIndex));
+        $intro=[];foreach($answers as $index)if((float)$items[$index]['y']<(float)$items[$questions[0]]['y'])$intro[]=$index;
+        $introIndex=null;if($intro){usort($intro,static fn(int $a,int $b):int=>(float)$items[$b]['fontSize']<=>(float)$items[$a]['fontSize']);$introIndex=$intro[0];}
+        $answers=array_values(array_filter($answers,static fn(int $index):bool=>$index!==$introIndex));if(count($answers)<3)return false;
+        $answerByCard=[];$claimed=[];foreach($answers as $index){$center=(float)$items[$index]['x']+(float)$items[$index]['width']/2;$best=null;$distance=PHP_FLOAT_MAX;foreach($surfaces as $card=>$surface){if(isset($claimed[$card]))continue;$surfaceCenter=(float)$items[$surface]['x']+(float)$items[$surface]['width']/2;$delta=abs($center-$surfaceCenter);if($delta<$distance){$best=$card;$distance=$delta;}}if($best===null)return false;$claimed[$best]=true;$answerByCard[$best]=$index;}
+        $margin=max(36,(int)round($boardWidth*.05));$contentWidth=max(1,$boardWidth-2*$margin);$gutter=max(20,(int)round($boardWidth*.02));$cardWidth=(int)floor(($contentWidth-2*$gutter)/3);if($cardWidth<190)return false;$cursor=max(24,(int)round($boardHeight*.07));
+        if($badgeIndex!==null&&isset($items[$badgeIndex])){$badge=&$items[$badgeIndex];$badge['x']=$margin;$badge['y']=$cursor;$badge['height']=32;$badge['fontSize']=14;$badge['width']=min($contentWidth,max(88,(int)ceil(mb_strlen(trim((string)$badge['content']),'UTF-8')*14*.62+24)));$badge['radius']=max(14,min(50,(int)($badge['radius']??16)));unset($badge);$cursor+=44;}
+        $title=&$items[$heading];$titleFont=max(40,min(56,(float)$title['fontSize']));$titleWidth=$contentWidth;$titleLines=self::estimatedTextLines((string)$title['content'],$titleFont,$titleWidth,true);$titleHeight=max((float)$title['height'],(int)ceil($titleLines*$titleFont*1.18+4));$title['x']=$margin;$title['y']=$cursor;$title['width']=$titleWidth;$title['height']=$titleHeight;$title['fontSize']=$titleFont;$title['textAlign']='left';unset($title);$cursor+=(int)$titleHeight+12;
+        if($introIndex!==null){$intro=&$items[$introIndex];$font=max(16,min(20,(float)$intro['fontSize']));$width=$contentWidth;$height=max((float)$intro['height'],(int)ceil(self::estimatedTextLines((string)$intro['content'],$font,$width,false)*$font*1.35+4));$intro['x']=$margin;$intro['y']=$cursor;$intro['width']=$width;$intro['height']=$height;$intro['fontSize']=$font;$intro['textAlign']='left';unset($intro);$cursor+=(int)$height+24;}
+        else $cursor+=24;
+        $vectorByCard=[];$claimedVectors=[];foreach($surfaces as $card=>$surfaceIndex){$target=(float)$items[$surfaceIndex]['x']+(float)$items[$surfaceIndex]['width']/2;$best=null;$distance=PHP_FLOAT_MAX;foreach($vectors as $index){if(isset($claimedVectors[$index]))continue;$center=(float)$items[$index]['x']+(float)$items[$index]['width']/2;$delta=abs($center-$target);if($delta<$distance){$distance=$delta;$best=$index;}}if($best!==null){$vectorByCard[$card]=$best;$claimedVectors[$best]=true;}}
+        $maxCardHeight=0;$padding=24;
+        foreach($surfaces as $card=>$surfaceIndex){$x=$margin+$card*($cardWidth+$gutter);$questionIndex=$questionsByCard[$card];$answerIndex=$answerByCard[$card];$q=&$items[$questionIndex];$a=&$items[$answerIndex];$iconInset=isset($vectorByCard[$card])?34:0;$qFont=max(18,min(22,(float)$q['fontSize']));$qX=$x+$padding+$iconInset;$qWidth=$cardWidth-2*$padding-$iconInset;$qHeight=max((float)$q['height'],(int)ceil(self::estimatedTextLines((string)$q['content'],$qFont,$qWidth,true)*$qFont*1.28+4));$answerFont=max(15,min(18,(float)$a['fontSize']));$answerWidth=$qWidth;$answerHeight=max((float)$a['height'],(int)ceil(self::estimatedTextLines((string)$a['content'],$answerFont,$answerWidth,false)*$answerFont*1.35+4));$q['x']=$qX;$q['y']=$cursor+$padding;$q['width']=$qWidth;$q['height']=$qHeight;$q['fontSize']=$qFont;$q['fontWeight']=600;$q['textAlign']='left';$a['x']=$qX;$a['y']=$cursor+$padding+$qHeight+10;$a['width']=$answerWidth;$a['height']=$answerHeight;$a['fontSize']=$answerFont;$a['textAlign']='left';if(isset($vectorByCard[$card])){$icon=&$items[$vectorByCard[$card]];$icon['x']=$x+$padding;$icon['y']=$cursor+$padding+max(0,($qHeight-24)/2);$icon['width']=24;$icon['height']=24;unset($icon);}$surface=&$items[$surfaceIndex];$surface['x']=$x;$surface['y']=$cursor;$surface['width']=$cardWidth;$surface['height']=$padding*2+$qHeight+10+$answerHeight;$surface['radius']=max(14,(int)($surface['radius']??16));$maxCardHeight=max($maxCardHeight,(int)$surface['height']);unset($q,$a,$surface);}
+        $cursor+=$maxCardHeight;
+        foreach($actions as $index){$action=&$items[$index];$action['x']=$margin;$action['y']=$cursor+28;$action['width']=min($contentWidth,max(220,min(340,(int)$action['width'])));$action['height']=52;$action['fontSize']=16;$action['textAlign']='center';unset($action);}
         return true;
     }
 
     /** Replace ungrounded FAQ business claims with neutral copy when the brief supplies no source facts. */
     private static function neutralizeUngroundedFaqAnswers(string $prompt,array &$items,?int $badgeIndex=null): void {
         $hasFactBlock=preg_match('/(?:\b(?:business facts|source facts|company details|provided facts)\b|(?:факты|исходные данные|информация о компании|сведения о компании|описание услуг|перечень услуг))\s*[:—-]/iu',$prompt)===1;
-        $hasDirectFacts=preg_match('/(?<!не\s)(?:\bмы\s+)?(?:предлагаем|оказываем|проводим|работаем|проектируем|находимся|специализируемся)\b|(?:\b(?:срок|стоимость|цена|адрес|опыт|гарантия)\b[^\r\n]{0,50}(?:\d|[:—=]))/iu',$prompt)===1;
+        $hasDirectFacts=preg_match('/(?<!не\s)(?:\bмы\s+)?(?:предлагаем|оказываем|проводим|работаем|проектируем|находимся|специализируемся)\b|(?:\b(?:срок|стоимость|цена|адрес|опыт|гарантия)\b[^\r\n]{0,40}\d)/iu',$prompt)===1;
         if($hasFactBlock||$hasDirectFacts)return;
         $questions=[];$texts=[];
         foreach($items as $index=>$item){if(!is_array($item)||($item['type']??null)!=='text'||trim((string)($item['content']??''))==='')continue;if(preg_match('/(?:\?|？)\s*$/u',trim((string)$item['content']))===1)$questions[]=$index;else $texts[]=$index;}
@@ -1005,6 +1036,7 @@ final class AiZeroComposer {
         foreach($questions as $offset=>$questionIndex){if(!isset($answers[$offset]))break;$question=mb_strtolower((string)$items[$questionIndex]['content'],'UTF-8');
             if(preg_match('/(?:сколько|срок|когда|длится|how\s+long|when)/iu',$question)===1)$fallback='Точные сроки можно обсудить после уточнения объёма задачи.';
             elseif(preg_match('/(?:пакет|услуг|входит|цена|стоимость|price|package|include)/iu',$question)===1)$fallback='Состав и условия можно уточнить при обсуждении вашей задачи.';
+            elseif(preg_match('/(?:нужен\s+ли|есть\s+ли).{0,24}опыт|опыт.{0,24}(?:требу|нужен|важен)/iu',$question)===1)$fallback='Требования к опыту лучше уточнить у мастерской.';
             elseif(preg_match('/(?:можно\s+ли|нужен\s+ли|есть\s+ли|выезд|консультац|работаете\s+ли|available|consultation|visit)/iu',$question)===1)$fallback='Возможность такого формата лучше уточнить у студии.';
             elseif(preg_match('/(?:начать|сотруднич|обратиться|связаться|start|contact)/iu',$question)===1)$fallback='Опишите задачу при обращении, чтобы обсудить подходящий формат.';
             else $fallback='Подробности можно уточнить у студии после описания вашей задачи.';
