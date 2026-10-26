@@ -5,8 +5,13 @@ namespace Juzimder;
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
     private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','style','components','zeroData'];
-    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','datetime','open','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
+    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','datetime','open','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
     private const BOOLEAN_ATTRIBUTE_FIELDS = ['required','disabled','checked','multiple','readonly','selected','open'];
+    private const ENUM_ATTRIBUTE_VALUES = [
+        'aria-selected'=>['true','false','undefined'],
+        'aria-expanded'=>['true','false'],
+        'aria-pressed'=>['true','false','mixed'],
+    ];
     private const STYLE_FIELDS = [
         'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
         'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
@@ -139,8 +144,8 @@ final class ProjectOperations {
                     if ($value === null) continue;
                     if (in_array($attribute, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
                         if (!is_bool($value)) throw new Problem(422, 'Логический атрибут должен иметь значение true или false; false и null удаляют его.');
-                    } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > ($attribute === 'datetime' ? 64 : ($attribute === 'aria-selected' ? 16 : 2048)) || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value)) throw new Problem(422, 'Значение атрибута должно быть допустимой строкой; null удаляет атрибут.');
-                    if ($attribute === 'aria-selected' && !in_array($value, ['true','false','undefined'], true)) throw new Problem(422, 'aria-selected должен быть true, false или undefined.');
+                    } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > ($attribute === 'datetime' ? 64 : (isset(self::ENUM_ATTRIBUTE_VALUES[$attribute]) ? 16 : 2048)) || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value)) throw new Problem(422, 'Значение атрибута должно быть допустимой строкой; null удаляет атрибут.');
+                    if (isset(self::ENUM_ATTRIBUTE_VALUES[$attribute]) && !in_array($value, self::ENUM_ATTRIBUTE_VALUES[$attribute], true)) throw new Problem(422, 'Недопустимое значение ARIA-атрибута.');
                 }
                 $location = self::findComponent($document, self::identifier($operation->componentId));
                 $component =& self::atPath($document, $location['path']);
@@ -311,8 +316,8 @@ final class ProjectOperations {
             if (in_array($name, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
                 if (!is_bool($value)) throw new Problem(422, 'Логические HTML-атрибуты должны иметь значения true или false.');
                 if ($value === false) unset($attributes->{$name});
-            } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > ($name === 'datetime' ? 64 : ($name === 'aria-selected' ? 16 : 2048))) throw new Problem(422, 'Значение атрибута должно быть допустимой строкой.');
-            if ($name === 'aria-selected' && !in_array($value, ['true','false','undefined'], true)) throw new Problem(422, 'aria-selected должен быть true, false или undefined.');
+            } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > ($name === 'datetime' ? 64 : (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) ? 16 : 2048))) throw new Problem(422, 'Значение атрибута должно быть допустимой строкой.');
+            if (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) && !in_array($value, self::ENUM_ATTRIBUTE_VALUES[$name], true)) throw new Problem(422, 'Недопустимое значение ARIA-атрибута.');
         }
         $id = $attributes->id ?? ('cmp-' . bin2hex(random_bytes(12)));
         if (!is_string($id) || $id === '' || mb_strlen($id, 'UTF-8') > 128 || preg_match('/[\x00-\x1F\x7F]/', $id)) throw new Problem(422, 'Некорректный стабильный ID компонента.');

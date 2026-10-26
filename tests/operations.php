@@ -58,6 +58,16 @@ $updatedFormInput = operationNode($formUpdated, $formInputId);
 operationCheck(!isset($updatedFormInput->attributes->required, $updatedFormInput->attributes->placeholder) && $updatedFormInput->attributes->disabled === true, 'Typed attribute update removes false/null optional fields and persists true boolean fields');
 operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['open'=>'true']])]),422,'Typed boolean open attribute rejects string values');
 operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-selected'=>'sometimes']])]),422,'Typed aria-selected only accepts standard ARIA values');
+operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-expanded'=>'yes']])]),422,'Typed aria-expanded only accepts true or false');
+operationRejects(fn()=>ProjectOperations::apply($formCreated,[operationObject(['operation'=>'update_attributes','componentId'=>$formInputId,'attributes'=>['aria-pressed'=>'on']])]),422,'Typed aria-pressed only accepts true, false or mixed');
+$stateControl = ProjectOperations::apply(operationObject(Document::empty()), [operationObject([
+    'operation'=>'create_component','parentId'=>'page:home','index'=>0,
+    'component'=>['type'=>'button','tagName'=>'button','attributes'=>['aria-expanded'=>'false','aria-pressed'=>'mixed'],'content'=>'Toggle']
+])]);
+$stateControlId = $stateControl->data->pages[0]->frames[0]->component->components[0]->attributes->id;
+operationCheck(operationNode($stateControl, $stateControlId)->attributes->{'aria-expanded'} === 'false' && operationNode($stateControl, $stateControlId)->attributes->{'aria-pressed'} === 'mixed', 'Typed create accepts validated expandable and toggle-button ARIA states');
+$stateControlUpdated = ProjectOperations::apply($stateControl, [operationObject(['operation'=>'update_attributes','componentId'=>$stateControlId,'attributes'=>['aria-expanded'=>'true','aria-pressed'=>'true']])]);
+operationCheck(operationNode($stateControlUpdated, $stateControlId)->attributes->{'aria-expanded'} === 'true' && operationNode($stateControlUpdated, $stateControlId)->attributes->{'aria-pressed'} === 'true', 'Typed update changes validated expandable and toggle-button ARIA states');
 $detailsCreated = ProjectOperations::apply(operationObject(Document::empty()), [operationObject([
     'operation'=>'create_component','parentId'=>'page:home','index'=>0,
     'component'=>['type'=>'default','tagName'=>'details','attributes'=>['open'=>true],'components'=>[
