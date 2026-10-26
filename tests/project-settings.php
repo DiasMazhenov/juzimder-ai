@@ -45,6 +45,9 @@ try {
     settingsReject(fn()=>ProjectSettings::validateSeoMetadata(['title'=>str_repeat('x',71)]),422);
     settingsReject(fn()=>ProjectSettings::validateSeoMetadata(['description'=>str_repeat('x',161)]),422);
     settingsCheck(ProjectSettings::validateCustomCss('.hero { color: #fff; margin: 0 auto; }')==='.hero{color: #fff; margin: 0 auto;}','Custom CSS accepts bounded class rules and normalizes them for export');
+    settingsCheck(ProjectSettings::validateCustomCss('.card { box-sizing: border-box; min-height: 240px; font-family: Georgia, serif; line-height: 1.4; text-transform: uppercase; } img { object-fit: cover; } .grid { display: grid; grid-template-columns: 1fr 2fr; }')===".card{box-sizing: border-box; min-height: 240px; font-family: Georgia, serif; line-height: 1.4; text-transform: uppercase;}\nimg{object-fit: cover;}\n.grid{display: grid; grid-template-columns: 1fr 2fr;}",'Extended CSS accepts bounded typography, dimensions, image fitting and simple grid tracks');
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('.card { font-family: "External Font"; }'),422);
+    settingsReject(fn()=>ProjectSettings::validateCustomCss('.grid { grid-template-columns: repeat(2, 1fr); }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('#admin { color: red; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { background-color: red; }'),422);
     settingsReject(fn()=>ProjectSettings::validateCustomCss('.hero { background-color: #222629; background-image: url(https://example.test/x); }'),422);

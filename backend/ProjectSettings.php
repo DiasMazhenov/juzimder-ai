@@ -64,7 +64,7 @@ final class ProjectSettings {
         'autoresponderSubject' => 'Мы получили вашу заявку',
         'autoresponderBody' => "Здравствуйте!\n\nМы получили вашу заявку и свяжемся с вами.\n\n{{site}}",
     ];
-    private const CUSTOM_CSS_PROPERTIES = ['color','background-color','display','flex-direction','justify-content','align-items','gap','width','max-width','min-height','margin','padding','border','border-radius','outline','outline-offset','cursor','font-size','font-weight','line-height','text-align','text-decoration','opacity'];
+    private const CUSTOM_CSS_PROPERTIES = ['color','background-color','display','flex-direction','flex-wrap','justify-content','align-items','align-content','align-self','gap','width','min-width','max-width','height','min-height','max-height','box-sizing','margin','padding','border','border-radius','outline','outline-offset','cursor','font-family','font-size','font-weight','font-style','line-height','letter-spacing','text-align','text-decoration','text-transform','object-fit','overflow','overflow-x','overflow-y','grid-template-columns','opacity'];
 
     public static function initial(mixed $document): array {
         $pages = self::documentPages($document);
@@ -145,7 +145,7 @@ final class ProjectSettings {
         if (preg_match('~/\*|\*/|[<>@\\\\]|url\s*\(|expression\s*\(|javascript:|behavior\s*:|position\s*:~i', $css)) throw new Problem(422, 'CSS содержит запрещённую конструкцию.');
         preg_match_all('/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER);
         if (!$rules || count($rules) > 100 || trim(preg_replace('/([^{}]+)\{([^{}]*)\}/', '', $css) ?? $css) !== '') throw new Problem(422, 'CSS должен содержать до 100 простых правил вида .class { property: value; }.');
-        $tags = ['main','header','nav','section','article','aside','footer','div','h1','h2','h3','h4','p','span','a','button','ul','ol','li','img'];
+        $tags = ['main','header','nav','section','article','aside','footer','div','h1','h2','h3','h4','p','span','a','button','ul','ol','li','img','figure','figcaption','label','input','textarea','select'];
         $valuePatterns = [
             'color' => '/^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|transparent|currentcolor|black|white|inherit)$/i',
             'background-color' => '/^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|transparent|black|white|inherit)$/i',
@@ -154,14 +154,27 @@ final class ProjectSettings {
             'justify-content' => '/^(?:normal|start|end|center|space-between|space-around|space-evenly|flex-start|flex-end)$/i',
             'align-items' => '/^(?:normal|start|end|center|stretch|baseline|flex-start|flex-end)$/i',
             'font-weight' => '/^(?:normal|bold|[1-9]00)$/i',
+            'font-family' => '/^(?:Arial,\s*sans-serif|system-ui,\s*sans-serif|Georgia,\s*serif)$/i',
+            'font-style' => '/^(?:normal|italic|oblique)$/i',
+            'text-transform' => '/^(?:none|uppercase|lowercase|capitalize)$/i',
             'text-align' => '/^(?:start|end|left|right|center|justify)$/i',
             'text-decoration' => '/^(?:none|underline|overline|line-through)$/i',
+            'box-sizing' => '/^(?:border-box|content-box)$/i',
+            'flex-wrap' => '/^(?:nowrap|wrap|wrap-reverse)$/i',
+            'align-content' => '/^(?:normal|start|end|center|space-between|space-around|space-evenly|stretch|flex-start|flex-end)$/i',
+            'align-self' => '/^(?:auto|normal|start|end|center|stretch|baseline|flex-start|flex-end)$/i',
+            'object-fit' => '/^(?:fill|contain|cover|none|scale-down)$/i',
+            'overflow' => '/^(?:auto|hidden|visible|scroll)$/i',
+            'overflow-x' => '/^(?:auto|hidden|visible|scroll)$/i',
+            'overflow-y' => '/^(?:auto|hidden|visible|scroll)$/i',
             'border' => '/^(?:0|(?:[0-9]{1,3}px)\s+(?:solid|dashed|dotted)\s+(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|transparent))$/i',
             'outline' => '/^(?:0|(?:[0-9]{1,3}px)\s+(?:solid|dashed|dotted)\s+(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|transparent))$/i',
             'cursor' => '/^(?:default|pointer|text|not-allowed|help|wait|grab|grabbing)$/i',
         ];
         $length = '(?:0|(?:-?[0-9]{1,4}(?:\.[0-9]{1,2})?(?:px|rem|em|%|vw|vh)))';
         $lengthList = '/^'.$length.'(?:\s+'.$length.'){0,3}$/i';
+        $gridTrack = '(?:auto|[1-9]fr|'.$length.')';
+        $gridTracks = '/^'.$gridTrack.'(?:\s+'.$gridTrack.'){0,5}$/i';
         foreach ($rules as $rule) {
             $selectors = array_map('trim', explode(',', trim($rule[1])));
             if (count($selectors) > 8) throw new Problem(422, 'CSS: слишком много селекторов в правиле.');
@@ -185,7 +198,9 @@ final class ProjectSettings {
                 if (in_array($property, ['gap','padding','border-radius'], true)) $valid = preg_match($lengthList, $item) === 1;
                 if ($property === 'outline-offset') $valid = preg_match('/^'.$length.'$/i', $item) === 1;
                 if ($property === 'margin') $valid = preg_match('/^(?:auto|'.$length.')(?:\\s+(?:auto|'.$length.')){0,3}$/i', $item) === 1;
-                if (in_array($property, ['width','max-width','min-height','font-size'], true)) $valid = preg_match('/^'.$length.'$/i', $item) === 1;
+                if (in_array($property, ['width','min-width','max-width','height','min-height','max-height','font-size','letter-spacing'], true)) $valid = preg_match('/^'.$length.'$/i', $item) === 1;
+                if ($property === 'line-height') $valid = preg_match('/^'.$length.'$/i', $item) === 1 || (is_numeric($item) && (float)$item >= 0.5 && (float)$item <= 4);
+                if ($property === 'grid-template-columns') $valid = preg_match($gridTracks, $item) === 1;
                 if ($property === 'opacity') $valid = preg_match('/^(?:0|1|0?\.[0-9]{1,2})$/D', $item) === 1;
                 if (!$valid || preg_match('/[()"\']/', $item)) throw new Problem(422, 'CSS: значение свойства недопустимо.');
             }
