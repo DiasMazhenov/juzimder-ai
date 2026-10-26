@@ -5,9 +5,11 @@
 
 - [x] 00.00.229: Формы уведомлений и SMTP в настройках почты имеют доступные имена, связанные с видимыми заголовками; добавлена регрессия.
 
-- [x] 00.00.230: В рамках общего security review зафиксирован риск server-side SMTP test connection без отдельного rate limit и требования к egress policy перед публичным deployment; общий review остаётся открытым.
+- [x] 00.00.230: В рамках общего security review зафиксированы риски server-side SMTP test connection и egress. Rate limit добавлен в 00.00.233, application-level адресная и портовая политика — в 00.00.234; deployment firewall и общий production review остаются открытыми.
 
 - [x] 00.00.233: SMTP test connection ограничен тремя попытками за 10 минут на проект и владельца; транзакционный счётчик учитывает неудачные попытки до подключения. Проверены миграция SQLite, Store limiter и HTTP endpoint 429; egress policy для публичного deployment остаётся открыта.
+
+- [x] 00.00.234: SMTP transport проверяет все A/AAAA ответы, запрещает loopback/private/reserved/special-purpose IP и подключается к уже проверенному адресу, сохраняя TLS hostname. По умолчанию разрешены только SMTP-порты 25/465/587/2525; self-hosted relay можно явно разрешить точными IP. Серверный список `JUZIMDER_SMTP_EGRESS_ALLOWED_PORTS`, если задан, заменяет стандартные разрешённые порты. Остался network firewall публичного deployment и общий production security review.
 
 - [x] 00.00.227: Уменьшены избыточные вертикальные промежутки сайдбара настроек; меню получает больше места по высоте.
 

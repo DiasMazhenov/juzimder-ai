@@ -374,9 +374,11 @@ assert.equal((await other.call(settingsPath,'PUT',{version:1,forms})).status,404
 assert.equal((await owner.call(smtpPath,'PUT',{version:0,host:'smtp.example.test',port:587,security:'starttls',username:'smtp-user',password:'smtp-password'},'invalid')).status,403);
 const smtp=await owner.call(smtpPath,'PUT',{version:0,host:'smtp.example.test',port:587,security:'starttls',username:'smtp-user',password:'smtp-password'});assert.equal(smtp.status,200);assert.equal(smtp.data.version,1);assert.equal(smtp.data.hasPassword,true);assert.equal(Object.hasOwn(smtp.data,'password'),false);
 assert.equal((await owner.call(smtpPath,'PUT',{version:0,host:'smtp.example.test',port:587,security:'starttls',username:'smtp-user',password:'other'})).status,409);
-const session=(await owner.call('/session')).data,limiterScript='require $argv[1]; $store = new \\Juzimder\\Store($argv[2]); for ($i=0; $i<3; $i++) $store->consumeFormMailTestAllowance($argv[3], $argv[4]);';
+const privateSmtp=await owner.call(smtpPath,'PUT',{version:1,host:'127.0.0.1',port:587,security:'none',username:'',password:''});assert.equal(privateSmtp.status,200);assert.equal(privateSmtp.data.version,2);
+const blockedMail=await owner.call(`/projects/${project.id}/form-mail/test`,'POST',{version:2,to:'owner@example.test'});assert.equal(blockedMail.status,422,'SMTP test endpoint blocks loopback before opening a socket');assert.match(blockedMail.data.error,/политикой исходящих подключений/);
+const session=(await owner.call('/session')).data,limiterScript='require $argv[1]; $store = new \\Juzimder\\Store($argv[2]); for ($i=0; $i<2; $i++) $store->consumeFormMailTestAllowance($argv[3], $argv[4]);';
 execFileSync('php',['-r',limiterScript,join(process.cwd(),'backend/Domain.php'),testDbPath,project.id,session.user.id],{stdio:'pipe'});
-const testMail=await owner.call(`/projects/${project.id}/form-mail/test`,'POST',{version:1,to:'owner@example.test'});assert.equal(testMail.status,429,'SMTP test endpoint rejects excess attempts before connecting to the saved host');
+const testMail=await owner.call(`/projects/${project.id}/form-mail/test`,'POST',{version:2,to:'owner@example.test'});assert.equal(testMail.status,429,'SMTP test endpoint rejects excess attempts before resolving or connecting to the saved host');
 });
 
 

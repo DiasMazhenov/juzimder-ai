@@ -530,7 +530,11 @@ try {
         if (!is_string($mailSettings['senderEmail'] ?? null) || !filter_var($mailSettings['senderEmail'], FILTER_VALIDATE_EMAIL)) throw new Problem(422,'Сначала сохраните корректный email отправителя в настройках писем.');
         $store->consumeFormMailTestAllowance($formMailTestMatch[1], $user);
         $config = $vault->deliverySettings($formMailTestMatch[1]);
-        (new Juzimder\SmtpTransport())->send($config, $mailSettings['senderEmail'], (string)($mailSettings['senderName'] ?? ''), [$body['to']], 'Тест почтового транспорта', 'SMTP-подключение настроено и может отправлять письма.');
+        try {
+            (new Juzimder\SmtpTransport())->send($config, $mailSettings['senderEmail'], (string)($mailSettings['senderName'] ?? ''), [$body['to']], 'Тест почтового транспорта', 'SMTP-подключение настроено и может отправлять письма.');
+        } catch (Juzimder\SmtpEgressDenied) {
+            throw new Problem(422, 'SMTP-подключение запрещено политикой исходящих подключений сервера. Для внутреннего relay администратору нужно добавить точный IP и порт в соответствующие JUZIMDER_SMTP_EGRESS_ALLOWED_* настройки.');
+        }
         result(['sent'=>true]);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/pages(?:/([A-Za-z0-9_-]{1,128}))?$~D',$path,$pageMatch)) {

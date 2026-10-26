@@ -85,7 +85,120 @@ final class FormMailVault {
     }
 }
 
+final class SmtpEgressDenied extends \RuntimeException {}
+
+final class SmtpEgressPolicy {
+    private \Closure $resolver;
+    /** @var array<string,true> */
+    private array $allowedPrivateIps = [];
+    /** @var array<int,true> */
+    private array $allowedPorts = [];
+
+    /**
+     * Private relay exceptions are exact IPs, never CIDR ranges. The resolver
+     * seam keeps address-policy tests deterministic and avoids external DNS.
+     */
+    public function __construct(array $allowedPrivateIps = [], ?\Closure $resolver = null, array $allowedPorts = [25,465,587,2525]) {
+        foreach ($allowedPrivateIps as $ip) {
+            if (!is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+                throw new SmtpEgressDenied('SMTP egress policy contains an invalid IP address.');
+            }
+            $this->allowedPrivateIps[$ip] = true;
+        }
+        foreach ($allowedPorts as $port) {
+            if (!is_int($port) || $port < 1 || $port > 65535) throw new SmtpEgressDenied('SMTP egress policy contains an invalid port.');
+            $this->allowedPorts[$port] = true;
+        }
+        $this->resolver = $resolver ?? static function (string $host): array {
+            $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+            if (!is_array($records)) return [];
+            $addresses = [];
+            foreach ($records as $record) {
+                $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+                if (is_string($ip)) $addresses[] = $ip;
+            }
+            return $addresses;
+        };
+    }
+
+    public static function fromEnvironment(): self {
+        $configured = getenv('JUZIMDER_SMTP_EGRESS_ALLOWED_IPS');
+        $ips = !is_string($configured) || trim($configured) === '' ? [] : array_values(array_unique(array_map('trim', explode(',', $configured))));
+        $configuredPorts = getenv('JUZIMDER_SMTP_EGRESS_ALLOWED_PORTS');
+        $ports = [25,465,587,2525];
+        if (is_string($configuredPorts) && trim($configuredPorts) !== '') {
+            $parts = array_values(array_unique(array_map('trim', explode(',', $configuredPorts))));
+            $ports = [];
+            foreach ($parts as $part) {
+                if (!preg_match('/^[0-9]{1,5}$/D', $part) || (int)$part < 1 || (int)$part > 65535) throw new SmtpEgressDenied('SMTP egress policy contains an invalid port.');
+                $ports[] = (int)$part;
+            }
+        }
+        return new self($ips, null, $ports);
+    }
+
+    public function assertAllowedPort(int $port): void {
+        if (!isset($this->allowedPorts[$port])) throw new SmtpEgressDenied('SMTP port is outside the configured outbound network policy.');
+    }
+
+    /** Resolve once, reject unsafe mixed answers, and return IPs safe to pin. */
+    public function resolve(string $host): array {
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) $addresses = [$host];
+        else $addresses = ($this->resolver)($host);
+        if (!is_array($addresses) || $addresses === [] || count($addresses) > 16) {
+            throw new SmtpEgressDenied('SMTP host could not be resolved under the outbound network policy.');
+        }
+        $safe = [];
+        foreach ($addresses as $address) {
+            if (!is_string($address) || filter_var($address, FILTER_VALIDATE_IP) === false) {
+                throw new SmtpEgressDenied('SMTP host resolved to an invalid address.');
+            }
+            if (!self::isGloballyRoutable($address) && !isset($this->allowedPrivateIps[$address])) {
+                throw new SmtpEgressDenied('SMTP host resolves outside the allowed outbound network policy.');
+            }
+            $safe[$address] = true;
+        }
+        return array_keys($safe);
+    }
+
+    private static function isGloballyRoutable(string $ip): bool {
+        $flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
+        if (defined('FILTER_FLAG_GLOBAL_RANGE')) {
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) === false) return false;
+        } elseif (filter_var($ip, FILTER_VALIDATE_IP, $flags) === false) {
+            return false;
+        }
+
+        // Exclude shared, documentation, benchmark, translation and other
+        // special-purpose ranges not covered consistently by PHP versions.
+        $blocked = str_contains($ip, ':')
+            ? ['64:ff9b::/96','64:ff9b:1::/48','100::/64','2001::/23','2001:db8::/32','2002::/16']
+            : ['100.64.0.0/10','192.0.0.0/24','192.0.2.0/24','192.88.99.0/24','198.18.0.0/15','198.51.100.0/24','203.0.113.0/24','224.0.0.0/4','240.0.0.0/4'];
+        foreach ($blocked as $cidr) if (self::matchesCidr($ip, $cidr)) return false;
+        return true;
+    }
+
+    private static function matchesCidr(string $ip, string $cidr): bool {
+        [$network, $prefix] = explode('/', $cidr, 2);
+        $addressBytes = @inet_pton($ip);
+        $networkBytes = @inet_pton($network);
+        if (!is_string($addressBytes) || !is_string($networkBytes) || strlen($addressBytes) !== strlen($networkBytes)) return false;
+        $bits = (int)$prefix;
+        for ($index = 0, $length = strlen($addressBytes); $index < $length && $bits > 0; $index++, $bits -= 8) {
+            $mask = $bits >= 8 ? 255 : (255 << (8 - $bits)) & 255;
+            if ((ord($addressBytes[$index]) & $mask) !== (ord($networkBytes[$index]) & $mask)) return false;
+        }
+        return $bits <= 0;
+    }
+}
+
 final class SmtpTransport {
+    private SmtpEgressPolicy $egress;
+
+    public function __construct(?SmtpEgressPolicy $egress = null) {
+        $this->egress = $egress ?? SmtpEgressPolicy::fromEnvironment();
+    }
+
     public function verify(array $settings): void { $this->withConnection($settings, static fn($socket) => null); }
 
     public function send(array $settings, string $fromEmail, string $fromName, array $recipients, string $subject, string $body): void {
@@ -110,9 +223,19 @@ final class SmtpTransport {
     private function withConnection(array $settings, callable $callback): mixed {
         $host = $settings['host'] ?? ''; $port = $settings['port'] ?? 0; $security = $settings['security'] ?? ''; $username = $settings['username'] ?? ''; $password = $settings['password'] ?? '';
         if (!is_string($host) || !is_int($port) || !in_array($security, ['none','starttls','ssl'], true) || !is_string($username) || !is_string($password)) throw new \RuntimeException('SMTP settings are incomplete.');
-        $target = ($security === 'ssl' ? 'tls://' : 'tcp://') . $host . ':' . $port;
+        $this->egress->assertAllowedPort($port);
+        $addresses = $this->egress->resolve($host);
         $context = stream_context_create(['ssl'=>['verify_peer'=>true,'verify_peer_name'=>true,'peer_name'=>$host,'SNI_enabled'=>true]]);
-        $socket = @stream_socket_client($target, $errorCode, $errorMessage, 10, STREAM_CLIENT_CONNECT, $context);
+        $socket = false;
+        $deadline = microtime(true) + 10;
+        foreach ($addresses as $address) {
+            $remaining = $deadline - microtime(true);
+            if ($remaining <= 0) break;
+            $authority = str_contains($address, ':') ? '[' . $address . ']' : $address;
+            $target = ($security === 'ssl' ? 'tls://' : 'tcp://') . $authority . ':' . $port;
+            $socket = @stream_socket_client($target, $errorCode, $errorMessage, $remaining, STREAM_CLIENT_CONNECT, $context);
+            if (is_resource($socket)) break;
+        }
         if (!is_resource($socket)) throw new \RuntimeException('SMTP server connection failed.');
         stream_set_timeout($socket, 10);
         try {
