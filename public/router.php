@@ -23,9 +23,12 @@ if ($publicProjectId !== null) {
             $payload = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
             if (!is_array($payload) || array_diff(array_keys($payload), ['formId','values']) || !is_string($payload['formId'] ?? null) || !is_array($payload['values'] ?? null) || count($payload['values']) > 21) throw new Juzimder\Problem(422, 'Некорректная заявка.');
             require_once __DIR__ . '/../backend/Domain.php';
+            require_once __DIR__ . '/../backend/FormMail.php';
             $databasePath = getenv('JUZIMDER_DB') ?: __DIR__ . '/../var/app.sqlite';
             $store = new Juzimder\Store($databasePath);
-            $result = $store->acceptFormSubmission($publicProjectId, $payload['formId'], $payload['values'], (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+            $vault = new Juzimder\FormMailVault($store);
+            $delivery = new Juzimder\FormMailDelivery($store, $vault, new Juzimder\SmtpTransport());
+            $result = $store->acceptFormSubmission($publicProjectId, $payload['formId'], $payload['values'], (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), static function(array $fields, string $pagePath) use ($delivery, $publicProjectId, $payload): void { $delivery->deliver($publicProjectId, $payload['formId'], $pagePath, $fields); });
             echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         } catch (Juzimder\Problem $problem) {
             http_response_code($problem->status); echo json_encode(['error'=>$problem->getMessage()], JSON_UNESCAPED_UNICODE);

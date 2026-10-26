@@ -267,6 +267,16 @@ final class Store {
                 throw $error;
             }
         }
+        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 13) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 13) $this->db->exec(file_get_contents(__DIR__.'/migrations/014_form_mail.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
         $this->backfillProjectSlugs();
     }
     private function migrateProjectSettings(): void {
@@ -413,7 +423,7 @@ final class Store {
         if (!is_string($files[$path])) return null;
         return ['content'=>$files[$path],'mime'=>$path === 'assets/site.css' ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8','version'=>(int)$row['version']];
     }
-    public function acceptFormSubmission(string $projectId, string $formId, array $values, string $sourceIp): array {
+    public function acceptFormSubmission(string $projectId, string $formId, array $values, string $sourceIp, ?callable $afterAccept = null): array {
         if (!preg_match('/^[a-f0-9]{24}$/D', $projectId) || !preg_match('/^[a-f0-9]{24}$/D', $formId)) throw new Problem(422, 'Форма не найдена.');
         $publication = $this->query('SELECT v.files_json FROM project_publications p JOIN publication_versions v ON v.project_id=p.project_id AND v.id=p.publication_id WHERE p.project_id=?', [$projectId])->fetchColumn();
         if (!is_string($publication)) throw new Problem(404, 'Форма больше не опубликована.');
@@ -450,6 +460,10 @@ final class Store {
         } catch (\Throwable $error) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $error;
+        }
+        if ($afterAccept !== null) {
+            try { $afterAccept($clean, $schema['pagePath']); }
+            catch (\Throwable) { /* Persisted submissions remain accepted if optional delivery fails. */ }
         }
         return ['accepted'=>true];
     }

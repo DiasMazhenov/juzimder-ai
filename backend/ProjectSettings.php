@@ -57,6 +57,13 @@ final class ProjectSettings {
     ];
     private const FONT_FAMILIES = ['Arial, sans-serif', 'system-ui, sans-serif', 'Georgia, serif'];
     private const SEO_DEFAULTS = ['title' => '', 'description' => '', 'robots' => 'index', 'socialImage' => '', 'socialTitle' => '', 'socialDescription' => ''];
+    private const FORM_DEFAULTS = [
+        'notificationsEnabled' => false, 'recipients' => [], 'senderName' => '', 'senderEmail' => '',
+        'subject' => 'Новая заявка с сайта {{site}}', 'body' => "Новая заявка\n\n{{fields}}",
+        'autoresponderEnabled' => false, 'autoresponderEmailField' => 'email',
+        'autoresponderSubject' => 'Мы получили вашу заявку',
+        'autoresponderBody' => "Здравствуйте!\n\nМы получили вашу заявку и свяжемся с вами.\n\n{{site}}",
+    ];
 
     public static function initial(mixed $document): array {
         $pages = self::documentPages($document);
@@ -69,12 +76,12 @@ final class ProjectSettings {
             $used[$slug] = true;
             $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0, 'seo' => self::SEO_DEFAULTS];
         }
-        return ['schemaVersion' => 5, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document)];
+        return ['schemaVersion' => 6, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -93,10 +100,46 @@ final class ProjectSettings {
             $routes[$id] = ['slug' => $slug, 'isHome' => $isHome, 'seo' => $seo];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 5;
+        $settings['schemaVersion'] = 6;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
+        try { $settings['forms'] = self::validateFormsSettings($settings['forms'] ?? [], self::FORM_DEFAULTS); }
+        catch (Problem) { $settings['forms'] = self::FORM_DEFAULTS; }
         return $settings;
+    }
+
+    public static function formDefaults(): array { return self::FORM_DEFAULTS; }
+
+    public static function validateFormsSettings(mixed $value, array $fallback = []): array {
+        if ($value instanceof \stdClass) $value = get_object_vars($value);
+        if (!is_array($value) || array_diff(array_keys($value), array_keys(self::FORM_DEFAULTS))) throw new Problem(422, 'Настройки форм содержат недопустимые поля.');
+        $result = array_replace(self::FORM_DEFAULTS, $fallback);
+        foreach (['notificationsEnabled','autoresponderEnabled'] as $key) {
+            if (array_key_exists($key, $value)) {
+                if (!is_bool($value[$key])) throw new Problem(422, 'Проверьте состояние переключателей доставки.');
+                $result[$key] = $value[$key];
+            }
+        }
+        if (array_key_exists('recipients', $value)) {
+            if (!is_array($value['recipients']) || !array_is_list($value['recipients']) || count($value['recipients']) > 10) throw new Problem(422, 'Укажите не более 10 адресов получателей.');
+            $recipients = [];
+            foreach ($value['recipients'] as $email) {
+                if (!is_string($email) || strlen($email) > 254 || !filter_var(trim($email), FILTER_VALIDATE_EMAIL)) throw new Problem(422, 'Проверьте адреса email для уведомлений.');
+                $email = strtolower(trim($email));
+                if (!in_array($email, $recipients, true)) $recipients[] = $email;
+            }
+            $result['recipients'] = $recipients;
+        }
+        foreach (['senderName'=>100,'senderEmail'=>254,'subject'=>200,'body'=>10000,'autoresponderEmailField'=>64,'autoresponderSubject'=>200,'autoresponderBody'=>10000] as $key=>$limit) {
+            if (!array_key_exists($key, $value)) continue;
+            $item = $value[$key];
+            if (!is_string($item) || mb_strlen($item, 'UTF-8') > $limit || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $item)) throw new Problem(422, 'Проверьте длину и символы в настройках писем.');
+            $item = trim($item);
+            if ($key === 'senderEmail' && $item !== '' && !filter_var($item, FILTER_VALIDATE_EMAIL)) throw new Problem(422, 'Укажите корректный email отправителя.');
+            if ($key === 'autoresponderEmailField' && $item !== '' && !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/D', $item)) throw new Problem(422, 'Укажите имя поля email из формы.');
+            $result[$key] = $item;
+        }
+        return $result;
     }
 
     public static function designTokenDefaults(): array { return self::DESIGN_TOKEN_DEFAULTS; }

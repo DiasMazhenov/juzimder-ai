@@ -326,7 +326,7 @@ listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.d
 
 test('Project design tokens use validated settings, revisions and server-owned route metadata',async()=>{
 const owner=new Client(),other=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'tokens@example.test',password:'a-long-token-password'});await other.call('/session');await other.call('/register','POST',{email:'token-outsider@example.test',password:'another-token-password'});
-const created=await owner.call('/projects','POST',{name:'Token workspace'}),project=created.data;assert.equal(created.status,201);assert.equal(project.settings.schemaVersion,5);assert.equal(project.settings.designTokens.fontFamily,'Arial, sans-serif');assert.deepEqual(project.settings.pages.home.seo,{title:'',description:'',robots:'index',socialImage:'',socialTitle:'',socialDescription:''});
+const created=await owner.call('/projects','POST',{name:'Token workspace'}),project=created.data;assert.equal(created.status,201);assert.equal(project.settings.schemaVersion,6);assert.equal(project.settings.designTokens.fontFamily,'Arial, sans-serif');assert.deepEqual(project.settings.pages.home.seo,{title:'',description:'',robots:'index',socialImage:'',socialTitle:'',socialDescription:''});
 const settingsPath=`/projects/${project.id}/settings`,changes={ink:'#112233',fontFamily:'Georgia, serif',radius:'16px'};
 assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:changes},'bad')).status,403,'Project settings require CSRF');
 assert.equal((await owner.call(settingsPath,'PUT',{version:0,designTokens:{...changes,unknown:'#ffffff'}})).status,422,'Unknown design tokens are rejected');
@@ -354,6 +354,18 @@ const v=seoRestored.data.version;assert.equal((await owner.call(settingsPath,'PU
 
 });
 
+test('Form email delivery settings are owner protected, versioned and never return SMTP secrets',async()=>{
+const owner=new Client(),other=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'mail-config@example.test',password:'a-long-mail-config-password'});await other.call('/session');await other.call('/register','POST',{email:'mail-outsider@example.test',password:'another-long-mail-password'});
+const project=(await owner.call('/projects','POST',{name:'Mail configuration'})).data,settingsPath=`/projects/${project.id}/settings`,smtpPath=`/projects/${project.id}/form-mail`;
+const defaults=await owner.call(smtpPath);assert.equal(defaults.status,200);assert.equal(defaults.data.configured,false);assert.equal(defaults.data.version,0);assert.equal(Object.hasOwn(defaults.data,'password'),false);
+const forms={notificationsEnabled:true,recipients:['owner@example.test'],senderName:'Studio',senderEmail:'forms@example.test',subject:'Заявка {{site}}',body:'{{fields}}',autoresponderEnabled:true,autoresponderEmailField:'email',autoresponderSubject:'Получили',autoresponderBody:'{{field:email}}'};
+const saved=await owner.call(settingsPath,'PUT',{version:0,forms});assert.equal(saved.status,200);assert.equal(saved.data.version,1);assert.deepEqual(saved.data.settings.forms.recipients,['owner@example.test']);
+assert.equal((await other.call(settingsPath,'PUT',{version:1,forms})).status,404);
+assert.equal((await owner.call(smtpPath,'PUT',{version:0,host:'smtp.example.test',port:587,security:'starttls',username:'smtp-user',password:'smtp-password'},'invalid')).status,403);
+const smtp=await owner.call(smtpPath,'PUT',{version:0,host:'smtp.example.test',port:587,security:'starttls',username:'smtp-user',password:'smtp-password'});assert.equal(smtp.status,200);assert.equal(smtp.data.version,1);assert.equal(smtp.data.hasPassword,true);assert.equal(Object.hasOwn(smtp.data,'password'),false);
+assert.equal((await owner.call(smtpPath,'PUT',{version:0,host:'smtp.example.test',port:587,security:'starttls',username:'smtp-user',password:'other'})).status,409);
+});
+
 
 test('Managed project images are private, validated and included in export and immutable publication',async()=>{
 const owner=new Client(),outsider=new Client(),anonymous=new Client();await owner.call('/session');await owner.call('/register','POST',{email:'asset-owner@example.test',password:'a-long-asset-password'});await outsider.call('/session');await outsider.call('/register','POST',{email:'asset-outsider@example.test',password:'another-asset-password'});
@@ -376,6 +388,7 @@ assert.equal((await publicBinaryCall(project.id,`/media/${'a'.repeat(24)}/${uplo
 });
 
 test('Publications use owner-checked immutable snapshots and a session-free public origin',async()=>{
+execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->exec('DELETE FROM auth_attempts');",testDbPath]);
 const owner=new Client(),other=new Client(),anonymous=new Client();
 await owner.call('/session');await owner.call('/register','POST',{email:'publisher@example.test',password:'a-long-publisher-password'});
 await other.call('/session');await other.call('/register','POST',{email:'publication-outsider@example.test',password:'another-publication-password'});

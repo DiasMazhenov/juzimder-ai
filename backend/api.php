@@ -4,6 +4,7 @@ require_once __DIR__ . '/Domain.php';
 require_once __DIR__ . '/Ai.php';
 require_once __DIR__ . '/StockPhotos.php';
 require_once __DIR__ . '/AiCredentials.php';
+require_once __DIR__ . '/FormMail.php';
 require_once __DIR__ . '/AiSkills.php';
 require_once __DIR__ . '/AiGenerationJobs.php';
 require_once __DIR__ . '/SkillAnalyzer.php';
@@ -451,7 +452,7 @@ try {
         result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/settings$~D', $path, $settingsMatch) && $method === 'PUT') {
-        if (array_diff(array_keys($body), ['version','designTokens','seo','page']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body) && !array_key_exists('page', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
+        if (array_diff(array_keys($body), ['version','designTokens','seo','page','forms']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body) && !array_key_exists('page', $body) && !array_key_exists('forms', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
         $projectId = $settingsMatch[1];
         $project = $store->owned($projectId, $user);
         $settings = $project['settings'];
@@ -481,7 +482,26 @@ try {
             if (!array_key_exists($pageId, $settings['pages'])) throw new Problem(422,'Указанная страница не принадлежит проекту.');
             $settings['pages'][$pageId]['seo'] = Juzimder\ProjectSettings::validateSeoMetadata($seoInput, $settings['pages'][$pageId]['seo']);
         }
+        if (array_key_exists('forms', $body)) $settings['forms'] = Juzimder\ProjectSettings::validateFormsSettings($body['forms'], $settings['forms'] ?? Juzimder\ProjectSettings::formDefaults());
         result($store->save($projectId, $user, $body['version'], $document, $settings));
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/form-mail$~D', $path, $formMailMatch)) {
+        $vault = new Juzimder\FormMailVault($store);
+        if ($method === 'GET') result($vault->status($formMailMatch[1], $user));
+        if ($method === 'PUT') {
+            if (array_diff(array_keys($body), ['version','host','port','security','username','password']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422,'Укажите текущую версию и параметры SMTP.');
+            result($vault->save($formMailMatch[1], $user, $body['version'], array_diff_key($body, ['version'=>true])));
+        }
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/form-mail/test$~D', $path, $formMailTestMatch) && $method === 'POST') {
+        if (array_diff(array_keys($body), ['version','to']) || !is_int($body['version'] ?? null) || !is_string($body['to'] ?? null) || !filter_var($body['to'], FILTER_VALIDATE_EMAIL)) throw new Problem(422,'Укажите текущую версию SMTP и email для теста.');
+        $vault = new Juzimder\FormMailVault($store); $status = $vault->status($formMailTestMatch[1], $user);
+        if ($status['version'] !== $body['version'] || !$status['configured']) throw new Problem(409,'Сначала сохраните настройки SMTP и обновите страницу.');
+        $project = $store->owned($formMailTestMatch[1], $user); $mailSettings = $project['settings']['forms'] ?? [];
+        if (!is_string($mailSettings['senderEmail'] ?? null) || !filter_var($mailSettings['senderEmail'], FILTER_VALIDATE_EMAIL)) throw new Problem(422,'Сначала сохраните корректный email отправителя в настройках писем.');
+        $config = $vault->deliverySettings($formMailTestMatch[1]);
+        (new Juzimder\SmtpTransport())->send($config, $mailSettings['senderEmail'], (string)($mailSettings['senderName'] ?? ''), [$body['to']], 'Тест почтового транспорта', 'SMTP-подключение настроено и может отправлять письма.');
+        result(['sent'=>true]);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/pages(?:/([A-Za-z0-9_-]{1,128}))?$~D',$path,$pageMatch)) {
         $projectId = $pageMatch[1];

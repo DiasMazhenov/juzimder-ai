@@ -18,20 +18,21 @@ try {
     unset($legacy);
 
     $store=new Store($path);
-    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===13,'Upgrade existing database through schema 13');
+    settingsCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn()===14,'Upgrade existing database through schema 14');
     $project=$store->owned('0123456789abcdef01234567','legacy');
     settingsCheck($project['slug']==='legacy-site','Existing project receives a readable slug without changing its internal ID');
     settingsCheck($store->resolveProjectSlug('legacy-site','legacy')['id']===$project['id'],'Legacy slug resolves for the owning account');
-    settingsCheck($project['settings']['schemaVersion']===5,'Project settings migrate to schema version 5');
+    settingsCheck($project['settings']['schemaVersion']===6,'Project settings migrate to schema version 6');
+    settingsCheck($project['settings']['forms']===ProjectSettings::formDefaults(),'Form delivery settings migrate with safe disabled defaults');
     settingsCheck($project['settings']['designTokens']['fontFamily']==='Arial, sans-serif','Legacy project receives safe default design tokens');
     settingsCheck(count($project['document']->data->pages)===2,'Legacy page content preserved');
     settingsCheck($project['settings']['pages']['home']['isHome']===true,'First legacy page becomes home');
     settingsCheck($project['settings']['pages']['about-page']['slug']==='o-kompanii','Cyrillic legacy title gets stable slug');
     $schemaTwo=ProjectSettings::reconcile(['schemaVersion'=>2,'pages'=>['home'=>['slug'=>'home','isHome'=>true]],'designTokens'=>['fontFamily'=>'Georgia, serif']],$project['document']);
-    settingsCheck($schemaTwo['schemaVersion']===5&&$schemaTwo['designTokens']['headingFontFamily']==='Georgia, serif'&&$schemaTwo['designTokens']['bodyFontFamily']==='Georgia, serif','Schema version 2 settings migrate while preserving the shared font family');
+    settingsCheck($schemaTwo['schemaVersion']===6&&$schemaTwo['designTokens']['headingFontFamily']==='Georgia, serif'&&$schemaTwo['designTokens']['bodyFontFamily']==='Georgia, serif','Schema version 2 settings migrate while preserving the shared font family');
     settingsCheck($schemaTwo['pages']['home']['seo']===ProjectSettings::seoDefaults(),'Legacy pages receive safe default SEO metadata');
     $schemaThree=ProjectSettings::reconcile(['schemaVersion'=>3,'pages'=>['home'=>['slug'=>'home','isHome'=>true]],'designTokens'=>['fontFamily'=>'Georgia, serif']],$project['document']);
-    settingsCheck($schemaThree['schemaVersion']===5&&$schemaThree['pages']['home']['seo']===ProjectSettings::seoDefaults(),'Schema version 3 adds SEO metadata defaults without losing existing routes');
+    settingsCheck($schemaThree['schemaVersion']===6&&$schemaThree['pages']['home']['seo']===ProjectSettings::seoDefaults(),'Schema version 3 adds SEO metadata defaults without losing existing routes');
     $revisionSettings=$store->query('SELECT settings_payload FROM revisions WHERE project_id=? AND version=1',['0123456789abcdef01234567'])->fetchColumn();
     settingsCheck(is_string($revisionSettings)&&str_contains($revisionSettings,'about-page'),'Historical revisions receive route metadata');
     settingsCheck(ProjectSettings::validateSlug('/О нас')==='o-nas','Cyrillic and leading slash normalize');
@@ -94,7 +95,7 @@ try {
     $migratedAi=new Store($profileMigrationPath);
     $profile=$migratedAi->query('SELECT id,name,api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
     $profileState=$migratedAi->query('SELECT active_profile_id,version FROM project_ai_profile_state WHERE project_id=?',['abcdef0123456789abcdef01'])->fetch();
-    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===13,'Upgrade schema 4 AI credentials through profiles, assets, skills, forms and slugs');
+    settingsCheck((int)$migratedAi->db->query('PRAGMA user_version')->fetchColumn()===14,'Upgrade schema 4 through AI credentials, assets, skills, forms, slugs and mail vault');
     settingsCheck($profile!==false&&$profile['name']==='Основной профиль'&&$profile['api_key_ciphertext']==='encrypted-legacy-fixture'&&$profile['model']==='openai/legacy-model'&&$profile['fallback_model']===null,'Migration preserves the existing encrypted key and model and leaves fallback disabled');
     settingsCheck($profileState!==false&&$profileState['active_profile_id']===$profile['id']&&(int)$profileState['version']===7,'Migration preserves active selection and optimistic version');
     settingsCheck($migratedAi->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='project_ai_credentials'")->fetchColumn()===false,'Migration removes the obsolete single-profile credential table');
