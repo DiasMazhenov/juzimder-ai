@@ -101,8 +101,9 @@ final class AiZeroComposer {
         $decoded['elements']=self::withoutUntrustedPhotoCredits($decoded['elements']);
         $decoded['elements']=self::withoutDecorativeBadgeIcons($decoded['elements']);
         $generatedCardSurfaceCount=0;
-        $cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);
-        if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}
+        $namedCardSurfaces=self::normalizeNamedCardSurfaceVectors($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
+        if($namedCardSurfaces!==null){$decoded['elements']=$namedCardSurfaces;$generatedCardSurfaceCount=3;}
+        else{$cardLayout=self::normalizeRequestedThreeCardRow($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$decoded['artboard']['backgroundColor']);if($cardLayout!==null){$decoded['elements']=$cardLayout['items'];$generatedCardSurfaceCount=$cardLayout['surfaceCount'];}}
         $decoded['elements']=self::normalizeNumberedProcessIcons($prompt,$decoded['elements'],(int)$board->width);
         $decoded['elements']=self::normalizeModelNumberedProcessCardSurfaces($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
         $decoded['elements']=self::normalizeRequestedNumberedProcessCards($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,(string)$decoded['artboard']['backgroundColor']);
@@ -120,7 +121,7 @@ final class AiZeroComposer {
         $badgeIndex=self::promotePillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor']);
         if($badgeIndex===null)$badgeIndex=self::insertPillBadge($decoded['elements'],(int)$board->width,(string)$decoded['artboard']['backgroundColor'],$prompt);
         self::normalizeGenericProcessBadge($prompt,$decoded['elements'],$badgeIndex,(int)$board->width);
-        if($badgeIndex!==null){$badgeCleanup=self::removeDuplicatePillBadgeLayers($decoded['elements'],$badgeIndex);$decoded['elements']=$badgeCleanup[0];$badgeIndex=$badgeCleanup[1];}
+        if($badgeIndex!==null){$badgeCleanup=self::removeDuplicatePillBadgeLayers($decoded['elements'],$badgeIndex);$decoded['elements']=$badgeCleanup[0];$badgeIndex=$badgeCleanup[1];$badgeCleanup=self::removeBadgeOverlappingVectors($decoded['elements'],$badgeIndex);$decoded['elements']=$badgeCleanup[0];$badgeIndex=$badgeCleanup[1];}
         $faqLayout=self::normalizeFaqDesktopLayout($prompt,$decoded['elements'],(int)$board->width,(int)$board->height,$badgeIndex);
         if($faqLayout)self::neutralizeUngroundedFaqAnswers($prompt,$decoded['elements'],$badgeIndex);
         if($generatedCardSurfaceCount===0&&($autoPhotoAdded||self::isHeroIntent($prompt)))self::normalizeHeroTextFlow($decoded['elements'],$badgeIndex,(int)$board->height);
@@ -452,6 +453,20 @@ final class AiZeroComposer {
         return [$result,$nextBadgeIndex??$badgeIndex];
     }
 
+    /** Remove decorative vectors that collide with the semantic pill badge. */
+    private static function removeBadgeOverlappingVectors(array $items,int $badgeIndex): array {
+        if(!isset($items[$badgeIndex])||!is_array($items[$badgeIndex])||($items[$badgeIndex]['type']??null)!=='text')return [$items,$badgeIndex];
+        $badge=$items[$badgeIndex];$badgeX=(float)($badge['x']??0);$badgeY=(float)($badge['y']??0);$badgeRight=$badgeX+(float)($badge['width']??0);$badgeBottom=$badgeY+(float)($badge['height']??0);$result=[];$nextBadgeIndex=null;
+        foreach($items as $index=>$item){
+            if($index!==$badgeIndex&&is_array($item)&&($item['type']??null)==='vector'){
+                $x=(float)($item['x']??0);$y=(float)($item['y']??0);$right=$x+(float)($item['width']??0);$bottom=$y+(float)($item['height']??0);
+                if($x<$badgeRight&&$badgeX<$right&&$y<$badgeBottom&&$badgeY<$bottom)continue;
+            }
+            if($index===$badgeIndex)$nextBadgeIndex=count($result);$result[]=$item;
+        }
+        return [$result,$nextBadgeIndex??$badgeIndex];
+    }
+
     /** Keep explicit quote/author pairs together when a testimonial model emits duplicate mobile layers. */
     private static function normalizeRequestedTestimonialCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
         if(preg_match('/(?:отзыв\w*|testimon\w*|reviews?)/iu',$prompt)!==1||count($items)>18)return $items;
@@ -497,6 +512,27 @@ final class AiZeroComposer {
     }
 
     /** Add consistent editable card surfaces when the model lays out three text-led service cards but omits their backgrounds. */
+    /** Turn model placeholders named card1/card2/card3 into real editable surfaces, never giant photo icons. */
+    private static function normalizeNamedCardSurfaceVectors(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): ?array {
+        if(preg_match('/(?:\b(?:three|3)\b.{0,80}\bcards?\b|тр(?:и|емя).{0,80}карточк\w*)/iu',$prompt)!==1)return null;
+        $surfaces=[];
+        foreach($items as $index=>$item){
+            if(!is_array($item)||($item['type']??null)!=='vector'||preg_match('/^card\s*([1-3])$/iu',trim((string)($item['name']??'')),$match)!==1)continue;
+            if((float)($item['width']??0)<$boardWidth*.18||(float)($item['height']??0)<max(80,$boardHeight*.12))continue;
+            $surfaces[(int)$match[1]]=$index;
+        }
+        if(count($surfaces)!==3)return null;
+        ksort($surfaces);$surfaceFill=self::blendColor($background,'#DDEBDD',self::colorLuminance($background)>=.42?.72:.12);$surfaceStroke=self::blendColor($background,'#8FAF8F',self::colorLuminance($background)>=.42?.48:.32);$converted=[];$surfaceIndexes=[];
+        foreach($surfaces as $number=>$index){$surface=$items[$index];$hasContent=false;foreach($items as $childIndex=>$child){if($childIndex===$index||!is_array($child)||!in_array($child['type']??null,['text','button','vector'],true))continue;$center=(float)$child['x']+(float)$child['width']/2;$left=(float)$surface['x'];$right=$left+(float)$surface['width'];$top=(float)$surface['y'];$bottom=$top+(float)$surface['height'];if($center>=$left&&$center<=$right&&(float)$child['y']<$bottom&&(float)$child['y']+(float)$child['height']>$top){$hasContent=true;break;}}if(!$hasContent)return null;
+            $surface['type']='rectangle';$surface['name']=sprintf('AI card surface %02d',$number);$surface['content']='';$surface['photoQuery']='';$surface['icon']='';$surface['fill']=$surfaceFill;$surface['color']=self::colorLuminance($surfaceFill)>=.42?'#222629':'#FFFFFF';$surface['stroke']=$surfaceStroke;$surface['strokeWidth']=1;$surface['radius']=max(12,min(24,(float)($surface['radius']??16)));$converted[]=$surface;$surfaceIndexes[$index]=true;
+        }
+        foreach($surfaces as $number=>$surfaceIndex){$surface=$items[$surfaceIndex];$titleIndex=null;$iconIndex=null;$left=(float)$surface['x'];$right=$left+(float)$surface['width'];$top=(float)$surface['y'];$bottom=$top+(float)$surface['height'];foreach($items as $childIndex=>$child){if($childIndex===$surfaceIndex||!is_array($child))continue;$center=(float)$child['x']+(float)$child['width']/2;if($center<$left||$center>$right||(float)$child['y']>=$bottom||(float)$child['y']+(float)$child['height']<=$top)continue;if(($child['type']??null)==='text'&&($titleIndex===null||(float)$child['fontSize']>(float)$items[$titleIndex]['fontSize']))$titleIndex=$childIndex;if(($child['type']??null)==='vector'&&(float)$child['width']<=120&&(float)$child['height']<=120&&($iconIndex===null||(float)$child['y']<(float)$items[$iconIndex]['y']))$iconIndex=$childIndex;}if($titleIndex!==null&&$iconIndex!==null)$items[$iconIndex]['icon']=self::contextualMedicalCardIcon((string)$items[$titleIndex]['content'],$number-1);}
+        $buttonIndexes=array_values(array_filter(array_keys($items),static fn(int $index):bool=>is_array($items[$index])&&($items[$index]['type']??null)==='button'));
+        if(count($buttonIndexes)===3){foreach(array_values($surfaces) as $cardIndex=>$surfaceIndex){$buttonIndex=$buttonIndexes[$cardIndex];$surface=&$converted[$cardIndex];$contentBottom=(float)$surface['y'];foreach($items as $childIndex=>$child){if($childIndex===$surfaceIndex||$childIndex===$buttonIndex||!is_array($child)||!in_array($child['type']??null,['text','vector'],true))continue;$center=(float)$child['x']+(float)$child['width']/2;if($center<(float)$surface['x']||$center>(float)$surface['x']+(float)$surface['width']||(float)$child['y']>=(float)$surface['y']+(float)$surface['height']||(float)$child['y']+(float)$child['height']<=(float)$surface['y'])continue;$contentBottom=max($contentBottom,(float)$child['y']+(float)$child['height']);}$buttonY=$contentBottom+12;$items[$buttonIndex]['x']=(float)$surface['x']+20;$items[$buttonIndex]['y']=$buttonY;$items[$buttonIndex]['width']=min((float)$items[$buttonIndex]['width'],(float)$surface['width']-40);$surface['height']=max((float)$surface['height'],ceil($buttonY+(float)$items[$buttonIndex]['height']+16-(float)$surface['y']));unset($surface);}}
+        $rest=[];foreach($items as $index=>$item)if(!isset($surfaceIndexes[$index]))$rest[]=$item;
+        return array_merge($converted,$rest);
+    }
+
     private static function normalizeRequestedThreeCardRow(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): ?array {
         $requestMatch=preg_match('/(?:\b(?:three|3)\b.{0,80}\bcards?\b|тр(?:и|емя).{0,80}карточк\w*)/iu',$prompt);if($requestMatch!==1)return null;
         foreach($items as $item)if(!is_array($item)||($item['type']??null)==='image'||($item['type']??null)==='rectangle')return null;
@@ -523,9 +559,13 @@ final class AiZeroComposer {
             foreach($content as $index){$font=max(14,min(18,(int)$items[$index]['fontSize']));$items[$index]['fontSize']=$font;$items[$index]['x']=round($x+20,2);$items[$index]['y']=round($detailY,2);$items[$index]['width']=round($cardWidth-40,2);$capacity=max(8,(int)floor(($cardWidth-40)/max(8,$font*.54)));$lines=max(1,min(5,(int)ceil(mb_strlen((string)$items[$index]['content'],'UTF-8')/$capacity)));$items[$index]['height']=max((float)$items[$index]['height'],(int)ceil($lines*$font*1.28)+2);$detailY+=$items[$index]['height']+8;}
             $surfaceHeight=max(116,(int)ceil($detailY-$cardTop+12));if($cardTop+$surfaceHeight>$boardHeight-12)return null;$maxSurfaceBottom=max($maxSurfaceBottom,$cardTop+$surfaceHeight);$surfaces[]=['type'=>'rectangle','name'=>'Основа карточки '.($cardIndex+1),'content'=>'','photoQuery'=>'','icon'=>'photo','x'=>round($x,2),'y'=>$cardTop,'width'=>round($cardWidth,2),'height'=>$surfaceHeight,'fill'=>$surfaceFill,'color'=>'#222629','stroke'=>$surfaceStroke,'radius'=>16,'fontSize'=>16,'fontWeight'=>400,'textAlign'=>'left'];
         }
-        $cardIconNames=[];foreach($cardIcons as $indices)foreach($indices as $index)$cardIconNames[]=(string)($items[$index]['icon']??'');$uniqueCardIcons=array_unique($cardIconNames);if(count($cardIcons)===3&&count($uniqueCardIcons)===1&&in_array(reset($uniqueCardIcons),['plus','circle','square','x'],true)){foreach($cardIcons as $cardIndex=>$indices){$title=mb_strtolower($cardTitles[$cardIndex]??'','UTF-8');$icon=match(true){preg_match('/therapy|лечен|терап/iu',$title)===1=>'stethoscope',preg_match('/diagnos|диагност|лаборатор|orthodont|ортодонт/iu',$title)===1=>'microscope',preg_match('/pediatr|child|дет|малыш/iu',$title)===1=>'baby-bottle',preg_match('/implant|имплант|surg|хирург/iu',$title)===1=>'first-aid-kit',default=>['stethoscope','microscope','first-aid-kit'][$cardIndex]};foreach($indices as $index)$items[$index]['icon']=$icon;}}
+        $cardIconNames=[];foreach($cardIcons as $indices)foreach($indices as $index)$cardIconNames[]=(string)($items[$index]['icon']??'');$uniqueCardIcons=array_unique($cardIconNames);if(count($cardIcons)===3&&count($uniqueCardIcons)===1){foreach($cardIcons as $cardIndex=>$indices){$icon=self::contextualMedicalCardIcon($cardTitles[$cardIndex]??'',(int)$cardIndex);foreach($indices as $index)$items[$index]['icon']=$icon;}}
         foreach($items as &$item)if(is_array($item)&&($item['type']??null)==='button'&&(float)$item['y']<$maxSurfaceBottom){$item['x']=round($margin,2);$item['y']=round(min($maxSurfaceBottom+24,$boardHeight-(float)$item['height']-16),2);}unset($item);
         return ['items'=>array_merge($surfaces,$items),'surfaceCount'=>count($surfaces)];
+    }
+    private static function contextualMedicalCardIcon(string $label,int $index): string {
+        $label=mb_strtolower($label,'UTF-8');
+        return match(true){preg_match('/therapy|лечен|терап|осмотр|при[её]м|consult/iu',$label)===1=>'stethoscope',preg_match('/implant|имплант|surg|хирург|операц/iu',$label)===1=>'first-aid-kit',preg_match('/hygien|гигиен|чистк|профилактик|clean/iu',$label)===1=>'microscope',preg_match('/diagnos|диагност|лаборатор|orthodont|ортодонт|анализ/iu',$label)===1=>'microscope',preg_match('/pediatr|педиатр|child|дет|малыш/iu',$label)===1=>'baby-bottle',default=>['stethoscope','first-aid-kit','microscope'][$index%3]};
     }
     private static function normalizeRequestedThreeCardHeading(string $prompt,array &$items,int $boardWidth): void {
         if(preg_match('/(?:\b(?:three|3)\b.{0,80}\bcards?\b|тр(?:и|емя).{0,80}карточк\w*)/iu',$prompt)!==1)return;
@@ -888,9 +928,9 @@ final class AiZeroComposer {
         $result=[];
         foreach($data->artboards as $mode=>$board){if($mode==='desktop'||$board->width>480)continue;$margin=min(20,max(16,(int)round($board->width*.055)));$contentWidth=max(1,(int)$board->width-2*$margin);$cursor=max(16,(int)round($board->height*.04));
             foreach($intro as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+8;
-            foreach($surfaces as $cardIndex=>$surface){$cardTop=$cursor;$cardCursor=$cardTop+6;$content=$members[$cardIndex];usort($content,static function(int $a,int $b)use($items):int{$ay=(float)$items[$a]['y'];$by=(float)$items[$b]['y'];if(abs($ay-$by)<=8){$av=($items[$a]['type']??null)==='vector';$bv=($items[$b]['type']??null)==='vector';if($av!==$bv)return $av?-1:1;}return $ay<=>$by;});
-                foreach($content as $index){$item=$items[$index];$cardCursor+=self::mobileFlowOverride($result,$index,$mode,$item,$margin,$cardCursor,$contentWidth,null,true)+6;}
-                $cardHeight=max(96,$cardCursor-$cardTop+6);$result[$cardIndex][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$cardHeight]];$cursor=$cardTop+$cardHeight+6;
+            foreach($surfaces as $cardIndex=>$surface){$cardTop=$cursor;$inset=16;$innerX=$margin+$inset;$innerWidth=max(1,$contentWidth-2*$inset);$cardCursor=$cardTop+$inset;$content=$members[$cardIndex];usort($content,static function(int $a,int $b)use($items):int{$ay=(float)$items[$a]['y'];$by=(float)$items[$b]['y'];if(abs($ay-$by)<=8){$av=($items[$a]['type']??null)==='vector';$bv=($items[$b]['type']??null)==='vector';if($av!==$bv)return $av?-1:1;}return $ay<=>$by;});
+                foreach($content as $index){$item=$items[$index];$cardCursor+=self::mobileFlowOverride($result,$index,$mode,$item,$innerX,$cardCursor,$innerWidth,null,true)+6;}
+                $cardHeight=max(96,$cardCursor-$cardTop+$inset);$result[$cardIndex][$mode]=['geometry'=>(object)['x'=>$margin,'y'=>$cardTop,'width'=>$contentWidth,'height'=>$cardHeight]];$cursor=$cardTop+$cardHeight+6;
             }
             foreach($post as $index)$cursor+=self::mobileFlowOverride($result,$index,$mode,$items[$index],$margin,$cursor,$contentWidth,$badgeIndex,false)+10;
             self::fitMobileCardStackToArtboard($result,(string)$mode,$board,$margin,$items);
