@@ -74,6 +74,7 @@ final class AiProviderFailure extends \RuntimeException {
             'missing_required_photo' => 'модель не добавила явно запрошенное фото',
             'missing_explicit_copy' => 'модель пропустила текст, указанный в описании',
             'text_image_overlap' => 'фото перекрывает текстовый элемент',
+            'repair_incomplete' => 'черновик не прошёл проверку, а автоматическая коррекция не завершилась',
             default => $zeroReason,
         };
         return match ($this->category) {
