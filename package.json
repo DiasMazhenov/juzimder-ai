@@ -1,6 +1,6 @@
 {
   "name": "juzimder-ai",
-  "version": "0.1.219",
+  "version": "0.1.220",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "vite build",
     "test:ui-theme": "node --test tests/ui-theme.test.mjs",
     "serve": "sh scripts/serve-local.sh",
-    "test": "node --test tests/color-picker.test.mjs tests/photo-credit.test.mjs tests/zero.test.mjs && php tests/zero.php && php tests/zero-ai.php && node --test tests/flex-icons.test.mjs tests/editor-background.test.mjs tests/component-identity.test.mjs && php tests/background-image.php && php tests/generated-design-defaults.php && php tests/ai-photo-selection.php && php tests/stock-photos.php && php tests/ai-contacts.php && php tests/ai-jobs.php && php tests/domain.php && php tests/schema.php && php tests/project-settings.php && php tests/form-mail.php && php tests/ai-skills.php && php tests/skill-analyzer.php && php tests/ai.php && php tests/operations.php && php tests/static-export.php && node --test tests/schema.test.mjs && node --test tests/api.test.mjs && node --test tests/blocks.test.mjs && node --test tests/design-tokens.test.mjs && node --test tests/ai-plan.test.mjs && node --test tests/component-actions.test.mjs && node --test tests/page-root.test.mjs && node --test tests/ai-transport.test.mjs",
+    "test": "node --test tests/color-picker.test.mjs tests/photo-credit.test.mjs tests/zero.test.mjs tests/shared-sections.test.mjs && php tests/zero.php && php tests/zero-ai.php && node --test tests/flex-icons.test.mjs tests/editor-background.test.mjs tests/component-identity.test.mjs && php tests/background-image.php && php tests/generated-design-defaults.php && php tests/ai-photo-selection.php && php tests/stock-photos.php && php tests/ai-contacts.php && php tests/ai-jobs.php && php tests/domain.php && php tests/schema.php && php tests/project-settings.php && php tests/form-mail.php && php tests/ai-skills.php && php tests/skill-analyzer.php && php tests/ai.php && php tests/operations.php && php tests/static-export.php && node --test tests/schema.test.mjs && node --test tests/api.test.mjs && node --test tests/blocks.test.mjs && node --test tests/design-tokens.test.mjs && node --test tests/ai-plan.test.mjs && node --test tests/component-actions.test.mjs && node --test tests/page-root.test.mjs && node --test tests/ai-transport.test.mjs",
     "serve:install": "sh scripts/install-local-service.sh"
   },
   "dependencies": {
@@ -34,5 +34,5 @@
     "ajv": "^8.20.0",
     "vite": "^8.3.4"
   },
-  "productVersion": "00.00.219"
+  "productVersion": "00.00.220"
 }
