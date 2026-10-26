@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.206: В typed operations добавлено безопасное дублирование компонента на сервере: новая стабильная идентичность всей копии, remap внутренних fragment/IDREF ссылок и клонирование GrapesJS CSS rules с обновлением ID selectors. Owner/auth/CSRF/version/CAS/revision и Document validation остаются обязательными. Unit/API regressions добавлены; UI/browser acceptance NOT RUN.
+
 - [x] 00.00.205: Кнопка «Опубликовать» добавлена в основной редактор и Zero Block. Используется существующая серверная публикация статического снимка; dirty-состояние сначала сохраняется, при конфликте публикация блокируется, версия подтверждается до отправки. Regression, API suite, build, PHP lint и diff-check проходят.
 
 - [x] 00.00.204: Читаемые URL проектов: стабильный slug на основе имени, уникальность, backfill старых проектов и owner-scoped API resolve. UI Dashboard, настройки, основной редактор и Zero Block используют slug; API продолжает использовать внутренний ID. API, миграция и production build проверены. Визуальная browser-приёмка NOT RUN.
@@ -207,7 +209,8 @@
 - [x] Новый Body по умолчанию сохраняет `display:flex` и `flex-direction:column`; новый проект, новая страница и инспектор корня используют вертикальное направление, явные стили не перезаписываются.
 - [x] Начальный authenticated typed-operation API: create, update content/styles/layout, delete, move и reorder; ownership, expected version, Document policy и revision save.
 - [x] Component context menu on canvas, inspector and Layers with copy/cut/paste/duplicate/reorder/select-parent/delete; Codex Browser confirmed right-click on a layer row selects that component and opens the shared menu; duplicate→Undo/reload, delete confirmation, keyboard navigation and reference remapping are also checked.
-- [ ] Универсальные component operations, duplicate с безопасным remap ссылок/styles и расширение schema при добавлении новых типов.
+- [x] 00.00.206 Server-side duplicate operation с безопасным remap ID, внутренних ссылок и CSS selectors.
+- [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
 ## Phase 4 — Zero Block (P0 по требованию владельца 24.10.2026)

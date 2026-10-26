@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 26.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.205 (npm SemVer 0.1.205). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 26.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.206 (npm SemVer 0.1.206). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.206: Добавлена серверная typed operation `duplicate_component`. Она дублирует выбранное поддерево с новыми стабильными ID, переназначает внутренние fragment/IDREF ссылки и копирует соответствующие GrapesJS CSS rules с remapped ID selectors. Операция проходит существующий owner/auth/CSRF/version/CAS/revision путь и повторную Document validation; page root дублировать нельзя. Regression/API проверки покрывают remap и неизменность исходного компонента. Расширение schema и полная универсализация component operations остаются открытыми; UI/browser acceptance NOT RUN.
 
 00.00.205: Кнопка «Опубликовать» доступна и из основного GrapesJS редактора, и из Zero Block. Перед публикацией редактор сохраняет локальные изменения и прекращает операцию при конфликте; сервер публикует только сохранённую версию через существующий owner-authenticated/CAS endpoint и static renderer. Подтверждение показывает номер ревизии; по успеху UI сообщает публичный адрес.
 

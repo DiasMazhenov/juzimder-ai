@@ -62,6 +62,24 @@ $createdSection = $created->data->pages[0]->frames[0]->component->components[0];
 $createdIds = [$createdSection->attributes->id,$createdSection->components[0]->attributes->id,$createdSection->components[1]->attributes->id];
 operationCheck(count(array_unique($createdIds)) === 3 && count(array_filter($createdIds, static fn($id)=>str_starts_with($id,'cmp-'))) === 3, 'Create assigns unique stable IDs throughout a new component subtree');
 
+$duplicateFixture = json_decode(json_encode($fixture, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+$duplicateButton = operationNode($duplicateFixture, 'iwnjm');
+$duplicateButton->attributes->href = '#ij4p';
+$duplicateButton->attributes->{'aria-labelledby'} = 'ij4p';
+$duplicateFixture->data->styles[] = (object)['selectors'=>['#ij4p'], 'style'=>(object)['color'=>'#123456']];
+$duplicated = ProjectOperations::apply($duplicateFixture, [operationObject(['operation'=>'duplicate_component','componentId'=>'ieg3'])]);
+$duplicatedOriginal = operationNode($duplicated, 'ieg3');
+$duplicatedRoot = $duplicated->data->pages[0]->frames[0]->component->components[1];
+$duplicatedHeading = $duplicatedRoot->components[1];
+$duplicatedButton = $duplicatedRoot->components[3];
+operationCheck($duplicatedRoot->attributes->id !== 'ieg3' && $duplicatedHeading->attributes->id !== 'ij4p' && $duplicatedButton->attributes->id !== 'iwnjm', 'Duplicate assigns fresh stable IDs to the complete component subtree');
+operationCheck($duplicatedOriginal->components[1]->attributes->id === 'ij4p' && $duplicatedOriginal->components[3]->attributes->href === '#ij4p', 'Duplicate leaves the source subtree unchanged');
+operationCheck($duplicatedButton->attributes->href === '#' . $duplicatedHeading->attributes->id && $duplicatedButton->attributes->{'aria-labelledby'} === $duplicatedHeading->attributes->id, 'Duplicate remaps internal fragment and IDREF references');
+$duplicateHeadingSelector = '#' . $duplicatedHeading->attributes->id;
+$duplicateHeadingRule = array_values(array_filter($duplicated->data->styles, static fn($rule) => ($rule->selectors[0] ?? null) === $duplicateHeadingSelector && ($rule->style->color ?? null) === '#123456'));
+operationCheck(count($duplicateHeadingRule) === 1, 'Duplicate clones GrapesJS CSS rules and remaps string selectors');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'duplicate_component','componentId'=>'page:home'])]),404,'Page roots cannot be duplicated as regular components');
+
 $moved = ProjectOperations::apply($fixture, [
     operationObject(['operation'=>'create_component','parentId'=>'page:home','component'=>['tagName'=>'section','name'=>'Target','attributes'=>['id'=>'target-section']]]),
     operationObject(['operation'=>'move_component','componentId'=>'ipvt','parentId'=>'target-section','index'=>0])

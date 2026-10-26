@@ -169,6 +169,10 @@ final class ProjectOperations {
                 $parent =& self::atPath($document, $location['parentPath']);
                 array_splice($parent->components, $location['index'], 1);
                 return;
+            case 'duplicate_component':
+                self::fields($operation, ['operation','componentId','index'], ['operation','componentId']);
+                self::duplicate($document, self::identifier($operation->componentId), $operation->index ?? null);
+                return;
             case 'move_component':
                 self::fields($operation, ['operation','componentId','parentId','index'], ['operation','componentId','parentId']);
                 self::move($document, self::identifier($operation->componentId), self::identifier($operation->parentId), $operation->index ?? null);
@@ -184,6 +188,70 @@ final class ProjectOperations {
             default:
                 throw new Problem(422, 'Неподдерживаемый тип операции.');
         }
+    }
+
+    private static function duplicate(\stdClass $document, string $componentId, mixed $index): void {
+        $location = self::findComponent($document, $componentId);
+        if ($location['parentPath'] === null || $location['index'] === null) throw new Problem(422, 'Корневой компонент страницы нельзя дублировать.');
+        $parent =& self::atPath($document, $location['parentPath']);
+        $source =& self::atPath($document, $location['path']);
+        $copy = json_decode(json_encode($source, JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+        $ids = [];
+        self::collectIds($document, $ids);
+        $idMap = [];
+        $assignIds = static function (mixed $node) use (&$assignIds, &$idMap, &$ids): void {
+            if (!$node instanceof \stdClass) return;
+            if (!($node->attributes ?? null) instanceof \stdClass) $node->attributes = new \stdClass();
+            $old = $node->attributes->id ?? null;
+            do { $new = 'cmp-' . bin2hex(random_bytes(12)); } while (isset($ids[$new]));
+            $ids[$new] = true;
+            if (is_string($old) && $old !== '') $idMap[$old] = $new;
+            $node->attributes->id = $new;
+            foreach ($node->components ?? [] as $child) $assignIds($child);
+        };
+        $assignIds($copy);
+        $idRefs = ['aria-activedescendant','aria-controls','aria-describedby','aria-details','aria-errormessage','aria-flowto','aria-labelledby','aria-owns','for','form','headers','itemref','list'];
+        $replaceUrls = static function (string $value) use (&$idMap): string {
+            return preg_replace_callback("/url\\(\\s*([\"']?)#([^\"'()\\s]+)\\1\\s*\\)/i", static fn($m) => isset($idMap[$m[2]]) ? 'url(' . $m[1] . '#' . $idMap[$m[2]] . $m[1] . ')' : $m[0], $value) ?? $value;
+        };
+        $rewrite = static function (mixed $node) use (&$rewrite, &$idMap, $idRefs, $replaceUrls): void {
+            if (!$node instanceof \stdClass) return;
+            foreach (get_object_vars($node->attributes ?? new \stdClass()) as $key => $value) {
+                if (!is_string($value) || $key === 'id') continue;
+                if (in_array($key, ['href','xlink:href','usemap'], true) && str_starts_with($value, '#')) $value = '#' . ($idMap[substr($value, 1)] ?? substr($value, 1));
+                elseif (in_array($key, $idRefs, true)) $value = implode(' ', array_map(static fn($token) => $idMap[$token] ?? $token, preg_split('/\\s+/', trim($value), -1, PREG_SPLIT_NO_EMPTY)));
+                $node->attributes->{$key} = $replaceUrls($value);
+            }
+            if (($node->style ?? null) instanceof \stdClass) foreach (get_object_vars($node->style) as $key => $value) if (is_string($value)) $node->style->{$key} = $replaceUrls($value);
+            foreach ($node->components ?? [] as $child) $rewrite($child);
+        };
+        $rewrite($copy);
+
+        $styleCopies = [];
+        foreach ($document->data->styles ?? [] as $rule) {
+            if (!$rule instanceof \stdClass) continue;
+            $clone = json_decode(json_encode($rule, JSON_THROW_ON_ERROR), false, 32, JSON_THROW_ON_ERROR);
+            $matched = false;
+            foreach ($clone->selectors ?? [] as $selectorIndex => $selector) {
+                if (is_string($selector)) {
+                    $rewritten = preg_replace_callback('/#([A-Za-z0-9_-]+)/', static fn($m) => isset($idMap[$m[1]]) ? '#' . $idMap[$m[1]] : $m[0], $selector) ?? $selector;
+                    if ($rewritten !== $selector) { $clone->selectors[$selectorIndex] = $rewritten; $matched = true; }
+                } elseif ($selector instanceof \stdClass && (int)($selector->type ?? 1) === 2 && isset($idMap[$selector->name ?? ''])) {
+                    $selector->name = $idMap[$selector->name];
+                    $matched = true;
+                }
+            }
+            if (is_string($clone->selectorsAdd ?? null)) {
+                $rewritten = preg_replace_callback('/#([A-Za-z0-9_-]+)/', static fn($m) => isset($idMap[$m[1]]) ? '#' . $idMap[$m[1]] : $m[0], $clone->selectorsAdd) ?? $clone->selectorsAdd;
+                if ($rewritten !== $clone->selectorsAdd) { $clone->selectorsAdd = $rewritten; $matched = true; }
+            }
+            if ($matched) $styleCopies[] = $clone;
+        }
+        if ($styleCopies) $document->data->styles = array_merge($document->data->styles ?? [], $styleCopies);
+        $children = $parent->components ?? [];
+        $insertAt = $index === null ? $location['index'] + 1 : self::index($index, count($children));
+        array_splice($children, $insertAt, 0, [$copy]);
+        $parent->components = $children;
     }
 
     private static function create(\stdClass $document, string $parentId, mixed $componentData, mixed $index): void {
