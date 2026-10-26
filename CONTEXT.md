@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.249 (npm SemVer 0.1.249). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.250 (npm SemVer 0.1.250). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.250: typed component create/update принимает безопасные lowercase `data-*` метаданные до 2048 символов; renderer-reserved `data-jz-*` нельзя менять. Статический HTML выводит их с escaping. Добавлены unit/API/schema/export regressions. Универсализация typed operations, keyboard copy/paste QA и responsive browser matrix остаются открытыми.
 
 00.00.249: typed `update_attributes` принимает безопасный boolean HTML атрибут `hidden` для видимости компонента. Backend и JSON Schema требуют строго boolean значения; `false`/`null` снимают атрибут, static export сохраняет только истинное состояние. Unit, schema, exporter и authenticated API regressions покрывают контракт и версионированное сохранение. `npm run build`, полный `npm test`, PHP/JS syntax и `git diff --check` прошли; Vite сообщает предупреждение о крупном GrapesJS chunk. Интерфейс не менялся, визуальная browser-проверка не требуется. Полная keyboard copy/paste QA и responsive browser matrix остаются открытыми.
 

@@ -12,6 +12,10 @@ final class ProjectOperations {
         'aria-expanded'=>['true','false'],
         'aria-pressed'=>['true','false','mixed'],
     ];
+    private static function safeAttributeName(string $name): bool {
+        return in_array($name, self::ATTRIBUTE_FIELDS, true)
+            || preg_match('/^data-(?!jz-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $name) === 1;
+    }
     private const SEMANTIC_TAGS_BY_TYPE = [
         'text'=>['h1','h2','h3','h4','p','span','strong','em','b','i','li','summary','figcaption','time'],
         'default'=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
@@ -166,7 +170,7 @@ final class ProjectOperations {
                 self::fields($operation, ['operation','componentId','attributes'], ['operation','componentId','attributes']);
                 if (!$operation->attributes instanceof \stdClass || get_object_vars($operation->attributes) === []) throw new Problem(422, 'Укажите атрибуты объектом.');
                 foreach (get_object_vars($operation->attributes) as $attribute => $value) {
-                    if (!in_array($attribute, self::ATTRIBUTE_FIELDS, true) || $attribute === 'id') throw new Problem(422, 'Атрибут не входит в разрешённый список или является стабильным ID.');
+                    if (!self::safeAttributeName($attribute) || $attribute === 'id') throw new Problem(422, 'Атрибут не входит в разрешённый список или является стабильным ID.');
                     if ($value === null) continue;
                     if (in_array($attribute, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
                         if (!is_bool($value)) throw new Problem(422, 'Логический атрибут должен иметь значение true или false; false и null удаляют его.');
@@ -339,12 +343,12 @@ final class ProjectOperations {
         if (isset($node->content) && (!is_string($node->content) || mb_strlen($node->content, 'UTF-8') > 10000)) throw new Problem(422, 'Текст компонента слишком длинный.');
         $attributes = $node->attributes ?? new \stdClass();
         if (!$attributes instanceof \stdClass) throw new Problem(422, 'Атрибуты компонента должны быть объектом.');
-        self::fields($attributes, self::ATTRIBUTE_FIELDS, []);
+        foreach (get_object_vars($attributes) as $attribute => $_) if (!self::safeAttributeName($attribute)) throw new Problem(422, 'Атрибут не входит в разрешённый список.');
         foreach (get_object_vars($attributes) as $name => $value) {
             if (in_array($name, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
                 if (!is_bool($value)) throw new Problem(422, 'Логические HTML-атрибуты должны иметь значения true или false.');
                 if ($value === false) unset($attributes->{$name});
-            } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > ($name === 'datetime' ? 64 : (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) ? 16 : 2048))) throw new Problem(422, 'Значение атрибута должно быть допустимой строкой.');
+            } elseif (!is_string($value) || mb_strlen($value, 'UTF-8') > ($name === 'datetime' ? 64 : (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) ? 16 : 2048)) || (str_starts_with($name, 'data-') && preg_match('/[\x00-\x1F\x7F]/u', $value))) throw new Problem(422, 'Значение атрибута должно быть допустимой строкой.');
             if (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) && !in_array($value, self::ENUM_ATTRIBUTE_VALUES[$name], true)) throw new Problem(422, 'Недопустимое значение ARIA-атрибута.');
         }
         $id = $attributes->id ?? ('cmp-' . bin2hex(random_bytes(12)));

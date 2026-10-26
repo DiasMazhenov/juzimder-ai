@@ -50,6 +50,17 @@ $attributesUpdated = ProjectOperations::apply($fixture, [operationObject(['opera
 operationCheck(operationNode($attributesUpdated, 'iwnjm')->attributes->title === 'Записаться', 'Typed attribute update changes only allowlisted attributes');
 $attributesCleared = ProjectOperations::apply($attributesUpdated, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['title'=>null]])]);
 operationCheck(!isset(operationNode($attributesCleared, 'iwnjm')->attributes->title), 'Typed attribute update removes fields with null');
+$dataAttributesUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['data-campaign'=>'spring & summer','data-analytics-id'=>'cta-primary']])]);
+operationCheck(operationNode($dataAttributesUpdated, 'iwnjm')->attributes->{'data-campaign'} === 'spring & summer' && operationNode($dataAttributesUpdated, 'iwnjm')->attributes->{'data-analytics-id'} === 'cta-primary', 'Typed attribute update accepts bounded lowercase data-* metadata');
+$dataAttributesCleared = ProjectOperations::apply($dataAttributesUpdated, [operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['data-campaign'=>null]])]);
+operationCheck(!isset(operationNode($dataAttributesCleared, 'iwnjm')->attributes->{'data-campaign'}) && operationNode($dataAttributesCleared, 'iwnjm')->attributes->{'data-analytics-id'} === 'cta-primary', 'Typed attribute update removes one data-* key without changing siblings');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['data-Campaign'=>'spring']])]),422,'Typed data-* updates reject uppercase names');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['data-jz-form-id'=>'override']])]),422,'Typed data-* updates reserve renderer-owned names');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_attributes','componentId'=>'iwnjm','attributes'=>['data-campaign'=>str_repeat('x',2049)]])]),422,'Typed data-* values remain bounded');
+$dataComponentCreated = ProjectOperations::apply(operationObject(Document::empty()), [operationObject(['operation'=>'create_component','parentId'=>'page:home','component'=>['type'=>'default','tagName'=>'section','attributes'=>['data-section-key'=>'hero']]])]);
+$createdDataComponent = $dataComponentCreated->data->pages[0]->frames[0]->component->components[0];
+operationCheck($createdDataComponent->attributes->{'data-section-key'} === 'hero', 'Typed component creation supports safe data-* metadata');
+operationRejects(fn()=>ProjectOperations::apply(operationObject(Document::empty()),[operationObject(['operation'=>'create_component','parentId'=>'page:home','component'=>['type'=>'default','tagName'=>'section','attributes'=>['data-section-key'=>"hero\nunsafe"]]])]),422,'Typed component creation rejects control characters in data-* values');
 $formCreated = ProjectOperations::apply(operationObject(Document::empty()), [operationObject([
     'operation'=>'create_component','parentId'=>'page:home','index'=>0,
     'component'=>['type'=>'form','tagName'=>'form','components'=>[

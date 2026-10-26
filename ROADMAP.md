@@ -1,6 +1,7 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.250: Typed `create_component`/`update_attributes` и JSON Schema поддерживают безопасные lowercase `data-*` атрибуты до 2048 символов; renderer-owned `data-jz-*` зарезервированы. Static HTML экранирует значения. Unit, API, schema и exporter regressions добавлены; универсализация typed operations остаётся открытой.
 - [x] 00.00.249: Typed `update_attributes` поддерживает native HTML `hidden` как строго boolean visibility state; null/false снимают атрибут, JSON Schema согласована, static export сохраняет состояние. Unit/API/schema/export regressions; полный `npm test` и production build прошли.
 - [x] 00.00.248: typed `update_layout` принимает `null` для сброса типизированных CSS layout полей; строковые enum остаются проверенными, несвязанные декларации сохраняются.
 - [x] 00.00.247: typed `update_styles` принимает `null` для удаления allowlisted CSS-свойства, сохраняя остальные, и удаляет пустой `style`. Unit/API regression проверяют persisted CAS/revision flow; `null` не сохраняется в Project Data.
@@ -292,6 +293,7 @@
 - [x] 00.00.247 Добавлено удаление отдельного CSS-свойства через `update_styles` + `null`; empty `style` удаляется, unit и authenticated API coverage подтверждают сохранение через CAS.
 - [x] 00.00.248 `update_layout` поддерживает `null` как сброс display/flex/grid/size полей через общий CSS allowlist; backend unit и authenticated API regressions.
 - [x] 00.00.249 `update_attributes` управляет видимостью через типизированный native `hidden`, синхронизированный с backend allowlist, JSON Schema и static exporter; полный набор unit/API тестов и build прошли.
+- [x] 00.00.250 `create_component` и `update_attributes` принимают lowercase `data-*` метаданные с длиной значения до 2048 символов; имена `data-jz-*` оставлены renderer-owned, static export экранирует значения. Универсализация typed operations остаётся открытой.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.
 
