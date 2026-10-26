@@ -52,6 +52,14 @@ test('project settings describe publication and SEO metadata as connected', () =
   assert.doesNotMatch(source, /Публичная публикация и static export ещё не подключены|значения пока не влияют на внешний сайт|публикацией, которой ещё нет/);
 });
 
+test('site settings sidebar stays fixed at viewport height with an independently scrolling menu', () => {
+  const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(styles, /\.settings-dashboard\{min-height:100dvh;height:100dvh;overflow:hidden\}/);
+  assert.match(styles, /\.settings-dashboard>\.dash-sidebar\{position:fixed;inset:0 auto 0 0;width:236px;height:100vh;height:100dvh/);
+  assert.match(styles, /\.settings-dashboard \.dash-sidebar \.sidebar-settings-nav\{max-height:none;min-height:0;flex:1 1 auto\}/);
+  assert.match(styles, /@media\(max-width:800px\)\{\.settings-dashboard\{height:auto;min-height:100dvh;overflow:visible\}/);
+});
+
 test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
