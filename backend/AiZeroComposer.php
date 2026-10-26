@@ -67,7 +67,7 @@ final class AiZeroComposer {
         $decoded['elements']=self::completeExplicitThreeServiceCopy($prompt,$decoded['elements'],(int)$board->width);
         $quotedRequirements=self::explicitQuotedRequirements($prompt);
         $earlyRequirements=$quotedRequirements;
-        if(self::hasTestimonialIntent($prompt)&&preg_match('/(?:из\s+)?(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
+        if(self::hasTestimonialIntent($prompt)&&preg_match('/(?:из\s+)?(?:две|двух|2|two|три|трёх|трех|3|three)\s+(?:из\s+)?(?:(?:отдельн|самостоятельн)\w*\s+)*(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1){preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*[\p{L}]/u',$prompt,$testimonialQuotes,PREG_SET_ORDER);if(in_array(count($testimonialQuotes),[2,3],true)){$quotedCopy=array_map(static fn($match)=>trim($match[1]),$testimonialQuotes);$earlyRequirements=array_values(array_filter($quotedRequirements,static fn($requirement)=>!in_array($requirement['text'],$quotedCopy,true)));}}
         $missingRequirements=self::missingQuotedRequirements($earlyRequirements,$decoded['elements']);
         $photoMissing=$photoRequired&&!self::hasImageElement($decoded['elements']);
         $textImageOverlap=self::hasTextImageOverlap($decoded['elements']);
@@ -507,7 +507,7 @@ final class AiZeroComposer {
     /** Keep explicit quote/author pairs together when a testimonial model emits duplicate mobile layers. */
     private static function normalizeRequestedTestimonialCards(string $prompt,array $items,int $boardWidth,int $boardHeight,string $background): array {
         if(!self::hasTestimonialIntent($prompt)||count($items)>18)return $items;
-        $requestedCount=preg_match('/(?:из\s+)?(?:две|двух|2|two)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?2:(preg_match('/(?:из\s+)?(?:три|трёх|трех|3|three)\s+(?:из\s+)?(?:отдельн\w*\s+)?(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?3:0);
+        $requestedCount=preg_match('/(?:из\s+)?(?:две|двух|2|two)\s+(?:из\s+)?(?:(?:отдельн|самостоятельн)\w*\s+)*(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?2:(preg_match('/(?:из\s+)?(?:три|трёх|трех|3|three)\s+(?:из\s+)?(?:(?:отдельн|самостоятельн)\w*\s+)*(?:карточ(?:к\w*|ек)|cards?)/iu',$prompt)===1?3:0);
         if($requestedCount===0&&preg_match('/(?:карточ\w*|\bcards?\b)/iu',$prompt)===1){
             preg_match_all('/[«“]([^»”]{20,260})[»”]\s*[—–-]\s*([\p{L}][\p{L}-]{1,40}(?:\s+[\p{L}][\p{L}-]{1,40}){0,2})/u',$prompt,$explicitQuotes,PREG_SET_ORDER);
             if(in_array(count($explicitQuotes),[2,3],true))$requestedCount=count($explicitQuotes);
@@ -551,6 +551,9 @@ final class AiZeroComposer {
         }
         $plainQuotes=array_map(static fn(string $quote):string=>trim($quote,'«»“” '),$quotedTexts);
         $items=array_values(array_filter($items,static function($item,$index)use($quotedTexts,$plainQuotes,$authors,$keep):bool{if(!is_array($item))return true;$name=(string)($item['name']??'');if(($item['type']??null)==='rectangle'&&preg_match('/^(?:Основа карточки \d+|AI testimonial card \d{2})$/u',$name)===1)return false;if(($item['type']??null)==='vector'&&(preg_match('/^card\d+Surface$/i',$name)===1||(preg_match('/^card\d+Icon$/i',$name)===1&&($item['icon']??null)==='photo')))return false;if(($item['type']??null)!=='text'||isset($keep[$index]))return true;if(preg_match('/^card\d+(?:Body|Quote|Title)(?:Mobile)?$/i',$name)===1)return false;$content=trim((string)($item['content']??''));if(in_array($content,$authors,true)||in_array(trim($content,'«»“” '),$plainQuotes,true))return false;foreach($quotedTexts as $quote)if(str_starts_with($content,$quote))return false;return true;},ARRAY_FILTER_USE_BOTH));
+        if(preg_match('/(?:иконк|icons?)/iu',$prompt)!==1)$items=array_values(array_filter($items,static fn($item)=>!is_array($item)||($item['type']??null)!=='vector'||(preg_match('/^card\d+Icon(?:Mobile)?$/i',(string)($item['name']??''))!==1&&preg_match('/^(?:mobile)?badge(?:icon)?$/i',(string)($item['name']??''))!==1)));
+        $preferredActions=[];foreach($items as $index=>$item)if(is_array($item)&&in_array($item['type']??null,['button','link'],true)){$key=mb_strtolower(trim(preg_replace('/\s+/u',' ',(string)($item['content']??''))??''),'UTF-8');if($key==='')continue;$score=(preg_match('/mobile|мобил/iu',(string)($item['name']??''))===1?0:100000)+(float)($item['width']??0);if(!isset($preferredActions[$key])||$score>$preferredActions[$key]['score'])$preferredActions[$key]=['index'=>$index,'score'=>$score];}
+        if($preferredActions)$items=array_values(array_filter($items,static function($item,$index)use($preferredActions):bool{if(!is_array($item)||!in_array($item['type']??null,['button','link'],true))return true;$key=mb_strtolower(trim(preg_replace('/\s+/u',' ',(string)($item['content']??''))??''),'UTF-8');return $key===''||($preferredActions[$key]['index']??$index)===$index;},ARRAY_FILTER_USE_BOTH));
         if(count($items)+$requestedCount>20)return $originalItems;
         return array_merge($surfaces,$items);
     }
