@@ -472,6 +472,15 @@ test("Autoscale control is scoped to an artboard and new boards default to fixed
   });
   assert.match(customMarkup, /АРТБОРД · Custom breakpoint/);
 });
+test("both editors publish only a saved project revision", () => {
+  const zero = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8"),
+    main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  assert.match(zero, /data-action="publish"[^>]*>\$\{tablerIcon\("arrow-up"\)\}<span>Опубликовать<\/span>/);
+  assert.match(zero, /if \(key === "publish"\)[\s\S]*?if \(dirty\) await save\(\)[\s\S]*?if \(dirty \|\| saving \|\| conflict\)[\s\S]*?\/publish`/);
+  assert.match(main, /id="publish-editor"[^>]*>Опубликовать<\/button>/);
+  assert.match(main, /#publish-editor'\)\.onclick=async\(\)=>[\s\S]*?if\(dirty\)await saveDocument\(false\)[\s\S]*?if\(dirty\|\|saving\|\|conflicted\)[\s\S]*?\/publish`/);
+});
+
 test("Zero preferences menu and grid dialog are available after Close", () => {
   const app = readFileSync(new URL("../src/zero/editor/app.js", import.meta.url), "utf8"),
     schema = JSON.parse(readFileSync(new URL("../schemas/project.schema.json", import.meta.url), "utf8"));
