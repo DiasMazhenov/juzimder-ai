@@ -294,6 +294,14 @@ result=await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{v
 result=await owner.call(`/projects/${project.id}/pages/${duplicateId}`,'POST',{version:5,action:'delete'});assert.equal(result.status,200);listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages[0].isHome,true,'deleting home chooses the first remaining page');
 assert.equal((await other.call(`/projects/${project.id}/pages`)).status,404,'page metadata follows project ownership');
 const restored=await owner.call(`/projects/${project.id}/revisions/restore`,'POST',{currentVersion:6,targetVersion:4});assert.equal(restored.status,200);assert.equal(restored.data.version,7);assert.equal(restored.data.settings.pages.home.isHome,true,'page routes restore with the matching document revision');
+let version=restored.data.version;
+result=await owner.call(`/projects/${project.id}/pages`,'POST',{version,action:'create',name:'Массовая копия 1'});assert.equal(result.status,200);version=result.data.version;
+result=await owner.call(`/projects/${project.id}/pages`,'POST',{version,action:'create',name:'Массовая копия 2'});assert.equal(result.status,200);version=result.data.version;
+const selectedIds=result.data.document.data.pages.slice(-2).map(page=>page.id),createdIds=[];
+for(const selectedId of selectedIds){const before=new Set(result.data.document.data.pages.map(page=>page.id));result=await owner.call(`/projects/${project.id}/pages/${selectedId}`,'POST',{version,action:'duplicate'});assert.equal(result.status,200);version=result.data.version;createdIds.push(result.data.document.data.pages.find(page=>!before.has(page.id)).id);}
+listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages.length,7);
+for(const pageId of createdIds){result=await owner.call(`/projects/${project.id}/pages/${pageId}`,'POST',{version,action:'delete'});assert.equal(result.status,200);version=result.data.version;}
+listing=await owner.call(`/projects/${project.id}/pages`);assert.equal(listing.data.pages.length,5);assert.equal(listing.data.pages.filter(page=>page.isHome).length,1);
 });
 
 test('Project design tokens use validated settings, revisions and server-owned route metadata',async()=>{
