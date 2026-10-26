@@ -2,22 +2,12 @@
 declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__ . '/ZeroBlockRenderer.php';
+require_once __DIR__ . '/ComponentStylePolicy.php';
 
 final class StaticSiteExporter {
     private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','figure','figcaption','time'];
     private const VOID_TAGS = ['img','br','hr','input'];
     private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','readonly','for','min','max','step','minlength','maxlength','pattern','autocomplete','inputmode','accept','size','datetime','open','hidden'];
-    private const STYLE_PROPERTIES = [
-        'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
-        'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
-        'background-image','background-size','background-position','background-repeat','position','top','right','bottom','left','justify-self','overflow','z-index','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
-        'font-style','text-transform','list-style-type','box-shadow','row-gap','column-gap','overflow-x','overflow-y','background-position-x','background-position-y','background-attachment','background-origin','background-clip','text-decoration-line','text-decoration-thickness','text-decoration-style','text-decoration-color','line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity','cursor','filter',
-        '--juzimder-color-ink','--juzimder-color-forest','--juzimder-color-canvas','--juzimder-color-paper','--juzimder-color-body','--juzimder-color-muted','--juzimder-color-line','--juzimder-color-accent',
-        '--juzimder-font-family','--juzimder-font-heading','--juzimder-font-body','--juzimder-font-weight-body','--juzimder-font-weight-heading',
-        '--juzimder-font-size-base','--juzimder-font-size-h1','--juzimder-font-size-h2','--juzimder-font-size-h3','--juzimder-font-size-h4','--juzimder-font-size-h5','--juzimder-font-size-h6',
-        '--juzimder-line-height-body','--juzimder-line-height-heading','--juzimder-letter-spacing','--juzimder-radius'
-    ];
-    private const EXPANDED_STYLE_PROPERTIES = ['border-top-left-radius','border-top-right-radius','border-bottom-right-radius','border-bottom-left-radius','border-top-width','border-right-width','border-bottom-width','border-left-width','border-top-style','border-right-style','border-bottom-style','border-left-style','border-top-color','border-right-color','border-bottom-color','border-left-color','border-image-source','border-image-slice','border-image-width','border-image-outset','border-image-repeat'];
     private const RICH_TEXT_TAGS = ['p','span','br','strong','em','b','i','u','s'];
 
     /** @return array<string,string> Paths and file contents for a deployable static ZIP. */
@@ -416,7 +406,7 @@ final class StaticSiteExporter {
         $declarations = [];
         foreach ($style as $property => $value) {
             if ($property === 'background-image') { if ($value !== '' && BackgroundImage::valid($value)) $declarations[] = $property . ':' . $value; continue; }
-            if (!is_string($property) || (!in_array($property, self::STYLE_PROPERTIES, true) && !in_array($property, self::EXPANDED_STYLE_PROPERTIES, true)) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512) continue;
+            if (!is_string($property) || !ComponentStylePolicy::allows($property) || !is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512) continue;
             if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F;{}<>\\"\']|\/\*|\*\//', $value) || preg_match('/(?:url|expression)\s*\(|@import|javascript\s*:/i', $value)) continue;
             $declarations[] = $property . ':' . $value;
         }

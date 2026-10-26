@@ -1,8 +1,9 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../backend/Domain.php';
+require __DIR__ . '/../backend/Operations.php';
 require __DIR__ . '/../backend/StaticSiteExporter.php';
-use Juzimder\{Document, Problem, ProjectSettings, StaticSiteExporter};
+use Juzimder\{Document, Problem, ProjectOperations, ProjectSettings, StaticSiteExporter};
 
 function exportCheck(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
@@ -50,12 +51,26 @@ $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['ta
 $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'form','type'=>'form','attributes'=>(object)['id'=>'native-form'],'components'=>[(object)['tagName'=>'input','type'=>'input','attributes'=>(object)['id'=>'email-field','name'=>'email','type'=>'email','placeholder'=>'name@example.test','required'=>true,'readonly'=>true,'accept'=>'image/*','inputmode'=>'email']]]];
 Document::validate($formDocument);
 $formHtml = StaticSiteExporter::files(['name'=>'Form export','version'=>1,'document'=>$formDocument,'settings'=>ProjectSettings::initial($formDocument)])['index.html'];
+$typedStyleDocument = json_decode(json_encode(Document::empty(), JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
+$typedStyleDocument = ProjectOperations::apply($typedStyleDocument, [[
+    'operation'=>'create_component',
+    'parentId'=>'page:home',
+    'component'=>[
+        'type'=>'default','tagName'=>'div','name'=>'Typed style contract',
+        'style'=>[
+            'position'=>'absolute','top'=>'12px','z-index'=>'2','font-style'=>'italic',
+            'border-top-left-radius'=>'12px','--juzimder-color-accent'=>'#86c232','filter'=>'blur(1px)',
+        ],
+    ],
+]]);
+$typedStyleHtml = StaticSiteExporter::files(['name'=>'Typed style contract','version'=>1,'document'=>$typedStyleDocument,'settings'=>ProjectSettings::initial($typedStyleDocument)])['index.html'];
 exportCheck(str_contains($files['index.html'], 'property="og:title" content="Social &lt;Title&gt;"') && str_contains($files['index.html'], 'name="twitter:description" content="Social &amp; description"') && str_contains($files['index.html'], 'name="twitter:card" content="summary_large_image"'), 'Separate social metadata is escaped and exported as Open Graph and Twitter Card');
 exportCheck(str_contains($files['o-nas/index.html'], 'property="og:title" content="About page"') && str_contains($files['o-nas/index.html'], 'name="twitter:card" content="summary"'), 'Older page social metadata falls back to SEO without an image');
 exportCheck(isset($files['index.html'], $files['o-nas/index.html'], $files['404.html'], $files['assets/site.css'], $files['README.txt']), 'Static export contains home, routed pages, a not-found page, shared CSS and instructions');
 exportCheck(str_contains($formHtml,'name="email"') && str_contains($formHtml,'placeholder="name@example.test"') && str_contains($formHtml,' required') && str_contains($formHtml,' readonly') && str_contains($formHtml,'accept="image/*"') && str_contains($formHtml,'inputmode="email"'), 'Static export preserves validated native form field and boolean attributes');
 exportCheck(str_contains($formHtml,'id="disclosure"') && str_contains($formHtml,'aria-controls="disclosure-panel"') && str_contains($formHtml,'aria-expanded="true"') && str_contains($formHtml,'aria-pressed="mixed"') && str_contains($formHtml,' open') && str_contains($formHtml,' hidden') && str_contains($formHtml,'datetime="2026-10-27T12:00:00Z"'), 'Static export preserves safe disclosure, hidden visibility, time and validated ARIA state attributes');
 exportCheck(str_contains($formHtml,'src="https://example.test/decorative.png" alt=""'), 'Static export preserves an intentional empty alt attribute for decorative images');
+exportCheck(str_contains($typedStyleHtml,'position:absolute')&&str_contains($typedStyleHtml,'top:12px')&&str_contains($typedStyleHtml,'z-index:2')&&str_contains($typedStyleHtml,'font-style:italic')&&str_contains($typedStyleHtml,'border-top-left-radius:12px')&&str_contains($typedStyleHtml,'--juzimder-color-accent:#86c232')&&str_contains($typedStyleHtml,'filter:blur(1px)'), 'Typed-created styles pass through the same allowlist and survive static HTML export');
 exportCheck(str_contains($formHtml,'data-campaign="spring &amp; summer"') && substr_count($formHtml,'data-jz-form-id=') === 1, 'Static export escapes data-* metadata and preserves a single renderer-owned form identifier');
 exportCheck(str_contains($formHtml,'aria-pressed="mixed" hidden style="display:inline-flex;display:none!important"'), 'Hidden components remain hidden even when their own inline display style is set');
 exportCheck(str_contains($files['404.html'], '<title>Lost &lt;page&gt;</title>') && str_contains($files['404.html'], '<h1>Lost &lt;page&gt;</h1>') && str_contains($files['404.html'], 'This page &amp; that page') && str_contains($files['404.html'], 'href="/">Back home</a>') && str_contains($files['404.html'], 'href="/assets/site.css"') && str_contains($files['assets/site.css'], '.jz-not-found{'), 'Custom 404 text is escaped and uses safe project CSS with a root-relative home link');

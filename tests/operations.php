@@ -134,6 +134,10 @@ operationCheck(($unstableText->data->pages[0]->frames[0]->component->components[
 
 $styleUpdated = ProjectOperations::apply($fixture, [operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['background-color'=>'#122334','border-radius'=>'12px']])]);
 operationCheck($styleUpdated->data->pages[0]->frames[0]->component->components[0]->style->{'background-color'} === '#122334', 'Style updates preserve the existing component tree');
+$rendererStyleFields = ['position','top','z-index','font-style','text-transform','box-shadow','filter','border-top-left-radius','border-image-repeat','--juzimder-color-accent'];
+operationCheck(count(array_intersect($rendererStyleFields, ProjectOperations::styleFields())) === count($rendererStyleFields), 'Typed style allowlist includes static renderer CSS and expanded border properties');
+$rendererStyleUpdated = ProjectOperations::apply($styleUpdated, [operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['position'=>'absolute','top'=>'12px','z-index'=>'2','font-style'=>'italic','border-top-left-radius'=>'12px','--juzimder-color-accent'=>'#86c232']])]);
+operationCheck(operationNode($rendererStyleUpdated,'ieg3')->style->position === 'absolute' && operationNode($rendererStyleUpdated,'ieg3')->style->{'--juzimder-color-accent'} === '#86c232', 'Typed updates retain styles supported by static HTML export');
 $stylePartiallyCleared = ProjectOperations::apply($styleUpdated, [operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['border-radius'=>null]])]);
 operationCheck(!isset(operationNode($stylePartiallyCleared,'ieg3')->style->{'border-radius'}) && operationNode($stylePartiallyCleared,'ieg3')->style->{'background-color'} === '#122334', 'Typed style updates remove one property with null and preserve other styles');
 $styleOnly = ProjectOperations::apply(operationObject(Document::empty()), [operationObject(['operation'=>'create_component','parentId'=>'page:home','component'=>['tagName'=>'div','style'=>['color'=>'#123456']]])]);
@@ -198,7 +202,7 @@ operationCheck(operationNode($deleted, 'ij4p') === null, 'Delete requires explic
 
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'delete_component','componentId'=>'ij4p'])]),422,'Delete without explicit confirmation is rejected');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_content','componentId'=>'ieg3','content'=>'wrong target'])]),422,'Text updates reject non-text containers');
-operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['background-image'=>'https://example.test/a.png']])]),422,'Style updates reject properties outside the allowlist');
+operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['transform'=>'translateX(2px)']])]),422,'Style updates reject properties outside the static-renderer allowlist');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['background-color'=>'url(https://example.test)']])]),422,'Project security validation rejects unsafe CSS values');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['color'=>'red; position:fixed']])]),422,'Style values cannot inject additional CSS declarations');
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'move_component','componentId'=>'ieg3','parentId'=>'ij4p'])]),422,'Moves reject cycles into descendants');
@@ -209,6 +213,6 @@ operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['oper
 operationRejects(fn()=>ProjectOperations::apply($fixture,[operationObject(['operation'=>'update_content','componentId'=>'missing','content'=>'text'])]),404,'Unknown component IDs are rejected');
 operationRejects(fn()=>ProjectOperations::apply($fixture,array_fill(0,21,operationObject(['operation'=>'update_content','componentId'=>'ij4p','content'=>'text']))),422,'Operation batch length is bounded');
 
-$failedBatch = [operationObject(['operation'=>'update_content','componentId'=>'ij4p','content'=>'must not persist']),operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['position'=>'fixed']])];
+$failedBatch = [operationObject(['operation'=>'update_content','componentId'=>'ij4p','content'=>'must not persist']),operationObject(['operation'=>'update_styles','componentId'=>'ieg3','styles'=>['transform'=>'translateX(2px)']])];
 operationRejects(fn()=>ProjectOperations::apply($fixture,$failedBatch),422,'Invalid operation aborts its entire batch');
 operationCheck(operationNode($fixture,'ij4p')->content === operationNode($original,'ij4p')->content, 'Rejected operation batches leave the source document unchanged');

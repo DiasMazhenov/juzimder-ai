@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.251 (npm SemVer 0.1.251). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.252 (npm SemVer 0.1.252). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.252: Typed `create_component` и `update_styles` используют общий `ComponentStylePolicy` с static HTML renderer, поэтому разрешают ровно те CSS-свойства, которые exporter умеет выводить (включая позиционирование, расширенные границы, фильтры и project tokens). Отдельные unit/export regressions проверяют поддержку и сквозной HTML результат; неизвестное `transform` по-прежнему отклоняется. Универсализация операций и schema при добавлении новых типов остаётся открытой.
 
 00.00.251: Typed create/update HTML attributes теперь проверяет ID, class, rel, target и ARIA ограничения в тех же форматах и длинах, которые принимает static renderer; JSON Schema описывает ранее пропущенные common attributes. Static renderer также сохраняет намеренно пустые атрибуты, включая `alt=""` для декоративных изображений. Unit, schema и export regressions проверяют создание/обновление и значения, которые export раньше молча отбрасывал. Общая универсализация typed operations и responsive browser matrix остаются открытыми.
 

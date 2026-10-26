@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Juzimder;
+require_once __DIR__ . '/ComponentStylePolicy.php';
 
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
@@ -37,14 +38,7 @@ final class ProjectOperations {
         'default'=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
         ''=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
     ];
-    private const STYLE_FIELDS = [
-        'display','flex-direction','justify-content','align-items','flex-wrap','align-self','grid-template-columns','gap','flex','scroll-snap-type','scroll-snap-align','scrollbar-width',
-        'width','height','min-width','max-width','min-height','max-height','padding','padding-top','padding-right','padding-bottom','padding-left',
-        'background-image','background-size','background-position','background-repeat','margin','margin-top','margin-right','margin-bottom','margin-left','color','background-color','font-family','font-size','font-weight',
-        'line-height','letter-spacing','text-align','text-decoration','border','border-top','border-bottom','border-radius','object-fit','aspect-ratio','opacity'
-    ];
-
-    public static function styleFields(): array { return self::STYLE_FIELDS; }
+    public static function styleFields(): array { return ComponentStylePolicy::properties(); }
     public static function nodeIdentifier(\stdClass $node): ?string { return self::nodeId($node); }
 
     public static function componentSubtree(mixed $document, string $pageId, string $componentId): \stdClass {
@@ -395,7 +389,7 @@ final class ProjectOperations {
     private static function validateStyles(mixed $styles): void {
         if (!$styles instanceof \stdClass || get_object_vars($styles) === []) throw new Problem(422, 'Укажите CSS-свойства объектом.');
         foreach (get_object_vars($styles) as $property => $value) {
-            if (!in_array($property, self::STYLE_FIELDS, true)) throw new Problem(422, 'CSS-свойство не входит в разрешённый список.');
+            if (!ComponentStylePolicy::allows($property)) throw new Problem(422, 'CSS-свойство не входит в разрешённый список.');
             if ($value === null) continue;
             if (!is_string($value) || $value === '' || mb_strlen($value, 'UTF-8') > 512 || preg_match('/[\x00-\x1F\x7F;{}<>\\\\]/', $value)) throw new Problem(422, 'CSS-значение содержит недопустимые символы или превышает 512 символов.');
         }
