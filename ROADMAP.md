@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.212: Добавлен ограниченный проектный CSS для static export и ZIP с серверной allowlist-валидацией, сохранением через CAS/revisions и preview сохранённой страницы в sandboxed iframe. Полная вставка HEAD/HTML/JS, `@`-правила и внешние CSS-ресурсы не входят в этот безопасный CSS subset.
+
 - [x] 00.00.211: В настройках цветов, типографики и SEO заменены устаревшие сообщения, будто предпросмотр, ZIP-экспорт и публикация не работают; добавлена проверка этих подписей.
 
 - [x] Codex Browser визуально проверил существующую вкладку «Настройки сайта → Формы» после .211 сверху донизу: email-шаблоны, автоответ и SMTP-компоненты отображаются корректно; пустая SMTP-конфигурация оставляет отправку тестового письма отключённой. Настройки не менялись. Внешняя отправка через реальный SMTP остаётся не проверенной до настройки почтового сервера.
@@ -308,7 +310,7 @@
 - [x] Inject SEO metadata into the public renderer: title, description, robots и social metadata используются статическим renderer/export в Phase 7.
 - [ ] Analytics ids; before third-party visitor tracking, owner must select the provider and confirm the data-sharing behavior. Analytics section is not marked complete until the public renderer and settings are both implemented.
 - [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. SMTP notification/autoreply delivery is implemented in 00.00.209; CRM integrations remain unimplemented.
-- [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
+- [ ] Custom HEAD/HTML/JS capabilities and broader CSS support; any executable content must remain isolated from the admin origin and requires a separate security design. Safe bounded project CSS subset is implemented in 00.00.212.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
 - [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.
 
@@ -335,7 +337,7 @@
 - [ ] Продолжить отдельную live-проверку восстановления ревизии и публикации.
 - [ ] Security review, backups/restore, a11y, multi-device acceptance, release license.
 
-**Текущее состояние:** версия продукта 00.00.211 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
+**Текущее состояние:** версия продукта 00.00.212 (см. package.json). Эта строка отражает текущий релиз, а не завершённость Phase 4; остальные пункты выше имеют собственные отметки.
 
 
 ## Проверка разбора Skills · 00.00.037

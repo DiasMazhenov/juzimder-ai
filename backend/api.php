@@ -452,7 +452,7 @@ try {
         result($store->save($projectId, $user, $body['version'], $updatedDocument));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/settings$~D', $path, $settingsMatch) && $method === 'PUT') {
-        if (array_diff(array_keys($body), ['version','designTokens','seo','page','forms']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body) && !array_key_exists('page', $body) && !array_key_exists('forms', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
+        if (array_diff(array_keys($body), ['version','designTokens','seo','page','forms','customCss']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (!array_key_exists('designTokens', $body) && !array_key_exists('seo', $body) && !array_key_exists('page', $body) && !array_key_exists('forms', $body) && !array_key_exists('customCss', $body))) throw new Problem(422,'Укажите текущую версию и параметры настроек проекта.');
         $projectId = $settingsMatch[1];
         $project = $store->owned($projectId, $user);
         $settings = $project['settings'];
@@ -483,6 +483,7 @@ try {
             $settings['pages'][$pageId]['seo'] = Juzimder\ProjectSettings::validateSeoMetadata($seoInput, $settings['pages'][$pageId]['seo']);
         }
         if (array_key_exists('forms', $body)) $settings['forms'] = Juzimder\ProjectSettings::validateFormsSettings($body['forms'], $settings['forms'] ?? Juzimder\ProjectSettings::formDefaults());
+        if (array_key_exists('customCss', $body)) $settings['customCss'] = Juzimder\ProjectSettings::validateCustomCss($body['customCss']);
         result($store->save($projectId, $user, $body['version'], $document, $settings));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/form-mail$~D', $path, $formMailMatch)) {

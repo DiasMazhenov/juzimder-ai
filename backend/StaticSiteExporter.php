@@ -43,6 +43,7 @@ final class StaticSiteExporter {
         $document = ProjectSettings::applyDesignTokensToDocument($document, $settings['designTokens']);
         Document::validate($document);
         $css = self::stylesheet($document->data->styles ?? []);
+        $css .= "\n" . ($settings['customCss'] ?? '');
         $pages = $document->data->pages;
         $home = null;
         foreach ($pages as $page) if (($settings['pages'][(string)$page->id]['isHome'] ?? false) === true) { $home = (string)$page->id; break; }

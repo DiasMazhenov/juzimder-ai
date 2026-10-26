@@ -64,6 +64,7 @@ final class ProjectSettings {
         'autoresponderSubject' => 'Мы получили вашу заявку',
         'autoresponderBody' => "Здравствуйте!\n\nМы получили вашу заявку и свяжемся с вами.\n\n{{site}}",
     ];
+    private const CUSTOM_CSS_PROPERTIES = ['color','background-color','display','flex-direction','justify-content','align-items','gap','width','max-width','min-height','margin','padding','border','border-radius','font-size','font-weight','line-height','text-align','text-decoration','opacity'];
 
     public static function initial(mixed $document): array {
         $pages = self::documentPages($document);
@@ -76,12 +77,12 @@ final class ProjectSettings {
             $used[$slug] = true;
             $routes[$id] = ['slug' => $slug, 'isHome' => $index === 0, 'seo' => self::SEO_DEFAULTS];
         }
-        return ['schemaVersion' => 6, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS];
+        return ['schemaVersion' => 7, 'pages' => $routes, 'designTokens' => self::designTokensFromDocument($document), 'forms' => self::FORM_DEFAULTS, 'customCss' => ''];
     }
 
     public static function reconcile(mixed $settings, mixed $document): array {
         $pages = self::documentPages($document);
-        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6], true) || !is_array($settings['pages'] ?? null)) {
+        if (!is_array($settings) || !in_array($settings['schemaVersion'] ?? null, [1, 2, 3, 4, 5, 6, 7], true) || !is_array($settings['pages'] ?? null)) {
             $settings = self::initial($document);
         }
         $routes = [];
@@ -100,12 +101,64 @@ final class ProjectSettings {
             $routes[$id] = ['slug' => $slug, 'isHome' => $isHome, 'seo' => $seo];
         }
         if ($homeId === null && $routes) $routes[(string)$pages[0]->id]['isHome'] = true;
-        $settings['schemaVersion'] = 6;
+        $settings['schemaVersion'] = 7;
         $settings['pages'] = $routes;
         $settings['designTokens'] = self::storedDesignTokens($settings['designTokens'] ?? self::designTokensFromDocument($document));
         try { $settings['forms'] = self::validateFormsSettings($settings['forms'] ?? [], self::FORM_DEFAULTS); }
         catch (Problem) { $settings['forms'] = self::FORM_DEFAULTS; }
+        try { $settings['customCss'] = self::validateCustomCss($settings['customCss'] ?? ''); }
+        catch (Problem) { $settings['customCss'] = ''; }
         return $settings;
+    }
+
+    public static function validateCustomCss(mixed $value): string {
+        if (!is_string($value) || strlen($value) > 12000 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value)) throw new Problem(422, 'CSS: максимум 12 000 символов и без управляющих символов.');
+        $css = trim($value);
+        if ($css === '') return '';
+        if (preg_match('~/\*|\*/|[<>@\\\\]|url\s*\(|expression\s*\(|javascript:|behavior\s*:|position\s*:~i', $css)) throw new Problem(422, 'CSS содержит запрещённую конструкцию.');
+        preg_match_all('/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER);
+        if (!$rules || count($rules) > 100 || trim(preg_replace('/([^{}]+)\{([^{}]*)\}/', '', $css) ?? $css) !== '') throw new Problem(422, 'CSS должен содержать до 100 простых правил вида .class { property: value; }.');
+        $tags = ['main','header','nav','section','article','aside','footer','div','h1','h2','h3','h4','p','span','a','button','ul','ol','li','img'];
+        $valuePatterns = [
+            'color' => '/^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|transparent|currentcolor|black|white|inherit)$/i',
+            'background-color' => '/^(?:#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})|transparent|black|white|inherit)$/i',
+            'display' => '/^(?:block|inline|inline-block|flex|grid|none)$/i',
+            'flex-direction' => '/^(?:row|row-reverse|column|column-reverse)$/i',
+            'justify-content' => '/^(?:normal|start|end|center|space-between|space-around|space-evenly|flex-start|flex-end)$/i',
+            'align-items' => '/^(?:normal|start|end|center|stretch|baseline|flex-start|flex-end)$/i',
+            'font-weight' => '/^(?:normal|bold|[1-9]00)$/i',
+            'text-align' => '/^(?:start|end|left|right|center|justify)$/i',
+            'text-decoration' => '/^(?:none|underline|overline|line-through)$/i',
+            'border' => '/^(?:0|(?:[0-9]{1,3}px)\s+(?:solid|dashed|dotted)\s+(?:#(?:[0-9a-f]{3}|[0-9a-f]{6})|transparent))$/i',
+        ];
+        $length = '(?:0|(?:-?[0-9]{1,4}(?:\.[0-9]{1,2})?(?:px|rem|em|%|vw|vh)))';
+        $lengthList = '/^'.$length.'(?:\s+'.$length.'){0,3}$/i';
+        foreach ($rules as $rule) {
+            $selectors = array_map('trim', explode(',', trim($rule[1])));
+            if (count($selectors) > 8) throw new Problem(422, 'CSS: слишком много селекторов в правиле.');
+            foreach ($selectors as $selector) {
+                $parts = preg_split('/\s+/', $selector, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if (!$parts || count($parts) > 5) throw new Problem(422, 'CSS: используйте простые селекторы классов и HTML-элементов.');
+                foreach ($parts as $part) {
+                    if (str_starts_with($part, '.')) { if (!preg_match('/^\.[A-Za-z_][A-Za-z0-9_-]{0,63}$/D', $part)) throw new Problem(422, 'CSS: некорректный селектор класса.'); }
+                    elseif (!in_array(strtolower($part), $tags, true)) throw new Problem(422, 'CSS: разрешены только классы и базовые HTML-селекторы.');
+                }
+            }
+            $declarations = array_filter(array_map('trim', explode(';', $rule[2])), static fn($item)=>$item !== '');
+            if (count($declarations) > 20) throw new Problem(422, 'CSS: не более 20 свойств в одном правиле.');
+            foreach ($declarations as $declaration) {
+                if (!preg_match('/^([a-z-]+)\s*:\s*(.*?)$/is', $declaration, $match)) throw new Problem(422, 'CSS: проверьте запись свойства и значения.');
+                $property = strtolower($match[1]); $item = trim($match[2]);
+                if (!in_array($property, self::CUSTOM_CSS_PROPERTIES, true) || $item === '') throw new Problem(422, 'CSS: свойство не входит в безопасный список.');
+                $valid = isset($valuePatterns[$property]) ? preg_match($valuePatterns[$property], $item) === 1 : preg_match($lengthList, $item) === 1;
+                if (in_array($property, ['gap','padding','border-radius'], true)) $valid = preg_match($lengthList, $item) === 1;
+                if ($property === 'margin') $valid = preg_match('/^(?:auto|'.$length.')(?:\\s+(?:auto|'.$length.')){0,3}$/i', $item) === 1;
+                if (in_array($property, ['width','max-width','min-height','font-size'], true)) $valid = preg_match('/^'.$length.'$/i', $item) === 1;
+                if ($property === 'opacity') $valid = preg_match('/^(?:0|1|0?\.[0-9]{1,2})$/D', $item) === 1;
+                if (!$valid || preg_match('/[()"\']/', $item)) throw new Problem(422, 'CSS: значение свойства недопустимо.');
+            }
+        }
+        return implode("\n", array_map(static fn($rule)=>trim($rule[1]).'{'.trim($rule[2]).'}', $rules));
     }
 
     public static function formDefaults(): array { return self::FORM_DEFAULTS; }

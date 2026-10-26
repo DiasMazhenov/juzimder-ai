@@ -51,3 +51,14 @@ test('project settings describe publication and SEO metadata as connected', () =
   assert.match(source, /SEO-метаданные сохраняются для каждой страницы вместе с ревизиями проекта и используются в предпросмотре, ZIP-экспорте и опубликованном сайте/);
   assert.doesNotMatch(source, /Публичная публикация и static export ещё не подключены|значения пока не влияют на внешний сайт|публикацией, которой ещё нет/);
 });
+
+test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(source, /name="customCss" id="custom-css-input"/);
+  assert.match(source, /customCss:cssInput\.value/);
+  assert.match(source, /id="custom-css-preview-frame" sandbox=""/);
+  assert.match(source, /Сначала сохраните изменения CSS/);
+  assert.match(source, /previewFrame\.srcdoc/);
+  assert.match(styles, /#custom-css-input/);
+});
