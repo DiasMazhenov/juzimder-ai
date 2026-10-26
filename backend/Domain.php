@@ -247,6 +247,16 @@ final class Store {
                 throw $error;
             }
         }
+        if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 11) {
+            $this->db->exec('BEGIN IMMEDIATE');
+            try {
+                if ((int)$this->db->query('PRAGMA user_version')->fetchColumn() === 11) $this->db->exec(file_get_contents(__DIR__.'/migrations/012_form_submissions.sql'));
+                $this->db->commit();
+            } catch (\Throwable $error) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $error;
+            }
+        }
     }
     private function migrateProjectSettings(): void {
         $this->db->beginTransaction();
@@ -287,7 +297,7 @@ final class Store {
         $validatedFiles = [];
         foreach ($files as $path => $contents) {
             $isMedia = is_string($path) && preg_match('~^media/([a-f0-9]{24})/([a-f0-9]{24})\.(jpg|png|gif|webp)$~D', $path, $mediaMatch);
-            if (!is_string($path) || (!preg_match('~^(?:index\.html|assets/site\.css|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) && !$isMedia) || !is_string($contents)) {
+            if (!is_string($path) || (!preg_match('~^(?:index\.html|assets/site\.css|forms\.json|README\.txt|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D', $path) && !$isMedia) || !is_string($contents)) {
                 throw new Problem(422, 'Статический снимок содержит недопустимый файл.');
             }
             if ($isMedia) {
@@ -295,7 +305,17 @@ final class Store {
                 $mime = ['jpg'=>'image/jpeg','png'=>'image/png','gif'=>'image/gif','webp'=>'image/webp'][$mediaMatch[3]];
                 if (strlen($contents) > 4194304) throw new Problem(413, 'Изображение в публикации превышает 4 МБ.');
                 $validatedFiles[$path] = ['encoding'=>'base64','mime'=>$mime,'content'=>base64_encode($contents)];
-            } else $validatedFiles[$path] = $contents;
+            } else {
+                if ($path === 'forms.json') {
+                    try { $formManifest = json_decode($contents, true, 16, JSON_THROW_ON_ERROR); } catch (\Throwable) { throw new Problem(422, 'Некорректный манифест форм.'); }
+                    if (!is_array($formManifest) || ($formManifest['version'] ?? null) !== 1 || !is_array($formManifest['forms'] ?? null) || count($formManifest['forms']) > 100) throw new Problem(422, 'Некорректный манифест форм.');
+                    foreach ($formManifest['forms'] as $formId=>$form) {
+                        if (!is_string($formId) || !preg_match('/^[a-f0-9]{24}$/D',$formId) || !is_array($form) || !is_string($form['pagePath'] ?? null) || !preg_match('~^(?:index\.html|[a-z0-9]+(?:-[a-z0-9]+)*/index\.html)$~D',$form['pagePath']) || !is_array($form['fields'] ?? null) || count($form['fields']) < 1 || count($form['fields']) > 20) throw new Problem(422, 'Некорректная форма в снимке публикации.');
+                        $names=[]; foreach ($form['fields'] as $field) if (!is_array($field) || !is_string($field['name'] ?? null) || !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/D',$field['name']) || isset($names[$field['name']]) || !in_array($field['type'] ?? null,['text','email','tel','number','textarea','select'],true) || !is_bool($field['required'] ?? null)) throw new Problem(422, 'Некорректное поле формы.'); else $names[$field['name']]=true;
+                    }
+                }
+                $validatedFiles[$path] = $contents;
+            }
         }
         if (!isset($validatedFiles['index.html'], $validatedFiles['assets/site.css'])) throw new Problem(422, 'Статический снимок неполон.');
         $filesJson = json_encode($validatedFiles, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -345,6 +365,56 @@ final class Store {
         }
         if (!is_string($files[$path])) return null;
         return ['content'=>$files[$path],'mime'=>$path === 'assets/site.css' ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8','version'=>(int)$row['version']];
+    }
+    public function acceptFormSubmission(string $projectId, string $formId, array $values, string $sourceIp): array {
+        if (!preg_match('/^[a-f0-9]{24}$/D', $projectId) || !preg_match('/^[a-f0-9]{24}$/D', $formId)) throw new Problem(422, 'Форма не найдена.');
+        $publication = $this->query('SELECT v.files_json FROM project_publications p JOIN publication_versions v ON v.project_id=p.project_id AND v.id=p.publication_id WHERE p.project_id=?', [$projectId])->fetchColumn();
+        if (!is_string($publication)) throw new Problem(404, 'Форма больше не опубликована.');
+        try { $files = json_decode($publication, true, 32, JSON_THROW_ON_ERROR); $manifest = json_decode((string)($files['forms.json'] ?? ''), true, 16, JSON_THROW_ON_ERROR); }
+        catch (\Throwable) { throw new Problem(404, 'Форма больше не опубликована.'); }
+        $schema = $manifest['forms'][$formId] ?? null;
+        if (!is_array($schema) || !is_array($schema['fields'] ?? null) || !is_string($schema['pagePath'] ?? null)) throw new Problem(404, 'Форма больше не опубликована.');
+        if (array_diff(array_keys($values), array_merge(array_column($schema['fields'], 'name'), ['website']))) throw new Problem(422, 'Форма содержит неизвестные поля.');
+        if (isset($values['website']) && (!is_string($values['website']) || $values['website'] !== '')) return ['accepted'=>true];
+        unset($values['website']);
+        $clean = [];
+        foreach ($schema['fields'] as $field) {
+            $name = $field['name'] ?? null;
+            if (!is_string($name) || !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,63}$/D', $name)) throw new Problem(422, 'Определение формы повреждено.');
+            $value = $values[$name] ?? '';
+            if (!is_string($value) || strlen($value) > 4000 || !mb_check_encoding($value, 'UTF-8') || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value)) throw new Problem(422, 'Проверьте значения полей формы.');
+            $value = trim($value);
+            if (($field['required'] ?? false) && $value === '') throw new Problem(422, 'Заполните обязательные поля.');
+            if ($value !== '' && ($field['type'] ?? '') === 'email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) throw new Problem(422, 'Укажите корректный email.');
+            $clean[$name] = $value;
+        }
+        $ipHash = hash('sha256', $projectId . ':' . $sourceIp);
+        $now = time();
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $limit = $this->query('SELECT window_started_at,requests FROM project_form_rate_limits WHERE project_id=? AND source_ip_hash=?', [$projectId,$ipHash])->fetch();
+            if ($limit && (int)$limit['window_started_at'] > $now - 60 && (int)$limit['requests'] >= 5) throw new Problem(429, 'Слишком много отправок. Повторите через минуту.');
+            if ($limit && (int)$limit['window_started_at'] > $now - 60) $this->query('UPDATE project_form_rate_limits SET requests=requests+1 WHERE project_id=? AND source_ip_hash=?', [$projectId,$ipHash]);
+            else $this->query('INSERT INTO project_form_rate_limits(project_id,source_ip_hash,window_started_at,requests) VALUES(?,?,?,1) ON CONFLICT(project_id,source_ip_hash) DO UPDATE SET window_started_at=excluded.window_started_at,requests=1', [$projectId,$ipHash,$now]);
+            $id = bin2hex(random_bytes(12));
+            $this->query('INSERT INTO project_form_submissions(id,project_id,form_id,page_path,fields_json,source_ip_hash) VALUES(?,?,?,?,?,?)', [$id,$projectId,$formId,$schema['pagePath'],json_encode($clean, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),$ipHash]);
+            $this->query('DELETE FROM project_form_submissions WHERE project_id=? AND id NOT IN (SELECT id FROM project_form_submissions WHERE project_id=? ORDER BY created_at DESC,id DESC LIMIT 1000)', [$projectId,$projectId]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+        return ['accepted'=>true];
+    }
+    public function listFormSubmissions(string $projectId, string $user): array {
+        $this->owned($projectId,$user);
+        $rows = $this->query('SELECT id,form_id,page_path,fields_json,created_at FROM project_form_submissions WHERE project_id=? ORDER BY created_at DESC,id DESC LIMIT 100', [$projectId])->fetchAll();
+        return array_map(static function(array $row): array { $fields = json_decode($row['fields_json'], true, 16, JSON_THROW_ON_ERROR); return ['id'=>$row['id'],'formId'=>$row['form_id'],'pagePath'=>$row['page_path'],'fields'=>$fields,'createdAt'=>$row['created_at']]; }, $rows);
+    }
+    public function deleteFormSubmission(string $projectId, string $user, string $submissionId): void {
+        $this->owned($projectId,$user);
+        if (!preg_match('/^[a-f0-9]{24}$/D',$submissionId)) throw new Problem(422,'Некорректная заявка.');
+        $this->query('DELETE FROM project_form_submissions WHERE project_id=? AND id=?', [$projectId,$submissionId]);
     }
     public function listAssets(string $id, string $user): array {
         $this->owned($id, $user);

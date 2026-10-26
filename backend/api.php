@@ -93,6 +93,14 @@ try {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
     }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/form-submissions$~D', $path, $formInboxMatch) && $method === 'GET') {
+        result(['submissions'=>$store->listFormSubmissions($formInboxMatch[1],$user)]);
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})/form-submissions/([a-f0-9]{24})/delete$~D', $path, $formDeleteMatch) && $method === 'POST') {
+        if ($body) throw new Problem(422,'Удаление заявки не принимает дополнительные поля.');
+        $store->deleteFormSubmission($formDeleteMatch[1],$user,$formDeleteMatch[2]);
+        result(['ok'=>true]);
+    }
     if ($sandboxRequest && preg_match('~^/api/projects/([a-f0-9]{24})/custom-code/sandbox$~D', $path, $sandboxMatch)) {
         $store->owned($sandboxMatch[1], $user);
         $kind = $body['kind'] ?? '';

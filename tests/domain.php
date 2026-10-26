@@ -8,7 +8,7 @@ function sameJson(mixed $left,mixed $right): bool { return json_encode($left,JSO
 $path=sys_get_temp_dir().'/juzimder-test-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
 $s=new Store($path);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['a','a@example.test','hash']);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['b','b@example.test','hash']);
-check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===11,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['version']===0,'Create empty project');
+check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===12,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['version']===0,'Create empty project');
 $empty=Document::empty()['data']['pages'][0]['frames'][0]['component'];check($empty['style']['display']==='flex'&&$empty['style']['flex-direction']==='column','New project Body defaults to vertical Flex');
 rejects(fn()=>$s->owned($id,'b'),404);rejects(fn()=>$s->save($id,'b',0,Document::empty()),404);
 Document::validate(json_decode(file_get_contents(__DIR__.'/grapesjs-0.23.8.fixture.json'),false,64,JSON_THROW_ON_ERROR));
@@ -49,8 +49,18 @@ $savedForPublication=$s->save($id,'a',$version,$document);
 check($s->publicFile($id,'index.html')['content']==='published snapshot one','Project edits cannot mutate the active publication');
 $secondPublication=$s->publish($id,'a',$savedForPublication['version'],['index.html'=>'published snapshot two','assets/site.css'=>'']);
 check($secondPublication['version']===2&&$s->publicFile($id,'index.html')['content']==='published snapshot two','Republishing activates a new version without rewriting history');
+$formId=str_repeat('a',24);$formManifest=json_encode(['version'=>1,'forms'=>[$formId=>['pagePath'=>'index.html','fields'=>[['name'=>'email','type'=>'email','required'=>true],['name'=>'message','type'=>'textarea','required'=>false]]]]],JSON_THROW_ON_ERROR);
+$formsPublication=$s->publish($id,'a',$savedForPublication['version'],['index.html'=>'published form','assets/site.css'=>'','forms.json'=>$formManifest]);
+check($formsPublication['version']===3,'Publish validates and stores the form manifest');
+check($s->acceptFormSubmission($id,$formId,['email'=>'visitor@example.test','message'=>'Hello'],'192.0.2.1')['accepted']===true,'Published form accepts a valid submission');
+check(count($s->listFormSubmissions($id,'a'))===1&&$s->listFormSubmissions($id,'a')[0]['fields']['email']==='visitor@example.test','Project owner can read private form submissions');
+rejects(fn()=>$s->acceptFormSubmission($id,$formId,['email'=>'invalid'],'192.0.2.2'),422,'Reject invalid email');
+rejects(fn()=>$s->acceptFormSubmission($id,$formId,['email'=>'ok@example.test','admin'=>'yes'],'192.0.2.2'),422,'Reject fields outside published form schema');
+for($i=0;$i<5;$i++)$s->acceptFormSubmission($id,$formId,['email'=>'visitor@example.test'],'192.0.2.3');
+rejects(fn()=>$s->acceptFormSubmission($id,$formId,['email'=>'visitor@example.test'],'192.0.2.3'),429,'Rate limit public form submissions');
+$submissionId=$s->listFormSubmissions($id,'a')[0]['id'];$s->deleteFormSubmission($id,'a',$submissionId);check(count($s->listFormSubmissions($id,'a'))===5,'Project owner can delete a submission');
 rejects(fn()=>$s->unpublish($id,'a',$version),409);
 $s->unpublish($id,'a',$savedForPublication['version']);
 check($s->publicFile($id,'index.html')===null,'Unpublishing removes the public pointer');
-check((int)$s->query('SELECT COUNT(*) FROM publication_versions WHERE project_id=?',[$id])->fetchColumn()===2,'Unpublishing preserves immutable publication history');
+check((int)$s->query('SELECT COUNT(*) FROM publication_versions WHERE project_id=?',[$id])->fetchColumn()===3,'Unpublishing preserves immutable publication history');
 } finally {unset($s);@unlink($path);}

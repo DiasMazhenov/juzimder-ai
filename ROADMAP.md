@@ -1,5 +1,7 @@
 # План Juzimder AI
 
+- [x] 00.00.199: В основном редакторе формы получают безопасную отправку только с опубликованного домена проекта. Публикация формирует версионированный allowlist manifest; API проверяет Origin, тип/размер JSON, опубликованную схему, обязательные поля и email, honeypot и лимит 5 отправок в минуту на проект/IP. Заявки хранятся в отдельной приватной таблице, максимум 1000 на проект; владелец читает последние 100 и может удалить заявку через авторизованный API. Дашборд добавляет «Заявки». End-to-end API проверил published POST, CSP, Origin, validation, rate limit, owner inbox и CSRF deletion. Полный `npm test`, production build и PHP lint PASS; Browser visual acceptance NOT RUN, поскольку оставлена без навигации открытая вкладка Zero Editor. Standalone ZIP не имеет inbox backend; ограничение указано в README.
+
 - [x] 00.00.198: AI Zero Hero, сформированный по стоматологическому брифу, ошибочно менял бейдж на «Отзывы» из-за запрета выдуманных отзывов, принимал нерелевантный медицинский/исторический снимок, дублировал Unknown author и мог добавлять одну фотографию дважды. Добавлены отрицательно-контекстное распознавание testimonial intent, фильтр неизвестных авторов и тематики/эпохи Commons, а одиночный photo-led Hero теперь оставляет крупнейшее фото, чтобы Mobile layout стекал после текста и CTA. Regression PASS для всех случаев. Live preview Desktop/Mobile визуально подтверждён: бейдж «Стоматология», одно релевантное фото с автором/лицензией, mobile stack. Preview отменён; Project Data revision 353. Скриншоты: `/tmp/juzimder-zero-ai-photo-hero-198-final-desktop.png`, `/tmp/juzimder-zero-ai-photo-hero-198-final-mobile.png`.
 
 - [x] 00.00.197: Live screenshot альтернативной формулировки трёх отзывов выявил service-card fallback, перекрытие авторов и нерелевантные фото-иконки на карточках. Testimonial briefs проходят отдельную нормализацию; число карточек определяется также по явным цитатам, quote-author геометрия пересчитывается, stale overrides сбрасываются, placeholder-векторы поверхности и `photo`-иконки отбрасываются. PHP regression покрывает desktop/mobile и эти артефакты. Повторная live screenshot-приёмка прошла: три ровные desktop-карточки, мобильный стек, CTA после отзывов, без нерелевантных значков. Скриншоты: `/tmp/juzimder-zero-ai-three-testimonials-197-desktop.png`, `/tmp/juzimder-zero-ai-three-testimonials-197-mobile.png`. Candidate отменён, Project Data revision 353.
@@ -285,7 +287,7 @@
 - [x] Per-page SEO title, description, robots directive and HTTPS social image metadata; validated and stored in project settings/revisions.
 - [x] Inject SEO metadata into the public renderer: title, description, robots и social metadata используются статическим renderer/export в Phase 7.
 - [ ] Analytics ids; accept only when a public renderer can consume them.
-- [ ] Forms: validated submission endpoints, rate limiting, safe integrations and spam protections.
+- [x] Forms: validated same-origin submission endpoint, rate limiting, honeypot, private owner inbox and deletion. Email/CRM integrations remain unimplemented.
 - [ ] Custom HEAD/CSS with strict bounds and isolated preview; never run in admin origin.
 - [ ] Domain setup after public routing/DNS/SSL verification exists.
 - [ ] Global Header/Footer/404 components with per-page inclusion and real 404 responses in publication.

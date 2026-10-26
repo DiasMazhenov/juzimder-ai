@@ -169,3 +169,17 @@ $zeroFormProject=$project;$zeroFormProject['document']=json_decode(json_encode($
 $nativeDoc['data']['pages'][0]['frames'][0]['component']['classes']=['page-theme'];
 $rootFiles=StaticSiteExporter::files(['name'=>'Root CSS','document'=>json_decode(json_encode($nativeDoc))]);
 exportCheck(str_contains($rootFiles['index.html'],'<body class="page-theme"'),'Native wrapper classes also reach the exported body');
+
+$submittedFormProject=$project;
+$submittedFormProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);
+$submittedForm=(object)['type'=>'form','tagName'=>'form','attributes'=>(object)['id'=>'contact-form'],'components'=>[
+    (object)['type'=>'input','tagName'=>'input','attributes'=>(object)['type'=>'email','name'=>'email','required'=>true]],
+    (object)['type'=>'button','tagName'=>'button','attributes'=>(object)['type'=>'submit'],'components'=>[(object)['type'=>'textnode','content'=>'Send']]],
+]];
+$submittedFormProject['document']->data->pages[0]->frames[0]->component->components[]=$submittedForm;
+$submittedFormFiles=StaticSiteExporter::files($submittedFormProject);
+$submittedFormHtml=$submittedFormFiles['index.html'];
+$submittedFormPolicy=StaticSiteExporter::pageSecurityPolicy($submittedFormHtml);
+exportCheck(isset($submittedFormFiles['forms.json'])&&str_contains($submittedFormHtml,'data-jz-form-id=')&&str_contains($submittedFormHtml,'data-jz-form-status')&&str_contains($submittedFormHtml,"fetch('/api/public/forms"),'Main editor form exports with published inbox runtime and a bounded manifest');
+exportCheck(str_contains($submittedFormPolicy,"script-src 'nonce-")&&str_contains($submittedFormPolicy,"connect-src 'self'")&&str_contains($submittedFormPolicy,"form-action 'self'"),'Published form CSP allows only its nonce script and same-origin submission endpoint');
+exportCheck(!str_contains(StaticSiteExporter::pageSecurityPolicy($rootFiles['index.html']),"connect-src 'self'"),'Pages without forms keep external connection permission closed');

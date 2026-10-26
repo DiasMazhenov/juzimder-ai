@@ -10,10 +10,33 @@ if ($publicProjectId !== null) {
     header("Content-Security-Policy: default-src 'none'; script-src 'none'; connect-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
     header('Cache-Control: no-store');
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $path = is_string($path) ? $path : '';
+    if ($path === '/api/public/forms' && $method === 'POST') {
+        header('Content-Type: application/json; charset=utf-8');
+        $expectedOrigin = rtrim(Juzimder\PublicOrigin::url($publicProjectId), '/');
+        if (!is_string($_SERVER['HTTP_ORIGIN'] ?? null) || !hash_equals($expectedOrigin, rtrim($_SERVER['HTTP_ORIGIN'], '/'))) { http_response_code(403); echo json_encode(['error'=>'Отправка разрешена только с опубликованного сайта.']); return true; }
+        if (!str_starts_with(strtolower((string)($_SERVER['CONTENT_TYPE'] ?? '')), 'application/json')) { http_response_code(415); echo json_encode(['error'=>'Ожидается JSON.']); return true; }
+        if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 24000) { http_response_code(413); echo json_encode(['error'=>'Заявка слишком большая.']); return true; }
+        $raw = file_get_contents('php://input', false, null, 0, 24001);
+        try {
+            if (!is_string($raw) || strlen($raw) > 24000) throw new Juzimder\Problem(413, 'Заявка слишком большая.');
+            $payload = json_decode($raw, true, 16, JSON_THROW_ON_ERROR);
+            if (!is_array($payload) || array_diff(array_keys($payload), ['formId','values']) || !is_string($payload['formId'] ?? null) || !is_array($payload['values'] ?? null) || count($payload['values']) > 21) throw new Juzimder\Problem(422, 'Некорректная заявка.');
+            require_once __DIR__ . '/../backend/Domain.php';
+            $databasePath = getenv('JUZIMDER_DB') ?: __DIR__ . '/../var/app.sqlite';
+            $store = new Juzimder\Store($databasePath);
+            $result = $store->acceptFormSubmission($publicProjectId, $payload['formId'], $payload['values'], (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+            echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        } catch (Juzimder\Problem $problem) {
+            http_response_code($problem->status); echo json_encode(['error'=>$problem->getMessage()], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable) {
+            http_response_code(422); echo json_encode(['error'=>'Не удалось проверить заявку.'], JSON_UNESCAPED_UNICODE);
+        }
+        return true;
+    }
     if (!in_array($method, ['GET','HEAD'], true)) {
         http_response_code(405); header('Allow: GET, HEAD'); echo 'Method not allowed'; return true;
     }
-    $path = is_string($path) ? $path : '';
     if ($path === '/') $filePath = 'index.html';
     elseif ($path === '/assets/site.css') $filePath = 'assets/site.css';
     elseif (preg_match('~^/media/([a-f0-9]{24})/([a-f0-9]{24}\.(?:jpg|png|gif|webp))$~D', $path, $mediaMatch) && hash_equals($publicProjectId, $mediaMatch[1])) $filePath = 'media/' . $mediaMatch[1] . '/' . $mediaMatch[2];

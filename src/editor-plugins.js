@@ -28,7 +28,7 @@ export function editorPlugins(editor) {
   editor.Components.addType('form',{model:{defaults:{traits:[]}}});
   const labels={form:'Форма',input:'Текстовое поле',textarea:'Многострочное поле',select:'Список выбора',checkbox:'Флажок',radio:'Переключатель',label:'Подпись поля'};
   for(const [id,label] of Object.entries(labels))editor.Blocks.get(id)?.set('label',label);
-  editor.Blocks.get('form')?.set('content',{type:'form',style:{display:'flex','flex-direction':'column',gap:'16px',padding:'24px'},components:[{type:'text',tagName:'p',content:'Макет формы. Отправка заявок ещё не подключена.'},{type:'label',components:'Имя'},{type:'input',attributes:{name:'name',placeholder:'Ваше имя','aria-label':'Имя'}},{type:'label',components:'Email'},{type:'input',attributes:{name:'email',type:'email',required:true,'aria-label':'Email'}},{type:'label',components:'Сообщение'},{type:'textarea',attributes:{name:'message',rows:'4','aria-label':'Сообщение'}},{type:'button',attributes:{type:'button'},components:'Отправка не подключена'}]});
+  editor.Blocks.get('form')?.set('content',{type:'form',tagName:'form',style:{display:'flex','flex-direction':'column',gap:'16px',padding:'24px'},components:[{type:'label',attributes:{for:'contact-name'},components:'Имя'},{type:'input',attributes:{id:'contact-name',name:'name',placeholder:'Ваше имя','aria-label':'Имя',required:true}},{type:'label',attributes:{for:'contact-email'},components:'Email'},{type:'input',attributes:{id:'contact-email',name:'email',type:'email',required:true,'aria-label':'Email'}},{type:'label',attributes:{for:'contact-message'},components:'Сообщение'},{type:'textarea',attributes:{id:'contact-message',name:'message',rows:'4','aria-label':'Сообщение'}},{type:'button',attributes:{type:'submit'},components:'Отправить'}]});
   invoke(gradient,editor,{});invoke(filter,editor,{});invoke(touch,editor,{});
 }
 export function exposePluginBlocks(editor,container) {
@@ -37,7 +37,7 @@ export function exposePluginBlocks(editor,container) {
     const button=document.createElement('button');button.type='button';button.className='block-card';const formBlock=['form','input','textarea','select','checkbox','radio','label'].includes(id);button.dataset.category=formBlock?'Формы':'Компоновка';button.dataset.pluginBlock=id;
     const media=document.createElement('div');media.className='block-media';media.setAttribute('aria-hidden','true');media.innerHTML=blockMedia(id);button.append(media);
     const title=document.createElement('strong');title.textContent=String(block.getLabel()).replace(/<[^>]*>/g,'');button.append(title);
-    const description=document.createElement('small');description.textContent=formBlock?'Поля формы · отправка не подключена':'Редактируемая компоновка GrapesJS';button.append(description);
+    const description=document.createElement('small');description.textContent=formBlock?'Поля формы · заявки в панели проекта':'Редактируемая компоновка GrapesJS';button.append(description);
     button.title=title.textContent+' — '+description.textContent;
     button.onclick=()=>{const components=editor.addComponents(block.getContent());editor.select(components[0]);};container.append(button);
   }

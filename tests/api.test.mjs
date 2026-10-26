@@ -29,6 +29,15 @@ async function publicCall(projectId,path='/',method='GET',serverUrl=base){
     request.on('error',reject);request.end();
   });
 }
+async function publicFormCall(projectId,body,origin=`http://${projectId}.juzimder-ai.localhost:18081`){
+  const endpoint=new URL(base),payload=JSON.stringify(body);
+  return new Promise((resolve,reject)=>{
+    const request=httpRequest({hostname:endpoint.hostname,port:endpoint.port,path:'/api/public/forms',method:'POST',headers:{Host:`${projectId}.juzimder-ai.localhost:18081`,Origin:origin,'Content-Type':'application/json','Content-Length':Buffer.byteLength(payload)}},response=>{
+      const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>resolve({status:response.statusCode,headers:response.headers,body:Buffer.concat(chunks).toString('utf8')}));
+    });
+    request.on('error',reject);request.end(payload);
+  });
+}
 async function publicBinaryCall(projectId,path,method='GET'){
   const endpoint=new URL(base);
   return new Promise((resolve,reject)=>{
@@ -352,6 +361,7 @@ assert.equal((await owner.call(`/projects/${project.id}/publish`,'POST',{version
 assert.equal((await owner.call(`/projects/${project.id}/publish`,'POST',{version:1})).status,409,'Publishing rejects a stale source revision');
 let page=await owner.call(`/projects/${project.id}/pages`,'POST',{version:0,action:'create',name:'О нас'});assert.equal(page.status,200);
 page.data.document.data.pages[0].frames[0].component.components=[{type:'text',tagName:'h1',content:'Published revision one'}];
+page.data.document.data.pages[0].frames[0].component.components.push({type:'form',tagName:'form',components:[{type:'input',tagName:'input',attributes:{type:'email',name:'email',required:true}},{type:'input',tagName:'input',attributes:{type:'text',name:'message'}}]});
 page.data.document.data.pages[1].frames[0].component.components=[{type:'text',tagName:'h1',content:'About revision one'}];
 let saved=await owner.call(`/projects/${project.id}`,'PUT',{version:1,document:page.data.document,settings:{designTokens:page.data.settings.designTokens}});assert.equal(saved.status,200);assert.equal(saved.data.version,2);
 const revisionsBeforePreview=(await owner.call(`/projects/${project.id}/revisions`)).data;
@@ -359,7 +369,16 @@ let preview=await owner.call(previewPath);assert.equal(preview.status,200);asser
 assert.equal((await owner.call(`/projects/${project.id}`)).data.version,2,'Previewing does not create a project revision');assert.deepEqual((await owner.call(`/projects/${project.id}/revisions`)).data,revisionsBeforePreview,'Previewing does not change revision history');assert.equal((await owner.call(publicationPath)).data.publication,null,'Previewing does not publish the candidate');
 let result=await owner.call(`/projects/${project.id}/publish`,'POST',{version:2});assert.equal(result.status,200);assert.equal(result.data.publication.version,1);assert.equal(result.data.publication.sourceProjectVersion,2);
 assert.equal(result.data.publicUrl,`http://${project.id}.juzimder-ai.localhost:18081/`,'The returned public URL uses the configured separate host');
-let publicResponse=await publicCall(project.id);assert.equal(publicResponse.status,200);assert.match(publicResponse.body,/Published revision one/);assert.match(publicResponse.headers['content-security-policy'],/script-src 'none'/);assert.equal(publicResponse.headers['x-frame-options'],'DENY');assert.equal(publicResponse.headers['set-cookie'],undefined,'Public requests do not create an admin session');
+let publicResponse=await publicCall(project.id);assert.equal(publicResponse.status,200);assert.match(publicResponse.body,/Published revision one/);assert.match(publicResponse.headers['content-security-policy'],/script-src 'nonce-[a-f0-9]{32}'/);assert.match(publicResponse.headers['content-security-policy'],/connect-src 'self'/);assert.equal(publicResponse.headers['x-frame-options'],'DENY');assert.equal(publicResponse.headers['set-cookie'],undefined,'Public requests do not create an admin session');
+const formId=publicResponse.body.match(/data-jz-form-id="([a-f0-9]{24})"/)?.[1];assert.ok(formId,'Published form receives a stable server manifest id');
+assert.equal(JSON.parse((await publicFormCall(project.id,{formId,values:{email:'ok@example.test',message:'hello'}})).body).accepted,true,'Same-origin published form is accepted');
+assert.equal((await publicFormCall(project.id,{formId,values:{email:'bad'}})).status,422,'Published endpoint validates email values against its manifest');
+assert.equal((await publicFormCall(project.id,{formId,values:{email:'ok@example.test',unexpected:'x'}})).status,422,'Published endpoint rejects fields absent from the published manifest');
+assert.equal((await publicFormCall(project.id,{formId,values:{email:'ok@example.test'}},'https://attacker.example')).status,403,'Published endpoint rejects cross-origin submissions');
+for(let attempt=0;attempt<4;attempt++)assert.equal((await publicFormCall(project.id,{formId,values:{email:'ok@example.test'}})).status,200,'Rate limit permits five requests in the rolling window');
+assert.equal((await publicFormCall(project.id,{formId,values:{email:'ok@example.test'}})).status,429,'Published form applies the per-IP rate limit');
+let inbox=await owner.call(`/projects/${project.id}/form-submissions`);assert.equal(inbox.status,200);assert.equal(inbox.data.submissions.length,5);assert.equal((await other.call(`/projects/${project.id}/form-submissions`)).status,404,'Form inbox enforces project ownership');
+const submittedId=inbox.data.submissions[0].id;assert.equal((await owner.call(`/projects/${project.id}/form-submissions/${submittedId}/delete`,'POST',{},'invalid')).status,403,'Deleting an inbox item requires CSRF');assert.equal((await owner.call(`/projects/${project.id}/form-submissions/${submittedId}/delete`,'POST',{})).status,200);assert.equal((await owner.call(`/projects/${project.id}/form-submissions`)).data.submissions.length,4);
 let about=await publicCall(project.id,'/o-nas/');assert.equal(about.status,200);assert.match(about.body,/About revision one/);
 let stylesheet=await publicCall(project.id,'/assets/site.css');assert.equal(stylesheet.status,200);assert.match(stylesheet.headers['content-type'],/text\/css/);
 let redirect=await publicCall(project.id,'/o-nas');assert.equal(redirect.status,308);assert.equal(redirect.headers.location,`${result.data.publicUrl}o-nas/`);
