@@ -34,6 +34,8 @@ test('Form settings configure delivery while the private submission inbox stays 
   assert.match(source, /installFormInbox\(id, api\)/);
   assert.match(source, /\/projects\/\$\{id\}\/form-mail`/);
   assert.match(source, /id="smtp-settings-form"/);
+  assert.match(source, /id="forms-settings-form"[^>]*aria-labelledby="forms-settings-title"/);
+  assert.match(source, /id="smtp-settings-form"[^>]*aria-labelledby="smtp-settings-title"/);
   assert.match(source, /name="subject"/);
   assert.match(source, /name="autoresponderEnabled"/);
   assert.match(source, /id="smtp-test"/);

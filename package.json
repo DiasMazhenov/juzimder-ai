@@ -1,6 +1,6 @@
 {
   "name": "juzimder-ai",
-  "version": "0.1.228",
+  "version": "0.1.229",
   "private": true,
   "type": "module",
   "scripts": {
@@ -35,5 +35,5 @@
     "ajv": "^8.20.0",
     "vite": "^8.3.4"
   },
-  "productVersion": "00.00.228"
+  "productVersion": "00.00.229"
 }
