@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test';
+import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
@@ -50,6 +50,7 @@ async function publicBinaryCall(projectId,path,method='GET'){
 async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/session');return;}catch{await new Promise(r=>setTimeout(r,100));}}throw Error(`API startup failed at ${url}`);}
 before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath,JUZIMDER_PUBLIC_HOST_SUFFIX:'juzimder-ai.localhost:18081',JUZIMDER_PUBLIC_SCHEME:'http'};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
+beforeEach(()=>{if(testDbPath)execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->exec('DELETE FROM auth_attempts');",testDbPath]);});
 test('Editor shell issues the CSP nonce shared with isolated child frames',async()=>{
   const response=await fetch(base+'/'),html=await response.text(),csp=response.headers.get('content-security-policy'),match=html.match(/<meta name=\"juzimder-csp-nonce\" content=\"([a-f0-9]{32})\">/);
   assert.ok(match,'the editor shell injects its request nonce into metadata');
@@ -405,6 +406,7 @@ assert.equal((await publicBinaryCall(project.id,`/media/${'a'.repeat(24)}/${uplo
 test('Publications use owner-checked immutable snapshots and a session-free public origin',async()=>{
 execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->exec('DELETE FROM auth_attempts');",testDbPath]);
 const owner=new Client(),other=new Client(),anonymous=new Client();
+const rateLimitClient=new Client();await rateLimitClient.call('/session');execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->prepare('INSERT INTO auth_attempts(ip,attempts,started_at) VALUES(?,?,?)')->execute(['127.0.0.1',14,time()]);",testDbPath]);assert.equal((await rateLimitClient.call('/login','POST',{email:'invalid',password:''})).status,422,'Malformed credentials still consume an auth attempt');assert.equal((await rateLimitClient.call('/register','POST',{email:'publisher@example.test',password:'a-long-publisher-password'})).status,429,'The IP attempt limit is enforced before credential validation');execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->exec('DELETE FROM auth_attempts');",testDbPath]);
 await owner.call('/session');await owner.call('/register','POST',{email:'publisher@example.test',password:'a-long-publisher-password'});
 await other.call('/session');await other.call('/register','POST',{email:'publication-outsider@example.test',password:'another-publication-password'});
 const project=(await owner.call('/projects','POST',{name:'Publication lifecycle'})).data,publicationPath=`/projects/${project.id}/publication`,previewPath=`/projects/${project.id}/preview/static`;

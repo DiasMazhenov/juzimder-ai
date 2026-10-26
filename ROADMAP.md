@@ -11,6 +11,8 @@
 
 - [x] 00.00.234: SMTP transport проверяет все A/AAAA ответы, запрещает loopback/private/reserved/special-purpose IP и подключается к уже проверенному адресу, сохраняя TLS hostname. По умолчанию разрешены только SMTP-порты 25/465/587/2525; self-hosted relay можно явно разрешить точными IP. Серверный список `JUZIMDER_SMTP_EGRESS_ALLOWED_PORTS`, если задан, заменяет стандартные разрешённые порты. Остался network firewall публичного deployment и общий production security review.
 
+- [x] 00.00.235: Лимит входа/регистрации на source IP проверяется и увеличивается атомарно под SQLite `BEGIN IMMEDIATE`; некорректные credential requests тоже учитываются. Проверены 15 попыток/15 минут и API 429. Несколько узлов с независимыми SQLite базами по-прежнему требуют общей rate-limit инфраструктуры.
+
 - [x] 00.00.227: Уменьшены избыточные вертикальные промежутки сайдбара настроек; меню получает больше места по высоте.
 
 - [x] 00.00.226: Название проекта в сайдбаре настроек расположено сразу под меткой «Проект», а не внизу рядом с версией.
@@ -239,7 +241,7 @@
 - [x] Добавить → изменить → сохранить → reload → восстановить.
 - [x] Полный JSON, immutable revisions, конфликт версий.
 - [x] Domain/API tests и Codex Browser screenshots.
-- [ ] Account recovery and broader production hardening; migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221.
+- [ ] Account recovery and broader production hardening; migration runner реализован в 00.00.222, session idle/absolute expiry — в 00.00.221, atomic auth attempt rate limiting — в 00.00.235. Account recovery and shared/distributed quotas remain open.
 - [x] History/restore UI, debounced autosave, safe conflict recovery, bounded revision retention.
 
 ## Phase 3 — Component System / Auto Layout

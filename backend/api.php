@@ -77,17 +77,14 @@ try {
         result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired]);
     }
     if (in_array($path,['/api/register','/api/login'],true) && $method === 'POST') {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $store->consumeAuthAttemptAllowance(is_string($ip) ? $ip : '');
         $identity = strtolower(trim(is_string($body['email'] ?? null) ? $body['email'] : ''));
         $devAdminLogin = $devAuth && $path === '/api/login' && $identity === 'admin';
         $email = $devAdminLogin ? 'admin@localhost.test' : $identity;
         $password = $body['password'] ?? '';
         $validPassword = is_string($password) && strlen($password)<=72 && ($devAdminLogin ? strlen($password)>=1 : strlen($password)>=12);
         if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || !$validPassword) throw new Problem(422,'Укажите email и пароль от 12 до 72 байт.');
-        $ip = $_SERVER['REMOTE_ADDR']; $now = time();
-        $store->query('DELETE FROM auth_attempts WHERE started_at < ?',[$now-900]);
-        $attempt = $store->query('SELECT attempts FROM auth_attempts WHERE ip=?',[$ip])->fetchColumn();
-        if ($attempt !== false && (int)$attempt >= 15) throw new Problem(429,'Слишком много попыток. Повторите через 15 минут.');
-        $store->query('INSERT INTO auth_attempts(ip,attempts,started_at) VALUES(?,1,?) ON CONFLICT(ip) DO UPDATE SET attempts=attempts+1',[$ip,$now]);
         $user = $store->query('SELECT * FROM users WHERE email=?',[$email])->fetch();
         if ($path === '/api/register') {
             if ($user) throw new Problem(422,'Не удалось зарегистрироваться с этим email.');

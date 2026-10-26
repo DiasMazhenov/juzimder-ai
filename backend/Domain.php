@@ -164,6 +164,21 @@ final class Store {
         $this->backfillProjectSlugs();
     }
     public function query(string $sql, array $args = []): \PDOStatement { $stmt = $this->db->prepare($sql); $stmt->execute($args); return $stmt; }
+    public function consumeAuthAttemptAllowance(string $ip, ?int $now = null): void {
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) throw new Problem(400, 'Не удалось определить адрес запроса.');
+        $now ??= time();
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $this->query('DELETE FROM auth_attempts WHERE started_at<=?', [$now - 900]);
+            $row = $this->query('SELECT attempts FROM auth_attempts WHERE ip=?', [$ip])->fetch();
+            if ($row && (int)$row['attempts'] >= 15) throw new Problem(429, 'Слишком много попыток. Повторите через 15 минут.');
+            $this->query('INSERT INTO auth_attempts(ip,attempts,started_at) VALUES(?,1,?) ON CONFLICT(ip) DO UPDATE SET attempts=auth_attempts.attempts+1', [$ip,$now]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
     private function projectSlugBase(string $name): string {
         $name = mb_strtolower(trim($name), 'UTF-8');
         $map = ['а'=>'a','ә'=>'a','б'=>'b','в'=>'v','г'=>'g','ғ'=>'gh','д'=>'d','е'=>'e','ё'=>'yo','ж'=>'zh','з'=>'z','и'=>'i','й'=>'i','к'=>'k','қ'=>'q','л'=>'l','м'=>'m','н'=>'n','ң'=>'ng','о'=>'o','ө'=>'o','п'=>'p','р'=>'r','с'=>'s','т'=>'t','у'=>'u','ұ'=>'u','ү'=>'u','ф'=>'f','х'=>'kh','һ'=>'h','ц'=>'ts','ч'=>'ch','ш'=>'sh','щ'=>'shch','ъ'=>'','ы'=>'y','і'=>'i','ь'=>'','э'=>'e','ю'=>'yu','я'=>'ya'];
