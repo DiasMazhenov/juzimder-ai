@@ -1,6 +1,7 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.256: Per-attribute string length bounds согласованы между typed operations, static renderer и Project Schema через общий `ComponentAttributePolicy`; schema regression сверяет ограничения атрибутов и `data-*`, operation/export regressions покрывают лишнюю длину.
 - [x] 00.00.255: Typed operations и static renderer используют общий `ComponentAttributePolicy`; JSON Schema проверяется на совпадение полного набора common attributes, boolean types и ARIA enums. Универсализация typed operations/schema остаётся открытой.
 - [x] 00.00.254: Typed renderer policy теперь должна явно покрывать каждый тип из Project Schema; непредусмотренное отсутствие tag mapping больше не маскируется выводом `<div>`. Schema regression сверяет полный список типов и безопасные default/special cases. Остальная универсализация typed operations/schema остаётся открытой.
 - [x] 00.00.253: `create_component` и static renderer используют общую `ComponentTypePolicy`; mismatched renderer-owned tags отклоняются до сохранения, а неуказанные native tags согласованы для HTML и form inbox. Unit, exporter и authenticated API regression прошли. Универсализация typed operations/schema остаётся частично открытой; браузерный clipboard QA и responsive matrix не закрыты.
@@ -300,6 +301,7 @@
 - [x] 00.00.249 `update_attributes` управляет видимостью через типизированный native `hidden`, синхронизированный с backend allowlist, JSON Schema и static exporter; полный набор unit/API тестов и build прошли.
 - [x] 00.00.250 `create_component` и `update_attributes` принимают lowercase `data-*` метаданные с длиной значения до 2048 символов; имена `data-jz-*` оставлены renderer-owned, static export экранирует значения. Универсализация typed operations остаётся открытой.
 - [x] 00.00.251 Типизированные операции создают и обновляют только ID, class, rel, target и ARIA значения, соответствующие правилам static renderer; JSON Schema документирует все его common HTML attributes и их ограничения. Static export сохраняет намеренно пустые атрибуты, например `alt=""`.
+- [x] 00.00.256 Typed атрибуты принимают длины, совпадающие с Project Schema и renderer policy; ограничены строки форм, aria, URI и динамические data-* атрибуты.
 - [x] 00.00.252 Typed CSS create/update используют общий `ComponentStylePolicy` с static exporter, без расхождения allowlist; `transform` остаётся неподдержанным и отклоняется. Regression проверяет typed update и итоговый static HTML.
 - [ ] Завершить универсализацию typed operations и расширение schema при добавлении новых типов.
 - [ ] Полная responsive browser матрица соседних блоков и приёмка на реальном мобильном устройстве.

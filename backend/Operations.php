@@ -13,8 +13,8 @@ final class ProjectOperations {
             if (!is_bool($value)) throw new Problem(422, 'Логический атрибут должен иметь значение true или false.');
             return;
         }
-        $maxLength = $name === 'datetime' ? 64 : (str_starts_with($name, 'aria-') ? 256 : 2048);
-        if (!is_string($value) || mb_strlen($value, 'UTF-8') > $maxLength || preg_match('/[\\x00-\\x1F\\x7F]/u', $value)) {
+        $maxLength = ComponentAttributePolicy::stringMaxLength($name);
+        if (!is_string($value) || ($maxLength !== null && mb_strlen($value, 'UTF-8') > $maxLength) || preg_match('/[\\x00-\\x1F\\x7F]/u', $value)) {
             throw new Problem(422, 'Значение атрибута должно быть допустимой строкой.');
         }
         if ($name === 'id' && !preg_match('/^[A-Za-z][A-Za-z0-9_:-]{0,127}$/D', $value)) throw new Problem(422, 'ID должен быть безопасным HTML-идентификатором длиной до 128 символов.');

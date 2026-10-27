@@ -49,6 +49,12 @@ foreach (ComponentAttributePolicy::booleanAttributes() as $attribute) {
 foreach (ComponentAttributePolicy::enumValues() as $attribute => $values) {
     schemaCheck(($componentProperties->attributes->properties->{$attribute}->enum ?? null) === $values, 'Enum attribute schema matches shared policy for ' . $attribute);
 }
+foreach (ComponentAttributePolicy::stringMaxLengths() as $attribute => $maxLength) {
+    $schemaMaxLength = $componentProperties->attributes->properties->{$attribute}->maxLength ?? null;
+    if (in_array($attribute, ['src','href'], true)) $schemaMaxLength = $componentProperties->attributes->allOf[0]->properties->{$attribute}->maxLength ?? null;
+    schemaCheck($schemaMaxLength === $maxLength, 'String attribute length matches shared policy for ' . $attribute);
+}
+schemaCheck(ComponentAttributePolicy::stringMaxLength('data-check') === $componentProperties->attributes->patternProperties->{'^data-(?!jz-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$'}->maxLength, 'Dynamic data-* attribute length matches shared policy');
 schemaCheck(isset($componentProperties->attributes->properties->id, $componentProperties->attributes->properties->class, $componentProperties->attributes->properties->alt, $componentProperties->attributes->properties->title, $componentProperties->attributes->properties->rel, $componentProperties->attributes->properties->target, $componentProperties->attributes->properties->role), 'Schema describes the renderer-safe common HTML attributes');
 schemaCheck($componentProperties->attributes->properties->id->pattern === '^[A-Za-z][A-Za-z0-9_:-]{0,127}$' && $componentProperties->attributes->properties->target->enum === ['_blank','_self'] && $componentProperties->attributes->properties->rel->maxLength === 2048, 'Schema constrains IDs, link targets and rel tokens to renderer behavior');
 schemaCheck($componentProperties->attributes->properties->{'aria-label'}->maxLength === 256 && $componentProperties->attributes->properties->{'aria-hidden'}->enum === ['true','false'] && $componentProperties->attributes->properties->{'aria-controls'}->maxLength === 256, 'Schema bounds and types ARIA values accepted by static export');

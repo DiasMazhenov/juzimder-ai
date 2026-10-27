@@ -294,7 +294,8 @@ final class StaticSiteExporter {
         if ($attributes instanceof \stdClass) foreach (get_object_vars($attributes) as $name => $value) {
             if(ComponentAttributePolicy::isBoolean($name)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
             $safeDataAttribute = ComponentAttributePolicy::isDataAttribute($name);
-            if ((!in_array($name, self::ATTRIBUTES, true) && !$safeDataAttribute) || !is_string($value) || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
+            $maxLength = ComponentAttributePolicy::stringMaxLength($name);
+            if ((!in_array($name, self::ATTRIBUTES, true) && !$safeDataAttribute) || !is_string($value) || ($maxLength !== null && mb_strlen($value, 'UTF-8') > $maxLength) || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
             if ($name === 'id' && !preg_match('/^[A-Za-z][A-Za-z0-9_:-]{0,127}$/D', $value)) continue;
             if ($name === 'class' && !preg_match('/^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/D', $value)) continue;
             if ($name === 'target' && !in_array($value, ['_blank','_self'], true)) continue;
@@ -305,7 +306,6 @@ final class StaticSiteExporter {
             }
             if (($name === 'href' || $name === 'src') && $name === 'src' && isset($assetPaths[$value])) $value = $assetPaths[$value];
             elseif (($name === 'href' || $name === 'src') && !($name === 'src' && IconCatalogue::permits($value)) && !preg_match('~^(?:https://[^\s<>"\x00-\x20]+|#[A-Za-z0-9_-]*|mailto:[A-Za-z0-9@._+-]+|tel:[+0-9 -]+)$~D', $value)) continue;
-            if (str_starts_with($name, 'aria-') && mb_strlen($value, 'UTF-8') > 256) continue;
             $output .= ' ' . $name . '="' . self::escape($value) . '"';
         }
         if ($targetBlank && !$hasRel) $output .= ' rel="noopener noreferrer"';

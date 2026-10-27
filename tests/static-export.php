@@ -49,8 +49,10 @@ $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['ta
 $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'time','type'=>'text','attributes'=>(object)['id'=>'event-time','datetime'=>'2026-10-27T12:00:00Z'],'content'=>'12:00'];
 $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'img','type'=>'image','attributes'=>(object)['src'=>'https://example.test/decorative.png','alt'=>'']];
 $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'form','type'=>'form','attributes'=>(object)['id'=>'native-form'],'components'=>[(object)['tagName'=>'input','type'=>'input','attributes'=>(object)['id'=>'email-field','name'=>'email','type'=>'email','placeholder'=>'name@example.test','required'=>true,'readonly'=>true,'accept'=>'image/*','inputmode'=>'email']]]];
+$formDocument->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'input','type'=>'input','attributes'=>(object)['placeholder'=>str_repeat('x',513)]];
 Document::validate($formDocument);
 $formHtml = StaticSiteExporter::files(['name'=>'Form export','version'=>1,'document'=>$formDocument,'settings'=>ProjectSettings::initial($formDocument)])['index.html'];
+exportCheck(!str_contains($formHtml, 'placeholder="' . str_repeat('x',513) . '"'), 'Static export omits attributes that exceed the shared contract bound');
 $typedFormDocument = ProjectOperations::apply(json_decode(json_encode(Document::empty(), JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR), [[
     'operation'=>'create_component','parentId'=>'page:home','component'=>['type'=>'form','components'=>[
         ['type'=>'input','attributes'=>['name'=>'email','type'=>'email','required'=>true]],
