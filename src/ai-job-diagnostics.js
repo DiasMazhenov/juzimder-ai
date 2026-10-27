@@ -26,6 +26,7 @@ const COPY_RULE_LABELS = Object.freeze({
 });
 
 export function markupRuleLabel(code) {
+  if (typeof code === 'string' && code.startsWith('fragment_target:')) return MARKUP_RULE_LABELS.fragment_target;
   return Object.hasOwn(MARKUP_RULE_LABELS, code)
     ? MARKUP_RULE_LABELS[code]
     : 'другое ограничение безопасной HTML-разметки';

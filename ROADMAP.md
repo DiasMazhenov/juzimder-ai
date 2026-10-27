@@ -1,6 +1,8 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [ ] 00.00.280: Repair отсутствующей внутренней ссылки адресно передаёт безопасный ID цели и нормализует диагностику истории. Live Standard generation прошла серверную проверку на revision 361. Desktop/mobile screenshot review нашёл отсутствующее фото во второй карточке каталога и лишнюю надпись «Каталог» над Hero; candidate не применён. Визуальная проверка генерации остаётся открытой.
+
 - [ ] 00.00.279: Усилен repair для WCAG контраста: corrective task получает проверенные selector/color/surface/ratio/size данные без видимого текста страницы; diagnosis UI показывает категорию контраста без CSS деталей. Fresh Standard generation прошла контрастный барьер, но всё ещё завершилась `fragment_target`; screenshot `/tmp/juzimder-ai-279-generation-fragment-failure.png`. Preview не создан, revision 361, live acceptance открыта.
 
 - [ ] 00.00.278: Запрещённый HTML-тег теперь безопасно передаётся в repair только как проверенное имя, без отвергнутого HTML; regression покрывает `<script>`. Live Standard generation прошла этот барьер, затем получила отказ контраста для `<a>.ai-card-link`: `#D9A441` на белом имеет 2.25:1 вместо нужных 4.5:1 при 15 px. Screenshot `/tmp/juzimder-ai-278-generation-contrast-failure.png`; preview отсутствует, ревизия 361. Продолжить исправление contrast repair.

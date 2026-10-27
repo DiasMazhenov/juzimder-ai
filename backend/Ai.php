@@ -768,7 +768,7 @@ final class AiGeneratedWebsite {
             $guidance=$userSkill!==null&&$category==='skill_requirements'?'The previous design failed the owner-selected juzimder-rules contract. Regenerate the full design and satisfy every declared requirement ID. Do not change the requirements. '.$failure->getMessage():self::VALIDATION_RETRY_GUIDANCE[$category];
             if($category==='contrast_quality'&&$failure->validationRule!==null)$guidance.=' Specific contrast failures found by the server: '.$failure->validationRule.'. Correct those selectors directly and recheck every other text color against its rendered surface.';
             elseif($category==='copy_quality'&&$failure->validationRule!==null)$guidance.=' Failed safe copy audit code: '.$failure->validationRule.'. '.self::copyRepairGuidance($failure->validationRule);
-            elseif($failure->validationRule!==null){$repairRule=str_starts_with($failure->validationRule,'tag_allowlist:')?'tag_allowlist':$failure->validationRule;$guidance.=' Failed validation rule: '.$repairRule.'. '.self::markupRepairGuidance($repairRule);}
+            elseif($failure->validationRule!==null){$repairRule=str_starts_with($failure->validationRule,'tag_allowlist:')?'tag_allowlist':(str_starts_with($failure->validationRule,'fragment_target:')?'fragment_target':$failure->validationRule);$guidance.=' Failed validation rule: '.$repairRule.'. '.self::markupRepairGuidance($repairRule);}
             $repairPrompt=$providerPrompt;
             if($failure->validationRule==='tag_allowlist'||str_starts_with($failure->validationRule??'','tag_allowlist:')){
                 $repairPrompt.="\n\nRequired HTML tag correction: ".self::markupRepairGuidance('tag_allowlist');
@@ -776,7 +776,10 @@ final class AiGeneratedWebsite {
             }
             if($category==='contrast_quality'&&($contrastGuidance=self::contrastRepairGuidance($failure->validationRule))!==null)$repairPrompt.="\n\nRequired WCAG text contrast correction: ".$contrastGuidance;
             if($failure->validationRule==='section_count_low')$repairPrompt.="\n\nRequired structural correction: ".self::markupRepairGuidance('section_count_low');
-            if($failure->validationRule==='fragment_target')$repairPrompt.="\n\nRequired link correction: ".self::markupRepairGuidance('fragment_target');
+            if($failure->validationRule==='fragment_target'||str_starts_with($failure->validationRule??'','fragment_target:')){
+                $repairPrompt.="\n\nRequired link correction: ".self::markupRepairGuidance('fragment_target');
+                if(preg_match('/^fragment_target:([A-Za-z][A-Za-z0-9_-]{0,63})$/D',(string)$failure->validationRule,$missingTarget))$repairPrompt.=" The specific missing target is #".$missingTarget[1].". Add exactly one matching id to its real destination section or retarget the link to an existing id; do not invent unrelated destinations.";
+            }
             if($requiresCardPhotos)$repairPrompt.="\n\nOwner-requested card-photo requirement for the repaired HTML: ".self::markupRepairGuidance('required_photo_slots');
             $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . $guidance, $repairPrompt, $schema, 'juzimder_generated_site', 9000);
             try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile, $prompt); self::auditCopyQuality($design['html'], $prompt); self::auditHeroCopyGrouping($design['html']); self::auditTextContrast($design['html'], $design['css']); $design['contactAudit']=AiContacts::audit($design,$prompt); $userChecks=$auditUserRules($design); }
@@ -1274,7 +1277,7 @@ final class AiGeneratedWebsite {
         $state = ['classes'=>[], 'ids'=>[], 'fragments'=>[], 'imageSlots'=>[], 'sections'=>0, 'heroes'=>0, 'icons'=>0, 'imageQueries'=>[], 'nodes'=>0, 'textLength'=>0];
         $markup = '';
         foreach ($root->childNodes as $child) $markup .= self::serializeNode($child, $scope, $state, 0, false);
-        foreach ($state['fragments'] as $fragment) if (!isset($state['ids'][$fragment])) self::rejectMarkup('unresolved internal link');
+        foreach ($state['fragments'] as $fragment) if (!isset($state['ids'][$fragment])) self::rejectMarkup('unresolved internal link '.$fragment);
         $optionalImageSlots = count($state['imageSlots']) - (isset($state['imageSlots']['hero']) ? 1 : 0);
         if ($state['sections'] < 3) self::rejectMarkup('section count below minimum');
         if ($state['sections'] > 9) self::rejectMarkup('section count above maximum');
@@ -1400,7 +1403,7 @@ final class AiGeneratedWebsite {
 
     private static function rejectMarkup(string $rule): never {
         error_log('Juzimder AI: generated markup failed validation rule ' . $rule . '.');
-        $code=match(true){preg_match('/^unsupported tag ([a-z][a-z0-9-]{0,31})$/D',$rule,$tagMatch)===1=>'tag_allowlist:'.$tagMatch[1],str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count below minimum'=>'section_count_low',$rule==='section count above maximum'=>'section_count_high',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
+        $code=match(true){preg_match('/^unsupported tag ([a-z][a-z0-9-]{0,31})$/D',$rule,$tagMatch)===1=>'tag_allowlist:'.$tagMatch[1],preg_match('/^unresolved internal link ([A-Za-z][A-Za-z0-9_-]{0,63})$/D',$rule,$fragmentMatch)===1=>'fragment_target:'.$fragmentMatch[1],str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count below minimum'=>'section_count_low',$rule==='section count above maximum'=>'section_count_high',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
         throw new AiProviderFailure('AI provider returned an invalid design.',false,'invalid_markup',$code);
     }
 

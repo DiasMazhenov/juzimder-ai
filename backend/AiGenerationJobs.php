@@ -58,7 +58,7 @@ final class AiGenerationJobs {
         if($claim->rowCount()!==1)return false;
         $row=$this->store->query('SELECT * FROM ai_generation_jobs WHERE id=?',[$id])->fetch();
         $provider=null;
-        $diagnostics=static function(string $outcome,?string $validationRule=null)use(&$provider):string{$safeRule=$outcome==='contrast_quality'?'contrast_quality':$validationRule;return json_encode(['outcome'=>$outcome,'validationRule'=>$safeRule,'attempts'=>$provider instanceof ProfileFailoverProvider?$provider->diagnostics():[]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);};
+        $diagnostics=static function(string $outcome,?string $validationRule=null)use(&$provider):string{$safeRule=$outcome==='contrast_quality'?'contrast_quality':(str_starts_with($validationRule??'','fragment_target:')?'fragment_target':$validationRule);return json_encode(['outcome'=>$outcome,'validationRule'=>$safeRule,'attempts'=>$provider instanceof ProfileFailoverProvider?$provider->diagnostics():[]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);};
         try{
             $project=$this->store->owned($row['project_id'],$row['owner_id']);
             if($project['version']!==(int)$row['base_version'])throw new Problem(409,'Проект изменился до запуска задачи. Создайте новую генерацию.');
