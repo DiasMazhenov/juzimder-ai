@@ -145,7 +145,7 @@ try {
     $cssSchemaDescription=AiGeneratedWebsite::schema()['properties']['css']['description'];
     aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'single direct div.ai-hero-copy child'),'HTML schema requires one Hero copy wrapper for the heading, body and action');
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
-    aiCheck(str_contains($generatedSystemPrompt,'Every href="#target" must target exactly one id present in this same HTML fragment')&&str_contains($generatedSystemPrompt,'never invent target IDs'),'Main AI generation verifies fragment links against real page IDs before responding');
+    aiCheck(str_contains($generatedSystemPrompt,'Every href="#target" must target exactly one id present in this same HTML fragment')&&str_contains($generatedSystemPrompt,'never invent target IDs')&&str_contains($generatedSystemPrompt,'Never use href="#" or an inert button as a fake action'),'Main AI generation verifies fragment links against real page IDs before responding');
     aiCheck(str_contains($generatedSystemPrompt,'Use the brief’s declared accent color for the primary CTA button background')&&str_contains($generatedSystemPrompt,'Do not render the primary CTA in a neutral charcoal'),'Main AI generation uses the declared accent for the primary CTA');
     aiCheck(str_contains($generatedSystemPrompt,'Treat the owner brief as the only source for service operations and customer experience')&&str_contains($generatedSystemPrompt,'do not invent lesson activities or stages'),'Main AI generation grounds service process and experience claims in the owner brief');
     aiCheck(str_contains($generatedSystemPrompt,'business name or type alone does not confirm a public location')&&str_contains($generatedSystemPrompt,'unless the owner explicitly confirmed in-person service'),'Main AI generation does not infer an in-person location from the business type');
@@ -564,7 +564,7 @@ aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Do not add pho
 
 aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'3 to 9 section elements and exactly one section.ai-hero')&&str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'at most three additional unique empty'),'HTML schema repeats concise section, hero and image-slot constraints at the field boundary');
 
-$sectionCountLow=$generatedDesign;$sectionCountLow['html']=str_replace('href="#contact"','href="#"',$sectionCountLow['html']);$sectionCountLow['html']=str_replace('</section><section class="ai-contact"','</section>',$sectionCountLow['html']);
+$sectionCountLow=$generatedDesign;$sectionCountLow['html']=str_replace(' href="#contact"','',$sectionCountLow['html']);$sectionCountLow['html']=str_replace('</section><section class="ai-contact"','</section>',$sectionCountLow['html']);
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($sectionCountLow,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected low section count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='section_count_low','Markup diagnostics distinguish a section count below the minimum');}
 $sectionLowBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($sectionCountLow,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
 $sectionRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$sectionLowBody),new AiHttpResponse(200,$goodBody)]);
@@ -572,6 +572,12 @@ $sectionRepairResult=AiGeneratedWebsite::create('Сайт клиники',new Op
 $sectionRepairRequest=json_decode($sectionRepairTransport->calls[1]['body'],true);
 aiCheck($sectionRepairResult['metadata']['repairAttempted']&&str_contains($sectionRepairRequest['messages'][0]['content'],'at least three actual <section> elements under the main root'),'Section-count repair explains the complete minimum page skeleton');
 aiCheck(str_contains($sectionRepairRequest['messages'][1]['content'],'at least three actual <section> elements under the main root')&&str_contains($sectionRepairRequest['messages'][1]['content'],'Never invent facts to fill the required sections'),'Section-count correction is also explicit in the repair task without echoing rejected HTML');
+$placeholderLinkDesign=$generatedDesign;$placeholderLinkDesign['html']=str_replace('href="#contact"','href="#"',$placeholderLinkDesign['html']);
+try{AiGeneratedWebsite::parseProviderOutput(json_encode($placeholderLinkDesign,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected placeholder link rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='placeholder_link','Markup diagnostics identify empty fragment links without echoing provider markup');}
+$placeholderLinkBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($placeholderLinkDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$placeholderRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$placeholderLinkBody),new AiHttpResponse(200,$goodBody)]);
+$placeholderRepairResult=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$placeholderRepairTransport));$placeholderRepairRequest=json_decode($placeholderRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+aiCheck($placeholderRepairResult['metadata']['repairAttempted']&&str_contains($placeholderRepairRequest['messages'][0]['content'],'Remove every placeholder anchor with href="#"')&&str_contains($placeholderRepairRequest['messages'][0]['content'],'omit the CTA')&&!str_contains($placeholderRepairRequest['messages'][1]['content'],'href="#contact"'),'Placeholder-link repair requests a real destination or removal without echoing rejected HTML');
 $brokenFragmentDesign=$generatedDesign;$brokenFragmentDesign['html']=str_replace('href="#contact"','href="#missing-target"',$brokenFragmentDesign['html']);
 $brokenFragmentBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($brokenFragmentDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
 $fragmentRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$brokenFragmentBody),new AiHttpResponse(200,$goodBody)]);
