@@ -141,6 +141,7 @@ try {
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
     aiCheck(str_contains($generatedSystemPrompt,'Treat the owner brief as the only source for service operations and customer experience')&&str_contains($generatedSystemPrompt,'do not invent lesson activities or stages'),'Main AI generation grounds service process and experience claims in the owner brief');
     aiCheck(str_contains($generatedSystemPrompt,'Never add a contact section containing only a generic contact prompt')&&str_contains($generatedSystemPrompt,'Do not point a CTA to an empty contact section'),'Main AI generation omits empty contact sections and placeholder CTAs when details are missing');
+    aiCheck(str_contains($generatedSystemPrompt,'Give each section a distinct heading')&&str_contains($generatedSystemPrompt,'never repeat complete visible paragraphs verbatim'),'Main AI generation avoids repeated section headings and body copy');
     aiCheck(str_contains($cssSchemaDescription,'comment-free')&&str_contains($cssSchemaDescription,'nested selector rules')&&str_contains($generatedSystemPrompt,'no code fences, CSS variables')&&str_contains($generatedSystemPrompt,'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),'AI CSS instructions match the strict parser syntax');
     aiCheck($generatedRequest['max_tokens']===9000&&$generatedRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','html','css'],'Full-page generation reserves enough output tokens for a strict structured response');
     aiCheck($generatedOutput['sectionCount']===3&&isset($scopeMatch[1])&&str_contains($generatedOutput['html'],'href="#'.$scopeMatch[1].'-contact"')&&str_contains($generatedOutput['html'],'id="'.$scopeMatch[1].'-contact"'),'Generated page keeps its section structure and scopes in-page links');
@@ -450,6 +451,18 @@ foreach([
     $copyRepair=AiGeneratedWebsite::create($copyDefect['prompt'],new OpenRouterProvider($settings,$copyRepairTransport));
     $copyRepairRequest=json_decode($copyRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck(count($copyRepairTransport->calls)===2&&$copyRepair['metadata']['repairAttempted']&&str_contains($copyRepairRequest['messages'][0]['content'],'idiomatic Russian'),$copyDefect['name'].' triggers one bounded copy repair');
+}
+
+foreach([
+    ['html'=>str_replace('<h2>Опытные врачи</h2>','<h2>Забота о здоровье</h2>',$generatedDesign['html']),'name'=>'Repeated section heading'],
+    ['html'=>str_replace('<p>Внимание к каждому пациенту.</p>','<p>Современная клиника рядом с вами.</p>',$generatedDesign['html']),'name'=>'Repeated paragraph'],
+] as $repeatedCopyDefect){
+    $repeatedDesign=$generatedDesign;$repeatedDesign['html']=$repeatedCopyDefect['html'];
+    $repeatedBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($repeatedDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+    $repeatedTransport=new FakeAiTransport([new AiHttpResponse(200,$repeatedBody),new AiHttpResponse(200,$generatedBody)]);
+    $repeatedResult=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$repeatedTransport));
+    $repeatedRepairRequest=json_decode($repeatedTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+    aiCheck(count($repeatedTransport->calls)===2&&$repeatedResult['metadata']['repairAttempted']&&str_contains($repeatedRepairRequest['messages'][0]['content'],'Give each section a distinct heading'),$repeatedCopyDefect['name'].' triggers one bounded copy repair');
 }
 
 $supportedCopyPrompt='Сайт керамической мастерской в Алматы. Все материалы и инструменты предоставляются мастерской, занятия идут по выходным, готовые изделия можно забрать домой после обжига, доставка доступна.';
