@@ -927,7 +927,7 @@ async function openEditor(id,pageId=null) {
   $('#ai-job-resume').onclick=()=>$('#ai-plan-form').onsubmit({preventDefault(){},resumeJob:true});
   $('#ai-plan-form').onsubmit=async e=>{
     e.preventDefault();if(generationPolling||(!e.resumeJob&&$('#ai-generate').disabled))return;
-    let prompt=$('#ai-prompt').value.trim();if(!prompt&&!e.resumeJob)return;generationPolling=true;
+    let prompt=$('#ai-prompt').value.trim();if(!prompt&&!e.resumeJob)return;generationPolling=true;notify('',false);
     const button=$('#ai-generate');button.disabled=true;$('#ai-job-diagnostics').hidden=true;aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-plan-preview').replaceChildren();$('#ai-plan-preview').hidden=true;$('#ai-plan-status').textContent='Создаём дизайн страницы. Проект пока не меняется.';
     const pollEpoch=generationEpoch;
     try{

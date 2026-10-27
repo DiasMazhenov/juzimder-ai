@@ -42,6 +42,26 @@ final class GeneratedDesignDefaults {
             if(!$hasExplicitPadding){self::addClass($nav,'ai-nav-default-spacing');$defaultSpacingNavs[]=$nav;}
         }
         if($defaultSpacingNavs)$extra.="\n.$scope nav.ai-nav-default-spacing{box-sizing:border-box;padding:12px 20px}";
+        $defaultSpacingSections=[];
+        $allCssRules=[];
+        preg_match_all('/([^{}]+)\{([^{}]*)\}/',$design['css'],$allCssMatches,PREG_SET_ORDER);
+        foreach($allCssMatches as $match){
+            if(str_starts_with(trim($match[1]),'@'))continue;
+            $props=[];foreach(explode(';',$match[2]) as $decl){$parts=explode(':',$decl,2);if(count($parts)===2)$props[trim($parts[0])]=trim($parts[1]);}
+            foreach(explode(',',$match[1]) as $selector)$allCssRules[]=[trim($selector),$props];
+        }
+        $hasAuthoredPadding=static function(\DOMElement $el)use($allCssRules):bool{
+            foreach($allCssRules as [$selector,$props]){
+                if(!self::matches($el,$selector))continue;
+                foreach(array_keys($props) as $property)if(in_array($property,['padding','padding-top','padding-right','padding-bottom','padding-left','padding-inline','padding-inline-start','padding-inline-end'],true))return true;
+            }
+            return false;
+        };
+        foreach($xpath->query('//section') as $section){
+            if(!$section instanceof \DOMElement)continue;
+            if(!$hasAuthoredPadding($section)){self::addClass($section,'ai-section-default-spacing');$defaultSpacingSections[]=$section;}
+        }
+        if($defaultSpacingSections)$extra.="\n.$scope section.ai-section-default-spacing{box-sizing:border-box;padding:48px clamp(20px,5vw,72px)}\n@media(max-width:767px){.$scope section.ai-section-default-spacing{padding:40px 20px}}";
         $radii=[];$cardRadii=[];foreach($xpath->query('//article|//button|//a|//div') as $element){$radius=$value($element,'border-radius');if($radius!==null&&$radius!=='inherit')$radii[$radius]=($radii[$radius]??0)+1;if($radius!==null&&($element->tagName==='article'||str_contains($element->getAttribute('class'),'card')))$cardRadii[$radius]=($cardRadii[$radius]??0)+1;}arsort($radii);arsort($cardRadii);$fallback=array_key_first($cardRadii)??array_key_first($radii)??'0px';
         $index=0;
         foreach($xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ")]') as $slot){

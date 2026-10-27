@@ -15,6 +15,11 @@ defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges 
 
 defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');
 defaultsCheck(str_contains($out['css'],'.ai-scope-test nav{display:flex;flex-wrap:wrap')&&str_contains($out['css'],'.ai-scope-test nav ul{display:flex;flex-wrap:wrap'),'Generated navigation and its list wrap at narrow viewport widths');
+defaultsCheck(str_contains($out['html'],'ai-section-default-spacing')&&str_contains($out['css'],'padding:48px clamp(20px,5vw,72px)')&&str_contains($out['css'],'padding:40px 20px'),'Sections without authored padding receive consistent desktop and mobile spacing');
+$authoredSpacing=$input;$authoredSpacing['css'].='.ai-scope-test .ai-menu{padding:24px 32px}';$authoredSpacing=GeneratedDesignDefaults::apply($authoredSpacing);
+defaultsCheck(!str_contains($authoredSpacing['html'],'class="ai-menu ai-section-default-spacing"'),'Authored section padding is preserved');
+$responsiveAuthoredSpacing=$input;$responsiveAuthoredSpacing['css'].='@media(max-width:767px){.ai-scope-test .ai-menu{padding:20px 16px}}';$responsiveAuthoredSpacing=GeneratedDesignDefaults::apply($responsiveAuthoredSpacing);
+defaultsCheck(!str_contains($responsiveAuthoredSpacing['html'],'class="ai-menu ai-section-default-spacing"'),'Responsive authored section padding is preserved');
 $navSpacing=['html'=>'<div class="ai-scope-test"><nav><a href="#about">О нас</a></nav><section class="ai-hero"><h1>Главная</h1></section></div>','css'=>'.ai-scope-test nav{display:flex}'];
 $navSpacingOut=GeneratedDesignDefaults::apply($navSpacing);
 defaultsCheck(str_contains($navSpacingOut['html'],'ai-nav-default-spacing')&&str_contains($navSpacingOut['css'],'box-sizing:border-box;padding:12px 20px'),'Generated navigation gets safe outer spacing when the model provides none');

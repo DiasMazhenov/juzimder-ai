@@ -720,6 +720,7 @@ final class AiGeneratedWebsite {
             'imageSlots'=>array_map(static function(string $id) use ($markup, $ownerPrompt, $photoOptOut, $requiredCardPhotoSlots): array {
                 $slot = ['id'=>$id,'label'=>$id === 'hero' ? 'Главное изображение' : 'Изображение секции ' . substr($id, 8)];
                 if (in_array($id, $requiredCardPhotoSlots, true)) $slot['required'] = true;
+                if ($id === 'hero' && $ownerPrompt !== null && self::explicitlyRequestsHeroPhoto($ownerPrompt)) $slot['required'] = true;
                 if (!$photoOptOut && is_string($markup['imageQueries'][$id] ?? null) && $markup['imageQueries'][$id] !== '') {
                     $slot['query'] = $markup['imageQueries'][$id];
                     if ($ownerPrompt !== null) { $slot['automatic'] = true; $slot['fallbackAllowed'] = true; }
@@ -826,6 +827,12 @@ final class AiGeneratedWebsite {
         return preg_match('/(?:' . $photo . '.{0,120}' . $card . '|' . $card . '.{0,120}' . $photo . ')/iu', $prompt) === 1;
     }
 
+    private static function explicitlyRequestsHeroPhoto(string $prompt): bool {
+        $photo = '(?:photos?|images?|pictures?|фото|фотограф\\w*|изображен\\w*)';
+        $hero = '(?:hero|хиро|главн\\w*\\s+(?:блок|секц\\w*|экран))';
+        return preg_match('/(?:' . $hero . '.{0,80}' . $photo . '|' . $photo . '.{0,80}' . $hero . ')/iu', $prompt) === 1;
+    }
+
     private static function auditRequestedCardPhotoSlots(array $markup): array {
         $document = new \DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
@@ -856,6 +863,7 @@ final class AiGeneratedWebsite {
     private static function defaultHeroPhotoQuery(string $prompt, string $siteType): string {
         $subject = mb_strtolower($prompt . ' ' . $siteType, 'UTF-8');
         return match (true) {
+            preg_match('/блокнот|планер|ежедневник|канцеляр|notebook|planner|journal|stationery/iu', $subject) === 1 => 'blank notebook planner product',
             preg_match('/керамич|гончар|глин|pottery|ceramic|clay/iu', $subject) === 1 => 'pottery ceramics workshop',
             preg_match('/пекар|хлеб|булоч|bakery|bread|pastry/iu', $subject) === 1 => 'bread pastry bakery',
             preg_match('/кафе|ресторан|кухн|restaurant|cafe|café/iu', $subject) === 1 => 'restaurant food dining room',
