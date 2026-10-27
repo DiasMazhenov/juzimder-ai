@@ -60,7 +60,7 @@ final class StreamAiHttpTransport implements AiHttpTransport {
 }
 
 final class AiProviderFailure extends \RuntimeException {
-    public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider', public readonly ?string $validationRule = null) { parent::__construct($message); }
+    public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider', public readonly ?string $validationRule = null, public readonly ?int $contrastTextNodeIndex = null) { parent::__construct($message); }
 
     public static function publicCategory(string $category): string {
         return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','copy_quality','contrast_quality','hero_alignment','invalid_output','invalid_component_edit','photo_unavailable'],true)?$category:'provider';
@@ -796,7 +796,17 @@ final class AiGeneratedWebsite {
             if($requiresCardPhotos)$repairPrompt.="\n\nOwner-requested card-photo requirement for the repaired HTML: ".self::markupRepairGuidance('required_photo_slots');
             $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . $guidance, $repairPrompt, $schema, 'juzimder_generated_site', 9000);
             try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile, $prompt); self::auditCopyQuality($design['html'], $prompt); self::auditHeroCopyGrouping($design['html']); self::auditTextContrast($design['html'], $design['css']); $design['contactAudit']=AiContacts::audit($design,$prompt); $userChecks=$auditUserRules($design); }
-            catch (AiProviderFailure $repairFailure) { throw new AiProviderFailure($repairFailure->getMessage(), false, self::validationCategory($repairFailure), $repairFailure->validationRule); }
+            catch (AiProviderFailure $repairFailure) {
+                if (self::validationCategory($repairFailure) !== 'contrast_quality') throw new AiProviderFailure($repairFailure->getMessage(), false, self::validationCategory($repairFailure), $repairFailure->validationRule);
+                try {
+                    [$design['html'], $design['css']] = self::repairTextContrast($design['html'], $design['css']);
+                    self::auditTextContrast($design['html'], $design['css']);
+                    $design['contactAudit'] = AiContacts::audit($design, $prompt);
+                    $userChecks = $auditUserRules($design);
+                } catch (AiProviderFailure $contrastRepairFailure) {
+                    throw new AiProviderFailure($contrastRepairFailure->getMessage(), false, self::validationCategory($contrastRepairFailure), $contrastRepairFailure->validationRule);
+                }
+            }
             $completion['model'] = $repairCompletion['model'] ?? $completion['model'] ?? null;
             $completion['profileName'] = $repairCompletion['profileName'] ?? $completion['profileName'] ?? null;
             $completion['usage'] = self::combinedUsage($completion['usage'] ?? [], $repairCompletion['usage'] ?? []);
@@ -1146,10 +1156,12 @@ final class AiGeneratedWebsite {
         $widths = [320, 1920];
         foreach ($rules as $rule) if (is_string($rule['media'] ?? null) && preg_match('/max-width:\s*(\d{3,4}(?:\.\d{1,2})?)px/', $rule['media'], $match)) $widths[] = (int)ceil((float)$match[1]);
         $widths = array_values(array_unique($widths));
+        $textNodeIndex = 0;
         foreach ($document->getElementsByTagName('*') as $element) {
             if (!$element instanceof \DOMElement) continue;
             foreach ($element->childNodes as $textNode) {
                 if (!$textNode instanceof \DOMText || trim($textNode->textContent) === '') continue;
+                $currentTextNodeIndex = $textNodeIndex++;
                 foreach ($widths as $width) {
                     $chain = [];
                     for ($node = $element; $node instanceof \DOMElement; $node = $node->parentNode instanceof \DOMElement ? $node->parentNode : null) array_unshift($chain, $node);
@@ -1175,7 +1187,7 @@ final class AiGeneratedWebsite {
                         }
                     }
                     if ($transparentTextColor || $opacity < 0.99) {
-                        throw new AiProviderFailure('Generated text contrast is too low.', false, 'contrast_quality', self::contrastFailureSelector($element, $scope) . ' has opacity below 100%; keep visible text fully opaque.');
+                        throw new AiProviderFailure('Generated text contrast is too low.', false, 'contrast_quality', self::contrastFailureSelector($element, $scope) . ' has opacity below 100%; keep visible text fully opaque.', $currentTextNodeIndex);
                     }
                     $backgrounds ??= ['#ffffff'];
                     $threshold = ($fontSize >= 24 || ($fontSize >= 18.66 && $fontWeight >= 700)) ? 3.0 : 4.5;
@@ -1188,7 +1200,8 @@ final class AiGeneratedWebsite {
                                 'Generated text contrast is too low.',
                                 false,
                                 'contrast_quality',
-                                self::contrastFailureSelector($element, $scope) . ' uses ' . strtoupper($color) . ' on ' . $surfaces . ' (about ' . number_format($ratio, 2, '.', '') . ':1; required ' . number_format($threshold, 1, '.', '') . ':1 at ' . $size . 'px). Set an explicit readable foreground color for the text on each surface.'
+                                self::contrastFailureSelector($element, $scope) . ' uses ' . strtoupper($color) . ' on ' . $surfaces . ' (about ' . number_format($ratio, 2, '.', '') . ':1; required ' . number_format($threshold, 1, '.', '') . ':1 at ' . $size . 'px). Set an explicit readable foreground color for the text on each surface.',
+                                $currentTextNodeIndex
                             );
                         }
                     }
@@ -1274,6 +1287,87 @@ final class AiGeneratedWebsite {
         };
         $first = $luminance($foreground); $second = $luminance($background);
         return (max($first,$second) + 0.05) / (min($first,$second) + 0.05);
+    }
+
+    /** Correct a bounded number of low-contrast text nodes after the model's single repair fails. */
+    private static function repairTextContrast(string $html, string $css): array {
+        $scopeMatch = [];
+        if (!preg_match('/class="(ai-scope-[a-f0-9]+)"/', $html, $scopeMatch)) throw new AiProviderFailure('Generated text contrast is too low.', false, 'contrast_quality');
+        $scope = $scopeMatch[1];
+        for ($attempt = 1; $attempt <= 24; $attempt++) {
+            try {
+                self::auditTextContrast($html, $css);
+                return [$html, $css];
+            } catch (AiProviderFailure $failure) {
+                if ($failure->category !== 'contrast_quality' || !is_string($failure->validationRule) || !preg_match('/^<([a-z][a-z0-9]*)>(?:((?:\.ai-[a-zA-Z0-9_-]{1,64})+))? text uses (#[0-9a-fA-F]{6}) on ((?:#[0-9a-fA-F]{6}(?:, )?)+) \(about [0-9]+(?:\.[0-9]+)?:1; required ([0-9]+(?:\.[0-9]+)?):1 at [0-9]+(?:\.[0-9]+)?px\)\. Set an explicit readable foreground color for the text on each surface\.$/D', $failure->validationRule, $match)) {
+                    throw $failure;
+                }
+                $surfaces = array_values(array_filter(array_map('trim', explode(',', $match[4])), static fn(string $color): bool => preg_match('/^#[0-9a-fA-F]{6}$/D', $color) === 1));
+                $threshold = (float)$match[5];
+                $candidates = ['#111827', '#0B0B0B', '#172B22', '#FFFFFF', '#F8FAFC'];
+                $bestColor = null;
+                $bestRatio = 0.0;
+                foreach ($candidates as $candidate) {
+                    $minimumRatio = min(array_map(static fn(string $surface): float => self::contrastRatio($candidate, $surface), $surfaces));
+                    if ($minimumRatio > $bestRatio) { $bestRatio = $minimumRatio; $bestColor = $candidate; }
+                }
+                if ($bestColor === null || $bestRatio + 0.0001 < $threshold) throw $failure;
+
+                if ($failure->contrastTextNodeIndex === null) throw $failure;
+                [$html, $selector] = self::markContrastTextNode($html, $scope, strtolower($match[1]), $match[2] ?? '', $failure->contrastTextNodeIndex, 'ai-contrast-fix-' . $attempt);
+                if ($selector === null) throw $failure;
+                $css .= "\n" . $selector . '{color:' . $bestColor . "}\n";
+            }
+        }
+        throw new AiProviderFailure('Generated text contrast is too low.', false, 'contrast_quality');
+    }
+
+    /** Add a private marker to the matching failing text node and build its exact ancestor selector. */
+    private static function markContrastTextNode(string $html, string $scope, string $tag, string $classSuffix, int $textNodeIndex, string $marker): array {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<!doctype html><html><head><meta charset="UTF-8"></head><body>' . $html . '</body></html>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded) return [$html, null];
+
+        $requiredClasses = $classSuffix === '' ? [] : array_values(array_filter(explode('.', ltrim($classSuffix, '.'))));
+        $target = null;
+        $currentTextNodeIndex = 0;
+        foreach ($document->getElementsByTagName('*') as $element) {
+            if (!$element instanceof \DOMElement) continue;
+            $classes = preg_split('/\s+/', trim($element->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            foreach ($element->childNodes as $child) {
+                if (!$child instanceof \DOMText || trim($child->textContent) === '') continue;
+                if ($currentTextNodeIndex++ !== $textNodeIndex) continue;
+                if (strtolower($element->tagName) !== $tag || array_diff($requiredClasses, $classes)) return [$html, null];
+                $target = $element;
+                break 2;
+            }
+        }
+        if (!$target) return [$html, null];
+        $targetClasses = preg_split('/\s+/', trim($target->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $targetClasses[] = $marker;
+        $target->setAttribute('class', implode(' ', array_values(array_unique($targetClasses))));
+
+        $ancestors = [];
+        for ($node = $target->parentNode; $node instanceof \DOMElement; $node = $node->parentNode) {
+            if (in_array($scope, preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [], true)) break;
+            $ancestors[] = $node;
+        }
+        $selectorParts = [];
+        foreach (array_reverse($ancestors) as $ancestor) {
+            $classes = preg_split('/\s+/', trim($ancestor->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $safeClass = null;
+            foreach ($classes as $class) if (preg_match('/^ai-[A-Za-z0-9_-]{1,64}$/D', $class) === 1) { $safeClass = $class; break; }
+            $selectorParts[] = $safeClass === null ? strtolower($ancestor->tagName) : '.' . $safeClass;
+        }
+        $selectorParts[] = '.' . $marker;
+        $body = $document->getElementsByTagName('body')->item(0);
+        if (!$body) return [$html, null];
+        $normalizedHtml = '';
+        foreach ($body->childNodes as $child) $normalizedHtml .= $document->saveHTML($child);
+        return [$normalizedHtml, implode(' ', $selectorParts)];
     }
 
     private static function auditTasteRequirements(string $html, string $css): array {
