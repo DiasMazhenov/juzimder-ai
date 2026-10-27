@@ -1402,16 +1402,22 @@ final class AiGeneratedWebsite {
         $nodeClasses = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $insideHero = $insideHero || ($tag === 'section' && in_array('ai-hero', $nodeClasses, true));
         $iconKey = null;
+        $hasIconMarker = in_array('ai-icon', $nodeClasses, true);
+        $iconClassCount = 0;
         foreach ($nodeClasses as $class) if (str_starts_with($class, 'ai-icon-')) {
+            $hasIconMarker = true;
+            $iconClassCount++;
             $key=substr($class,8);
-            if (!isset(self::CARD_ICONS[$key]) || $iconKey!==null) self::rejectMarkup('unknown or multiple card icon');
-            $iconKey=$key;
+            if (isset(self::CARD_ICONS[$key]) && $iconKey===null) $iconKey=$key;
         }
-        // The icon itself is always rendered from the trusted Tabler catalogue.
-        // Ignore provider-authored children so a decorative marker remains safe
-        // even when the model adds a label, glyph, or SVG inside it.
-        if ($iconKey!==null || in_array('ai-icon',$nodeClasses,true)) {
-            if ($tag!=='span' || $iconKey===null || !in_array('ai-icon',$nodeClasses,true) || ++$state['icons']>12) self::rejectMarkup('invalid card icon marker');
+        // Icons are decorative and optional. If the model mis-shapes a marker,
+        // discard that node instead of rejecting otherwise safe page content.
+        // Valid markers are normalized to one trusted Tabler icon; provider
+        // attributes and children are never serialized.
+        if ($hasIconMarker) {
+            if ($tag!=='span' || $iconKey===null || $iconClassCount!==1 || !in_array('ai-icon',$nodeClasses,true) || $state['icons']>=12) return '';
+            $state['icons']++;
+            return '<span class="ai-icon ai-icon-' . $iconKey . '" aria-hidden="true">' . IconCatalogue::markup($iconKey) . '</span>';
         }
         $imageSlot = null;
         $attributes = [];
@@ -1461,14 +1467,12 @@ final class AiGeneratedWebsite {
             $state['classes']['ai-image-slot'] = true;
             $attributes['class'] = trim(($attributes['class'] ?? '') . ' ai-image-slot');
         }
-        if ($iconKey!==null) {unset($attributes['role'],$attributes['aria-label']);$attributes['aria-hidden']='true';}
         $attributeText = '';
         foreach ($attributes as $name=>$value) $attributeText .= ' ' . $name . '="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8') . '"';
         if (in_array($tag, ['br','hr'], true)) {
             if ($node->hasChildNodes()) self::rejectMarkup('void element children');
             return '<' . $tag . $attributeText . '>';
         }
-        if ($iconKey!==null) return '<span' . $attributeText . '>' . IconCatalogue::markup($iconKey) . '</span>';
         $children = '';
         foreach ($node->childNodes as $child) $children .= self::serializeNode($child, $scope, $state, $depth + 1, $insideHero);
         return '<' . $tag . $attributeText . '>' . $children . '</' . $tag . '>';

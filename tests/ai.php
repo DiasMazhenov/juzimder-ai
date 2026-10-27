@@ -474,15 +474,18 @@ $iconWithProviderContentOutput=AiGeneratedWebsite::parseProviderOutput(json_enco
 aiCheck(str_contains($iconWithProviderContentOutput['html'],\Juzimder\IconCatalogue::markup('heart'))&&!str_contains($iconWithProviderContentOutput['html'],'custom')&&!str_contains($iconWithProviderContentOutput['html'],'<script'),'Safe Tabler markers replace provider-authored icon children without serializing markup');
 $invalidIconDesign=$generatedDesign;$invalidIconDesign['html']=str_replace('<article class="ai-card">','<article class="ai-card"><div class="ai-icon ai-icon-heart"></div>',$invalidIconDesign['html']);
 $invalidIconBody=json_encode(['model'=>'openai/icon-model','choices'=>[['message'=>['content'=>json_encode($invalidIconDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
-$iconRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$invalidIconBody),new AiHttpResponse(200,$generatedBody)]);
+$iconRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$invalidIconBody)]);
 $iconRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$iconRepairTransport));
-$iconRepairRequest=json_decode($iconRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
-aiCheck($iconRepair['metadata']['repairAttempted']&&str_contains($iconRepairRequest['messages'][0]['content'],'<span class="ai-icon ai-icon-spark"></span>')&&str_contains($iconRepairRequest['messages'][0]['content'],'Omit every icon you cannot encode exactly'),'Icon repair names the exact safe marker and allows icons to be omitted');
+aiCheck(!$iconRepair['metadata']['repairAttempted']&&count($iconRepairTransport->calls)===1&&str_contains($iconRepair['design']['html'],'Опытные врачи')&&!str_contains($iconRepair['design']['html'],'ai-icon-heart'),'Malformed optional icon markers are safely dropped without rejecting the generated page or spending a repair request');
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Independently choose useful card visuals'),'Card visual selection is part of system instructions without owner prompting');
-foreach(['<span class="ai-icon ai-icon-unknown"></span>','<div class="ai-icon ai-icon-heart"></div>',str_repeat('<span class="ai-icon ai-icon-heart"></span>',13)] as $badIcon){
+foreach(['<span class="ai-icon ai-icon-unknown"></span>','<div class="ai-icon ai-icon-heart"></div>'] as $badIcon){
  $bad=$generatedDesign;$bad['html']=str_replace('<article class="ai-card">','<article class="ai-card">'.$badIcon,$bad['html']);
- aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($bad,JSON_UNESCAPED_UNICODE)),'Invalid or excessive icon markers fail closed');
+ $safe=AiGeneratedWebsite::parseProviderOutput(json_encode($bad,JSON_UNESCAPED_UNICODE));
+ aiCheck(str_contains($safe['html'],'Опытные врачи')&&!str_contains($safe['html'],'ai-icon-unknown')&&!str_contains($safe['html'],'ai-icon-heart'),'Malformed decorative icon markers are removed while surrounding content remains safe');
 }
+$manyIcons=$generatedDesign;$manyIcons['html']=str_replace('<article class="ai-card">','<article class="ai-card">'.str_repeat('<span class="ai-icon ai-icon-heart"></span>',13),$manyIcons['html']);
+$boundedIcons=AiGeneratedWebsite::parseProviderOutput(json_encode($manyIcons,JSON_UNESCAPED_UNICODE));
+aiCheck(substr_count($boundedIcons['html'],'class="ai-icon ai-icon-heart"')===12,'Icon markers beyond the trusted per-page limit are dropped without failing the page');
 
 $queryDesign=$generatedDesign;$queryDesign['html']=str_replace('data-image-slot="hero"','data-image-slot="hero" data-image-query="pottery bowl"',$queryDesign['html']);
 $queryOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($queryDesign,JSON_UNESCAPED_UNICODE));
