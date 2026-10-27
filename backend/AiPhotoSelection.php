@@ -117,6 +117,7 @@ final class AiPhotoSelection {
         return preg_match('/\b(?:historic|historical|archival|archive|vintage|antique|old\s+(?:office|clinic|room|equipment)|(?:18|19)\d{2}|early\s+20th\s+century|историческ\w*|архивн\w*|винтажн\w*|стар\w*\s+(?:клиник\w*|кабинет\w*|интерьер\w*))\b/iu',$metadata)!==1;
     }
     private static function subjectFallbackQuery(string $query,bool $heroSlot=false): ?string {
+        if(preg_match('/(?:pottery|potter|ceramic\w*|clay|kiln|гончар\w*|керамич\w*|глин\w*)/iu',$query)===1)return 'pottery clay wheel';
         if(self::hasWritingGoodsIntent($query)&&!self::hasRetailIntent($query)){
             $notebook=preg_match('/\b(?:notebooks?|notepads?)\b/iu',$query)===1;
             $planner=preg_match('/\b(?:planners?|agendas?)\b/iu',$query)===1;
@@ -135,6 +136,12 @@ final class AiPhotoSelection {
     }
     private static function matchesSubject(string $query,array $photo): bool {
         $metadata=mb_strtolower(trim((string)($photo['name']??'').' '.(string)($photo['description']??'')),'UTF-8');
+        if(preg_match('/(?:pottery|potter|ceramic\w*|clay|kiln|гончар\w*|керамич\w*|глин\w*)/iu',$query)===1){
+            // A matching town or business name is not evidence that a photo depicts pottery.
+            if(preg_match('/(?:potter\w*|pottery|ceramic\w*|clay|kiln|earthenware|stoneware|terracotta|pottery\s+wheel|гончар\w*|керамич\w*|глин\w*)/iu',$metadata)!==1)return false;
+            if(preg_match('/\b(?:storefront|shopfront|facade|façade|architecture|city\s+skyline|clinic|hospital|hotel|church|museum)\b/iu',$metadata)===1
+                &&preg_match('/\b(?:storefront|shopfront|facade|façade|architecture|exterior|building)\b/iu',$query)!==1)return false;
+        }
         if(preg_match('/(?:dentist|dental|dentistry|orthodont\w*|tooth|teeth|oral\s+health|стоматолог\w*|зубн\w*)/iu',$query)===1){
             if(preg_match('/(?:dentist|dental|dentistry|orthodont\w*|tooth|teeth|oral\s+health|стоматолог\w*|зубн\w*)/iu',$metadata)!==1)return false;
         }
