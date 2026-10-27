@@ -13,7 +13,7 @@ class FakeElement {
 }
 
 function fakePhotoSlot(backgroundAncestor=null) {
-  const document={defaultView:{getComputedStyle(element){return{maxWidth:element.maxWidth||'none',marginBottom:element.marginBottom||'0px'};}},createElement(tag){return new FakeElement(tag,document);},createTextNode(text){return {textContent:String(text),parentNode:null};}};
+  const document={defaultView:{getComputedStyle(element){return{position:element.position||'static',maxWidth:element.maxWidth||'none',marginBottom:element.marginBottom||'0px'};}},createElement(tag){return new FakeElement(tag,document);},createTextNode(text){return {textContent:String(text),parentNode:null};}};
   const parent=new FakeElement('main',document),slot=new FakeElement('div',document);
   if(backgroundAncestor){backgroundAncestor.ownerDocument=document;backgroundAncestor.parentNode=parent;parent.children.push(backgroundAncestor);slot.parentNode=backgroundAncestor;backgroundAncestor.children.push(slot);}
   else{slot.parentNode=parent;parent.children.push(slot);}
@@ -64,18 +64,26 @@ test('generated image attribution is a readable 8px caption below the photo',()=
   assert.equal(credit.children[2].href,'https://creativecommons.org/licenses/by/4.0/');
 });
 
-test('full-bleed hero background attribution is an 8px caption below the photo',()=>{
+test('full-bleed hero background attribution stays inside the hero as a compact overlay',()=>{
   const background=new FakeElement('section',null);background.maxWidth='1000px';background.marginBottom='40px';const {slot}=fakePhotoSlot(background);
   const credit=appendPhotoCredit(slot,{kind:'commons',sourceUrl:'https://commons.wikimedia.org/photo',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',author:'Photo Author',license:'CC BY 4.0'});
-  assert.equal(background.parentNode.children[0],background);
-  assert.equal(background.parentNode.children[1],credit);
+  assert.equal(background.parentNode.children.length,1);
+  assert.equal(background.children[1],credit);
   assert.equal(credit.tagName,'P');
-  assert.equal(credit.style.position,undefined);
+  assert.equal(background.style.position,'relative');
+  assert.equal(credit.style.position,'absolute');
+  assert.equal(credit.style.right,'12px');
+  assert.equal(credit.style.bottom,'10px');
+  assert.equal(credit.style['z-index'],'2');
+  assert.equal(credit.style.width,'max-content');
+  assert.equal(credit.style['max-width'],'48%');
+  assert.equal(credit.style.padding,'4px 8px');
+  assert.equal(credit.style['background-color'],'rgba(0, 0, 0, 0.62)');
+  assert.equal(credit.style.color,'#ffffff');
   assert.equal(credit.style['font-size'],'8px');
-  assert.equal(credit.style['margin-top'],'4px');
-  assert.equal(credit.style.maxWidth,'1000px');
-  assert.equal(credit.style.width,'100%');
-  assert.equal(credit.style.marginLeft,'auto');
-  assert.equal(credit.style.marginRight,'auto');
-  assert.equal(credit.style.marginBottom,'40px');
+  assert.equal(credit.style.margin,'0');
+  assert.equal(credit.children[0].href,'https://commons.wikimedia.org/photo');
+  assert.equal(credit.children[0].style.color,'inherit');
+  assert.equal(credit.children[0].style.textDecoration,'underline');
+  assert.equal(credit.children[2].href,'https://creativecommons.org/licenses/by/4.0/');
 });

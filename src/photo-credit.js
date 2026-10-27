@@ -60,11 +60,26 @@ export function appendPhotoCredit(slot, asset) {
   const credit=doc.createElement(background?'p':'figcaption');
   credit.className='ai-photo-credit';
   if(background){
-    Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'4px'});
     const imageStyle=doc.defaultView?.getComputedStyle?.(background);
-    if(imageStyle){
-      Object.assign(credit.style,{boxSizing:'border-box',maxWidth:imageStyle.maxWidth,width:'100%',marginLeft:'auto',marginRight:'auto',marginBottom:imageStyle.marginBottom});
-    }
+    if(!imageStyle||imageStyle.position==='static')background.style.position='relative';
+    Object.assign(credit.style,{
+      'box-sizing':'border-box',
+      position:'absolute',
+      right:'12px',
+      bottom:'10px',
+      'z-index':'2',
+      width:'max-content',
+      'max-width':'48%',
+      margin:'0',
+      padding:'4px 8px',
+      'border-radius':'999px',
+      'background-color':'rgba(0, 0, 0, 0.62)',
+      color:'#ffffff',
+      'font-size':'8px',
+      'line-height':'1.3',
+      'text-align':'right',
+      'white-space':'normal',
+    });
   }else Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'2px'});
   for (const [url,label] of [[asset.sourceUrl,'Фото: '+asset.author+' / Wikimedia Commons'],[asset.licenseUrl,asset.license]]) {
     if(credit.childNodes.length)credit.append(doc.createTextNode(' · '));
@@ -73,8 +88,7 @@ export function appendPhotoCredit(slot, asset) {
     credit.append(link);
   }
   if(background){
-    if(background.parentNode)background.parentNode.insertBefore(credit,background.nextSibling);
-    else background.append(credit);
+    background.append(credit);
     return credit;
   }
   const figure=doc.createElement('figure');
