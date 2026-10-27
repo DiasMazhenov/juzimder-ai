@@ -1,5 +1,3 @@
-export const PHOTO_CREDIT_MAX_LENGTH=500;
-
 const PHOTO_CREDIT_STYLE={
   'font-size':'8px',
   'line-height':'1.2',
@@ -29,7 +27,7 @@ const AI_PHOTO_FIGURE_STYLE={
 const FIGURE_LAYOUT_PROPERTIES=['display','position','top','right','bottom','left','z-index','transform','width','min-width','max-width','margin','align-self','flex'];
 
 export function photoCreditCaption(content) {
-  return {type:'text',tagName:'figcaption',name:'Копирайт',content:String(content??'').slice(0,PHOTO_CREDIT_MAX_LENGTH),style:{...PHOTO_CREDIT_STYLE}};
+  return {type:'text',tagName:'figcaption',name:'Копирайт',content:String(content??''),style:{...PHOTO_CREDIT_STYLE}};
 }
 
 export function photoFigureFromImage(image, content) {
@@ -51,7 +49,7 @@ export function photoFigureFromImage(image, content) {
 }
 
 export function photoCreditText(value) {
-  return String(value??'').trim().slice(0,PHOTO_CREDIT_MAX_LENGTH);
+  return String(value??'').trim();
 }
 
 // A caption belongs to its photo, never to the surrounding flex/grid layout.
@@ -63,6 +61,10 @@ export function appendPhotoCredit(slot, asset) {
   credit.className='ai-photo-credit';
   if(background){
     Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'4px'});
+    const imageStyle=doc.defaultView?.getComputedStyle?.(background);
+    if(imageStyle){
+      Object.assign(credit.style,{boxSizing:'border-box',maxWidth:imageStyle.maxWidth,width:'100%',marginLeft:'auto',marginRight:'auto',marginBottom:imageStyle.marginBottom});
+    }
   }else Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'2px'});
   for (const [url,label] of [[asset.sourceUrl,'Фото: '+asset.author+' / Wikimedia Commons'],[asset.licenseUrl,asset.license]]) {
     if(credit.childNodes.length)credit.append(doc.createTextNode(' · '));

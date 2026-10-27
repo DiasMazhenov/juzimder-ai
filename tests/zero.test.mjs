@@ -535,7 +535,8 @@ test("photo copyright is editable and rendered as an 8px caption below the image
   assert.match(html, /Фото: A &amp; B · CC BY-SA 4\.0/);
   assert.match(html, /jz-zero-photo-credit\{position:absolute;left:0;top:calc\(100% \+ 2px\);[^}]*font-size:8px;line-height:1\.2/);
   assert.match(html, /\.jz-zero-photo-credit\{color:#222629!important\}/);
-  assert.match(inspector, /Копирайт<textarea data-element="copyright"[^>]*maxlength="500"/);
+  assert.match(inspector, /Копирайт<textarea data-element="copyright"[^>]*placeholder="Автор · лицензия · источник"/);
+  assert.doesNotMatch(inspector, /data-element="copyright"[^>]*maxlength/);
   assert.match(inspector, /Alt<input data-element="alt"[^>]*maxlength="300"/);
   data.artboards.desktop.background = "#172024";
   assert.match(renderZero(data, "zero-photo-credit-dark"), /\.jz-zero-photo-credit\{color:#ffffff!important\}/);

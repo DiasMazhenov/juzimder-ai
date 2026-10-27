@@ -72,7 +72,6 @@ final class Document {
             }
         }
         if (array_key_exists('content', $fields) && !is_string($fields['content'])) throw new Problem(422,'Некорректный текст компонента.');
-        if (($fields['tagName'] ?? null) === 'figcaption' && (($fields['type'] ?? null) !== 'text' || !is_string($fields['content'] ?? null) || mb_strlen($fields['content'], 'UTF-8') > 500 || !empty($fields['components']))) throw new Problem(422,'Подпись фото должна быть простым текстом длиной до 500 символов.');
         if (array_key_exists('type', $fields) && (!is_string($fields['type']) || !in_array($fields['type'], self::COMPONENT_TYPES, true))) throw new Problem(422,'Недопустимый тип компонента.');
         if (($fields['type'] ?? null) === 'zero-block') {
             $attributes = self::objectFields($fields['attributes'] ?? null) ?? [];

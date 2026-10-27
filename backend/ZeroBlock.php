@@ -75,7 +75,7 @@ final class ZeroBlock {
         if(isset($fields['geometry']))self::geometry($fields['geometry'],true);
         if(isset($fields['style']))self::style($fields['style']);
         foreach(['visible','locked','keepAspect'] as $key)if(array_key_exists($key,$fields)&&!is_bool($fields[$key]))throw new Problem(422,'Zero Block: неверный флаг.');
-        foreach(['content','alt'] as $key)if(isset($fields[$key]))self::text($fields[$key],$key==='alt'?300:10000);if(array_key_exists('copyright',$fields))self::text($fields['copyright'],500);
+        foreach(['content','alt','copyright'] as $key)if(isset($fields[$key]))self::text($fields[$key],$key==='alt'?300:10000);
         if(isset($fields['tag'])&&!in_array($fields['tag'],['p','h1','h2','h3','h4','h5','h6'],true))throw new Problem(422,'Zero Block: недопустимый заголовок.');
         foreach(['src','href'] as $key)if(isset($fields[$key])){
             $url=$fields[$key];

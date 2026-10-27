@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendPhotoCredit, PHOTO_CREDIT_MAX_LENGTH, photoCreditCaption, photoCreditText, photoFigureFromImage } from '../src/photo-credit.js';
+import { appendPhotoCredit, photoCreditCaption, photoCreditText, photoFigureFromImage } from '../src/photo-credit.js';
 
 class FakeElement {
   constructor(tagName, ownerDocument) { this.tagName=tagName.toUpperCase();this.ownerDocument=ownerDocument;this.style={};this.children=[];this.childNodes=this.children;this.parentNode=null;this.attributes={}; }
@@ -13,7 +13,7 @@ class FakeElement {
 }
 
 function fakePhotoSlot(backgroundAncestor=null) {
-  const document={createElement(tag){return new FakeElement(tag,document);},createTextNode(text){return {textContent:String(text),parentNode:null};}};
+  const document={defaultView:{getComputedStyle(element){return{maxWidth:element.maxWidth||'none',marginBottom:element.marginBottom||'0px'};}},createElement(tag){return new FakeElement(tag,document);},createTextNode(text){return {textContent:String(text),parentNode:null};}};
   const parent=new FakeElement('main',document),slot=new FakeElement('div',document);
   if(backgroundAncestor){backgroundAncestor.ownerDocument=document;backgroundAncestor.parentNode=parent;parent.children.push(backgroundAncestor);slot.parentNode=backgroundAncestor;backgroundAncestor.children.push(slot);}
   else{slot.parentNode=parent;parent.children.push(slot);}
@@ -42,11 +42,10 @@ test('main-editor photo credits wrap the image without dropping geometry or imag
   assert.deepEqual(image.style,{position:'absolute',left:'24px',top:'30px',width:'340px',height:'220px','border-radius':'24px','object-fit':'cover'});
 });
 
-test('photo credit text is trimmed and limited to 500 characters',()=>{
-  assert.equal(PHOTO_CREDIT_MAX_LENGTH,500);
+test('photo credit text is trimmed without a caption-specific length limit',()=>{
   assert.equal(photoCreditText('  Photo: Author  '),'Photo: Author');
-  assert.equal(photoCreditText('x'.repeat(600)).length,500);
-  assert.equal(photoCreditCaption('x'.repeat(600)).content.length,500);
+  assert.equal(photoCreditText('x'.repeat(600)).length,600);
+  assert.equal(photoCreditCaption('x'.repeat(600)).content.length,600);
 });
 
 test('generated image attribution is a readable 8px caption below the photo',()=>{
@@ -66,7 +65,7 @@ test('generated image attribution is a readable 8px caption below the photo',()=
 });
 
 test('full-bleed hero background attribution is an 8px caption below the photo',()=>{
-  const background=new FakeElement('section',null),{slot}=fakePhotoSlot(background);
+  const background=new FakeElement('section',null);background.maxWidth='1000px';background.marginBottom='40px';const {slot}=fakePhotoSlot(background);
   const credit=appendPhotoCredit(slot,{kind:'commons',sourceUrl:'https://commons.wikimedia.org/photo',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',author:'Photo Author',license:'CC BY 4.0'});
   assert.equal(background.parentNode.children[0],background);
   assert.equal(background.parentNode.children[1],credit);
@@ -74,4 +73,9 @@ test('full-bleed hero background attribution is an 8px caption below the photo',
   assert.equal(credit.style.position,undefined);
   assert.equal(credit.style['font-size'],'8px');
   assert.equal(credit.style['margin-top'],'4px');
+  assert.equal(credit.style.maxWidth,'1000px');
+  assert.equal(credit.style.width,'100%');
+  assert.equal(credit.style.marginLeft,'auto');
+  assert.equal(credit.style.marginRight,'auto');
+  assert.equal(credit.style.marginBottom,'40px');
 });
