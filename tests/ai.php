@@ -66,7 +66,9 @@ try {
     $otherValidationDiagnostic=new AiProviderFailure('internal validation failure',false,'invalid_output','secret model response');
     aiCheck(str_contains($zeroValidationDiagnostic->userMessage(),'Причина: Zero Block: недопустимый цвет.')&&!str_contains($otherValidationDiagnostic->userMessage(),'secret model response'),'Zero AI may show only a fixed safe validator reason, never model response content');
     $copyQualityDiagnostic=new AiProviderFailure('internal validation failure',false,'copy_quality');
-    aiCheck(AiProviderFailure::publicCategory($copyQualityDiagnostic->category)==='copy_quality'&&str_contains($copyQualityDiagnostic->userMessage(),'языковую ошибку или неподтверждённое утверждение'),'Copy-quality failures have a safe public diagnostic without exposing model output');
+    aiCheck(AiProviderFailure::publicCategory($copyQualityDiagnostic->category)==='copy_quality'&&str_contains($copyQualityDiagnostic->userMessage(),'повторяющиеся заголовки'),'Copy-quality failures have a safe public diagnostic that names repeated headings without exposing model output');
+    $contrastDiagnostic=new AiProviderFailure('internal validation failure',false,'contrast_quality');
+    aiCheck(AiProviderFailure::publicCategory($contrastDiagnostic->category)==='contrast_quality'&&str_contains($contrastDiagnostic->userMessage(),'контрастный'),'Contrast failures have a safe public diagnostic without exposing model output');
     $settings = OpenRouterSettings::fromCredentials('sk-test-only', 'openai/test-model');
     aiCheck($settings !== null && $settings->publicStatus() === ['provider'=>'openrouter','configured'=>true,'model'=>'openai/test-model','fallbackModel'=>null], 'Public provider status never contains the API key');
     aiCheck(OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','bad fallback model')===null&&OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','openai/test-model')===null,'Provider configuration rejects invalid or duplicate fallback model IDs');
@@ -142,11 +144,23 @@ try {
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
     aiCheck(str_contains($generatedSystemPrompt,'Treat the owner brief as the only source for service operations and customer experience')&&str_contains($generatedSystemPrompt,'do not invent lesson activities or stages'),'Main AI generation grounds service process and experience claims in the owner brief');
     aiCheck(str_contains($generatedSystemPrompt,'Never add a contact section containing only a generic contact prompt')&&str_contains($generatedSystemPrompt,'Do not point a CTA to an empty contact section'),'Main AI generation omits empty contact sections and placeholder CTAs when details are missing');
-    aiCheck(str_contains($generatedSystemPrompt,'Give each section a distinct heading')&&str_contains($generatedSystemPrompt,'never repeat complete visible paragraphs verbatim'),'Main AI generation avoids repeated section headings and body copy');
+    aiCheck(str_contains($generatedSystemPrompt,'Make every h1-h4 heading unique after case and whitespace normalization, even when the heading is a single short word')&&str_contains($generatedSystemPrompt,'Never repeat complete visible paragraphs verbatim'),'Main AI generation avoids repeated short headings and body copy');
+    aiCheck(str_contains($generatedSystemPrompt,'WCAG AA contrast')&&str_contains($generatedSystemPrompt,'never fade text with opacity'),'Main AI generation explicitly requires readable contrast for all visible text');
+    aiCheck(str_contains($generatedSystemPrompt,'<span class="ai-icon ai-icon-spark"></span>')&&str_contains($generatedSystemPrompt,'with no text, whitespace, children'),'Main AI generation gives an exact safe icon marker example');
     aiCheck(str_contains($cssSchemaDescription,'comment-free')&&str_contains($cssSchemaDescription,'nested selector rules')&&str_contains($generatedSystemPrompt,'no code fences, CSS variables')&&str_contains($generatedSystemPrompt,'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),'AI CSS instructions match the strict parser syntax');
     aiCheck($generatedRequest['max_tokens']===9000&&$generatedRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','html','css'],'Full-page generation reserves enough output tokens for a strict structured response');
     aiCheck($generatedOutput['sectionCount']===3&&isset($scopeMatch[1])&&str_contains($generatedOutput['html'],'href="#'.$scopeMatch[1].'-contact"')&&str_contains($generatedOutput['html'],'id="'.$scopeMatch[1].'-contact"'),'Generated page keeps its section structure and scopes in-page links');
     aiCheck($generatedOutput['imageSlots']===[['id'=>'hero','label'=>'Главное изображение','query'=>'modern medical clinic interior','automatic'=>true,'fallbackAllowed'=>true]]&&str_contains($generatedOutput['html'],'data-image-slot="hero"')&&str_contains($generatedOutput['html'],'ai-hero-split')&&str_contains($generatedOutput['css'],'object-fit:cover'),'AI generation gives a photo-relevant clinic Hero a searched, automatic image slot and supported split layout');
+    $lowContrastDesign=$generatedDesign;$lowContrastDesign['css'].='.ai-copy{color:#E5E5E5}';
+    $lowContrastBody=json_encode(['model'=>'openai/contrast-model','choices'=>[['message'=>['content'=>json_encode($lowContrastDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    $contrastTransport=new FakeAiTransport([new AiHttpResponse(200,$lowContrastBody),new AiHttpResponse(200,$generatedBody)]);
+    $contrastRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$contrastTransport));
+    $contrastRepairRequest=json_decode($contrastTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+    aiCheck($contrastRepair['metadata']['repairAttempted']===true&&count($contrastTransport->calls)===2&&str_contains($contrastRepairRequest['messages'][0]['content'],'WCAG AA contrast'),'Low-contrast generated copy triggers one bounded contrast repair before returning a candidate');
+    aiCheck(str_contains($contrastRepairRequest['messages'][0]['content'],'<p>.ai-copy text uses #E5E5E5 on #F4F8F6')&&!str_contains($contrastRepairRequest['messages'][0]['content'],'Внимание к каждому пациенту'),'Contrast repair identifies the failing generated selector and color pair without sending its visible copy');
+    $failedContrastTransport=new FakeAiTransport([new AiHttpResponse(200,$lowContrastBody),new AiHttpResponse(200,$lowContrastBody)]);
+    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$failedContrastTransport));throw new RuntimeException('Expected repeated low contrast to be rejected.'); }
+    catch (AiProviderFailure $failure) { aiCheck(count($failedContrastTransport->calls)===2&&$failure->category==='contrast_quality','Generation fails closed when the single contrast repair still has unreadable text'); }
     $noPhotoTransport=new FakeAiTransport([new AiHttpResponse(200,$generatedBody)]);
     $noPhotoResult=AiGeneratedWebsite::create('Сайт клиники без фото',new OpenRouterProvider($settings,$noPhotoTransport));
     aiCheck(!isset($noPhotoResult['design']['imageSlots'][0]['query'])&&!isset($noPhotoResult['design']['imageSlots'][0]['automatic']),'An explicit no-photo instruction disables automatic image sourcing');
@@ -423,6 +437,15 @@ $iconDesign=$generatedDesign;
 $iconDesign['html']=str_replace('<article class="ai-card">','<article class="ai-card"><span class="ai-icon ai-icon-heart"></span>', $iconDesign['html']);
 $iconOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($iconDesign,JSON_UNESCAPED_UNICODE));
 aiCheck(str_contains($iconOutput['html'],\Juzimder\IconCatalogue::markup('heart'))&&str_contains($iconOutput['css'],'.ai-icon{display:inline-block'),'Card icon markers become trusted Tabler Outline images with a default size');
+$whitespaceIconDesign=$iconDesign;$whitespaceIconDesign['html']=str_replace('<span class="ai-icon ai-icon-heart"></span>',"<span class=\"ai-icon ai-icon-heart\">  \n </span>",$whitespaceIconDesign['html']);
+$whitespaceIconOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($whitespaceIconDesign,JSON_UNESCAPED_UNICODE));
+aiCheck(str_contains($whitespaceIconOutput['html'],\Juzimder\IconCatalogue::markup('heart')),'The safe icon renderer ignores whitespace-only children in an otherwise valid decorative marker');
+$invalidIconDesign=$generatedDesign;$invalidIconDesign['html']=str_replace('<article class="ai-card">','<article class="ai-card"><div class="ai-icon ai-icon-heart"></div>',$invalidIconDesign['html']);
+$invalidIconBody=json_encode(['model'=>'openai/icon-model','choices'=>[['message'=>['content'=>json_encode($invalidIconDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+$iconRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$invalidIconBody),new AiHttpResponse(200,$generatedBody)]);
+$iconRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$iconRepairTransport));
+$iconRepairRequest=json_decode($iconRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+aiCheck($iconRepair['metadata']['repairAttempted']&&str_contains($iconRepairRequest['messages'][0]['content'],'<span class="ai-icon ai-icon-spark"></span>')&&str_contains($iconRepairRequest['messages'][0]['content'],'Omit every icon you cannot encode exactly'),'Icon repair names the exact safe marker and allows icons to be omitted');
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Independently choose useful card visuals'),'Card visual selection is part of system instructions without owner prompting');
 foreach(['<span class="ai-icon ai-icon-unknown"></span>','<span class="ai-icon ai-icon-heart">custom</span>','<div class="ai-icon ai-icon-heart"></div>',str_repeat('<span class="ai-icon ai-icon-heart"></span>',13)] as $badIcon){
  $bad=$generatedDesign;$bad['html']=str_replace('<article class="ai-card">','<article class="ai-card">'.$badIcon,$bad['html']);
@@ -456,6 +479,7 @@ foreach([
 
 foreach([
     ['html'=>str_replace('<h2>Опытные врачи</h2>','<h2>Забота о здоровье</h2>',$generatedDesign['html']),'name'=>'Repeated section heading'],
+    ['html'=>str_replace(['Забота о здоровье','Опытные врачи','Мы рядом'], 'Книги', $generatedDesign['html']),'name'=>'Repeated short headings'],
     ['html'=>str_replace('<p>Внимание к каждому пациенту.</p>','<p>Современная клиника рядом с вами.</p>',$generatedDesign['html']),'name'=>'Repeated paragraph'],
 ] as $repeatedCopyDefect){
     $repeatedDesign=$generatedDesign;$repeatedDesign['html']=$repeatedCopyDefect['html'];
@@ -463,7 +487,7 @@ foreach([
     $repeatedTransport=new FakeAiTransport([new AiHttpResponse(200,$repeatedBody),new AiHttpResponse(200,$generatedBody)]);
     $repeatedResult=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$repeatedTransport));
     $repeatedRepairRequest=json_decode($repeatedTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
-    aiCheck(count($repeatedTransport->calls)===2&&$repeatedResult['metadata']['repairAttempted']&&str_contains($repeatedRepairRequest['messages'][0]['content'],'Give each section a distinct heading'),$repeatedCopyDefect['name'].' triggers one bounded copy repair');
+    aiCheck(count($repeatedTransport->calls)===2&&$repeatedResult['metadata']['repairAttempted']&&str_contains($repeatedRepairRequest['messages'][0]['content'],'even when the heading is a single short word'),$repeatedCopyDefect['name'].' triggers one bounded copy repair with short-heading guidance');
 }
 
 $supportedCopyPrompt='Сайт керамической мастерской в Алматы. Все материалы и инструменты предоставляются мастерской, занятия идут по выходным, готовые изделия можно забрать домой после обжига, доставка доступна.';
