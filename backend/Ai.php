@@ -692,6 +692,8 @@ final class AiGeneratedWebsite {
         $requiredCardPhotoSlots = [];
         try {
             $markup = self::sanitizeMarkup($design['html'], $scope);
+            [$markup['html'], $heroCopyGrouped] = self::normalizeHeroCopyGrouping($markup['html']);
+            if ($heroCopyGrouped) $markup['classes']['ai-hero-copy'] = true;
             if ($ownerPrompt !== null && !self::explicitlyRequestsNoPhotos($ownerPrompt) && self::explicitlyRequestsCardPhotos($ownerPrompt)) $requiredCardPhotoSlots = self::auditRequestedCardPhotoSlots($markup);
         }
         catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by markup sanitizer.'); throw new AiProviderFailure($failure->getMessage(), false, 'invalid_markup', $failure->validationRule); }
@@ -1355,6 +1357,87 @@ final class AiGeneratedWebsite {
         if ($state['heroes'] !== 1) self::rejectMarkup('hero count');
         if ($optionalImageSlots > 3) self::rejectMarkup('image-slot count');
         return ['html'=>$markup,'classes'=>$state['classes'],'sectionCount'=>$state['sections'],'imageSlots'=>$state['imageSlots'],'imageQueries'=>$state['imageQueries']];
+    }
+
+    /** Keep the Hero copy as one layout item while preserving validated content and photo slots. */
+    private static function normalizeHeroCopyGrouping(string $html): array {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<!doctype html><html><body>' . $html . '</body></html>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded) return [$html, false];
+
+        $hero = null;
+        foreach ($document->getElementsByTagName('section') as $section) {
+            $classes = preg_split('/\s+/', trim($section->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (in_array('ai-hero', $classes, true)) { $hero = $section; break; }
+        }
+        if (!$hero) return [$html, false];
+        $body = $document->getElementsByTagName('body')->item(0);
+        if (!$body) return [$html, false];
+        $wrapper = null;
+        foreach ($hero->childNodes as $child) {
+            if (!$child instanceof \DOMElement || strtolower($child->tagName) !== 'div') continue;
+            $classes = preg_split('/\s+/', trim($child->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (in_array('ai-hero-copy', $classes, true)) { $wrapper = $child; break; }
+        }
+
+        $badge = null;
+        foreach ($hero->getElementsByTagName('span') as $span) {
+            $classes = preg_split('/\s+/', trim($span->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (in_array('ai-pill-badge', $classes, true)) { $badge = $span; break; }
+        }
+        $heading = $hero->getElementsByTagName('h1')->item(0);
+        $description = $hero->getElementsByTagName('p')->item(0);
+        if (!$heading || !$description) return [$html, false];
+        $action = $hero->getElementsByTagName('a')->item(0) ?? $hero->getElementsByTagName('button')->item(0);
+        $copyNodes = array_values(array_filter([$badge, $heading, $description, $action], static fn($node): bool => $node instanceof \DOMElement));
+        $topLevelChild = static function(\DOMElement $node) use ($hero): ?\DOMElement {
+            while ($node->parentNode instanceof \DOMElement && $node->parentNode !== $hero) $node = $node->parentNode;
+            return $node->parentNode === $hero ? $node : null;
+        };
+        $roots = [];
+        foreach ($copyNodes as $node) {
+            $root = $topLevelChild($node);
+            if ($root) $roots[spl_object_id($root)] = $root;
+        }
+        if (count($roots) < 2 || ($wrapper && count($roots) === 1 && isset($roots[spl_object_id($wrapper)]))) return [$html, false];
+
+        $orderedRoots = [];
+        foreach ($hero->childNodes as $child) if ($child instanceof \DOMElement && isset($roots[spl_object_id($child)])) $orderedRoots[] = $child;
+        if (count($orderedRoots) < 2) return [$html, false];
+        if (!$wrapper) {
+            if ($body->getElementsByTagName('*')->length >= 300) return [$html, false];
+            $wrapper = $document->createElement('div');
+            $wrapper->setAttribute('class', 'ai-hero-copy');
+            $hero->insertBefore($wrapper, $orderedRoots[0]);
+        }
+        $detachedPhotoSlots = [];
+        foreach ($orderedRoots as $root) {
+            foreach (iterator_to_array($root->getElementsByTagName('div')) as $descendant) {
+                $classes = preg_split('/\s+/', trim($descendant->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if (in_array('ai-image-slot', $classes, true)) $detachedPhotoSlots[] = $descendant;
+            }
+        }
+        if (isset($roots[spl_object_id($wrapper)])) {
+            $beforeWrapper = true;
+            $leadingRoots = $document->createDocumentFragment();
+            $trailingRoots = [];
+            foreach ($orderedRoots as $root) {
+                if ($root === $wrapper) { $beforeWrapper = false; continue; }
+                if ($beforeWrapper) $leadingRoots->appendChild($root);
+                else $trailingRoots[] = $root;
+            }
+            if ($leadingRoots->hasChildNodes()) $wrapper->insertBefore($leadingRoots, $wrapper->firstChild);
+            foreach ($trailingRoots as $root) $wrapper->appendChild($root);
+        } else {
+            foreach ($orderedRoots as $root) $wrapper->appendChild($root);
+        }
+        foreach ($detachedPhotoSlots as $photoSlot) $hero->appendChild($photoSlot);
+        $normalized = '';
+        foreach ($body->childNodes as $child) $normalized .= $document->saveHTML($child);
+        return [$normalized, true];
     }
 
     private static function appendHeroImageSlot(string $html): string {

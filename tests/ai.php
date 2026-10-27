@@ -169,15 +169,15 @@ try {
     aiCheck(($stationeryHeroOutput['imageSlots'][0]['required']??false)===true,'Explicit Hero photo requests mark the automatic photo slot as required');
     $unalignedHeroDesign=$generatedDesign;
     $unalignedHeroDesign['html']='<header class="ai-nav"><nav><a class="ai-link" href="#contact">Записаться</a></nav></header><section class="ai-hero ai-hero-background"><span class="ai-pill-badge">КЛИНИКА</span><h1 class="ai-title">Забота о здоровье</h1><p class="ai-copy">Современная клиника рядом с вами.</p><a class="ai-action" href="#contact">Записаться</a><div class="ai-image-slot" data-image-slot="hero" data-image-query="modern medical clinic interior"></div></section><section class="ai-features"><article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article></section><section class="ai-contact" id="contact"><h2>Мы рядом</h2><p>Запишитесь на консультацию.</p></section>';
-    $unalignedHeroDesign['html']=str_replace('Записаться','Подробнее о помощи',$unalignedHeroDesign['html']);
+    $unalignedHeroDesign['html']=str_replace(['Записаться','Запишитесь на консультацию.'],['Подробнее о помощи','Подробнее о консультации.'],$unalignedHeroDesign['html']);
     $unalignedHeroBody=json_encode(['model'=>'openai/unaligned-hero','choices'=>[['message'=>['content'=>json_encode($unalignedHeroDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
-    $alignmentRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$unalignedHeroBody),new AiHttpResponse(200,$generatedBody)]);
-    $alignmentRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$alignmentRepairTransport));
-    $alignmentRepairRequest=json_decode($alignmentRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
-    aiCheck($alignmentRepair['metadata']['repairAttempted']===true&&count($alignmentRepairTransport->calls)===2&&str_contains($alignmentRepairRequest['messages'][0]['content'],'same direct div.ai-hero-copy child'),'Unaligned Hero copy triggers one bounded repair with grouping guidance');
-    $failedAlignmentTransport=new FakeAiTransport([new AiHttpResponse(200,$unalignedHeroBody),new AiHttpResponse(200,$unalignedHeroBody)]);
-    try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$failedAlignmentTransport));throw new RuntimeException('Expected repeated unaligned Hero copy to be rejected.'); }
-    catch (AiProviderFailure $failure) { aiCheck(count($failedAlignmentTransport->calls)===2&&$failure->category==='hero_alignment','Generation fails closed when the one Hero grouping repair still splits the copy'); }
+    $alignmentTransport=new FakeAiTransport([new AiHttpResponse(200,$unalignedHeroBody)]);
+    $normalizedHero=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$alignmentTransport));
+    aiCheck($normalizedHero['metadata']['repairAttempted']===false&&count($alignmentTransport->calls)===1&&str_contains($normalizedHero['design']['html'],'<div class="ai-hero-copy">'),'Split Hero copy is grouped deterministically without spending another provider request');
+    $copyGroupStart=strpos($normalizedHero['design']['html'],'<div class="ai-hero-copy">');
+    $copyGroupEnd=$copyGroupStart===false?false:strpos($normalizedHero['design']['html'],'</div>',$copyGroupStart);
+    $heroPhotoSlot=$copyGroupEnd===false?false:strpos($normalizedHero['design']['html'],'ai-image-slot',$copyGroupEnd);
+    aiCheck($copyGroupEnd!==false&&$heroPhotoSlot!==false,'Hero copy normalization keeps the image slot outside the copy group');
     $lowContrastDesign=$generatedDesign;$lowContrastDesign['css'].='.ai-copy{color:#E5E5E5}';
     $lowContrastBody=json_encode(['model'=>'openai/contrast-model','choices'=>[['message'=>['content'=>json_encode($lowContrastDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $contrastTransport=new FakeAiTransport([new AiHttpResponse(200,$lowContrastBody),new AiHttpResponse(200,$generatedBody)]);
