@@ -84,6 +84,9 @@ final class GeneratedDesignDefaults {
         // when the model forgets to wrap its links or gives the menu a fixed width.
         $extra.="\n.$scope nav{display:flex;flex-wrap:wrap;align-items:center;gap:12px;max-width:100%;min-width:0}\n.$scope .ai-nav.ai-nav{display:flex;flex-wrap:wrap;align-items:center;max-width:100%;min-width:0}\n.$scope nav ul{display:flex;flex-wrap:wrap;align-items:center;gap:12px;list-style-type:none;margin:0;padding:0;max-width:100%;min-width:0}\n.$scope nav a{max-width:100%;min-width:0}";
         $extra.="\n.$scope .ai-default-left.ai-default-left,.$scope .ai-default-left h1,.$scope .ai-default-left h2,.$scope .ai-default-left p{text-align:left}\n.$scope .ai-pill-badge.ai-pill-badge{display:inline-block;border-radius:9999px;padding:6px 12px;border:1px solid currentColor;font-size:12px;line-height:1.3;margin:0 0 16px;max-width:100%;width:fit-content;align-self:flex-start;justify-self:start}";
+        // Generated desktop heading sizes can exceed a mobile Hero's text lane.
+        // Keep long words inside the copy column without changing desktop styling.
+        $extra.="\n@media(max-width:767px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{max-width:100%;overflow-wrap:anywhere}}";
         // One opt-in composition, using the model's existing native elements.
         if ($hero instanceof \DOMElement && self::hasClass($hero, 'ai-hero-split') && !self::hasClass($hero, 'ai-hero-background')) {
             $children = array_values(iterator_to_array($hero->childNodes));

@@ -20,6 +20,7 @@ $again=GeneratedDesignDefaults::apply($out);
 defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges are retained without duplicates');
 
 defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');
+defaultsCheck(str_contains($out['css'],'@media(max-width:767px){.ai-scope-test .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}')&&str_contains($out['css'],'.ai-scope-test .ai-hero p{max-width:100%;overflow-wrap:anywhere}'),'Mobile Hero typography scales and long Russian words wrap inside the text lane');
 defaultsCheck(str_contains($out['css'],'.ai-scope-test nav{display:flex;flex-wrap:wrap')&&str_contains($out['css'],'.ai-scope-test nav ul{display:flex;flex-wrap:wrap'),'Generated navigation and its list wrap at narrow viewport widths');
 defaultsCheck(str_contains($out['html'],'ai-section-default-spacing')&&str_contains($out['css'],'padding:48px clamp(20px,5vw,72px)')&&str_contains($out['css'],'padding:40px 20px'),'Sections without authored padding receive consistent desktop and mobile spacing');
 $authoredSpacing=$input;$authoredSpacing['css'].='.ai-scope-test .ai-menu{padding:24px 32px}';$authoredSpacing=GeneratedDesignDefaults::apply($authoredSpacing);

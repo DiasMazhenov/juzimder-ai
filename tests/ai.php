@@ -133,6 +133,7 @@ try {
         'html'=>'<header class="ai-nav"><nav><a class="ai-link" href="#contact">Записаться</a></nav></header><section class="ai-hero"><div class="ai-hero-copy"><span class="ai-pill-badge">КЛИНИКА</span><h1 class="ai-title">Забота о здоровье</h1><p class="ai-copy">Современная клиника рядом с вами.</p><a class="ai-action" href="#contact">Записаться</a></div><div class="ai-image-slot" data-image-slot="hero" data-image-query="modern medical clinic interior"></div></section><section class="ai-features"><article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article></section><section class="ai-contact" id="contact"><h2>Мы рядом</h2><p>Запишитесь на консультацию.</p></section>',
         'css'=>'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;padding:64px 32px;background-color:#f4f8f6;color:#1a2824}.ai-title{font-size:clamp(32px,5vw,64px);line-height:1.1}.ai-image-slot{overflow:hidden;aspect-ratio:4/3}.ai-image-slot img{width:100%;height:100%;object-fit:cover}.ai-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}.ai-contact{padding:48px 24px}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr;padding:40px 20px}}',
     ];
+    $generatedDesign['html']=str_replace('Записаться','Подробнее о помощи',$generatedDesign['html']);
     $generatedBody=json_encode(['model'=>'openai/resolved-model','choices'=>[['message'=>['content'=>json_encode($generatedDesign,JSON_UNESCAPED_UNICODE)]]],'usage'=>['prompt_tokens'=>420,'completion_tokens'=>1800,'total_tokens'=>2220,'cost'=>0.002]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $generatedTransport=new FakeAiTransport([new AiHttpResponse(200,$generatedBody)]);
     $generated=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$generatedTransport));
@@ -146,6 +147,8 @@ try {
     aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'single direct div.ai-hero-copy child'),'HTML schema requires one Hero copy wrapper for the heading, body and action');
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
     aiCheck(str_contains($generatedSystemPrompt,'Every href="#target" must target exactly one id present in this same HTML fragment')&&str_contains($generatedSystemPrompt,'never invent target IDs')&&str_contains($generatedSystemPrompt,'Never use href="#" or an inert button as a fake action'),'Main AI generation verifies fragment links against real page IDs before responding');
+    aiCheck(str_contains($generatedSystemPrompt,'An internal #section link only navigates the page')&&str_contains($generatedSystemPrompt,'never as registration, booking, or form submission'),'Main AI generation labels internal section navigation without pretending it books or submits a request');
+    aiCheck(str_contains($generatedSystemPrompt,'Do not state that visitors can register, book, or submit a request unless the owner supplied a real working form or an exact contact action'),'Main generation avoids unsupported signup promises when the page has no working contact action');
     aiCheck(str_contains($generatedSystemPrompt,'Use the brief’s declared accent color for the primary CTA button background')&&str_contains($generatedSystemPrompt,'Do not render the primary CTA in a neutral charcoal'),'Main AI generation uses the declared accent for the primary CTA');
     aiCheck(str_contains($generatedSystemPrompt,'Treat the owner brief as the only source for service operations and customer experience')&&str_contains($generatedSystemPrompt,'do not invent lesson activities or stages'),'Main AI generation grounds service process and experience claims in the owner brief');
     aiCheck(str_contains($generatedSystemPrompt,'business name or type alone does not confirm a public location')&&str_contains($generatedSystemPrompt,'unless the owner explicitly confirmed in-person service'),'Main AI generation does not infer an in-person location from the business type');
@@ -166,6 +169,7 @@ try {
     aiCheck(($stationeryHeroOutput['imageSlots'][0]['required']??false)===true,'Explicit Hero photo requests mark the automatic photo slot as required');
     $unalignedHeroDesign=$generatedDesign;
     $unalignedHeroDesign['html']='<header class="ai-nav"><nav><a class="ai-link" href="#contact">Записаться</a></nav></header><section class="ai-hero ai-hero-background"><span class="ai-pill-badge">КЛИНИКА</span><h1 class="ai-title">Забота о здоровье</h1><p class="ai-copy">Современная клиника рядом с вами.</p><a class="ai-action" href="#contact">Записаться</a><div class="ai-image-slot" data-image-slot="hero" data-image-query="modern medical clinic interior"></div></section><section class="ai-features"><article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article></section><section class="ai-contact" id="contact"><h2>Мы рядом</h2><p>Запишитесь на консультацию.</p></section>';
+    $unalignedHeroDesign['html']=str_replace('Записаться','Подробнее о помощи',$unalignedHeroDesign['html']);
     $unalignedHeroBody=json_encode(['model'=>'openai/unaligned-hero','choices'=>[['message'=>['content'=>json_encode($unalignedHeroDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $alignmentRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$unalignedHeroBody),new AiHttpResponse(200,$generatedBody)]);
     $alignmentRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$alignmentRepairTransport));
@@ -224,14 +228,14 @@ try {
         try{Juzimder\SkillRequirements::parse("```juzimder-rules\n".json_encode($invalidContract)."\n```");throw new RuntimeException('Expected invalid Skill contract.');}catch(InvalidArgumentException){aiCheck(true,'Reject invalid, unsupported or conflicting Skill rule definitions');}
     }
     $tasteDesign=$generatedDesign;$tasteDesign['concept']='Ритм семейного приёма задаёт маршрут одного пациента: от первого вопроса до спокойного разговора с врачом.';
-    $tasteDesign['html']=str_replace('<a class="ai-action" href="#contact">Записаться</a>','<a class="ai-link" href="#contact">Записаться на приём</a>',$tasteDesign['html']);
+    $tasteDesign['html']=str_replace('<a class="ai-action" href="#contact">Подробнее о помощи</a>','<a class="ai-link" href="#contact">Подробнее о приёме</a>',$tasteDesign['html']);
     $tasteBody=json_encode(['model'=>'openai/taste-model','choices'=>[['message'=>['content'=>json_encode($tasteDesign,JSON_UNESCAPED_UNICODE)]]],'usage'=>['prompt_tokens'=>500,'completion_tokens'=>2100,'total_tokens'=>2600]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $tasteTransport=new FakeAiTransport([new AiHttpResponse(200,$tasteBody)]);
     $tasteResult=AiGeneratedWebsite::create('Сайт семейной клиники в Алматы',new OpenRouterProvider($settings,$tasteTransport),'taste');
     $tasteRequest=json_decode($tasteTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);$tasteOutput=$tasteResult['design'];
     aiCheck($tasteRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','concept','html','css']&&str_contains($tasteRequest['messages'][0]['content'],'concrete detail in this subject'),'Taste profile adds a subject-grounded concept to its structured request');
     aiCheck($tasteResult['metadata']['skillProfile']==='taste'&&$tasteResult['metadata']['skillVersion']==='taste-v1'&&$tasteResult['metadata']['manualReviewRequired']===false&&count($tasteOutput['skillAudit']['checks'])===5&&!array_filter($tasteOutput['skillAudit']['checks'],static fn($check)=>$check['status']!=='passed'),'Taste output keeps server checks without mandatory human review');
-    $tasteWithoutAction=$tasteDesign;$tasteWithoutAction['html']=str_replace('<a class="ai-link" href="#contact">Записаться на приём</a>','',$tasteWithoutAction['html']);
+    $tasteWithoutAction=$tasteDesign;$tasteWithoutAction['html']=str_replace('<a class="ai-link" href="#contact">Подробнее о приёме</a>','',$tasteWithoutAction['html']);
     $tasteWithoutActionBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($tasteWithoutAction,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
     $tasteRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$tasteWithoutActionBody),new AiHttpResponse(200,$tasteWithoutActionBody)]);
     try { AiGeneratedWebsite::create('Сайт семейной клиники',new OpenRouterProvider($settings,$tasteRepairTransport),'taste');throw new RuntimeException('Expected Taste contract to reject a hero without an action.'); }
@@ -272,9 +276,9 @@ try {
     catch (AiProviderFailure $failure) { aiCheck(count($invalidCssTransport->calls)===2&&$failure->category==='invalid_css'&&str_contains($failure->userMessage(),'Стили')&&!str_contains($failure->userMessage(),'https://'),'Generated CSS failures get safe style-specific guidance'); }
     aiCheck(str_contains($generatedOutput['css'],'.'.$scopeMatch[1].' .ai-hero')&&str_contains($generatedOutput['css'],'@media (max-width: 768px)')&&$generated['metadata']['usage']['completionTokens']===1800,'Generated responsive CSS is scoped and provider usage remains available for preview');
     aiCheck(str_starts_with($generatedOutput['css'],'.'.$scopeMatch[1].' a{color:inherit}'), 'Scoped link baseline precedes generated styles and avoids browser blue without removing underlines');
-    $plainActions=$generatedDesign;$plainActions['html']=str_replace('<a class="ai-link" href="#contact">Записаться</a>','<a href="#contact">Записаться</a><button type="button">Записаться</button>', $plainActions['html']);
+    $plainActions=$generatedDesign;$plainActions['html']=str_replace('<a class="ai-link" href="#contact">Подробнее о помощи</a>','<a href="#contact">Подробнее о помощи</a><button type="button">Подробнее о помощи</button>', $plainActions['html']);
     $plainActionOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($plainActions,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
-    aiCheck(str_contains($plainActionOutput['html'],'<a href="#')&&str_contains($plainActionOutput['html'],'<button type="button">Записаться</button>'),'Generated links and buttons without classes remain safe');
+    aiCheck(str_contains($plainActionOutput['html'],'<a href="#')&&str_contains($plainActionOutput['html'],'<button type="button">Подробнее о помощи</button>'),'Generated links and buttons without classes remain safe');
     $badGenerated=$plainActions;$badGenerated['html']=str_replace('type="button"','type="submit"',$badGenerated['html']);
     aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($badGenerated,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)),'Generated button types stay restricted to inert buttons');
     $richGenerated=$generatedDesign;$richGenerated['css'].='.ai-card{background:linear-gradient(135deg, #1A2824 0%, #F4F8F6 100%);box-shadow:0 16px 32px #1A2824;position:relative;text-transform:uppercase;font-style:italic}';
@@ -490,6 +494,10 @@ foreach([
     ['text'=>'Количество мест ограничено размером группы.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported capacity claim','rule'=>'copy_scarcity'],
     ['text'=>'Все материалы и инструменты предоставляются мастерской.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported included materials','rule'=>'copy_business_claim'],
     ['text'=>'Вы познакомитесь со свойствами глины, освоите базовые техники лепки под руководством мастера и подготовите изделие к обжигу.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Подтверждено только проведение занятий.','name'=>'Unsupported workshop activities, instruction and firing process','rule'=>'copy_lesson_claim'],
+    ['text'=>'Участники работают с глиной под руководством мастера.','prompt'=>'Проводятся занятия по лепке и декорированию изделий из глины. Не придумывай цены, адрес, расписание, длительность, материалы, команду, отзывы, оборудование, ход занятий и атмосферу.','name'=>'Confirmed class topic does not confirm instructor supervision','rule'=>'copy_lesson_claim'],
+    ['text'=>'Мастер показывает инструменты и техники работы.','prompt'=>'Проводятся занятия по лепке и декорированию изделий из глины. Не придумывай цены, адрес, расписание, длительность, материалы, команду, отзывы, оборудование, ход занятий и атмосферу.','name'=>'Confirmed class topic does not confirm tools or teaching techniques','rule'=>'copy_lesson_claim'],
+    ['text'=>'После обжига готовое изделие можно забрать домой.','prompt'=>'Проводятся занятия по лепке и декорированию изделий из глины. Не придумывай цены, адрес, расписание, длительность, материалы, команду, отзывы, оборудование, ход занятий и атмосферу.','name'=>'A negative instruction does not confirm firing or finished-product pickup','rule'=>'copy_business_claim'],
+    ['text'=>'Для заказов доступна доставка изделий.','prompt'=>'Керамическая мастерская. Не придумывай доставку.','name'=>'A negative instruction does not confirm delivery','rule'=>'copy_business_claim'],
     ['text'=>'Начните знакомство с глиной в уютной мастерской и попробуйте работать с глиной.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Спокойная глиняная палитра.','name'=>'Unsupported workshop atmosphere and specific class activity','rule'=>'copy_lesson_claim'],
     ['text'=>'Контактные данные будут указаны позже.','prompt'=>'Одностраничный сайт керамической мастерской. Контактные данные не выдумывай.','name'=>'Unsupported contact placeholder','rule'=>'copy_contact_placeholder'],
     ['text'=>'Приходите, чтобы выбрать букет или комнатное растение из ассортимента.','prompt'=>'Цветочный магазин продаёт букеты и комнатные растения. Посетители могут посмотреть ассортимент.','name'=>'Unconfirmed physical visit at a shop','rule'=>'copy_in_person_visit'],
@@ -499,6 +507,7 @@ foreach([
     ['text'=>'Готовое изделие можно заказать с доставкой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported delivery','rule'=>'copy_business_claim'],
     ['text'=>'После обжига вы заберёте готовое изделие домой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported take-home promise','rule'=>'copy_business_claim'],
     ['text'=>'Оставьте заявку, и администратор свяжется с вами.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported form follow-up','rule'=>'copy_inert_form'],
+    ['text'=>'Записывайтесь на занятия на сайте мастерской.','prompt'=>'Сайт керамической мастерской. Подтверждено только проведение занятий, не обещай форму или запись.','name'=>'Unsupported signup without a working form or contact','rule'=>'copy_inert_form'],
 ] as $copyDefect){
     $copyBadDesign=$generatedDesign;$copyBadDesign['html']=str_replace('Современная клиника рядом с вами.',$copyDefect['text'],$copyBadDesign['html']);
     $copyBadBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($copyBadDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
@@ -508,6 +517,14 @@ foreach([
     $copyRepairRequest=json_decode($copyRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck(count($copyRepairTransport->calls)===2&&$copyRepair['metadata']['repairAttempted']&&str_contains($copyRepairRequest['messages'][0]['content'],'idiomatic Russian')&&str_contains($copyRepairRequest['messages'][0]['content'],'Failed safe copy audit code: '.$copyDefect['rule'])&&!str_contains($copyRepairRequest['messages'][0]['content'],$copyDefect['text']),$copyDefect['name'].' triggers a bounded repair with a safe code but no rejected copy');
 }
+
+$internalBookingDesign=$generatedDesign;
+$internalBookingDesign['html']=str_replace('Подробнее о помощи','Записаться',$internalBookingDesign['html']);
+$internalBookingBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($internalBookingDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$internalBookingTransport=new FakeAiTransport([new AiHttpResponse(200,$internalBookingBody),new AiHttpResponse(200,$generatedBody)]);
+$internalBookingResult=AiGeneratedWebsite::create('Сайт клиники без формы записи. Используй нейтральные CTA.',new OpenRouterProvider($settings,$internalBookingTransport));
+$internalBookingRepair=json_decode($internalBookingTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+aiCheck(count($internalBookingTransport->calls)===2&&$internalBookingResult['metadata']['repairAttempted']&&str_contains($internalBookingRepair['messages'][0]['content'],'An internal #section link does not register or book anyone'),'Internal booking-label CTA triggers a bounded repair with neutral-navigation guidance');
 
 foreach([
     ['html'=>str_replace('<h2>Опытные врачи</h2>','<h2>Забота о здоровье</h2>',$generatedDesign['html']),'name'=>'Repeated section heading'],
@@ -528,6 +545,12 @@ $supportedCopyBody=json_encode(['choices'=>[['message'=>['content'=>json_encode(
 $supportedCopyTransport=new FakeAiTransport([new AiHttpResponse(200,$supportedCopyBody)]);
 AiGeneratedWebsite::create($supportedCopyPrompt,new OpenRouterProvider($settings,$supportedCopyTransport));
 aiCheck(count($supportedCopyTransport->calls)===1,'Explicit owner-provided operational details are retained without an unnecessary repair');
+$supportedLessonPrompt='Проводятся занятия по лепке и декорированию изделий из глины. На занятиях мастер показывает инструменты и техники, работа проходит под руководством мастера, предусмотрены глазурование и обжиг.';
+$supportedLessonDesign=$generatedDesign;$supportedLessonDesign['html']=str_replace('Современная клиника рядом с вами.','Мастер показывает инструменты и техники. Занятия проходят под руководством мастера. Предусмотрены глазурование и обжиг.',$supportedLessonDesign['html']);
+$supportedLessonBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($supportedLessonDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$supportedLessonTransport=new FakeAiTransport([new AiHttpResponse(200,$supportedLessonBody)]);
+AiGeneratedWebsite::create($supportedLessonPrompt,new OpenRouterProvider($settings,$supportedLessonTransport));
+aiCheck(count($supportedLessonTransport->calls)===1,'Explicitly confirmed lesson activities and process details remain allowed');
 $confirmedVisitDesign=$generatedDesign;$confirmedVisitDesign['html']=str_replace('Современная клиника рядом с вами.','Приходите в нашу клинику на консультацию.',$confirmedVisitDesign['html']);
 $confirmedVisitBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($confirmedVisitDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
 $confirmedVisitTransport=new FakeAiTransport([new AiHttpResponse(200,$confirmedVisitBody)]);
