@@ -32,6 +32,16 @@ final class GeneratedDesignDefaults {
             $badge=$xpath->query('.//*[contains(concat(" ",normalize-space(@class)," ")," ai-pill-badge ")]',$block)->item(0);
             if(!$badge){$badge=$dom->createElement('span');$badge->appendChild($dom->createTextNode(mb_substr(trim($h?->textContent??'Раздел'),0,40)));self::addClass($badge,'ai-pill-badge');if($h)$h->parentNode->insertBefore($badge,$h);else $block->insertBefore($badge,$block->firstChild);}
         }
+        $defaultSpacingNavs=[];
+        foreach($xpath->query('//nav') as $nav){
+            if(!$nav instanceof \DOMElement)continue;
+            $hasExplicitPadding=false;
+            foreach(['padding','padding-top','padding-right','padding-bottom','padding-left','padding-inline','padding-inline-start','padding-inline-end'] as $property){
+                if($value($nav,$property)!==null){$hasExplicitPadding=true;break;}
+            }
+            if(!$hasExplicitPadding){self::addClass($nav,'ai-nav-default-spacing');$defaultSpacingNavs[]=$nav;}
+        }
+        if($defaultSpacingNavs)$extra.="\n.$scope nav.ai-nav-default-spacing{box-sizing:border-box;padding:12px 20px}";
         $radii=[];$cardRadii=[];foreach($xpath->query('//article|//button|//a|//div') as $element){$radius=$value($element,'border-radius');if($radius!==null&&$radius!=='inherit')$radii[$radius]=($radii[$radius]??0)+1;if($radius!==null&&($element->tagName==='article'||str_contains($element->getAttribute('class'),'card')))$cardRadii[$radius]=($cardRadii[$radius]??0)+1;}arsort($radii);arsort($cardRadii);$fallback=array_key_first($cardRadii)??array_key_first($radii)??'0px';
         $index=0;
         foreach($xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ")]') as $slot){

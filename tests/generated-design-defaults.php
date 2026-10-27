@@ -15,6 +15,11 @@ defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges 
 
 defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');
 defaultsCheck(str_contains($out['css'],'.ai-scope-test nav{display:flex;flex-wrap:wrap')&&str_contains($out['css'],'.ai-scope-test nav ul{display:flex;flex-wrap:wrap'),'Generated navigation and its list wrap at narrow viewport widths');
+$navSpacing=['html'=>'<div class="ai-scope-test"><nav><a href="#about">О нас</a></nav><section class="ai-hero"><h1>Главная</h1></section></div>','css'=>'.ai-scope-test nav{display:flex}'];
+$navSpacingOut=GeneratedDesignDefaults::apply($navSpacing);
+defaultsCheck(str_contains($navSpacingOut['html'],'ai-nav-default-spacing')&&str_contains($navSpacingOut['css'],'box-sizing:border-box;padding:12px 20px'),'Generated navigation gets safe outer spacing when the model provides none');
+$authoredNav=$navSpacing;$authoredNav['css'].='.ai-scope-test nav{padding:8px 32px}';$authoredNav=GeneratedDesignDefaults::apply($authoredNav);
+defaultsCheck(!str_contains($authoredNav['html'],'ai-nav-default-spacing'),'Generated navigation preserves model-authored padding');
 
 $split=['html'=>'<div class="ai-scope-test"><section class="ai-hero ai-hero-split"><div class="ai-image-slot" data-image-slot="hero"></div><div class="ai-copy"><h1>Clinic</h1><p>Care</p><a href="#contact">Book</a></div></section></div>','css'=>'.ai-scope-test .ai-hero{background-color:#123456}'];
 $composed=GeneratedDesignDefaults::apply($split);
