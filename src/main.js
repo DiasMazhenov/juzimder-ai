@@ -575,13 +575,25 @@ async function openEditor(id,pageId=null) {
     if(isUserSkill&&metadata?.userSkillName){const row=document.createElement('p'),caption=document.createElement('span');caption.textContent='Skill';row.append(caption,document.createTextNode(metadata.userSkillName));facts.append(row);}
     preview.append(facts);
     const audit=design.skillAudit;
-    if((isTaste&&audit?.profile==='taste')||(isUserSkill&&audit?.checks?.length)){
-      const checks=document.createElement('section');checks.className='ai-taste-audit';checks.setAttribute('aria-label','Автоматические проверки Skill');
-      const heading=document.createElement('h3');heading.textContent='Проверки структуры';checks.append(heading);
-      const list=document.createElement('ul');
-      for(const item of audit.checks||[]){const row=document.createElement('li');row.dataset.status=item.status==='passed'?'passed':'failed';row.textContent=(item.status==='passed'?'✓ ':'! ')+(item.id?item.id+' · ':'')+item.label;if(item.evidence){const evidence=document.createElement('small');evidence.textContent=' · '+JSON.stringify(item.evidence);row.append(evidence);}list.append(row);}
-      checks.append(list);
-      const note=document.createElement('p');note.className='muted small';note.textContent=isUserSkill?'Структурные правила Skill проверены автоматически.':'Структура страницы проверена автоматически.';checks.append(note);preview.append(checks);
+    const automaticChecks=Array.isArray(audit?.checks)?audit.checks:[];
+    const manualChecks=isUserSkill&&Array.isArray(audit?.humanReviewRequired)?audit.humanReviewRequired.filter(item=>typeof item==='string'&&item.trim()!==''):[];
+    if((isTaste&&audit?.profile==='taste')||(isUserSkill&&audit?.profile==='user_skill'&&(automaticChecks.length||manualChecks.length))){
+      const checks=document.createElement('section');checks.className='ai-taste-audit';checks.setAttribute('aria-label','Проверки требований Skill');
+      const heading=document.createElement('h3');heading.textContent=isUserSkill?'Проверка требований Skill':'Проверки структуры';checks.append(heading);
+      if(automaticChecks.length){
+        const automaticHeading=document.createElement('h4');automaticHeading.textContent='Проверено автоматически';checks.append(automaticHeading);
+        const list=document.createElement('ul');
+        for(const item of automaticChecks){const row=document.createElement('li');row.dataset.status=item.status==='passed'?'passed':'failed';row.textContent=(item.status==='passed'?'✓ ':'! ')+(item.id?item.id+' · ':'')+item.label;if(item.evidence){const evidence=document.createElement('small');evidence.textContent=' · '+JSON.stringify(item.evidence);row.append(evidence);}list.append(row);}
+        checks.append(list);
+      }
+      if(isUserSkill&&manualChecks.length){
+        const manual=document.createElement('div');manual.className='ai-skill-manual-review';
+        const manualHeading=document.createElement('h4');manualHeading.textContent='Требует ручной оценки';manual.append(manualHeading);
+        const list=document.createElement('ul');for(const item of manualChecks){const row=document.createElement('li');row.textContent=item;list.append(row);}manual.append(list);
+        const note=document.createElement('p');note.className='muted small';note.textContent='Эти требования нельзя подтвердить автоматической проверкой. Сверьте их с предпросмотром.';manual.append(note);checks.append(manual);
+      }
+      if(isTaste){const note=document.createElement('p');note.className='muted small';note.textContent='Структура страницы проверена автоматически.';checks.append(note);}
+      preview.append(checks);
     }
     const frame=document.createElement('iframe');frame.id='ai-design-preview-frame';frame.className='ai-design-preview-frame';frame.title='Предпросмотр AI-дизайна';frame.setAttribute('sandbox','');
     const frameViewport=document.createElement('div');frameViewport.className='ai-skill-preview-scroll';frameViewport.append(frame);preview.append(frameViewport);

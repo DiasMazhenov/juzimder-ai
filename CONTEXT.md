@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.256 (npm SemVer 0.1.256). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.257 (npm SemVer 0.1.257). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.257: Предпросмотр генерации пользовательского Skill показывает и machine-checkable проверки, и отдельные `humanReviewRequired` требования обычным текстом. Такие пункты явно отмечены как требующие ручной оценки; галочек и автоматического PASS для них нет. Текст выводится через `textContent`. Это закрывает только отображение уже возвращаемых сервером требований; произвольный Skill по-прежнему не получает гарантию безошибочного выполнения.
 
 00.00.256: Typed attribute operations, static HTML export and Project Schema теперь сверяют per-attribute string limits через общий `ComponentAttributePolicy`; покрыты ARIA, URL/resource, form, ID/class и `data-*` границы. Ошибки длины больше не принимаются typed API и не теряются молча в export. Оставшаяся универсализация typed operations/schema открыта.
 
