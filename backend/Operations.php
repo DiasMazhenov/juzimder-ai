@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__ . '/ComponentStylePolicy.php';
+require_once __DIR__ . '/ComponentTypePolicy.php';
 
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
@@ -33,11 +34,6 @@ final class ProjectOperations {
         if ($name === 'rel' && !preg_match('/^(?:noopener|noreferrer|nofollow|ugc|sponsored)(?:\\s+(?:noopener|noreferrer|nofollow|ugc|sponsored))*$/D', $value)) throw new Problem(422, 'Недопустимое значение rel.');
         if (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) && !in_array($value, self::ENUM_ATTRIBUTE_VALUES[$name], true)) throw new Problem(422, 'Недопустимое значение ARIA-атрибута.');
     }
-    private const SEMANTIC_TAGS_BY_TYPE = [
-        'text'=>['h1','h2','h3','h4','p','span','strong','em','b','i','li','summary','figcaption','time'],
-        'default'=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
-        ''=>['div','section','header','footer','nav','main','article','aside','ul','ol','li','details','figure'],
-    ];
     public static function styleFields(): array { return ComponentStylePolicy::properties(); }
     public static function nodeIdentifier(\stdClass $node): ?string { return self::nodeId($node); }
 
@@ -160,7 +156,7 @@ final class ProjectOperations {
                 $location = self::findComponent($document, self::identifier($operation->componentId));
                 $component =& self::atPath($document, $location['path']);
                 $type = is_string($component->type ?? null) ? $component->type : '';
-                $allowedTags = self::SEMANTIC_TAGS_BY_TYPE[$type] ?? [];
+                $allowedTags = ComponentTypePolicy::semanticTags($type);
                 if (!is_string($operation->tagName) || !in_array($operation->tagName, $allowedTags, true)) throw new Problem(422, 'Для этого типа компонента недопустим HTML-тег.');
                 $component->tagName = $operation->tagName;
                 return;
@@ -346,6 +342,9 @@ final class ProjectOperations {
         if (isset($node->type) && (!is_string($node->type) || !in_array($node->type, Document::COMPONENT_TYPES, true))) throw new Problem(422, 'Недопустимый тип компонента.');
         if (isset($node->tagName) && !is_string($node->tagName)) throw new Problem(422, 'Некорректный HTML-тег.');
         if (!isset($node->type) && !isset($node->tagName)) throw new Problem(422, 'Укажите разрешённый тип или HTML-тег компонента.');
+        $componentType = isset($node->type) ? $node->type : null;
+        $tagName = isset($node->tagName) ? $node->tagName : null;
+        if (!ComponentTypePolicy::allowsTypedCreation($componentType, $tagName)) throw new Problem(422, 'Тип компонента не соответствует HTML-тегу поддерживаемого renderer.');
         if (isset($node->name) && (!is_string($node->name) || mb_strlen($node->name, 'UTF-8') > 120)) throw new Problem(422, 'Некорректное название компонента.');
         if (isset($node->content) && (!is_string($node->content) || mb_strlen($node->content, 'UTF-8') > 10000)) throw new Problem(422, 'Текст компонента слишком длинный.');
         $attributes = $node->attributes ?? new \stdClass();

@@ -3,10 +3,9 @@ declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__ . '/ZeroBlockRenderer.php';
 require_once __DIR__ . '/ComponentStylePolicy.php';
+require_once __DIR__ . '/ComponentTypePolicy.php';
 
 final class StaticSiteExporter {
-    private const TAGS = ['div','section','header','footer','nav','main','article','aside','h1','h2','h3','h4','p','span','a','img','button','ul','ol','li','strong','em','b','i','br','hr','label','form','input','textarea','select','option','details','summary','figure','figcaption','time'];
-    private const VOID_TAGS = ['img','br','hr','input'];
     private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','readonly','for','min','max','step','minlength','maxlength','pattern','autocomplete','inputmode','accept','size','datetime','open','hidden'];
     private const RICH_TEXT_TAGS = ['p','span','br','strong','em','b','i','u','s'];
 
@@ -203,7 +202,7 @@ final class StaticSiteExporter {
             $formId = substr(hash('sha256', $pageId . ':' . implode('.', $path)), 0, 24);
             $fields = [];
             $walk = static function(\stdClass $node) use (&$walk, &$fields): void {
-                $tag = strtolower((string)($node->tagName ?? ''));
+                $tag = ComponentTypePolicy::tagFor((string)($node->type ?? ''), is_string($node->tagName ?? null) ? $node->tagName : null) ?? '';
                 if (in_array($tag, ['input','textarea','select'], true)) {
                     $attrs = $node->attributes ?? new \stdClass();
                     $name = $attrs->name ?? null;
@@ -258,15 +257,13 @@ final class StaticSiteExporter {
             $title = is_string($component->name ?? null) && $component->name !== '' ? $component->name : ($type === 'countdown' ? 'Обратный отсчёт' : 'Пользовательский код в изолированной песочнице');
             return '<div' . $attributes . '><iframe title="' . self::escape($title) . '" sandbox="allow-scripts" referrerpolicy="no-referrer" style="display:block;width:100%;height:360px;border:0" srcdoc="' . self::escape($sandbox) . '"></iframe></div>';
         }
-        $tag = is_string($component->tagName ?? null) ? strtolower($component->tagName) : match ($type) {
-            'form'=>'form','input','checkbox','radio'=>'input','textarea'=>'textarea','select'=>'select','option'=>'option','button'=>'button','label'=>'label', 'image' => 'img', 'link', 'link-block' => 'a', 'wrapper' => 'div', default => 'div'
-        };
-        if (!in_array($tag, self::TAGS, true)) throw new Problem(422, 'Статический экспорт встретил неподдерживаемый HTML-тег.');
+        $tag = ComponentTypePolicy::tagFor($type, is_string($component->tagName ?? null) ? $component->tagName : null) ?? 'div';
+        if (!in_array($tag, ComponentTypePolicy::tags(), true)) throw new Problem(422, 'Статический экспорт встретил неподдерживаемый HTML-тег.');
         $attributes = self::renderAttributes(self::componentAttributes($component), $component->style ?? null, $assetPaths);
         if ($type === 'form' && isset($formComponents[spl_object_id($component)])) {
             $attributes = rtrim($attributes) . ' data-jz-form-id="' . $formComponents[spl_object_id($component)] . '"';
         }
-        if (in_array($tag, self::VOID_TAGS, true)) return '<' . $tag . $attributes . '>';
+        if (in_array($tag, ComponentTypePolicy::voidTags(), true)) return '<' . $tag . $attributes . '>';
         $content = is_string($component->content ?? null) && $component->content !== ''
             ? self::renderRichText($component->content)
             : '';

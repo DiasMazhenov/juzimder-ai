@@ -51,6 +51,13 @@ $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['ta
 $formDocument->data->pages[0]->frames[0]->component->components[] = (object)['tagName'=>'form','type'=>'form','attributes'=>(object)['id'=>'native-form'],'components'=>[(object)['tagName'=>'input','type'=>'input','attributes'=>(object)['id'=>'email-field','name'=>'email','type'=>'email','placeholder'=>'name@example.test','required'=>true,'readonly'=>true,'accept'=>'image/*','inputmode'=>'email']]]];
 Document::validate($formDocument);
 $formHtml = StaticSiteExporter::files(['name'=>'Form export','version'=>1,'document'=>$formDocument,'settings'=>ProjectSettings::initial($formDocument)])['index.html'];
+$typedFormDocument = ProjectOperations::apply(json_decode(json_encode(Document::empty(), JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR), [[
+    'operation'=>'create_component','parentId'=>'page:home','component'=>['type'=>'form','components'=>[
+        ['type'=>'input','attributes'=>['name'=>'email','type'=>'email','required'=>true]],
+    ]],
+]]);
+$typedFormFiles = StaticSiteExporter::files(['name'=>'Typed form export','version'=>1,'document'=>$typedFormDocument,'settings'=>ProjectSettings::initial($typedFormDocument)]);
+exportCheck(str_contains($typedFormFiles['index.html'],'<form') && str_contains($typedFormFiles['index.html'],'<input') && str_contains($typedFormFiles['index.html'],'data-jz-form-id=') && str_contains($typedFormFiles['forms.json'],'"name":"email"'), 'Implicit form and field tags resolve consistently in the typed renderer and form inbox metadata');
 $typedStyleDocument = json_decode(json_encode(Document::empty(), JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR);
 $typedStyleDocument = ProjectOperations::apply($typedStyleDocument, [[
     'operation'=>'create_component',
