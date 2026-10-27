@@ -4,16 +4,20 @@ import { appendPhotoCredit, PHOTO_CREDIT_MAX_LENGTH, photoCreditCaption, photoCr
 
 class FakeElement {
   constructor(tagName, ownerDocument) { this.tagName=tagName.toUpperCase();this.ownerDocument=ownerDocument;this.style={};this.children=[];this.childNodes=this.children;this.parentNode=null;this.attributes={}; }
+  get nextSibling() { if(!this.parentNode)return null;const index=this.parentNode.children.indexOf(this);return this.parentNode.children[index+1]||null; }
   append(...nodes) { for(const node of nodes){if(node.parentNode){const old=node.parentNode.children.indexOf(node);if(old!==-1)node.parentNode.children.splice(old,1);}node.parentNode=this;this.children.push(node);} }
   replaceChild(replacement, current) { const index=this.children.indexOf(current);if(index<0)throw new Error('Child not found');this.children[index]=replacement;replacement.parentNode=this;current.parentNode=null; }
   closest(selector) { return selector==='.ai-hero-background'?this.backgroundAncestor||null:null; }
   set textContent(value) { this.text=String(value); }
+  insertBefore(node, reference) { const index=reference===null?this.children.length:this.children.indexOf(reference);if(index<0)throw new Error('Reference node not found');if(node.parentNode){const old=node.parentNode.children.indexOf(node);if(old!==-1)node.parentNode.children.splice(old,1);}node.parentNode=this;this.children.splice(index,0,node); }
 }
 
 function fakePhotoSlot(backgroundAncestor=null) {
   const document={createElement(tag){return new FakeElement(tag,document);},createTextNode(text){return {textContent:String(text),parentNode:null};}};
-  const parent=new FakeElement('section',document),slot=new FakeElement('div',document);
-  slot.parentNode=parent;parent.children.push(slot);slot.backgroundAncestor=backgroundAncestor;
+  const parent=new FakeElement('main',document),slot=new FakeElement('div',document);
+  if(backgroundAncestor){backgroundAncestor.ownerDocument=document;backgroundAncestor.parentNode=parent;parent.children.push(backgroundAncestor);slot.parentNode=backgroundAncestor;backgroundAncestor.children.push(slot);}
+  else{slot.parentNode=parent;parent.children.push(slot);}
+  slot.backgroundAncestor=backgroundAncestor;
   return {document,parent,slot};
 }
 
@@ -61,11 +65,13 @@ test('generated image attribution is a readable 8px caption below the photo',()=
   assert.equal(credit.children[2].href,'https://creativecommons.org/licenses/by/4.0/');
 });
 
-test('full-bleed hero background attribution remains legible over the image',()=>{
+test('full-bleed hero background attribution is an 8px caption below the photo',()=>{
   const background=new FakeElement('section',null),{slot}=fakePhotoSlot(background);
   const credit=appendPhotoCredit(slot,{kind:'commons',sourceUrl:'https://commons.wikimedia.org/photo',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',author:'Photo Author',license:'CC BY 4.0'});
-  assert.equal(background.children[0],credit);
+  assert.equal(background.parentNode.children[0],background);
+  assert.equal(background.parentNode.children[1],credit);
   assert.equal(credit.tagName,'P');
-  assert.equal(credit.style.position,'absolute');
-  assert.equal(credit.style.fontSize,'8px');
+  assert.equal(credit.style.position,undefined);
+  assert.equal(credit.style['font-size'],'8px');
+  assert.equal(credit.style['margin-top'],'4px');
 });

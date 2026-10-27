@@ -21,6 +21,7 @@ const COPY_RULE_LABELS = Object.freeze({
   copy_lesson_claim: 'есть неподтверждённое описание процесса или результата',
   copy_inert_form: 'кнопка обещает отправку формы или обратную связь',
   copy_contact_placeholder: 'обнаружена заглушка контактных данных',
+  copy_in_person_visit: 'личный визит не подтверждён в брифе',
 });
 
 export function markupRuleLabel(code) {

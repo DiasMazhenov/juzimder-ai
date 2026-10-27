@@ -62,17 +62,17 @@ export function appendPhotoCredit(slot, asset) {
   const credit=doc.createElement(background?'p':'figcaption');
   credit.className='ai-photo-credit';
   if(background){
-    Object.assign(background.style,{position:'relative'});
-    Object.assign(credit.style,{position:'absolute',left:'0px',right:'0px',bottom:'0px',margin:'0px',padding:'4px 6px',fontSize:'8px',lineHeight:'1.4',color:'#ffffff',backgroundColor:'#17211b',textAlign:'left'});
+    Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'4px'});
   }else Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'2px'});
   for (const [url,label] of [[asset.sourceUrl,'Фото: '+asset.author+' / Wikimedia Commons'],[asset.licenseUrl,asset.license]]) {
     if(credit.childNodes.length)credit.append(doc.createTextNode(' · '));
     const link=doc.createElement('a');link.href=url;link.textContent=label;
-    Object.assign(link.style,{fontSize:'8px',lineHeight:'1.4',color:background?'#ffffff':'inherit',textDecoration:'underline'});
+    Object.assign(link.style,{fontSize:'8px',lineHeight:'1.4',color:'inherit',textDecoration:'underline'});
     credit.append(link);
   }
   if(background){
-    background.append(credit);
+    if(background.parentNode)background.parentNode.insertBefore(credit,background.nextSibling);
+    else background.append(credit);
     return credit;
   }
   const figure=doc.createElement('figure');

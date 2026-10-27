@@ -24,5 +24,6 @@ test('unknown or provider-supplied strings never appear in markup diagnostics', 
 test('copy diagnostics translate only fixed audit codes', () => {
   assert.equal(copyRuleLabel('copy_mixed_language'), 'текст содержит слова не на языке брифа');
   assert.equal(copyRuleLabel('copy_duplicate'), 'повторяется заголовок или абзац');
+  assert.equal(copyRuleLabel('copy_in_person_visit'), 'личный визит не подтверждён в брифе');
   assert.equal(copyRuleLabel('secret raw model output'), 'требуется проверить текст на точность и грамотность');
 });

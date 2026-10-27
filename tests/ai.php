@@ -146,6 +146,7 @@ try {
     aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'single direct div.ai-hero-copy child'),'HTML schema requires one Hero copy wrapper for the heading, body and action');
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
     aiCheck(str_contains($generatedSystemPrompt,'Treat the owner brief as the only source for service operations and customer experience')&&str_contains($generatedSystemPrompt,'do not invent lesson activities or stages'),'Main AI generation grounds service process and experience claims in the owner brief');
+    aiCheck(str_contains($generatedSystemPrompt,'business name or type alone does not confirm a public location')&&str_contains($generatedSystemPrompt,'unless the owner explicitly confirmed in-person service'),'Main AI generation does not infer an in-person location from the business type');
     aiCheck(str_contains($generatedSystemPrompt,'Never add a contact section containing only a generic contact prompt')&&str_contains($generatedSystemPrompt,'Do not point a CTA to an empty contact section'),'Main AI generation omits empty contact sections and placeholder CTAs when details are missing');
     aiCheck(str_contains($generatedSystemPrompt,'Make every h1-h4 heading unique after case and whitespace normalization, even when the heading is a single short word')&&str_contains($generatedSystemPrompt,'Never repeat complete visible paragraphs verbatim'),'Main AI generation avoids repeated short headings and body copy');
     aiCheck(str_contains($generatedSystemPrompt,'WCAG AA contrast')&&str_contains($generatedSystemPrompt,'never fade text with opacity'),'Main AI generation explicitly requires readable contrast for all visible text');
@@ -482,6 +483,9 @@ foreach([
     ['text'=>'Вы познакомитесь со свойствами глины, освоите базовые техники лепки под руководством мастера и подготовите изделие к обжигу.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Подтверждено только проведение занятий.','name'=>'Unsupported workshop activities, instruction and firing process','rule'=>'copy_lesson_claim'],
     ['text'=>'Начните знакомство с глиной в уютной мастерской и попробуйте работать с глиной.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Спокойная глиняная палитра.','name'=>'Unsupported workshop atmosphere and specific class activity','rule'=>'copy_lesson_claim'],
     ['text'=>'Контактные данные будут указаны позже.','prompt'=>'Одностраничный сайт керамической мастерской. Контактные данные не выдумывай.','name'=>'Unsupported contact placeholder','rule'=>'copy_contact_placeholder'],
+    ['text'=>'Приходите, чтобы выбрать букет или комнатное растение из ассортимента.','prompt'=>'Цветочный магазин продаёт букеты и комнатные растения. Посетители могут посмотреть ассортимент.','name'=>'Unconfirmed physical visit at a shop','rule'=>'copy_in_person_visit'],
+    ['text'=>'Посмотрите ассортимент в нашем магазине.','prompt'=>'Цветочный магазин продаёт букеты и комнатные растения. Посетители могут посмотреть ассортимент.','name'=>'Unconfirmed product viewing at a physical shop','rule'=>'copy_in_person_visit'],
+    ['text'=>'Небольшой цветочный магазин, где можно подобрать букет или комнатное растение.','prompt'=>'Цветочный магазин продаёт букеты и комнатные растения. Посетители могут посмотреть ассортимент.','name'=>'Unconfirmed product selection at a physical shop','rule'=>'copy_in_person_visit'],
     ['text'=>'Занятия проходят в будние дни и выходные.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported schedule','rule'=>'copy_business_claim'],
     ['text'=>'Готовое изделие можно заказать с доставкой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported delivery','rule'=>'copy_business_claim'],
     ['text'=>'После обжига вы заберёте готовое изделие домой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported take-home promise','rule'=>'copy_business_claim'],
@@ -491,6 +495,7 @@ foreach([
     $copyBadBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($copyBadDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
     $copyRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$copyBadBody),new AiHttpResponse(200,$generatedBody)]);
     $copyRepair=AiGeneratedWebsite::create($copyDefect['prompt'],new OpenRouterProvider($settings,$copyRepairTransport));
+    if(!isset($copyRepairTransport->calls[1])) throw new RuntimeException($copyDefect['name'].' did not request the expected bounded repair; provider calls: '.count($copyRepairTransport->calls));
     $copyRepairRequest=json_decode($copyRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck(count($copyRepairTransport->calls)===2&&$copyRepair['metadata']['repairAttempted']&&str_contains($copyRepairRequest['messages'][0]['content'],'idiomatic Russian')&&str_contains($copyRepairRequest['messages'][0]['content'],'Failed safe copy audit code: '.$copyDefect['rule'])&&!str_contains($copyRepairRequest['messages'][0]['content'],$copyDefect['text']),$copyDefect['name'].' triggers a bounded repair with a safe code but no rejected copy');
 }
@@ -514,6 +519,17 @@ $supportedCopyBody=json_encode(['choices'=>[['message'=>['content'=>json_encode(
 $supportedCopyTransport=new FakeAiTransport([new AiHttpResponse(200,$supportedCopyBody)]);
 AiGeneratedWebsite::create($supportedCopyPrompt,new OpenRouterProvider($settings,$supportedCopyTransport));
 aiCheck(count($supportedCopyTransport->calls)===1,'Explicit owner-provided operational details are retained without an unnecessary repair');
+$confirmedVisitDesign=$generatedDesign;$confirmedVisitDesign['html']=str_replace('Современная клиника рядом с вами.','Приходите в нашу клинику на консультацию.',$confirmedVisitDesign['html']);
+$confirmedVisitBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($confirmedVisitDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$confirmedVisitTransport=new FakeAiTransport([new AiHttpResponse(200,$confirmedVisitBody)]);
+$confirmedVisit=AiGeneratedWebsite::create('В клинике можно прийти на консультацию лично.',new OpenRouterProvider($settings,$confirmedVisitTransport));
+aiCheck(count($confirmedVisitTransport->calls)===1&&str_contains($confirmedVisit['design']['html'],'Приходите в нашу клинику на консультацию.'),'Explicit owner confirmation allows an in-person visit without copy repair');
+$onlineShopDesign=$generatedDesign;$onlineShopDesign['siteType']='Цветочный интернет-магазин';$onlineShopDesign['html']=str_replace(['Записаться','КЛИНИКА','Забота о здоровье','Современная клиника рядом с вами.','Опытные врачи','Внимание к каждому пациенту.','Мы рядом','Запишитесь на консультацию.'],['Посмотреть каталог','ЦВЕТОЧНЫЙ МАГАЗИН','Букеты и растения','В интернет-магазине можно подобрать букет или комнатное растение.','Букеты','Букеты и комнатные растения в каталоге.','Каталог','Откройте каталог растений.'],$onlineShopDesign['html']);
+$onlineShopBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($onlineShopDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$onlineShopTransport=new FakeAiTransport([new AiHttpResponse(200,$onlineShopBody),new AiHttpResponse(200,$onlineShopBody)]);
+AiGeneratedWebsite::create('Цветочный интернет-магазин продаёт букеты и комнатные растения. Подбор доступен онлайн.',new OpenRouterProvider($settings,$onlineShopTransport));
+if(count($onlineShopTransport->calls)!==1){$onlineShopRepair=json_decode($onlineShopTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);throw new RuntimeException('Online shop copy triggered an unnecessary repair: '.substr($onlineShopRepair['messages'][0]['content']??'',-320));}
+aiCheck(true,'Online product selection is not mistaken for an in-person visit');
 
 $badMarkup=$generatedDesign;$badMarkup['html']=str_replace('<header','<script>private-test-marker</script><header',$badMarkup['html']);
 $badBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($badMarkup,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
