@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendPhotoCredit, photoCreditCaption, photoCreditText, photoFigureFromImage } from '../src/photo-credit.js';
+import { appendPhotoCredit, normalizeLegacyHeroPhotoCredits, photoCreditCaption, photoCreditText, photoFigureFromImage } from '../src/photo-credit.js';
 
 class FakeElement {
   constructor(tagName, ownerDocument) { this.tagName=tagName.toUpperCase();this.ownerDocument=ownerDocument;this.style={};this.children=[];this.childNodes=this.children;this.parentNode=null;this.attributes={}; }
@@ -84,6 +84,47 @@ test('full-bleed hero background attribution stays inside the hero as a compact 
   assert.equal(credit.style.margin,'0');
   assert.equal(credit.children[0].href,'https://commons.wikimedia.org/photo');
   assert.equal(credit.children[0].style.color,'inherit');
-  assert.equal(credit.children[0].style.textDecoration,'underline');
+  assert.equal(credit.children[0].style['text-decoration'],'underline');
   assert.equal(credit.children[2].href,'https://creativecommons.org/licenses/by/4.0/');
+});
+
+class FakeComponent {
+  constructor({classes=[],tagName='div',style={},children=[]}={}){
+    this.classes=classes;this.tagName=tagName;this.style={...style};this.children=[];this.parent=null;
+    for(const child of children)this.append(child);
+  }
+  getClasses(){return this.classes;}
+  get(name){return name==='tagName'?this.tagName:undefined;}
+  getStyle(){return this.style;}
+  addStyle(style){Object.assign(this.style,style);}
+  components(){return{models:this.children};}
+  append(child){child.parent=this;this.children.push(child);return[child];}
+  move(target,{at=target.children.length}={}){
+    if(this.parent){const index=this.parent.children.indexOf(this);if(index>=0)this.parent.children.splice(index,1);}
+    this.parent=target;target.children.splice(at,0,this);return this;
+  }
+}
+
+test('legacy adjacent Hero attribution migrates into the Hero without moving regular photo captions',()=>{
+  const sourceLink=new FakeComponent({tagName:'a'}),licenseLink=new FakeComponent({tagName:'a'});
+  const hero=new FakeComponent({classes:['ai-hero','ai-hero-background'],children:[new FakeComponent({classes:['ai-image-slot']})]});
+  const legacyCredit=new FakeComponent({classes:['ai-photo-credit'],tagName:'p',children:[sourceLink,licenseLink]});
+  const figureCredit=new FakeComponent({classes:['ai-photo-credit'],tagName:'figcaption'});
+  const figure=new FakeComponent({tagName:'figure',children:[new FakeComponent({tagName:'img'}),figureCredit]});
+  const root=new FakeComponent({tagName:'main',children:[hero,legacyCredit,figure]});
+  const editor={Pages:{getAll:()=>[{getMainComponent:()=>root}]}};
+
+  assert.equal(normalizeLegacyHeroPhotoCredits(editor),1);
+  assert.deepEqual(root.children,[hero,figure]);
+  assert.equal(hero.children.at(-1),legacyCredit);
+  assert.equal(legacyCredit.parent,hero);
+  assert.equal(hero.style.position,'relative');
+  assert.equal(legacyCredit.style.position,'absolute');
+  assert.equal(legacyCredit.style.right,'12px');
+  assert.equal(legacyCredit.style.bottom,'10px');
+  assert.equal(legacyCredit.style['font-size'],'8px');
+  assert.deepEqual(sourceLink.style,{'font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'});
+  assert.deepEqual(licenseLink.style,{'font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'});
+  assert.equal(figure.children[1],figureCredit);
+  assert.equal(normalizeLegacyHeroPhotoCredits(editor),0);
 });
