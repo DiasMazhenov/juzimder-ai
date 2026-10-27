@@ -12,8 +12,25 @@ const MARKUP_RULE_LABELS = Object.freeze({
   markup_structure: 'нарушена структура или другое ограничение HTML-разметки',
 });
 
+const COPY_RULE_LABELS = Object.freeze({
+  copy_duplicate: 'повторяется заголовок или абзац',
+  copy_mixed_language: 'текст содержит слова не на языке брифа',
+  copy_grammar: 'нужна проверка грамматики и формулировки',
+  copy_scarcity: 'есть неподтверждённое заявление о срочности или количестве мест',
+  copy_business_claim: 'есть неподтверждённое условие работы или услуги',
+  copy_lesson_claim: 'есть неподтверждённое описание процесса или результата',
+  copy_inert_form: 'кнопка обещает отправку формы или обратную связь',
+  copy_contact_placeholder: 'обнаружена заглушка контактных данных',
+});
+
 export function markupRuleLabel(code) {
   return Object.hasOwn(MARKUP_RULE_LABELS, code)
     ? MARKUP_RULE_LABELS[code]
     : 'другое ограничение безопасной HTML-разметки';
+}
+
+export function copyRuleLabel(code) {
+  return Object.hasOwn(COPY_RULE_LABELS, code)
+    ? COPY_RULE_LABELS[code]
+    : 'требуется проверить текст на точность и грамотность';
 }

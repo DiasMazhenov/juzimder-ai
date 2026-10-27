@@ -629,7 +629,7 @@ final class AiGeneratedWebsite {
     private const VALIDATION_RETRY_GUIDANCE = [
         'contact_requirements' => 'The previous design invented a contact or external link. Use only exact email addresses, phone numbers and URLs explicitly supplied in the original owner brief, never contact examples from Skills. If absent, omit contact details and use internal #fragment links or a plain non-submitting button. Do not invent email addresses, phone numbers, domains, social links or postal addresses.',
         'copy_quality' => 'The previous page contained awkward or mixed-language visible copy, repeated headings or paragraphs, or an unsupported business claim. Rewrite every sentence as idiomatic Russian when the owner brief is Russian, use correct noun/adjective case and agreement, and remove every English word not present in the owner brief. Make every h1-h4 heading unique after case and whitespace normalization, even when the heading is a single short word; use distinct section-purpose labels rather than repeating the same topic word. Do not repeat a heading or paragraph verbatim. If the brief has few facts, keep copy concise instead of padding or inventing details. Remove scarcity, capacity, schedule, price, materials-included, lesson activities or stages, instructor support, tools or techniques, service outcomes, studio conditions, and other operational claims unless explicitly stated by the owner. Remove generic empty contact sections, contact calls to action without real supplied contact details, and placeholders saying contact details will be added later.',
-        'contrast_quality' => 'The previous design used text colors with insufficient contrast against their actual section/card backgrounds. Regenerate the complete design and ensure every visible text label, paragraph, badge, link, and button has WCAG AA contrast: at least 4.5:1 for normal text and 3:1 for large text. Do not use light gray or white text on white/light surfaces. Do not lower copy opacity to weaken contrast. Match each foreground color to the surface behind that text; dark surfaces may use light text, light surfaces need dark text.',
+        'contrast_quality' => 'The previous design used text colors with insufficient contrast against their actual section/card backgrounds. Regenerate the complete design and ensure every visible text label, paragraph, badge, link, and button has WCAG AA contrast: at least 4.5:1 for normal text and 3:1 for large text. Do not use light gray or white text on white/light surfaces. Never set opacity below 1 on visible text or on any parent element that contains text: opacity composites the text with its background and makes it unreadable. If a translucent surface is needed, use a readable solid background instead and keep text and its ancestors fully opaque. Match each foreground color to the surface behind that text; dark surfaces may use light text, light surfaces need dark text.',
         'hero_alignment' => 'The previous Hero split its badge, heading, description, or primary action across separate desktop columns. Regenerate the complete design with one direct div.ai-hero-copy child containing the badge, exactly one h1, the first descriptive paragraph, and the primary link/button. Keep this copy group aligned as a single unit at desktop and mobile; the hero image slot may remain a separate sibling. For a background Hero, overlay the complete copy group as one unit. Do not move copy or the action into a different column.',
         'invalid_schema' => 'The previous response did not match the required JSON schema. Regenerate the complete object from the same user brief, with exactly the required fields and no surrounding prose or code fences.',
         'invalid_markup' => 'The previous response failed the strict HTML allowlist. Regenerate the complete design from the same user brief using only the allowed HTML tags and attributes. Image slots are permitted only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8; never add img elements, URLs, filenames, comments, styles, scripts, or unsupported attributes.',
@@ -762,6 +762,7 @@ final class AiGeneratedWebsite {
             if (!isset(self::VALIDATION_RETRY_GUIDANCE[$category])) throw new AiProviderFailure($failure->getMessage(), false, $category);
             $guidance=$userSkill!==null&&$category==='skill_requirements'?'The previous design failed the owner-selected juzimder-rules contract. Regenerate the full design and satisfy every declared requirement ID. Do not change the requirements. '.$failure->getMessage():self::VALIDATION_RETRY_GUIDANCE[$category];
             if($category==='contrast_quality'&&$failure->validationRule!==null)$guidance.=' Specific contrast failures found by the server: '.$failure->validationRule.'. Correct those selectors directly and recheck every other text color against its rendered surface.';
+            elseif($category==='copy_quality'&&$failure->validationRule!==null)$guidance.=' Failed safe copy audit code: '.$failure->validationRule.'. '.self::copyRepairGuidance($failure->validationRule);
             elseif($failure->validationRule!==null)$guidance.=' Failed validation rule: '.$failure->validationRule.'. '.self::markupRepairGuidance($failure->validationRule);
             $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . $guidance, $providerPrompt, $schema, 'juzimder_generated_site', 9000);
             try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile, $prompt); self::auditCopyQuality($design['html'], $prompt); self::auditHeroCopyGrouping($design['html']); self::auditTextContrast($design['html'], $design['css']); $design['contactAudit']=AiContacts::audit($design,$prompt); $userChecks=$auditUserRules($design); }
@@ -854,7 +855,7 @@ final class AiGeneratedWebsite {
                 $normalized = preg_replace('/[^\\p{L}\\p{N}]+/u', ' ', mb_strtolower($normalized, 'UTF-8'));
                 $normalized = trim(preg_replace('/\\s+/u', ' ', (string)$normalized));
                 if (mb_strlen($normalized, 'UTF-8') < $minimumLength) continue;
-                if (isset($seenCopy[$normalized])) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+                if (isset($seenCopy[$normalized])) self::rejectCopyQuality('copy_duplicate');
                 $seenCopy[$normalized] = true;
             }
         }
@@ -866,13 +867,13 @@ final class AiGeneratedWebsite {
             foreach ($briefMatches[0] as $word) $briefWords[mb_strtolower($word, 'UTF-8')] = true;
             foreach ($matches[0] as $word) {
                 $word = mb_strtolower($word, 'UTF-8');
-                if (!in_array($word, $allowed, true) && !isset($briefWords[$word])) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+                if (!in_array($word, $allowed, true) && !isset($briefWords[$word])) self::rejectCopyQuality('copy_mixed_language');
             }
-            if (preg_match('/от\\s+[\\p{Cyrillic}]+(?:ый|ая|ое|ые)\\s+[\\p{Cyrillic}]+/iu', $plain) === 1) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+            if (preg_match('/от\\s+[\\p{Cyrillic}]+(?:ый|ая|ое|ые)\\s+[\\p{Cyrillic}]+/iu', $plain) === 1) self::rejectCopyQuality('copy_grammar');
         }
         $scarcity = preg_match('/(?:количеств\\p{L}*\\s+мест\\p{L}*\\s+ограничен\\p{L}*|мест\\p{L}*\\s+остал\\p{L}*\\s+\\d+|последн\\p{L}*\\s+\\d+\\s+мест\\p{L}*|успейте\\s+(?:записаться|забронировать))/iu', $plain) === 1;
         $briefSupportsCapacity = preg_match('/(?:\\b\\d{1,3}\\s+(?:мест\\p{L}*|участник\\p{L}*|человек\\b)|мест\\p{L}*\\s+ограничен\\p{L}*|ограничен\\p{L}*\\s+количеств\\p{L}*\\s+мест)/iu', $prompt) === 1;
-        if ($scarcity && !$briefSupportsCapacity) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+        if ($scarcity && !$briefSupportsCapacity) self::rejectCopyQuality('copy_scarcity');
 
         $operationalClaims = [
             [
@@ -898,7 +899,7 @@ final class AiGeneratedWebsite {
         ];
         foreach ($operationalClaims as $rule) {
             if (preg_match($rule['claim'], $plain) === 1 && preg_match($rule['support'], $prompt) !== 1) {
-                throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+                self::rejectCopyQuality('copy_business_claim');
             }
         }
 
@@ -918,7 +919,7 @@ final class AiGeneratedWebsite {
         ];
         foreach ($lessonProcessClaims as $rule) {
             if (preg_match($rule['claim'], $plain) === 1 && preg_match($rule['support'], $prompt) !== 1) {
-                throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+                self::rejectCopyQuality('copy_lesson_claim');
             }
         }
 
@@ -926,13 +927,31 @@ final class AiGeneratedWebsite {
         // HTML contract, so never promise that an admin will follow up or that a
         // visitor submitted an application through an inert anchor button.
         if (preg_match('/(?:оставьте|заполните|отправьте)\\s+(?:заявк\\p{L}*|форму)|свяж\\p{L}*\\s+с\\s+вами|администратор.{0,70}свяж\\p{L}*/iu', $plain) === 1) {
-            throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+            self::rejectCopyQuality('copy_inert_form');
         }
         $contactPlaceholder = '/(?:контакт\\p{L}*|телефон\\p{L}*|адрес\\p{L}*|данн\\p{L}*)\\s+(?:буд\\p{L}*|появ\\p{L}*).{0,30}(?:указан\\p{L}*|добавлен\\p{L}*|позже|потом)|(?:укаж\\p{L}*|добав\\p{L}*).{0,30}(?:контакт\\p{L}*|телефон\\p{L}*|адрес\\p{L}*).{0,30}(?:позже|потом)/iu';
         $briefExplicitlyRequestsPlaceholder = preg_match($contactPlaceholder, $prompt) === 1;
         if (preg_match($contactPlaceholder, $plain) === 1 && !$briefExplicitlyRequestsPlaceholder) {
-            throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+            self::rejectCopyQuality('copy_contact_placeholder');
         }
+    }
+
+    private static function rejectCopyQuality(string $rule): never {
+        throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality', $rule);
+    }
+
+    private static function copyRepairGuidance(string $rule): string {
+        return match ($rule) {
+            'copy_duplicate' => 'Rewrite repeated headings and paragraphs so each conveys a distinct idea; do not repeat the same visible copy.',
+            'copy_mixed_language' => 'Write all visible copy in the owner brief language. Remove English words unless they are explicitly present in the brief or are a standard allowlisted product term.',
+            'copy_grammar' => 'Proofread Russian grammar and case endings. Rewrite the affected sentence naturally; do not preserve an awkward literal phrase.',
+            'copy_scarcity' => 'Remove claims about limited availability, remaining places, or urgency because the owner did not provide capacity facts.',
+            'copy_business_claim' => 'Remove unsupported business operations such as schedules, delivery, included materials, group size, or product handoff. Keep copy concise and factual.',
+            'copy_lesson_claim' => 'Remove unsupported activities, instruction, techniques, outcomes, or atmosphere. Describe only the service facts the owner explicitly supplied.',
+            'copy_inert_form' => 'Do not promise form submission or follow-up contact. Use a neutral non-submitting action without implying that a request was sent.',
+            'copy_contact_placeholder' => 'Remove placeholder contact information and do not say that an address or contact details will be added later.',
+            default => 'Keep every visible statement idiomatic and limited to facts in the owner brief.',
+        };
     }
 
     private static function auditHeroCopyGrouping(string $html): void {
@@ -1255,14 +1274,11 @@ final class AiGeneratedWebsite {
             if (!isset(self::CARD_ICONS[$key]) || $iconKey!==null) self::rejectMarkup('unknown or multiple card icon');
             $iconKey=$key;
         }
+        // The icon itself is always rendered from the trusted Tabler catalogue.
+        // Ignore provider-authored children so a decorative marker remains safe
+        // even when the model adds a label, glyph, or SVG inside it.
         if ($iconKey!==null || in_array('ai-icon',$nodeClasses,true)) {
-            $iconHasContent = false;
-            foreach ($node->childNodes as $iconChild) {
-                if ($iconChild instanceof \DOMText && trim($iconChild->textContent) === '') continue;
-                $iconHasContent = true;
-                break;
-            }
-            if ($tag!=='span' || $iconKey===null || !in_array('ai-icon',$nodeClasses,true) || $iconHasContent || ++$state['icons']>12) self::rejectMarkup('invalid card icon marker');
+            if ($tag!=='span' || $iconKey===null || !in_array('ai-icon',$nodeClasses,true) || ++$state['icons']>12) self::rejectMarkup('invalid card icon marker');
         }
         $imageSlot = null;
         $attributes = [];

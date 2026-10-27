@@ -171,6 +171,7 @@ try {
     $contrastRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$contrastTransport));
     $contrastRepairRequest=json_decode($contrastTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
     aiCheck($contrastRepair['metadata']['repairAttempted']===true&&count($contrastTransport->calls)===2&&str_contains($contrastRepairRequest['messages'][0]['content'],'WCAG AA contrast'),'Low-contrast generated copy triggers one bounded contrast repair before returning a candidate');
+    aiCheck(str_contains($contrastRepairRequest['messages'][0]['content'],'any parent element that contains text')&&str_contains($contrastRepairRequest['messages'][0]['content'],'keep text and its ancestors fully opaque'),'Contrast repair explicitly catches opacity inherited from text containers');
     aiCheck(str_contains($contrastRepairRequest['messages'][0]['content'],'<p>.ai-copy text uses #E5E5E5 on #F4F8F6')&&!str_contains($contrastRepairRequest['messages'][0]['content'],'Внимание к каждому пациенту'),'Contrast repair identifies the failing generated selector and color pair without sending its visible copy');
     $failedContrastTransport=new FakeAiTransport([new AiHttpResponse(200,$lowContrastBody),new AiHttpResponse(200,$lowContrastBody)]);
     try { AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$failedContrastTransport));throw new RuntimeException('Expected repeated low contrast to be rejected.'); }
@@ -454,6 +455,9 @@ aiCheck(str_contains($iconOutput['html'],\Juzimder\IconCatalogue::markup('heart'
 $whitespaceIconDesign=$iconDesign;$whitespaceIconDesign['html']=str_replace('<span class="ai-icon ai-icon-heart"></span>',"<span class=\"ai-icon ai-icon-heart\">  \n </span>",$whitespaceIconDesign['html']);
 $whitespaceIconOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($whitespaceIconDesign,JSON_UNESCAPED_UNICODE));
 aiCheck(str_contains($whitespaceIconOutput['html'],\Juzimder\IconCatalogue::markup('heart')),'The safe icon renderer ignores whitespace-only children in an otherwise valid decorative marker');
+$iconWithProviderContent=$iconDesign;$iconWithProviderContent['html']=str_replace('<span class="ai-icon ai-icon-heart"></span>','<span class="ai-icon ai-icon-heart">custom<script>alert(1)</script></span>',$iconWithProviderContent['html']);
+$iconWithProviderContentOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($iconWithProviderContent,JSON_UNESCAPED_UNICODE));
+aiCheck(str_contains($iconWithProviderContentOutput['html'],\Juzimder\IconCatalogue::markup('heart'))&&!str_contains($iconWithProviderContentOutput['html'],'custom')&&!str_contains($iconWithProviderContentOutput['html'],'<script'),'Safe Tabler markers replace provider-authored icon children without serializing markup');
 $invalidIconDesign=$generatedDesign;$invalidIconDesign['html']=str_replace('<article class="ai-card">','<article class="ai-card"><div class="ai-icon ai-icon-heart"></div>',$invalidIconDesign['html']);
 $invalidIconBody=json_encode(['model'=>'openai/icon-model','choices'=>[['message'=>['content'=>json_encode($invalidIconDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
 $iconRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$invalidIconBody),new AiHttpResponse(200,$generatedBody)]);
@@ -461,7 +465,7 @@ $iconRepair=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterP
 $iconRepairRequest=json_decode($iconRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
 aiCheck($iconRepair['metadata']['repairAttempted']&&str_contains($iconRepairRequest['messages'][0]['content'],'<span class="ai-icon ai-icon-spark"></span>')&&str_contains($iconRepairRequest['messages'][0]['content'],'Omit every icon you cannot encode exactly'),'Icon repair names the exact safe marker and allows icons to be omitted');
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Independently choose useful card visuals'),'Card visual selection is part of system instructions without owner prompting');
-foreach(['<span class="ai-icon ai-icon-unknown"></span>','<span class="ai-icon ai-icon-heart">custom</span>','<div class="ai-icon ai-icon-heart"></div>',str_repeat('<span class="ai-icon ai-icon-heart"></span>',13)] as $badIcon){
+foreach(['<span class="ai-icon ai-icon-unknown"></span>','<div class="ai-icon ai-icon-heart"></div>',str_repeat('<span class="ai-icon ai-icon-heart"></span>',13)] as $badIcon){
  $bad=$generatedDesign;$bad['html']=str_replace('<article class="ai-card">','<article class="ai-card">'.$badIcon,$bad['html']);
  aiRejects(fn()=>AiGeneratedWebsite::parseProviderOutput(json_encode($bad,JSON_UNESCAPED_UNICODE)),'Invalid or excessive icon markers fail closed');
 }
@@ -471,24 +475,24 @@ $queryOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($queryDesign,JS
 aiCheck(($queryOutput['imageSlots'][0]['query']??null)==='pottery bowl'&&!str_contains($queryOutput['html'],'data-image-query'),'Photo search topics are bounded metadata, not persisted custom HTML attributes');
 
 foreach([
-    ['text'=>'Осваиваете centering глины.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Mixed-language copy'],
-    ['text'=>'От сырая форма зависит результат.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Russian case and agreement'],
-    ['text'=>'Количество мест ограничено размером группы.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported capacity claim'],
-    ['text'=>'Все материалы и инструменты предоставляются мастерской.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported included materials'],
-    ['text'=>'Вы познакомитесь со свойствами глины, освоите базовые техники лепки под руководством мастера и подготовите изделие к обжигу.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Подтверждено только проведение занятий.','name'=>'Unsupported workshop activities, instruction and firing process'],
-    ['text'=>'Начните знакомство с глиной в уютной мастерской и попробуйте работать с глиной.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Спокойная глиняная палитра.','name'=>'Unsupported workshop atmosphere and specific class activity'],
-    ['text'=>'Контактные данные будут указаны позже.','prompt'=>'Одностраничный сайт керамической мастерской. Контактные данные не выдумывай.','name'=>'Unsupported contact placeholder'],
-    ['text'=>'Занятия проходят в будние дни и выходные.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported schedule'],
-    ['text'=>'Готовое изделие можно заказать с доставкой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported delivery'],
-    ['text'=>'После обжига вы заберёте готовое изделие домой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported take-home promise'],
-    ['text'=>'Оставьте заявку, и администратор свяжется с вами.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported form follow-up'],
+    ['text'=>'Осваиваете centering глины.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Mixed-language copy','rule'=>'copy_mixed_language'],
+    ['text'=>'От сырая форма зависит результат.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Russian case and agreement','rule'=>'copy_grammar'],
+    ['text'=>'Количество мест ограничено размером группы.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported capacity claim','rule'=>'copy_scarcity'],
+    ['text'=>'Все материалы и инструменты предоставляются мастерской.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported included materials','rule'=>'copy_business_claim'],
+    ['text'=>'Вы познакомитесь со свойствами глины, освоите базовые техники лепки под руководством мастера и подготовите изделие к обжигу.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Подтверждено только проведение занятий.','name'=>'Unsupported workshop activities, instruction and firing process','rule'=>'copy_lesson_claim'],
+    ['text'=>'Начните знакомство с глиной в уютной мастерской и попробуйте работать с глиной.','prompt'=>'Сайт керамической мастерской для начинающих взрослых. Спокойная глиняная палитра.','name'=>'Unsupported workshop atmosphere and specific class activity','rule'=>'copy_lesson_claim'],
+    ['text'=>'Контактные данные будут указаны позже.','prompt'=>'Одностраничный сайт керамической мастерской. Контактные данные не выдумывай.','name'=>'Unsupported contact placeholder','rule'=>'copy_contact_placeholder'],
+    ['text'=>'Занятия проходят в будние дни и выходные.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported schedule','rule'=>'copy_business_claim'],
+    ['text'=>'Готовое изделие можно заказать с доставкой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported delivery','rule'=>'copy_business_claim'],
+    ['text'=>'После обжига вы заберёте готовое изделие домой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported take-home promise','rule'=>'copy_business_claim'],
+    ['text'=>'Оставьте заявку, и администратор свяжется с вами.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported form follow-up','rule'=>'copy_inert_form'],
 ] as $copyDefect){
     $copyBadDesign=$generatedDesign;$copyBadDesign['html']=str_replace('Современная клиника рядом с вами.',$copyDefect['text'],$copyBadDesign['html']);
     $copyBadBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($copyBadDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
     $copyRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$copyBadBody),new AiHttpResponse(200,$generatedBody)]);
     $copyRepair=AiGeneratedWebsite::create($copyDefect['prompt'],new OpenRouterProvider($settings,$copyRepairTransport));
     $copyRepairRequest=json_decode($copyRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
-    aiCheck(count($copyRepairTransport->calls)===2&&$copyRepair['metadata']['repairAttempted']&&str_contains($copyRepairRequest['messages'][0]['content'],'idiomatic Russian'),$copyDefect['name'].' triggers one bounded copy repair');
+    aiCheck(count($copyRepairTransport->calls)===2&&$copyRepair['metadata']['repairAttempted']&&str_contains($copyRepairRequest['messages'][0]['content'],'idiomatic Russian')&&str_contains($copyRepairRequest['messages'][0]['content'],'Failed safe copy audit code: '.$copyDefect['rule'])&&!str_contains($copyRepairRequest['messages'][0]['content'],$copyDefect['text']),$copyDefect['name'].' triggers a bounded repair with a safe code but no rejected copy');
 }
 
 foreach([
@@ -501,7 +505,7 @@ foreach([
     $repeatedTransport=new FakeAiTransport([new AiHttpResponse(200,$repeatedBody),new AiHttpResponse(200,$generatedBody)]);
     $repeatedResult=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$repeatedTransport));
     $repeatedRepairRequest=json_decode($repeatedTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
-    aiCheck(count($repeatedTransport->calls)===2&&$repeatedResult['metadata']['repairAttempted']&&str_contains($repeatedRepairRequest['messages'][0]['content'],'even when the heading is a single short word'),$repeatedCopyDefect['name'].' triggers one bounded copy repair with short-heading guidance');
+    aiCheck(count($repeatedTransport->calls)===2&&$repeatedResult['metadata']['repairAttempted']&&str_contains($repeatedRepairRequest['messages'][0]['content'],'even when the heading is a single short word')&&str_contains($repeatedRepairRequest['messages'][0]['content'],'Failed safe copy audit code: copy_duplicate'),$repeatedCopyDefect['name'].' triggers one bounded copy repair with safe duplicate-copy guidance');
 }
 
 $supportedCopyPrompt='Сайт керамической мастерской в Алматы. Все материалы и инструменты предоставляются мастерской, занятия идут по выходным, готовые изделия можно забрать домой после обжига, доставка доступна.';

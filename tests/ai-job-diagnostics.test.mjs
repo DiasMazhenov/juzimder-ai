@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { markupRuleLabel } from '../src/ai-job-diagnostics.js';
+import { copyRuleLabel, markupRuleLabel } from '../src/ai-job-diagnostics.js';
 
 test('markup diagnostics translate only allowlisted validation codes', () => {
   assert.equal(markupRuleLabel('tag_allowlist'), 'найден тег, который нельзя использовать');
@@ -19,4 +19,10 @@ test('markup diagnostics translate only allowlisted validation codes', () => {
 test('unknown or provider-supplied strings never appear in markup diagnostics', () => {
   assert.equal(markupRuleLabel('secret raw model output'), 'другое ограничение безопасной HTML-разметки');
   assert.equal(markupRuleLabel(undefined), 'другое ограничение безопасной HTML-разметки');
+});
+
+test('copy diagnostics translate only fixed audit codes', () => {
+  assert.equal(copyRuleLabel('copy_mixed_language'), 'текст содержит слова не на языке брифа');
+  assert.equal(copyRuleLabel('copy_duplicate'), 'повторяется заголовок или абзац');
+  assert.equal(copyRuleLabel('secret raw model output'), 'требуется проверить текст на точность и грамотность');
 });
