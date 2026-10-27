@@ -134,6 +134,7 @@ try {
     $generated=AiGeneratedWebsite::create('Сайт клиники в современном стиле',new OpenRouterProvider($settings,$generatedTransport));
     $generatedRequest=json_decode($generatedTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);
     $generatedOutput=$generated['design'];
+    aiCheck(str_starts_with($generatedRequest['messages'][0]['content'],'Highest-priority HTML structure requirement: return at least three actual opening <section> tags')&&str_contains($generatedRequest['messages'][0]['content'],'one <section class="ai-hero"> plus at least two distinct substantive content sections'),'Main generation puts the minimum three-section skeleton at the start of the system prompt');
     preg_match('/class="(ai-scope-[a-f0-9]+)"/',$generatedOutput['html'],$scopeMatch);
     $htmlSchemaDescription=AiGeneratedWebsite::schema()['properties']['html']['description'];
     aiCheck(str_contains($htmlSchemaDescription,'exactly one empty div.ai-image-slot[data-image-slot="hero"] inside ai-hero')&&str_contains($htmlSchemaDescription,'at most three additional unique empty div.ai-image-slot markers')&&str_contains($generatedRequest['messages'][0]['content'],'Do not generate image elements, image URLs')&&str_contains($generatedRequest['messages'][0]['content'],'data-image-slot only on an empty div.ai-image-slot marker'),'AI schema and system prompt agree on safe model-generated image slot markers');
@@ -487,6 +488,11 @@ aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['descrip
 
 $sectionCountLow=$generatedDesign;$sectionCountLow['html']=str_replace('href="#contact"','href="#"',$sectionCountLow['html']);$sectionCountLow['html']=str_replace('</section><section class="ai-contact"','</section>',$sectionCountLow['html']);
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($sectionCountLow,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected low section count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='section_count_low','Markup diagnostics distinguish a section count below the minimum');}
+$sectionLowBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($sectionCountLow,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$sectionRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$sectionLowBody),new AiHttpResponse(200,$goodBody)]);
+$sectionRepairResult=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$sectionRepairTransport));
+$sectionRepairRequest=json_decode($sectionRepairTransport->calls[1]['body'],true);
+aiCheck($sectionRepairResult['metadata']['repairAttempted']&&str_contains($sectionRepairRequest['messages'][0]['content'],'one Hero section plus at least two distinct complete content sections'),'Section-count repair explains the complete minimum page skeleton');
 $sectionCountHigh=$generatedDesign;
 for($extra=0;$extra<7;$extra++)$sectionCountHigh['html'].='<section class="ai-extra"><h2 class="ai-extra-title">Дополнительный раздел</h2><p class="ai-extra-copy">Краткое описание дополнительной части страницы.</p></section>';
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($sectionCountHigh,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected high section count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='section_count_high','Markup diagnostics distinguish a section count above the maximum');}
