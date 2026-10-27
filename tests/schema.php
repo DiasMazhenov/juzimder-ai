@@ -2,8 +2,10 @@
 declare(strict_types=1);
 require __DIR__.'/../backend/Domain.php';
 require __DIR__.'/../backend/ComponentTypePolicy.php';
+require __DIR__.'/../backend/ComponentAttributePolicy.php';
 use Juzimder\Document;
 use Juzimder\ComponentTypePolicy;
+use Juzimder\ComponentAttributePolicy;
 
 function schemaCheck(bool $ok, string $message): void {
     if (!$ok) throw new RuntimeException($message);
@@ -36,6 +38,17 @@ foreach (Document::COMPONENT_TYPES as $type) {
 schemaCheck($componentProperties->attributes->type === 'object' && $componentProperties->style->type === 'object' && $componentProperties->content->type === 'string', 'Schema component field types are explicit');
 schemaCheck($componentProperties->classes->type === 'array' && $componentProperties->classes->maxItems === 32 && $componentProperties->classes->items->anyOf[1]->required === ['name'], 'Schema describes bounded GrapesJS CSS class tags');
 schemaCheck(isset($componentProperties->attributes->properties->src, $componentProperties->attributes->properties->href), 'Schema explicitly describes href and scoped managed-image references');
+$policyAttributes = ComponentAttributePolicy::attributes();
+$schemaAttributes = array_keys(get_object_vars($componentProperties->attributes->properties));
+sort($policyAttributes);
+sort($schemaAttributes);
+schemaCheck($policyAttributes === $schemaAttributes, 'Typed operation and renderer attribute policy exactly matches Project Schema');
+foreach (ComponentAttributePolicy::booleanAttributes() as $attribute) {
+    schemaCheck(($componentProperties->attributes->properties->{$attribute}->type ?? null) === 'boolean', 'Boolean attribute schema matches shared policy for ' . $attribute);
+}
+foreach (ComponentAttributePolicy::enumValues() as $attribute => $values) {
+    schemaCheck(($componentProperties->attributes->properties->{$attribute}->enum ?? null) === $values, 'Enum attribute schema matches shared policy for ' . $attribute);
+}
 schemaCheck(isset($componentProperties->attributes->properties->id, $componentProperties->attributes->properties->class, $componentProperties->attributes->properties->alt, $componentProperties->attributes->properties->title, $componentProperties->attributes->properties->rel, $componentProperties->attributes->properties->target, $componentProperties->attributes->properties->role), 'Schema describes the renderer-safe common HTML attributes');
 schemaCheck($componentProperties->attributes->properties->id->pattern === '^[A-Za-z][A-Za-z0-9_:-]{0,127}$' && $componentProperties->attributes->properties->target->enum === ['_blank','_self'] && $componentProperties->attributes->properties->rel->maxLength === 2048, 'Schema constrains IDs, link targets and rel tokens to renderer behavior');
 schemaCheck($componentProperties->attributes->properties->{'aria-label'}->maxLength === 256 && $componentProperties->attributes->properties->{'aria-hidden'}->enum === ['true','false'] && $componentProperties->attributes->properties->{'aria-controls'}->maxLength === 256, 'Schema bounds and types ARIA values accepted by static export');

@@ -4,9 +4,10 @@ namespace Juzimder;
 require_once __DIR__ . '/ZeroBlockRenderer.php';
 require_once __DIR__ . '/ComponentStylePolicy.php';
 require_once __DIR__ . '/ComponentTypePolicy.php';
+require_once __DIR__ . '/ComponentAttributePolicy.php';
 
 final class StaticSiteExporter {
-    private const ATTRIBUTES = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','type','name','value','placeholder','rows','cols','multiple','required','checked','selected','disabled','readonly','for','min','max','step','minlength','maxlength','pattern','autocomplete','inputmode','accept','size','datetime','open','hidden'];
+    private const ATTRIBUTES = ComponentAttributePolicy::ATTRIBUTES;
     private const RICH_TEXT_TAGS = ['p','span','br','strong','em','b','i','u','s'];
 
     /** @return array<string,string> Paths and file contents for a deployable static ZIP. */
@@ -291,8 +292,8 @@ final class StaticSiteExporter {
         $targetBlank = $attributes instanceof \stdClass && ($attributes->target ?? null) === '_blank';
         $hasRel = false;
         if ($attributes instanceof \stdClass) foreach (get_object_vars($attributes) as $name => $value) {
-            if(in_array($name,['multiple','required','checked','selected','disabled','readonly','open','hidden'],true)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
-            $safeDataAttribute = preg_match('/^data-(?!jz-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $name) === 1;
+            if(ComponentAttributePolicy::isBoolean($name)){if($value===true||$value===''||$value===$name)$output.=' '.$name;continue;}
+            $safeDataAttribute = ComponentAttributePolicy::isDataAttribute($name);
             if ((!in_array($name, self::ATTRIBUTES, true) && !$safeDataAttribute) || !is_string($value) || mb_strlen($value, 'UTF-8') > 2048 || preg_match('/[\x00-\x1F\x7F]/', $value)) continue;
             if ($name === 'id' && !preg_match('/^[A-Za-z][A-Za-z0-9_:-]{0,127}$/D', $value)) continue;
             if ($name === 'class' && !preg_match('/^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/D', $value)) continue;

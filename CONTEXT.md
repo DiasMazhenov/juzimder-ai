@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.254 (npm SemVer 0.1.254). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+Обновлено 27.10.2026. Цель: самостоятельная платформа визуального создания адаптивных сайтов с AI и будущим MCP. Основной репозиторий: https://github.com/DiasMazhenov/juzimder-ai . Репозиторий ведётся в main; ветка отслеживает origin/main. Текущая версия продукта: 00.00.255 (npm SemVer 0.1.255). Постоянный локальный адрес: http://juzimder-ai.localhost:8080/ (`npm run serve`, loopback only); старые loopback-ссылки перенаправляются на него.
+
+00.00.255: Typed operations и static HTML exporter используют общий `ComponentAttributePolicy` для allowlist стандартных атрибутов, boolean полей и enum ARIA. Schema regression требует точного совпадения имён атрибутов, типов boolean и enum-значений. Общая универсализация typed operations/schema остаётся открытой.
 
 00.00.254: Static renderer прекращает экспорт с generic `div`, если зарегистрированный тип не имеет явного безопасного default tag; head/textnode/zero-block остаются отдельными renderer cases. Schema regression требует точного покрытия всех GrapesJS component types политикой renderer и валидного default tag либо явного special case. Общая универсализация typed operations/schema остаётся открытой.
 

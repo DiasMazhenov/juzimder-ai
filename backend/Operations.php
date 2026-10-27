@@ -3,24 +3,13 @@ declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__ . '/ComponentStylePolicy.php';
 require_once __DIR__ . '/ComponentTypePolicy.php';
+require_once __DIR__ . '/ComponentAttributePolicy.php';
 
 final class ProjectOperations {
     private const MAX_OPERATIONS = 20;
     private const COMPONENT_FIELDS = ['type','tagName','name','content','attributes','classes','style','components','zeroData'];
-    private const ATTRIBUTE_FIELDS = ['id','class','href','src','alt','title','rel','target','role','aria-label','aria-hidden','aria-describedby','aria-labelledby','aria-controls','aria-selected','aria-expanded','aria-pressed','datetime','hidden','open','for','name','type','value','placeholder','min','max','step','rows','cols','accept','autocomplete','inputmode','pattern','maxlength','minlength','size','required','disabled','checked','multiple','readonly','selected'];
-    private const BOOLEAN_ATTRIBUTE_FIELDS = ['required','disabled','checked','multiple','readonly','selected','open','hidden'];
-    private const ENUM_ATTRIBUTE_VALUES = [
-        'aria-selected'=>['true','false','undefined'],
-        'aria-expanded'=>['true','false'],
-        'aria-pressed'=>['true','false','mixed'],
-        'aria-hidden'=>['true','false'],
-    ];
-    private static function safeAttributeName(string $name): bool {
-        return in_array($name, self::ATTRIBUTE_FIELDS, true)
-            || preg_match('/^data-(?!jz-)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $name) === 1;
-    }
     private static function validateAttributeValue(string $name, mixed $value): void {
-        if (in_array($name, self::BOOLEAN_ATTRIBUTE_FIELDS, true)) {
+        if (ComponentAttributePolicy::isBoolean($name)) {
             if (!is_bool($value)) throw new Problem(422, 'Логический атрибут должен иметь значение true или false.');
             return;
         }
@@ -32,7 +21,7 @@ final class ProjectOperations {
         if ($name === 'class' && !preg_match('/^[A-Za-z0-9_-]+(?:\\s+[A-Za-z0-9_-]+)*$/D', $value)) throw new Problem(422, 'Класс должен содержать только безопасные CSS-имена.');
         if ($name === 'target' && !in_array($value, ['_blank','_self'], true)) throw new Problem(422, 'Недопустимое значение target.');
         if ($name === 'rel' && !preg_match('/^(?:noopener|noreferrer|nofollow|ugc|sponsored)(?:\\s+(?:noopener|noreferrer|nofollow|ugc|sponsored))*$/D', $value)) throw new Problem(422, 'Недопустимое значение rel.');
-        if (isset(self::ENUM_ATTRIBUTE_VALUES[$name]) && !in_array($value, self::ENUM_ATTRIBUTE_VALUES[$name], true)) throw new Problem(422, 'Недопустимое значение ARIA-атрибута.');
+        if (!ComponentAttributePolicy::isValidEnumValue($name, $value)) throw new Problem(422, 'Недопустимое значение ARIA-атрибута.');
     }
     public static function styleFields(): array { return ComponentStylePolicy::properties(); }
     public static function nodeIdentifier(\stdClass $node): ?string { return self::nodeId($node); }
@@ -176,7 +165,7 @@ final class ProjectOperations {
                 self::fields($operation, ['operation','componentId','attributes'], ['operation','componentId','attributes']);
                 if (!$operation->attributes instanceof \stdClass || get_object_vars($operation->attributes) === []) throw new Problem(422, 'Укажите атрибуты объектом.');
                 foreach (get_object_vars($operation->attributes) as $attribute => $value) {
-                    if (!self::safeAttributeName($attribute) || $attribute === 'id') throw new Problem(422, 'Атрибут не входит в разрешённый список или является стабильным ID.');
+                    if (!ComponentAttributePolicy::isSafeName($attribute) || $attribute === 'id') throw new Problem(422, 'Атрибут не входит в разрешённый список или является стабильным ID.');
                     if ($value === null) continue;
                     self::validateAttributeValue($attribute, $value);
                 }
@@ -184,7 +173,7 @@ final class ProjectOperations {
                 $component =& self::atPath($document, $location['path']);
                 if (!($component->attributes ?? null) instanceof \stdClass) $component->attributes = new \stdClass();
                 foreach (get_object_vars($operation->attributes) as $attribute => $value) {
-                    if ($value === null || ($value === false && in_array($attribute, self::BOOLEAN_ATTRIBUTE_FIELDS, true))) unset($component->attributes->{$attribute});
+                    if ($value === null || ($value === false && ComponentAttributePolicy::isBoolean($attribute))) unset($component->attributes->{$attribute});
                     else $component->attributes->{$attribute} = $value;
                 }
                 return;
@@ -349,10 +338,10 @@ final class ProjectOperations {
         if (isset($node->content) && (!is_string($node->content) || mb_strlen($node->content, 'UTF-8') > 10000)) throw new Problem(422, 'Текст компонента слишком длинный.');
         $attributes = $node->attributes ?? new \stdClass();
         if (!$attributes instanceof \stdClass) throw new Problem(422, 'Атрибуты компонента должны быть объектом.');
-        foreach (get_object_vars($attributes) as $attribute => $_) if (!self::safeAttributeName($attribute)) throw new Problem(422, 'Атрибут не входит в разрешённый список.');
+        foreach (get_object_vars($attributes) as $attribute => $_) if (!ComponentAttributePolicy::isSafeName($attribute)) throw new Problem(422, 'Атрибут не входит в разрешённый список.');
         foreach (get_object_vars($attributes) as $name => $value) {
             self::validateAttributeValue($name, $value);
-            if (in_array($name, self::BOOLEAN_ATTRIBUTE_FIELDS, true) && $value === false) unset($attributes->{$name});
+            if (ComponentAttributePolicy::isBoolean($name) && $value === false) unset($attributes->{$name});
         }
         $id = $attributes->id ?? ('cmp-' . bin2hex(random_bytes(12)));
         if (!is_string($id) || $id === '' || mb_strlen($id, 'UTF-8') > 128 || preg_match('/[\x00-\x1F\x7F]/', $id)) throw new Problem(422, 'Некорректный стабильный ID компонента.');
