@@ -1,6 +1,8 @@
 # План Juzimder AI
 
-**Текущее состояние на 27.10.2026:** версия продукта 00.00.297 (`package.json`: 0.1.297). Фото-подписи без специальных 500-символьных ограничений; новые и ранее сохранённые подписи фонового Hero отображаются внутри секции компактным overlay. Общие проверки безопасности Project Data сохранены.
+**Текущее состояние на 27.10.2026:** версия продукта 00.00.298 (`package.json`: 0.1.298). Фото-подписи без специальных 500-символьных ограничений; новые и ранее сохранённые подписи фонового Hero отображаются внутри секции компактным overlay. Общие проверки безопасности Project Data сохранены.
+
+- [x] 00.00.298: После screenshot review реальной Standard генерации `.297` добавлен нейтральный видимый fallback `border`/`box-shadow` для известных AI-карточек, когда модель пропустила соответствующие стили. Уже заданные моделью границы/тени сохраняются; HTML и CSS allowlists не менялись. Добавлены PHP regression на оба пути. Live повтор `.298` ещё не выполнен.
 
 - [x] 00.00.297: Основная AI-генерация безопасно объединяет отдельно сгенерированные Hero badge, H1, описание и действие в одну прямую `.ai-hero-copy` группу; слот фото остаётся sibling. Существующая проверка всех исходных тегов/атрибутов и лимит элементов сохраняются. Regression проверяет split Hero, один provider call и положение image slot. Синхронизированы `package.json.version`/`productVersion` и `package-lock.json` на 0.1.297 / 00.00.297.
 
@@ -442,7 +444,7 @@
 - [x] Визуальная приёмка результата реальной модели в 00.00.025: scoped tag/descendant CSS исправил браузерные ссылки/списки; editor snapshot проверен на desktop и 375px mobile, revision 6 сохранена на отдельной QA-странице.
 - [x] Локальные image slots в full-page AI generation: обязательное изображение hero, до трёх дополнительных; выбор/загрузка из приватной project library после генерации; file bytes, filenames, IDs and URLs are excluded from OpenRouter request; import produces editable managed GrapesJS image components.
 - [x] Live browser acceptance автоматических сетевых image slots по обновлённому требованию владельца: реальная генерация → Commons подбор → preview → native import/save → полный Undo/Redo → reload; QA ревизии56–58, версия00.00.066. Manual upload/blob acceptance этим не заявляется.
-- [ ] Продолжить live acceptance основной генерации: Standard-кандидат `.297` создан в существующей вкладке для pottery brief и прошёл серверные проверки; проверены точность фактов, CTA к существующему блоку занятий и автоматическое фото Wikimedia Commons с автором/лицензией. Desktop/Tablet/Mobile визуально сняты и просмотрены: `/tmp/juzimder-ai-297-preview-desktop-top.png`, `/tmp/juzimder-ai-297-preview-desktop-sections.png`, `/tmp/juzimder-ai-297-preview-tablet.png`, `/tmp/juzimder-ai-297-preview-mobile.png`, `/tmp/juzimder-ai-297-preview-mobile-lower.png`. Screenshot review выявил, что две карточки без границ/теней теряются на белой секции; fix переходит в `.298`. Candidate не применён; Project Data revision 373 не менялась, Save/Undo/Redo/reopen и Publish не тестировались.
+- [ ] Продолжить live acceptance основной генерации: Standard-кандидат `.297` создан в существующей вкладке для pottery brief, серверные проверки, факты, CTA и автоматически выбранное фото с автором/лицензией прошли; screenshot review выявил карточки без границ/теней, fix внесён в `.298`. Повторная генерация `.298` со свежими Desktop/Tablet/Mobile скриншотами нужна для подтверждения видимости карточек и остальных критериев. Кандидаты `.297` не применялись; Project Data revision 373 не менялась. Save/Undo/Redo/reopen и Publish не тестировались.
 
 ## Phase 5.1 — глобальные настройки проекта (P1)
 

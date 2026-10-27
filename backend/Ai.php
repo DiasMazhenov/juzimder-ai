@@ -714,6 +714,7 @@ final class AiGeneratedWebsite {
         $stylesheet = '.' . $scope . ' a{color:inherit}' . "\n" . '.' . $scope . ' .ai-icon{display:inline-block;width:32px;height:32px;line-height:1;margin:0 0 12px}' . "\n" . $stylesheet;
         if (isset($markup['classes']['ai-hero-background'])) $stylesheet .= "\n.$scope .ai-hero-background{background-color:#17211b;color:#ffffff}\n.$scope .ai-hero-background h1,.$scope .ai-hero-background h2,.$scope .ai-hero-background p{color:#ffffff}\n";
         if ($markup['imageSlots']) $stylesheet .= "\n." . $scope . " .ai-image-slot{display:block;overflow:hidden;min-height:220px;aspect-ratio:4/3;background:#2B332E}\n." . $scope . " .ai-image-slot img{display:block;width:100%;height:100%;min-height:220px;object-fit:cover}\n";
+        $stylesheet = self::ensureCardSurfaceStyles($stylesheet, $scope, $markup['classes']);
         $output = [
             'siteType'=>$design['siteType'], 'audience'=>$design['audience'], 'goal'=>$design['goal'], 'style'=>$design['style'],
             'html'=>'<div class="' . $scope . '">' . $markup['html'] . '</div>',
@@ -1438,6 +1439,33 @@ final class AiGeneratedWebsite {
         $normalized = '';
         foreach ($body->childNodes as $child) $normalized .= $document->saveHTML($child);
         return [$normalized, true];
+    }
+
+    /** Give generated cards a quiet visible edge and depth when their CSS omitted either. */
+    private static function ensureCardSurfaceStyles(string $stylesheet, string $scope, array $classes): string {
+        foreach (['ai-card','ai-product-card','ai-category-card'] as $class) {
+            if (!isset($classes[$class])) continue;
+            $hasBorder = false;
+            $hasShadow = false;
+            if (preg_match_all('/([^{}]+)\{([^{}]*)\}/', $stylesheet, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $selector = trim($match[1]);
+                    if (!preg_match('/(?:^|\s)\.' . preg_quote($class, '/') . '$/D', $selector)) continue;
+                    foreach (explode(';', $match[2]) as $declaration) {
+                        $separator = strpos($declaration, ':');
+                        if ($separator === false) continue;
+                        $property = strtolower(trim(substr($declaration, 0, $separator)));
+                        if ($property === 'border') $hasBorder = true;
+                        if ($property === 'box-shadow') $hasShadow = true;
+                    }
+                }
+            }
+            $fallback = [];
+            if (!$hasBorder) $fallback[] = 'border:1px solid #D8DED9';
+            if (!$hasShadow) $fallback[] = 'box-shadow:0 8px 24px #E8ECE8';
+            if ($fallback) $stylesheet .= "\n.$scope .$class{" . implode(';', $fallback) . "}\n";
+        }
+        return $stylesheet;
     }
 
     private static function appendHeroImageSlot(string $html): string {
