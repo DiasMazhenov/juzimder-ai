@@ -1002,7 +1002,8 @@ final class AiGeneratedWebsite {
         foreach ($root->childNodes as $child) $markup .= self::serializeNode($child, $scope, $state, 0, false);
         foreach ($state['fragments'] as $fragment) if (!isset($state['ids'][$fragment])) self::rejectMarkup('unresolved internal link');
         $optionalImageSlots = count($state['imageSlots']) - (isset($state['imageSlots']['hero']) ? 1 : 0);
-        if ($state['sections'] < 3 || $state['sections'] > 9) self::rejectMarkup('section count');
+        if ($state['sections'] < 3) self::rejectMarkup('section count below minimum');
+        if ($state['sections'] > 9) self::rejectMarkup('section count above maximum');
         if ($state['heroes'] !== 1) self::rejectMarkup('hero count');
         if ($optionalImageSlots > 3) self::rejectMarkup('image-slot count');
         return ['html'=>$markup,'classes'=>$state['classes'],'sectionCount'=>$state['sections'],'imageSlots'=>$state['imageSlots'],'imageQueries'=>$state['imageQueries']];
@@ -1122,13 +1123,14 @@ final class AiGeneratedWebsite {
 
     private static function rejectMarkup(string $rule): never {
         error_log('Juzimder AI: generated markup failed validation rule ' . $rule . '.');
-        $code=match(true){str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count'=>'section_count',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
+        $code=match(true){str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count below minimum'=>'section_count_low',$rule==='section count above maximum'=>'section_count_high',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
         throw new AiProviderFailure('AI provider returned an invalid design.',false,'invalid_markup',$code);
     }
 
     private static function markupRepairGuidance(string $rule):string {
         return match($rule){
-            'section_count'=>'Use between 3 and 9 section elements.',
+            'section_count_low'=>'Add enough complete section elements to reach at least three, keeping the page concise.',
+            'section_count_high'=>'Reduce the page to no more than nine section elements.',
             'hero_count'=>'Use exactly one section element with class ai-hero.',
             'image_slot_count'=>'Use exactly one empty hero image-slot div inside ai-hero and at most three additional unique empty section image-slot divs.',
             'fragment_target'=>'Every nonempty #fragment link must point to an existing unique ID in the returned HTML.',

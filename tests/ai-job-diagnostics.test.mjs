@@ -5,7 +5,8 @@ import { markupRuleLabel } from '../src/ai-job-diagnostics.js';
 test('markup diagnostics translate only allowlisted validation codes', () => {
   assert.equal(markupRuleLabel('tag_allowlist'), 'найден тег, который нельзя использовать');
   assert.equal(markupRuleLabel('attribute_allowlist'), 'найден атрибут или встроенный стиль вне списка разрешённых');
-  assert.equal(markupRuleLabel('section_count'), 'должно быть от 3 до 9 секций');
+  assert.equal(markupRuleLabel('section_count_low'), 'найдено меньше 3 секций');
+  assert.equal(markupRuleLabel('section_count_high'), 'превышен максимум в 9 секций');
   assert.equal(markupRuleLabel('hero_count'), 'должен быть ровно один Hero с классом ai-hero');
   assert.equal(markupRuleLabel('image_slot_count'), 'превышен лимит фото-слотов');
   assert.equal(markupRuleLabel('fragment_target'), 'ссылка ведёт на отсутствующий элемент страницы');
