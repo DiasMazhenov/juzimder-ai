@@ -1138,7 +1138,7 @@ final class AiGeneratedWebsite {
             'image_slot_count'=>'Use exactly one empty hero image-slot div inside ai-hero and at most three additional unique empty section image-slot divs.',
             'fragment_target'=>'Every nonempty #fragment link must point to an existing unique ID in the returned HTML.',
             'class_tokens'=>'Use unique ai-prefixed class tokens only, at most eight classes per element.',
-            'tag_allowlist'=>'Remove unsupported tags. Use span.ai-pill-badge for text badges, not custom elements.',
+            'tag_allowlist'=>'Return the full design using only these HTML tags: main, header, nav, section, footer, div, article, aside, h1, h2, h3, h4, p, span, a, button, ul, ol, li, strong, em, b, i, br, hr. Remove every other tag. Use only an empty div.ai-image-slot marker for a photo; never emit img, figure, picture, svg, iframe, form, script, or style. Use span.ai-pill-badge for text badges.',
             'attribute_allowlist'=>'Remove unsupported attributes and inline styles. Put styling only in the css field.',
             'icon_marker'=>'Use only the documented empty decorative icon markers, or omit icons.',
             'photo_query'=>'Use a nonempty English photo topic up to 100 characters only on div[data-image-slot].',

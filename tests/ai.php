@@ -479,7 +479,9 @@ $goodBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($generate
 $guidedTransport=new FakeAiTransport([new AiHttpResponse(200,$badBody),new AiHttpResponse(200,$goodBody)]);
 $guidedResult=AiGeneratedWebsite::create('Clinic',new OpenRouterProvider($settings,$guidedTransport));
 $repairPayload=json_decode($guidedTransport->calls[1]['body'],true);
-aiCheck($guidedResult['metadata']['repairAttempted']&&count($guidedTransport->calls)===2&&str_contains($repairPayload['messages'][0]['content'],'Failed validation rule: tag_allowlist')&&!str_contains($repairPayload['messages'][0]['content'],'private-test-marker'),'Markup repair receives a fixed rule code without copying rejected content');
+aiCheck($guidedResult['metadata']['repairAttempted']&&count($guidedTransport->calls)===2&&str_contains($repairPayload['messages'][0]['content'],'Failed validation rule: tag_allowlist'),'Markup repair receives a fixed rule code');
+aiCheck(str_contains($repairPayload['messages'][0]['content'],'using only these HTML tags: main, header, nav, section'),'Markup repair repeats the explicit HTML tag allowlist');
+aiCheck(str_contains($repairPayload['messages'][0]['content'],'empty div.ai-image-slot')&&!str_contains($repairPayload['messages'][0]['content'],'private-test-marker'),'Markup repair uses safe image slots and excludes rejected model content');
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($badMarkup,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected rejection');}catch(AiProviderFailure $e){aiCheck($e->validationRule==='tag_allowlist'&&$e->category==='invalid_markup','Safe markup reason survives sanitizer wrapping');}
 
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Do not add photo slots to these abstract capability cards.'),'Abstract software capabilities use semantic icons instead of stand-in stock photos');
