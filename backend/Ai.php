@@ -639,7 +639,7 @@ final class AiGeneratedWebsite {
                 'audience'=>$textField('Target audience, up to 240 characters.'),
                 'goal'=>$textField('Primary website goal, up to 200 characters.'),
                 'style'=>$textField('Visual art direction, up to 200 characters.'),
-                'html'=>['type'=>'string','description'=>'Safe HTML fragment using only the tags and attributes from the system instructions. Use image slots only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8. Include one hero marker inside ai-hero and optionally up to three unique section markers. Never add img elements, URLs, filenames, or image descriptions. Maximum 24000 characters.'],
+                'html'=>['type'=>'string','description'=>'Safe HTML fragment with 3 to 9 section elements and exactly one section.ai-hero. Use only tags and attributes from the system instructions. Include exactly one empty div.ai-image-slot[data-image-slot="hero"] inside ai-hero and at most three additional unique empty div.ai-image-slot markers for section-1 through section-8. Never add img elements, URLs, filenames, or image descriptions. Maximum 24000 characters.'],
                 'css'=>['type'=>'string','description'=>'Plain, comment-free responsive CSS rule blocks using only selectors and properties present in the HTML. No code fences, variables, nested selector rules, or unsupported at-rules; simple max-width media blocks may contain flat rules. Maximum 24000 characters.'],
             ];
         $required = ['siteType','audience','goal','style','html','css'];
@@ -1002,7 +1002,9 @@ final class AiGeneratedWebsite {
         foreach ($root->childNodes as $child) $markup .= self::serializeNode($child, $scope, $state, 0, false);
         foreach ($state['fragments'] as $fragment) if (!isset($state['ids'][$fragment])) self::rejectMarkup('unresolved internal link');
         $optionalImageSlots = count($state['imageSlots']) - (isset($state['imageSlots']['hero']) ? 1 : 0);
-        if ($state['sections'] < 3 || $state['sections'] > 9 || $state['heroes'] !== 1 || $optionalImageSlots > 3) self::rejectMarkup('section, hero or image-slot count');
+        if ($state['sections'] < 3 || $state['sections'] > 9) self::rejectMarkup('section count');
+        if ($state['heroes'] !== 1) self::rejectMarkup('hero count');
+        if ($optionalImageSlots > 3) self::rejectMarkup('image-slot count');
         return ['html'=>$markup,'classes'=>$state['classes'],'sectionCount'=>$state['sections'],'imageSlots'=>$state['imageSlots'],'imageQueries'=>$state['imageQueries']];
     }
 
@@ -1120,13 +1122,15 @@ final class AiGeneratedWebsite {
 
     private static function rejectMarkup(string $rule): never {
         error_log('Juzimder AI: generated markup failed validation rule ' . $rule . '.');
-        $code=match(true){str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section, hero or image-slot count'=>'section_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
+        $code=match(true){str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count'=>'section_count',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
         throw new AiProviderFailure('AI provider returned an invalid design.',false,'invalid_markup',$code);
     }
 
     private static function markupRepairGuidance(string $rule):string {
         return match($rule){
-            'section_count'=>'Use 3 to 9 section elements, exactly one section.ai-hero, and at most three optional section photo slots.',
+            'section_count'=>'Use between 3 and 9 section elements.',
+            'hero_count'=>'Use exactly one section element with class ai-hero.',
+            'image_slot_count'=>'Use exactly one empty hero image-slot div inside ai-hero and at most three additional unique empty section image-slot divs.',
             'fragment_target'=>'Every nonempty #fragment link must point to an existing unique ID in the returned HTML.',
             'class_tokens'=>'Use unique ai-prefixed class tokens only, at most eight classes per element.',
             'tag_allowlist'=>'Remove unsupported tags. Use span.ai-pill-badge for text badges, not custom elements.',

@@ -136,7 +136,7 @@ try {
     $generatedOutput=$generated['design'];
     preg_match('/class="(ai-scope-[a-f0-9]+)"/',$generatedOutput['html'],$scopeMatch);
     $htmlSchemaDescription=AiGeneratedWebsite::schema()['properties']['html']['description'];
-    aiCheck(str_contains($htmlSchemaDescription,'empty div.ai-image-slot markers')&&str_contains($htmlSchemaDescription,'one hero marker inside ai-hero')&&str_contains($generatedRequest['messages'][0]['content'],'Do not generate image elements, image URLs')&&str_contains($generatedRequest['messages'][0]['content'],'data-image-slot only on an empty div.ai-image-slot marker'),'AI schema and system prompt agree on safe model-generated image slot markers');
+    aiCheck(str_contains($htmlSchemaDescription,'exactly one empty div.ai-image-slot[data-image-slot="hero"] inside ai-hero')&&str_contains($htmlSchemaDescription,'at most three additional unique empty div.ai-image-slot markers')&&str_contains($generatedRequest['messages'][0]['content'],'Do not generate image elements, image URLs')&&str_contains($generatedRequest['messages'][0]['content'],'data-image-slot only on an empty div.ai-image-slot marker'),'AI schema and system prompt agree on safe model-generated image slot markers');
     $cssSchemaDescription=AiGeneratedWebsite::schema()['properties']['css']['description'];
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
     aiCheck(str_contains($generatedSystemPrompt,'Treat the owner brief as the only source for service operations and customer experience')&&str_contains($generatedSystemPrompt,'do not invent lesson activities or stages'),'Main AI generation grounds service process and experience claims in the owner brief');
@@ -482,6 +482,15 @@ aiCheck($guidedResult['metadata']['repairAttempted']&&count($guidedTransport->ca
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($badMarkup,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected rejection');}catch(AiProviderFailure $e){aiCheck($e->validationRule==='tag_allowlist'&&$e->category==='invalid_markup','Safe markup reason survives sanitizer wrapping');}
 
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'Do not add photo slots to these abstract capability cards.'),'Abstract software capabilities use semantic icons instead of stand-in stock photos');
+
+aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'3 to 9 section elements and exactly one section.ai-hero')&&str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'at most three additional unique empty'),'HTML schema repeats concise section, hero and image-slot constraints at the field boundary');
+
+$sectionCountFailure=$generatedDesign;$sectionCountFailure['html']=str_replace('href="#contact"','href="#"',$sectionCountFailure['html']);$sectionCountFailure['html']=str_replace('</section><section class="ai-contact"','</section>',$sectionCountFailure['html']);
+try{AiGeneratedWebsite::parseProviderOutput(json_encode($sectionCountFailure,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected section count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='section_count','Markup diagnostics distinguish an invalid section count');}
+$heroCountFailure=$generatedDesign;$heroCountFailure['html']=str_replace('class="ai-hero"','class="ai-hero-copy"',$heroCountFailure['html']);
+$slotCountFailure=$generatedDesign;$slotCountFailure['html']=str_replace('data-image-slot="hero"','data-image-slot="section-5"',$slotCountFailure['html']);$slotCountFailure['html']=str_replace('</section><section class="ai-contact"','<div class="ai-image-slot" data-image-slot="section-1"></div><div class="ai-image-slot" data-image-slot="section-2"></div><div class="ai-image-slot" data-image-slot="section-3"></div><div class="ai-image-slot" data-image-slot="section-4"></div></section><section class="ai-contact"',$slotCountFailure['html']);
+try{AiGeneratedWebsite::parseProviderOutput(json_encode($slotCountFailure,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected image slot count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='image_slot_count','Markup diagnostics distinguish an invalid image-slot count');}
+try{AiGeneratedWebsite::parseProviderOutput(json_encode($heroCountFailure,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected hero count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='hero_count','Markup diagnostics distinguish an invalid hero count');}
 
 aiCheck(str_contains($generatedRequest['messages'][0]['content'],'add class ai-hero-background'),'Hero background photo and overlay are an automatic contextual art-direction option');
 
