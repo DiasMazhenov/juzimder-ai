@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { markupRuleLabel } from '../src/ai-job-diagnostics.js';
+
+test('markup diagnostics translate only allowlisted validation codes', () => {
+  assert.equal(markupRuleLabel('tag_allowlist'), 'найден тег, который нельзя использовать');
+  assert.equal(markupRuleLabel('attribute_allowlist'), 'найден атрибут или встроенный стиль вне списка разрешённых');
+  assert.equal(markupRuleLabel('section_count'), 'неверное количество секций, Hero или фото-слотов');
+  assert.equal(markupRuleLabel('fragment_target'), 'ссылка ведёт на отсутствующий элемент страницы');
+  assert.equal(markupRuleLabel('class_tokens'), 'имена CSS-классов не соответствуют формату генератора');
+  assert.equal(markupRuleLabel('icon_marker'), 'маркер иконки имеет недопустимый формат');
+  assert.equal(markupRuleLabel('photo_query'), 'некорректный поисковый запрос для фото');
+  assert.equal(markupRuleLabel('markup_structure'), 'нарушена структура или другое ограничение HTML-разметки');
+});
+
+test('unknown or provider-supplied strings never appear in markup diagnostics', () => {
+  assert.equal(markupRuleLabel('secret raw model output'), 'другое ограничение безопасной HTML-разметки');
+  assert.equal(markupRuleLabel(undefined), 'другое ограничение безопасной HTML-разметки');
+});

@@ -19,6 +19,7 @@ import { blocks, registerBlocks } from './blocks.js';
 import { installComponentActions } from './component-actions.js';
 import { removeUnassignedImageSlot } from './ai-image-slots.js';
 import { isAIComponentEditSnapshotCurrent, isAIComponentEditProposalCurrent } from './ai-component-edit-guards.js';
+import { markupRuleLabel } from './ai-job-diagnostics.js';
 import { createPageRoot } from './page-root.js';
 import { decodeCustomCode, encodeCustomCode, submitSandboxFrame, clearSandboxFrame, registerSafeRuntimeComponents } from './custom-code.js';
 import { DEFAULT_DESIGN_TOKENS, FONT_FAMILIES, FONT_WEIGHTS, TOKEN_FIELDS, designTokensFromStyle, designTokensToStyle, migrateLegacyTokenValue, normalizeDesignTokens, tokenValue } from './design-tokens.js';
@@ -897,6 +898,7 @@ async function openEditor(id,pageId=null) {
     if(!job.diagnostics){const note=document.createElement('p');note.className='muted small';note.textContent='Для этой задачи подробная диагностика не сохранена.';section.append(note);return;}
     const labels={launcher:'Не удалось запустить worker',expired:'Истёк срок выполнения задачи',succeeded:'Дизайн прошёл серверную проверку',response_received:'Ответ модели получен',timeout:'Таймаут ответа',rate_limited:'Ограничение запросов · HTTP 429',unavailable:'Сетевая ошибка или временный отказ',credentials:'Отказ доступа к модели',invalid_output:'Результат не прошёл безопасную проверку',invalid_component_edit:'Правка элемента не прошла проверку',invalid_response:'Модель не вернула структурированный JSON',invalid_schema:'Неверный формат дизайна',invalid_markup:'HTML не прошёл проверку',invalid_css:'CSS не прошёл проверку',copy_quality:'Проверка текста не пройдена',contact_requirements:'Контакт отсутствует в описании',skill_requirements:'Не выполнены правила Skill',cancelled:'Задача отменена',project_changed:'Версия проекта изменилась',internal:'Внутренняя ошибка',provider:'Отказ провайдера'};
     const outcome=document.createElement('p');outcome.textContent=labels[job.diagnostics.outcome]||'Запрос не завершён';section.append(outcome);
+    if(job.diagnostics.validationRule){const validation=document.createElement('p');validation.className='muted small';validation.textContent='Проверка HTML: '+markupRuleLabel(job.diagnostics.validationRule);section.append(validation);}
     const note=document.createElement('p');note.className='muted small';note.textContent='Обращения к профилям, включая исправление дизайна. Внутренние повторы и резервная модель профиля объединены в одно обращение. Исходные ответы и ключи не показываются.';section.append(note);
     for(const attempt of job.diagnostics.attempts||[]){const row=document.createElement('p');row.className='muted small';row.textContent=attempt.profileName+' · '+attempt.model+' · '+(labels[attempt.outcome]||'Отказ провайдера')+' · '+(attempt.elapsedMs/1000).toFixed(1)+' с';section.append(row);}
   };
