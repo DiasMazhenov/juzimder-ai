@@ -770,6 +770,7 @@ final class AiGeneratedWebsite {
             elseif($category==='copy_quality'&&$failure->validationRule!==null)$guidance.=' Failed safe copy audit code: '.$failure->validationRule.'. '.self::copyRepairGuidance($failure->validationRule);
             elseif($failure->validationRule!==null)$guidance.=' Failed validation rule: '.$failure->validationRule.'. '.self::markupRepairGuidance($failure->validationRule);
             $repairPrompt=$providerPrompt;
+            if($failure->validationRule==='tag_allowlist')$repairPrompt.="\n\nRequired HTML tag correction: ".self::markupRepairGuidance('tag_allowlist');
             if($failure->validationRule==='section_count_low')$repairPrompt.="\n\nRequired structural correction: ".self::markupRepairGuidance('section_count_low');
             if($failure->validationRule==='fragment_target')$repairPrompt.="\n\nRequired link correction: ".self::markupRepairGuidance('fragment_target');
             if($requiresCardPhotos)$repairPrompt.="\n\nOwner-requested card-photo requirement for the repaired HTML: ".self::markupRepairGuidance('required_photo_slots');
