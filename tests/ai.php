@@ -65,6 +65,8 @@ try {
     $zeroValidationDiagnostic=new AiProviderFailure('internal validation failure',false,'invalid_output','zero:Zero Block: недопустимый цвет.');
     $otherValidationDiagnostic=new AiProviderFailure('internal validation failure',false,'invalid_output','secret model response');
     aiCheck(str_contains($zeroValidationDiagnostic->userMessage(),'Причина: Zero Block: недопустимый цвет.')&&!str_contains($otherValidationDiagnostic->userMessage(),'secret model response'),'Zero AI may show only a fixed safe validator reason, never model response content');
+    $copyQualityDiagnostic=new AiProviderFailure('internal validation failure',false,'copy_quality');
+    aiCheck(AiProviderFailure::publicCategory($copyQualityDiagnostic->category)==='copy_quality'&&str_contains($copyQualityDiagnostic->userMessage(),'языковую ошибку или неподтверждённое утверждение'),'Copy-quality failures have a safe public diagnostic without exposing model output');
     $settings = OpenRouterSettings::fromCredentials('sk-test-only', 'openai/test-model');
     aiCheck($settings !== null && $settings->publicStatus() === ['provider'=>'openrouter','configured'=>true,'model'=>'openai/test-model','fallbackModel'=>null], 'Public provider status never contains the API key');
     aiCheck(OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','bad fallback model')===null&&OpenRouterSettings::fromCredentials('sk-test-only','openai/test-model','openai/test-model')===null,'Provider configuration rejects invalid or duplicate fallback model IDs');
@@ -140,7 +142,10 @@ try {
     aiCheck(str_contains($cssSchemaDescription,'comment-free')&&str_contains($cssSchemaDescription,'nested selector rules')&&str_contains($generatedSystemPrompt,'no code fences, CSS variables')&&str_contains($generatedSystemPrompt,'.ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'),'AI CSS instructions match the strict parser syntax');
     aiCheck($generatedRequest['max_tokens']===9000&&$generatedRequest['response_format']['json_schema']['schema']['required']===['siteType','audience','goal','style','html','css'],'Full-page generation reserves enough output tokens for a strict structured response');
     aiCheck($generatedOutput['sectionCount']===3&&isset($scopeMatch[1])&&str_contains($generatedOutput['html'],'href="#'.$scopeMatch[1].'-contact"')&&str_contains($generatedOutput['html'],'id="'.$scopeMatch[1].'-contact"'),'Generated page keeps its section structure and scopes in-page links');
-    aiCheck($generatedOutput['imageSlots']===[['id'=>'hero','label'=>'Главное изображение']]&&str_contains($generatedOutput['html'],'data-image-slot="hero"')&&str_contains($generatedOutput['css'],'object-fit:cover'),'AI output contains a validated local image slot styled for selected project media');
+    aiCheck($generatedOutput['imageSlots']===[['id'=>'hero','label'=>'Главное изображение','query'=>'modern medical clinic interior','automatic'=>true,'fallbackAllowed'=>true]]&&str_contains($generatedOutput['html'],'data-image-slot="hero"')&&str_contains($generatedOutput['html'],'ai-hero-split')&&str_contains($generatedOutput['css'],'object-fit:cover'),'AI generation gives a photo-relevant clinic Hero a searched, automatic image slot and supported split layout');
+    $noPhotoTransport=new FakeAiTransport([new AiHttpResponse(200,$generatedBody)]);
+    $noPhotoResult=AiGeneratedWebsite::create('Сайт клиники без фото',new OpenRouterProvider($settings,$noPhotoTransport));
+    aiCheck(!isset($noPhotoResult['design']['imageSlots'][0]['query'])&&!isset($noPhotoResult['design']['imageSlots'][0]['automatic']),'An explicit no-photo instruction disables automatic image sourcing');
     $userSkillTransport=new FakeAiTransport([new AiHttpResponse(200,$generatedBody)]);
     $userSkillResult=AiGeneratedWebsite::create('Сайт семейной клиники',new OpenRouterProvider($settings,$userSkillTransport),'standard',['id'=>'0123456789abcdef01234567','name'=>'Тёплый бренд','content'=>"# Бренд\nИспользуй спокойную природную палитру и короткие заголовки.",'manualChecks'=>['Проверь контраст кнопок.','Осмотри мобильную версию.']]);
     $userSkillRequest=json_decode($userSkillTransport->calls[0]['body'],true,32,JSON_THROW_ON_ERROR);
@@ -423,6 +428,31 @@ foreach(['<span class="ai-icon ai-icon-unknown"></span>','<span class="ai-icon a
 $queryDesign=$generatedDesign;$queryDesign['html']=str_replace('data-image-slot="hero"','data-image-slot="hero" data-image-query="pottery bowl"',$queryDesign['html']);
 $queryOutput=AiGeneratedWebsite::parseProviderOutput(json_encode($queryDesign,JSON_UNESCAPED_UNICODE));
 aiCheck(($queryOutput['imageSlots'][0]['query']??null)==='pottery bowl'&&!str_contains($queryOutput['html'],'data-image-query'),'Photo search topics are bounded metadata, not persisted custom HTML attributes');
+
+foreach([
+    ['text'=>'Осваиваете centering глины.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Mixed-language copy'],
+    ['text'=>'От сырая форма зависит результат.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Russian case and agreement'],
+    ['text'=>'Количество мест ограничено размером группы.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported capacity claim'],
+    ['text'=>'Все материалы и инструменты предоставляются мастерской.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported included materials'],
+    ['text'=>'Занятия проходят в будние дни и выходные.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported schedule'],
+    ['text'=>'Готовое изделие можно заказать с доставкой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported delivery'],
+    ['text'=>'После обжига вы заберёте готовое изделие домой.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported take-home promise'],
+    ['text'=>'Оставьте заявку, и администратор свяжется с вами.','prompt'=>'Сайт керамической мастерской в Алматы','name'=>'Unsupported form follow-up'],
+] as $copyDefect){
+    $copyBadDesign=$generatedDesign;$copyBadDesign['html']=str_replace('Современная клиника рядом с вами.',$copyDefect['text'],$copyBadDesign['html']);
+    $copyBadBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($copyBadDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+    $copyRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$copyBadBody),new AiHttpResponse(200,$generatedBody)]);
+    $copyRepair=AiGeneratedWebsite::create($copyDefect['prompt'],new OpenRouterProvider($settings,$copyRepairTransport));
+    $copyRepairRequest=json_decode($copyRepairTransport->calls[1]['body'],true,32,JSON_THROW_ON_ERROR);
+    aiCheck(count($copyRepairTransport->calls)===2&&$copyRepair['metadata']['repairAttempted']&&str_contains($copyRepairRequest['messages'][0]['content'],'idiomatic Russian'),$copyDefect['name'].' triggers one bounded copy repair');
+}
+
+$supportedCopyPrompt='Сайт керамической мастерской в Алматы. Все материалы и инструменты предоставляются мастерской, занятия идут по выходным, готовые изделия можно забрать домой после обжига, доставка доступна.';
+$supportedCopyDesign=$generatedDesign;$supportedCopyDesign['html']=str_replace('Современная клиника рядом с вами.','Все материалы и инструменты предоставляются мастерской. Занятия идут по выходным. Готовые изделия можно забрать домой после обжига или заказать доставку.',$supportedCopyDesign['html']);
+$supportedCopyBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($supportedCopyDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$supportedCopyTransport=new FakeAiTransport([new AiHttpResponse(200,$supportedCopyBody)]);
+AiGeneratedWebsite::create($supportedCopyPrompt,new OpenRouterProvider($settings,$supportedCopyTransport));
+aiCheck(count($supportedCopyTransport->calls)===1,'Explicit owner-provided operational details are retained without an unnecessary repair');
 
 $badMarkup=$generatedDesign;$badMarkup['html']=str_replace('<header','<script>private-test-marker</script><header',$badMarkup['html']);
 $badBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($badMarkup,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);

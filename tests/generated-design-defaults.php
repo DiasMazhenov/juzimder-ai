@@ -14,6 +14,7 @@ $again=GeneratedDesignDefaults::apply($out);
 defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges are retained without duplicates');
 
 defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');
+defaultsCheck(str_contains($out['css'],'.ai-scope-test nav{display:flex;flex-wrap:wrap')&&str_contains($out['css'],'.ai-scope-test nav ul{display:flex;flex-wrap:wrap'),'Generated navigation and its list wrap at narrow viewport widths');
 
 $split=['html'=>'<div class="ai-scope-test"><section class="ai-hero ai-hero-split"><div class="ai-image-slot" data-image-slot="hero"></div><div class="ai-copy"><h1>Clinic</h1><p>Care</p><a href="#contact">Book</a></div></section></div>','css'=>'.ai-scope-test .ai-hero{background-color:#123456}'];
 $composed=GeneratedDesignDefaults::apply($split);

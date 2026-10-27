@@ -63,7 +63,7 @@ final class AiProviderFailure extends \RuntimeException {
     public function __construct(string $message, public readonly bool $retryable = false, public readonly string $category = 'provider', public readonly ?string $validationRule = null) { parent::__construct($message); }
 
     public static function publicCategory(string $category): string {
-        return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','invalid_output','invalid_component_edit','photo_unavailable'],true)?$category:'provider';
+        return in_array($category,['cancelled','timeout','rate_limited','unavailable','credentials','invalid_response','invalid_schema','invalid_markup','invalid_css','contact_requirements','skill_requirements','copy_quality','invalid_output','invalid_component_edit','photo_unavailable'],true)?$category:'provider';
     }
     public function userMessage(): string {
         $zeroReason = str_starts_with($this->validationRule ?? '', 'zero:') ? substr($this->validationRule, 5) : null;
@@ -88,6 +88,7 @@ final class AiProviderFailure extends \RuntimeException {
             'invalid_schema' => 'Ответ модели не соответствует формату генерации. Попробуйте ещё раз. Проект не изменён.',
             'invalid_markup' => 'Ответ модели нарушил правила допустимой HTML-разметки. Попробуйте ещё раз. Проект не изменён.',
             'invalid_css' => 'Стили модели не прошли безопасную проверку. Упростите описание визуального стиля и попробуйте ещё раз. Проект не изменён.',
+            'copy_quality' => 'Текст дизайна содержит языковую ошибку или неподтверждённое утверждение. Уточните исходные факты и попробуйте ещё раз. Проект не изменён.',
             'contact_requirements' => 'Модель добавила контакт или внешнюю ссылку, которых нет в вашем описании. Укажите нужные контакты явно или попросите внутреннюю кнопку. Проект не изменён.',
             'skill_requirements' => 'Дизайн не прошёл обязательные проверки выбранного профиля. Уточните описание и попробуйте ещё раз. Проект не изменён.',
             'invalid_output' => 'Ответ модели не прошёл безопасную проверку. Уточните описание и попробуйте ещё раз. Проект не изменён.' . ($zeroReason !== null ? ' Причина: ' . $zeroReason : ''),
@@ -615,7 +616,7 @@ final class AiGeneratedWebsite {
 
     private const CARD_ICONS = ['spark'=>true,'check'=>true,'clock'=>true,'heart'=>true,'target'=>true,'arrow'=>true,'list'=>true,'diamond'=>true];
 
-    private const SYSTEM_PROMPT = 'Create a polished, responsive, visually distinctive one-page website design and original copy from the user brief. Return only the requested JSON fields. Write all visible copy in the language requested by the owner. Before returning, proofread spelling, grammar, agreement and CTA wording; remove unfinished phrases and do not promise working forms or follow-up contact when only an inert button exists. Treat the style description as a concrete art direction and create a deliberate palette with high contrast, not a generic wireframe. Use a memorable hero composition, varied but consistent section backgrounds, clear typographic hierarchy, compact purposeful spacing, refined cards with borders and shadows, and prominent CTA buttons. Avoid oversized empty sections and repeated plain text blocks. Independently choose useful card visuals even when the owner does not request them: symbolic feature/process cards may use one relevant built-in icon, while subjects whose physical appearance matters may use a managed image slot inside the card. For abstract software capabilities such as task lists, focus, reminders, security or workflow steps, use a relevant built-in icon rather than stock photographs of phones, clocks or other stand-in objects. Do not add photo slots to these abstract capability cards. Reserve card photos for physical products, places, people or other subjects whose actual appearance matters. Do not decorate every card automatically or add unrelated symbols. Built-in icons use an EMPTY span with classes ai-icon and exactly one of ai-icon-spark, ai-icon-check, ai-icon-clock, ai-icon-heart, ai-icon-target, ai-icon-arrow, ai-icon-list, ai-icon-diamond. The server inserts a trusted Tabler Outline icon. All icons on the page must use this one library and its outline style; never mix families, filled icons or text symbols; no emoji, SVG, icon URLs or custom icon attributes. Maximum 12 icons. Keep a visible text heading next to decorative icons; never use an icon as the only action label. Image slots may be placed inside cards using the existing section-N ids and count limits. Design each card to remain readable if its photo is not assigned. The html field must contain a fragment with 3 to 9 <section> elements and exactly one hero section having class ai-hero. Do not generate image elements, image URLs, filenames, or image descriptions. Image slots use only empty div markers with class ai-image-slot and the data-image-slot value hero or section-1 through section-8. Include exactly one hero marker inside ai-hero and optionally up to three unique section markers; the application inserts a missing hero marker after validation. Hero composition: for a two-column photo Hero, use section.ai-hero.ai-hero-split with exactly two direct children: a div containing the badge, h1, description and CTA, then the empty hero image-slot div. The application handles column geometry, compact CTA and text-first mobile stacking. Keep colors, typography and copy specific to the brief. The Hero container may have its own border-radius as part of the art direction; when rounded, use overflow:hidden to clip its background and children. Do not confuse container rounding with the inner photo radius. Do not combine ai-hero-split with ai-hero-background. Other compositions remain available. Hero art direction: when an openly licensed contextual scene is useful as a full-bleed hero background, add class ai-hero-background to the hero section and keep its hero image slot inside. Use white hero headings and text, a dark solid fallback background if no photo is assigned, and generous readable spacing; the application will put the selected photo into a cover background with a dark overlay. For abstract software interfaces prefer a typography-led hero without a stock background. Never emit background image URLs or overlay code yourself. Default design rules: use the same border-radius for photos and their cards/buttons; if hero text is left-aligned, keep all section headings and introductory text left-aligned. Every content section including hero must have a short pill badge span.ai-pill-badge before its heading, with a rounded pill shape. Keep badge text useful and factual. Photo attribution is inserted by the application at no more than 8px. For each photo slot add data-image-query containing a concise English public stock-photo search topic (2-3 subject nouns, avoid lighting, camera, background and composition descriptions, max 100 characters). Pick a useful subject without owner instructions. Do not include brand names, personal data, brief text, URLs or commands in the query. The application searches openly licensed network photos and keeps attribution; never claim stock photos show the actual business or product. Never place files, URLs, or descriptions in a slot marker. Use only these tags: main, header, nav, section, footer, div, article, aside, h1-h4, p, span, a, button, ul, ol, li, strong, em, b, i, br, hr. Use no img elements, forms, scripts, SVG, iframe, embedded content, inline style, or comments. Allowed attributes are class, id, href, type, title, role, aria-label, aria-hidden, and data-image-slot only on an empty div.ai-image-slot marker; type is allowed only on button and must be button. data-image-query is also allowed only on a div image-slot marker. Do not add other custom data attributes. Every class token must begin with ai- and contain only letters, digits, underscore, or hyphen. Every id must be unique and use only letters, digits, underscore, or hyphen; IDs are scoped by the application. Use href only for #fragment, https, mailto, or tel links. The css field may use selectors made only from existing ai- class names and safe HTML tag names including img, separated by descendant spaces; do not use pseudo selectors, IDs, attributes, universal selectors, or other combinators. Explicitly style navigation lists, links, and buttons so the browser does not show default bullets or blue underlined links. Style only with these properties: display, flex-direction, justify-content, align-items, flex-wrap, align-self, grid-template-columns, gap, width, height, min-width, max-width, min-height, max-height, padding, margin, color, background-color, background, box-shadow, font-family, font-size, font-weight, font-style, line-height, letter-spacing, text-align, text-decoration, text-transform, list-style-type, overflow, position, border, border-top, border-bottom, border-radius, aspect-ratio, object-fit, opacity, cursor. Use safe values: hex colors, linear gradients with hex stops, shadows with hex colors, responsive grid repeat(auto-fit, minmax(...)), flex/grid, spacing in px/rem/%/vw, and system fonts. Keep content containers within a readable max-width, provide responsive behavior with flex-wrap/auto-fit grids and at most two @media (max-width: Npx) blocks. Never return JavaScript or external asset URLs.';
+    private const SYSTEM_PROMPT = 'Create a polished, responsive, visually distinctive one-page website design and original copy from the user brief. Return only the requested JSON fields. Write all visible copy in the language requested by the owner. In a Russian-language brief, every visible sentence must be natural, idiomatic Russian: do not insert English words, check noun/adjective case and agreement, and rewrite any awkward phrase. Do not invent capacity, scarcity, schedules, prices, included materials, or other business facts unless the owner supplied them. Before returning, proofread spelling, grammar, agreement and CTA wording; remove unfinished phrases and do not promise working forms or follow-up contact when only an inert button exists. Treat the style description as a concrete art direction and create a deliberate palette with high contrast, not a generic wireframe. Use a memorable hero composition, varied but consistent section backgrounds, clear typographic hierarchy, compact purposeful spacing, refined cards with borders and shadows, and prominent CTA buttons. Avoid oversized empty sections and repeated plain text blocks. Independently choose useful card visuals even when the owner does not request them: symbolic feature/process cards may use one relevant built-in icon, while subjects whose physical appearance matters may use a managed image slot inside the card. For abstract software capabilities such as task lists, focus, reminders, security or workflow steps, use a relevant built-in icon rather than stock photographs of phones, clocks or other stand-in objects. Do not add photo slots to these abstract capability cards. Reserve card photos for physical products, places, people or other subjects whose actual appearance matters. Do not decorate every card automatically or add unrelated symbols. Built-in icons use an EMPTY span with classes ai-icon and exactly one of ai-icon-spark, ai-icon-check, ai-icon-clock, ai-icon-heart, ai-icon-target, ai-icon-arrow, ai-icon-list, ai-icon-diamond. The server inserts a trusted Tabler Outline icon. All icons on the page must use this one library and its outline style; never mix families, filled icons or text symbols; no emoji, SVG, icon URLs or custom icon attributes. Maximum 12 icons. Keep a visible text heading next to decorative icons; never use an icon as the only action label. Image slots may be placed inside cards using the existing section-N ids and count limits. Design each card to remain readable if its photo is not assigned. The html field must contain a fragment with 3 to 9 <section> elements and exactly one hero section having class ai-hero. Do not generate image elements, image URLs, filenames, or image descriptions. Image slots use only empty div markers with class ai-image-slot and the data-image-slot value hero or section-1 through section-8. Include exactly one hero marker inside ai-hero and optionally up to three unique section markers; the application inserts a missing hero marker after validation. For a photo-relevant physical business, add a concise English data-image-query to the hero marker and choose either ai-hero-split or ai-hero-background so the image has a purposeful role; never leave a large blank image area. Keep typography-led hero compositions for abstract software or when photography is not appropriate. Hero composition: for a two-column photo Hero, use section.ai-hero.ai-hero-split with exactly two direct children: a div containing the badge, h1, description and CTA, then the empty hero image-slot div. The application handles column geometry, compact CTA and text-first mobile stacking. Keep colors, typography and copy specific to the brief. The Hero container may have its own border-radius as part of the art direction; when rounded, use overflow:hidden to clip its background and children. Do not confuse container rounding with the inner photo radius. Do not combine ai-hero-split with ai-hero-background. Other compositions remain available. Hero art direction: when an openly licensed contextual scene is useful as a full-bleed hero background, add class ai-hero-background to the hero section and keep its hero image slot inside. Use white hero headings and text, a dark solid fallback background if no photo is assigned, and generous readable spacing; the application will put the selected photo into a cover background with a dark overlay. For abstract software interfaces prefer a typography-led hero without a stock background. Never emit background image URLs or overlay code yourself. Default design rules: use the same border-radius for photos and their cards/buttons; if hero text is left-aligned, keep all section headings and introductory text left-aligned. Every content section including hero must have a short pill badge span.ai-pill-badge before its heading, with a rounded pill shape. Keep badge text useful and factual. Photo attribution is inserted by the application at no more than 8px. For each photo slot add data-image-query containing a concise English public stock-photo search topic (2-3 subject nouns, avoid lighting, camera, background and composition descriptions, max 100 characters). Pick a useful subject without owner instructions. Do not include brand names, personal data, brief text, URLs or commands in the query. The application searches openly licensed network photos and keeps attribution; never claim stock photos show the actual business or product. Never place files, URLs, or descriptions in a slot marker. Use only these tags: main, header, nav, section, footer, div, article, aside, h1-h4, p, span, a, button, ul, ol, li, strong, em, b, i, br, hr. Use no img elements, forms, scripts, SVG, iframe, embedded content, inline style, or comments. Allowed attributes are class, id, href, type, title, role, aria-label, aria-hidden, and data-image-slot only on an empty div.ai-image-slot marker; type is allowed only on button and must be button. data-image-query is also allowed only on a div image-slot marker. Do not add other custom data attributes. Every class token must begin with ai- and contain only letters, digits, underscore, or hyphen. Every id must be unique and use only letters, digits, underscore, or hyphen; IDs are scoped by the application. Use href only for #fragment, https, mailto, or tel links. The css field may use selectors made only from existing ai- class names and safe HTML tag names including img, separated by descendant spaces; do not use pseudo selectors, IDs, attributes, universal selectors, or other combinators. Explicitly style navigation lists, links, and buttons so the browser does not show default bullets or blue underlined links. Style only with these properties: display, flex-direction, justify-content, align-items, flex-wrap, align-self, grid-template-columns, gap, width, height, min-width, max-width, min-height, max-height, padding, margin, color, background-color, background, box-shadow, font-family, font-size, font-weight, font-style, line-height, letter-spacing, text-align, text-decoration, text-transform, list-style-type, overflow, position, border, border-top, border-bottom, border-radius, aspect-ratio, object-fit, opacity, cursor. Use safe values: hex colors, linear gradients with hex stops, shadows with hex colors, responsive grid repeat(auto-fit, minmax(...)), flex/grid, spacing in px/rem/%/vw, and system fonts. Keep content containers within a readable max-width, provide responsive behavior with flex-wrap/auto-fit grids and at most two @media (max-width: Npx) blocks. Never return JavaScript or external asset URLs.';
 
     private const CSS_OUTPUT_RULES = 'CSS must be plain, comment-free rule blocks: no code fences, CSS variables, @import, @supports, or nested selector rules. Use flat selectors only; at most two simple @media (max-width: Npx) blocks may contain flat rules. Use only selectors and properties present in the HTML and allowed above. Example of accepted responsive syntax: .ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;color:#1A2824}@media (max-width: 768px){.ai-hero{grid-template-columns:1fr}}.';
 
@@ -623,6 +624,7 @@ final class AiGeneratedWebsite {
 
     private const VALIDATION_RETRY_GUIDANCE = [
         'contact_requirements' => 'The previous design invented a contact or external link. Use only exact email addresses, phone numbers and URLs explicitly supplied in the original owner brief, never contact examples from Skills. If absent, omit contact details and use internal #fragment links or a plain non-submitting button. Do not invent email addresses, phone numbers, domains, social links or postal addresses.',
+        'copy_quality' => 'The previous page contained awkward or mixed-language visible copy or an unsupported business claim. Rewrite every sentence as idiomatic Russian when the owner brief is Russian, use correct noun/adjective case and agreement, and remove every English word not present in the owner brief. Remove scarcity, capacity, schedule, price, materials-included, and other operational claims unless explicitly stated by the owner.',
         'invalid_schema' => 'The previous response did not match the required JSON schema. Regenerate the complete object from the same user brief, with exactly the required fields and no surrounding prose or code fences.',
         'invalid_markup' => 'The previous response failed the strict HTML allowlist. Regenerate the complete design from the same user brief using only the allowed HTML tags and attributes. Image slots are permitted only as empty div.ai-image-slot markers with data-image-slot set to hero or section-1 through section-8; never add img elements, URLs, filenames, comments, styles, scripts, or unsupported attributes.',
         'invalid_css' => 'The previous response failed the strict CSS allowlist. Regenerate the complete design from the same user brief using plain comment-free CSS rules, only existing ai- classes and allowed properties/values, and no variables, code fences, or nested/unsupported at-rules.',
@@ -654,7 +656,7 @@ final class AiGeneratedWebsite {
         ];
     }
 
-    public static function parseProviderOutput(string $json, string $skillProfile = 'standard'): array {
+    public static function parseProviderOutput(string $json, string $skillProfile = 'standard', ?string $ownerPrompt = null): array {
         if (!in_array($skillProfile, ['standard','taste'], true)) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'invalid_schema');
         $json = trim($json);
         if (preg_match('/\A```(?:json)?\s*(.*?)\s*```\z/is', $json, $fenced)) $json = trim($fenced[1]);
@@ -686,6 +688,13 @@ final class AiGeneratedWebsite {
             $markup['classes']['ai-image-slot'] = true;
             $markup['imageSlots'] = ['hero'=>true] + $markup['imageSlots'];
         }
+        $photoOptOut = $ownerPrompt !== null && self::explicitlyRequestsNoPhotos($ownerPrompt);
+        if ($ownerPrompt !== null && !$photoOptOut) {
+            if (empty($markup['imageQueries']['hero'])) $markup['imageQueries']['hero'] = self::defaultHeroPhotoQuery($ownerPrompt, $design['siteType']);
+            if (is_string($markup['imageQueries']['hero'] ?? null) && $markup['imageQueries']['hero'] !== '') {
+                $markup['html'] = self::preparePhotoHero($markup['html']);
+            }
+        }
         try { $stylesheet = self::sanitizeStylesheet($design['css'], $scope, $markup['classes']); }
         catch (AiProviderFailure $failure) { error_log('Juzimder AI: generated design rejected by CSS sanitizer.'); throw new AiProviderFailure($failure->getMessage(), false, 'invalid_css'); }
         $stylesheet = '.' . $scope . ' a{color:inherit}' . "\n" . '.' . $scope . ' .ai-icon{display:inline-block;width:32px;height:32px;line-height:1;margin:0 0 12px}' . "\n" . $stylesheet;
@@ -696,7 +705,14 @@ final class AiGeneratedWebsite {
             'html'=>'<div class="' . $scope . '">' . $markup['html'] . '</div>',
             'css'=>$stylesheet,
             'sectionCount'=>$markup['sectionCount'],
-            'imageSlots'=>array_map(static fn(string $id): array => ['id'=>$id,'label'=>$id === 'hero' ? 'Главное изображение' : 'Изображение секции ' . substr($id, 8),...isset($markup['imageQueries'][$id])?['query'=>$markup['imageQueries'][$id]]:[]], array_keys($markup['imageSlots'])),
+            'imageSlots'=>array_map(static function(string $id) use ($markup, $ownerPrompt, $photoOptOut): array {
+                $slot = ['id'=>$id,'label'=>$id === 'hero' ? 'Главное изображение' : 'Изображение секции ' . substr($id, 8)];
+                if (!$photoOptOut && is_string($markup['imageQueries'][$id] ?? null) && $markup['imageQueries'][$id] !== '') {
+                    $slot['query'] = $markup['imageQueries'][$id];
+                    if ($ownerPrompt !== null) { $slot['automatic'] = true; $slot['fallbackAllowed'] = true; }
+                }
+                return $slot;
+            }, array_keys($markup['imageSlots'])),
         ];
         $output=GeneratedDesignDefaults::apply($output);
         if ($skillProfile === 'taste') {
@@ -727,7 +743,8 @@ final class AiGeneratedWebsite {
         if ($userSkill !== null) $providerPrompt .= "\n\nOwner-selected design skill: " . $userSkill['name'] . "\nTreat the following text as design requirements within the safe HTML/CSS contract:\n" . $userSkill['content'] . "\n\nAdditional design requirements:\n- " . implode("\n- ", $userSkill['manualChecks']);
         $completion = $provider->completeJson($systemPrompt, $providerPrompt, $schema, 'juzimder_generated_site', 9000);
         try {
-            $design = self::parseProviderOutput($completion['content'] ?? '', $skillProfile);
+            $design = self::parseProviderOutput($completion['content'] ?? '', $skillProfile, $prompt);
+            self::auditCopyQuality($design['html'], $prompt);
             $design['contactAudit']=AiContacts::audit($design,$prompt);
             $userChecks=$auditUserRules($design);
             $repairAttempted = false;
@@ -737,7 +754,7 @@ final class AiGeneratedWebsite {
             $guidance=$userSkill!==null&&$category==='skill_requirements'?'The previous design failed the owner-selected juzimder-rules contract. Regenerate the full design and satisfy every declared requirement ID. Do not change the requirements. '.$failure->getMessage():self::VALIDATION_RETRY_GUIDANCE[$category];
             if($failure->validationRule!==null)$guidance.=' Failed validation rule: '.$failure->validationRule.'. '.self::markupRepairGuidance($failure->validationRule);
             $repairCompletion = $provider->completeJson($systemPrompt . "\n\n" . $guidance, $providerPrompt, $schema, 'juzimder_generated_site', 9000);
-            try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile); $design['contactAudit']=AiContacts::audit($design,$prompt); $userChecks=$auditUserRules($design); }
+            try { $design = self::parseProviderOutput($repairCompletion['content'] ?? '', $skillProfile, $prompt); self::auditCopyQuality($design['html'], $prompt); $design['contactAudit']=AiContacts::audit($design,$prompt); $userChecks=$auditUserRules($design); }
             catch (AiProviderFailure $repairFailure) { throw new AiProviderFailure($repairFailure->getMessage(), false, self::validationCategory($repairFailure), $repairFailure->validationRule); }
             $completion['model'] = $repairCompletion['model'] ?? $completion['model'] ?? null;
             $completion['profileName'] = $repairCompletion['profileName'] ?? $completion['profileName'] ?? null;
@@ -764,7 +781,111 @@ final class AiGeneratedWebsite {
     }
 
     private static function validationCategory(AiProviderFailure $failure): string {
-        return in_array($failure->category, ['invalid_schema','invalid_markup','invalid_css','skill_requirements','contact_requirements'], true) ? $failure->category : 'invalid_output';
+        return in_array($failure->category, ['invalid_schema','invalid_markup','invalid_css','skill_requirements','contact_requirements','copy_quality'], true) ? $failure->category : 'invalid_output';
+    }
+
+    private static function explicitlyRequestsNoPhotos(string $prompt): bool {
+        return preg_match('/(?:без\\s+(?:фото|изображени|картинк)|фото\\s+не\\s+нужн|не\\s+(?:добавляй|используй)\\s+(?:фото|изображени|картинк)|no\\s+(?:photos?|images?)|without\\s+(?:photos?|images?)|do\\s+not\\s+use\\s+(?:photos?|images?))/iu', $prompt) === 1;
+    }
+
+    private static function defaultHeroPhotoQuery(string $prompt, string $siteType): string {
+        $subject = mb_strtolower($prompt . ' ' . $siteType, 'UTF-8');
+        return match (true) {
+            preg_match('/керамич|гончар|глин|pottery|ceramic|clay/iu', $subject) === 1 => 'pottery ceramics workshop',
+            preg_match('/пекар|хлеб|булоч|bakery|bread|pastry/iu', $subject) === 1 => 'bread pastry bakery',
+            preg_match('/кафе|ресторан|кухн|restaurant|cafe|café/iu', $subject) === 1 => 'restaurant food dining room',
+            preg_match('/стоматолог|зубн|клиник|врач|медицин|dentist|dental|clinic|doctor/iu', $subject) === 1 => 'modern medical clinic interior',
+            preg_match('/цветоч|флорист|букет|flower|florist/iu', $subject) === 1 => 'flower bouquet florist shop',
+            preg_match('/салон красоты|парикмах|beauty salon|hair salon/iu', $subject) === 1 => 'beauty salon interior',
+            preg_match('/спортзал|фитнес|трениров|gym|fitness|workout/iu', $subject) === 1 => 'fitness studio training',
+            preg_match('/школ|обучен|курс|classroom|school|education/iu', $subject) === 1 => 'classroom learning students',
+            preg_match('/отел|гостиниц|hotel|hospitality/iu', $subject) === 1 => 'hotel interior room',
+            preg_match('/квартир|недвижим|интерьер|real estate|apartment|interior design/iu', $subject) === 1 => 'modern apartment interior',
+            default => '',
+        };
+    }
+
+    /** Add the existing safe split-Hero layout only when a contextual photo query exists and the model supplied the simple supported structure. */
+    private static function preparePhotoHero(string $html): string {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML('<!doctype html><html><head><meta charset="UTF-8"></head><body>' . $html . '</body></html>', LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors(); libxml_use_internal_errors($previous);
+        if (!$loaded) return $html;
+        $hero = null;
+        foreach ($document->getElementsByTagName('section') as $section) {
+            $classes = preg_split('/\\s+/', trim($section->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (in_array('ai-hero', $classes, true)) { $hero = $section; break; }
+        }
+        if (!$hero || preg_match('/(?:^|\\s)ai-hero-(?:split|background)(?:\\s|$)/', $hero->getAttribute('class'))) return $html;
+        $children = [];
+        foreach ($hero->childNodes as $node) if ($node instanceof \DOMElement) $children[] = $node;
+        if (count($children) !== 2) return $html;
+        $media = null; $copy = null;
+        foreach ($children as $child) {
+            $childClasses = preg_split('/\\s+/', trim($child->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (in_array('ai-image-slot', $childClasses, true) && $child->getAttribute('data-image-slot') === 'hero') $media = $child;
+            elseif ($child->getElementsByTagName('h1')->length > 0) $copy = $child;
+        }
+        if (!$media || !$copy) return $html;
+        $hero->setAttribute('class', trim($hero->getAttribute('class') . ' ai-hero-split'));
+        $body = $document->getElementsByTagName('body')->item(0); if (!$body) return $html;
+        $result = ''; foreach ($body->childNodes as $child) $result .= $document->saveHTML($child);
+        return $result;
+    }
+
+    private static function auditCopyQuality(string $html, string $prompt): void {
+        $plain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('/\\p{Cyrillic}/u', $prompt) === 1 && preg_match('/(?:русск|казахск|двуязыч|на\\s+двух\\s+язык|bilingual|english\\s+and\\s+russian)/iu', $prompt) !== 1) {
+            $allowed = ['ai','faq','seo','smm','crm','online','offline','email','e-mail','whatsapp','instagram','facebook','telegram','youtube','tiktok','vk','wi-fi','wifi','pdf','qr'];
+            preg_match_all('/\\b[A-Za-z][A-Za-z-]{2,}\\b/u', $plain, $matches);
+            $briefWords = [];
+            preg_match_all('/\\b[A-Za-z][A-Za-z-]{2,}\\b/u', $prompt, $briefMatches);
+            foreach ($briefMatches[0] as $word) $briefWords[mb_strtolower($word, 'UTF-8')] = true;
+            foreach ($matches[0] as $word) {
+                $word = mb_strtolower($word, 'UTF-8');
+                if (!in_array($word, $allowed, true) && !isset($briefWords[$word])) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+            }
+            if (preg_match('/от\\s+[\\p{Cyrillic}]+(?:ый|ая|ое|ые)\\s+[\\p{Cyrillic}]+/iu', $plain) === 1) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+        }
+        $scarcity = preg_match('/(?:количеств\\p{L}*\\s+мест\\p{L}*\\s+ограничен\\p{L}*|мест\\p{L}*\\s+остал\\p{L}*\\s+\\d+|последн\\p{L}*\\s+\\d+\\s+мест\\p{L}*|успейте\\s+(?:записаться|забронировать))/iu', $plain) === 1;
+        $briefSupportsCapacity = preg_match('/(?:\\b\\d{1,3}\\s+(?:мест\\p{L}*|участник\\p{L}*|человек\\b)|мест\\p{L}*\\s+ограничен\\p{L}*|ограничен\\p{L}*\\s+количеств\\p{L}*\\s+мест)/iu', $prompt) === 1;
+        if ($scarcity && !$briefSupportsCapacity) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+
+        $operationalClaims = [
+            [
+                'claim' => '/(?:материал\\p{L}*|глин\\p{L}*|инструмент\\p{L}*|глазур\\p{L}*|обжиг\\p{L}*).{0,70}(?:предостав\\p{L}*|вход\\p{L}*|включ\\p{L}*|бесплат\\p{L}*)|(?:предостав\\p{L}*|вход\\p{L}*|включ\\p{L}*|бесплат\\p{L}*).{0,70}(?:материал\\p{L}*|глин\\p{L}*|инструмент\\p{L}*|глазур\\p{L}*|обжиг\\p{L}*)/iu',
+                'support' => '/(?:материал\\p{L}*|глин\\p{L}*|инструмент\\p{L}*|глазур\\p{L}*|обжиг\\p{L}*).{0,70}(?:предостав\\p{L}*|вход\\p{L}*|включ\\p{L}*|бесплат\\p{L}*)|(?:предостав\\p{L}*|вход\\p{L}*|включ\\p{L}*|бесплат\\p{L}*).{0,70}(?:материал\\p{L}*|глин\\p{L}*|инструмент\\p{L}*|глазур\\p{L}*|обжиг\\p{L}*)/iu',
+            ],
+            [
+                'claim' => '/(?:в|по)\\s+(?:будни\\p{L}*|выходн\\p{L}*)|(?:заняти\\p{L}*|сеанс\\p{L}*).{0,60}(?:расписани\\p{L}*|\\d{1,2}[:.]\\d{2})/iu',
+                'support' => '/(?:в|по)\\s+(?:будни\\p{L}*|выходн\\p{L}*)|(?:расписани\\p{L}*|\\d{1,2}[:.]\\d{2})/iu',
+            ],
+            [
+                'claim' => '/доставк\\p{L}*/iu',
+                'support' => '/доставк\\p{L}*/iu',
+            ],
+            [
+                'claim' => '/(?:забер\\p{L}*|забрать|можно\\s+забрать).{0,90}(?:издели\\p{L}*|работ\\p{L}*|домой|после\\s+обжиг\\p{L}*)|(?:издели\\p{L}*|работ\\p{L}*).{0,90}(?:забер\\p{L}*|можно\\s+забрать|забрать\\s+домой)/iu',
+                'support' => '/(?:забер\\p{L}*|забрать|можно\\s+забрать).{0,90}(?:издели\\p{L}*|работ\\p{L}*|домой|после\\s+обжиг\\p{L}*)|(?:издели\\p{L}*|работ\\p{L}*).{0,90}(?:забер\\p{L}*|можно\\s+забрать|забрать\\s+домой)/iu',
+            ],
+            [
+                'claim' => '/маленьк\\p{L}*\\s+групп\\p{L}*/iu',
+                'support' => '/(?:маленьк\\p{L}*|небольш\\p{L}*)\\s+групп\\p{L}*|групп\\p{L}*.{0,60}(?:\\d{1,2}\\s+(?:человек\\p{L}*|участник\\p{L}*|мест\\p{L}*)|небольш\\p{L}*|маленьк\\p{L}*)/iu',
+            ],
+        ];
+        foreach ($operationalClaims as $rule) {
+            if (preg_match($rule['claim'], $plain) === 1 && preg_match($rule['support'], $prompt) !== 1) {
+                throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+            }
+        }
+
+        // Generated pages cannot contain a working form under the current safe
+        // HTML contract, so never promise that an admin will follow up or that a
+        // visitor submitted an application through an inert anchor button.
+        if (preg_match('/(?:оставьте|заполните|отправьте)\\s+(?:заявк\\p{L}*|форму)|свяж\\p{L}*\\s+с\\s+вами|администратор.{0,70}свяж\\p{L}*/iu', $plain) === 1) {
+            throw new AiProviderFailure('AI provider returned an invalid design.', false, 'copy_quality');
+        }
     }
 
     private static function auditTasteRequirements(string $html, string $css): array {
