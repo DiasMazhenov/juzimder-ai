@@ -217,6 +217,10 @@
 .settings-backup{display:grid;gap:16px;padding-top:16px}.settings-backup .settings-notice{align-items:start}.settings-backup .settings-field{margin:12px 0}.settings-backup input[type=file]{display:block;max-width:100%;margin-top:8px}.settings-backup-restore{background:#202722}.settings-backup>p:last-child{margin:0}
 
 /* Keep the project settings navigation visible while the settings content scrolls. */
+.project-dashboard{min-height:100vh;min-height:100dvh;height:100vh;height:100dvh;overflow:hidden}
+.project-dashboard>.dash-sidebar{position:fixed;inset:0 auto 0 0;width:236px;height:100vh;height:100dvh;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;z-index:5}
+.project-dashboard>.dash-main{grid-column:2;height:100vh;height:100dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:800px){.project-dashboard{height:auto;min-height:100dvh;overflow:visible}.project-dashboard>.dash-sidebar{position:static;inset:auto;width:auto;height:auto;min-height:0;overflow:visible}.project-dashboard>.dash-main{grid-column:1;height:auto;min-height:0;overflow:visible}}
 .settings-dashboard{min-height:100dvh;height:100dvh;overflow:hidden}
 .settings-dashboard>.dash-sidebar{position:fixed;inset:0 auto 0 0;width:236px;height:100vh;height:100dvh;min-height:0;overflow:hidden;z-index:5}
 .settings-dashboard>.dash-main{grid-column:2;height:100vh;height:100dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain}

@@ -73,6 +73,16 @@ test('site settings sidebar stays fixed at viewport height with an independently
   assert.match(styles, /\.settings-dashboard \.project-side-link,\.settings-dashboard \.dash-sidebar>\.nav-active\{padding:10px 12px\}/);
 });
 
+test('project dashboard sidebar stays fixed while the page list scrolls independently', () => {
+  const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /class="dashboard project-dashboard"/);
+  assert.match(styles, /\.project-dashboard\{min-height:100vh;min-height:100dvh;height:100vh;height:100dvh;overflow:hidden\}/);
+  assert.match(styles, /\.project-dashboard>\.dash-sidebar\{position:fixed;inset:0 auto 0 0;width:236px;height:100vh;height:100dvh;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;z-index:5\}/);
+  assert.match(styles, /\.project-dashboard>\.dash-main\{grid-column:2;height:100vh;height:100dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain\}/);
+  assert.match(styles, /@media\(max-width:800px\)\{\.project-dashboard\{height:auto;min-height:100dvh;overflow:visible\}\.project-dashboard>\.dash-sidebar\{position:static;inset:auto;width:auto;height:auto;min-height:0;overflow:visible\}\.project-dashboard>\.dash-main\{grid-column:1;height:auto;min-height:0;overflow:visible\}\}/);
+});
+
 test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
