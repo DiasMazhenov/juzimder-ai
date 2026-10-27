@@ -81,8 +81,10 @@ test('save buttons share palette tokens and track saved/unsaved states in both e
   assert.match(main, /function syncSaveButtonState\(\)[\s\S]*?button\.dataset\.saveState=conflicted\?'conflict':saving\?'saving':dirty\?'unsaved':'saved'/);
   assert.match(main, /id="save" class="primary"/);
   assert.match(main, /editor\.on\('project:loaded',[^\n]*syncSaveButtonState/);
+  assert.match(main, /const wasDirty=dirty;[\s\S]*?else if\(wasDirty&&!saving&&!conflicted\)\{clearTimeout\(saveTimer\);saveTimer=undefined;[^}]*Сохранено · ревизия \$\{current\.version\}/);
   assert.match(main, /syncSaveButtonState\(\);/);
-  assert.match(zeroApp, /button\.dataset\.saveState = conflict \? "conflict" : saving \? "saving" : dirty \? "unsaved" : "saved"/);
+  assert.match(zeroApp, /const state = conflict \? "conflict" : saving \? "saving" : dirty \? "unsaved" : "saved"/);
+  assert.match(zeroApp, /const label = \{[\s\S]*?saved: "Сохранено"[\s\S]*?unsaved: "Сохранить"/);
   assert.match(overrides, /#save\[data-save-state="unsaved"\][\s\S]*?var\(--jz-ui-save-active\)/);
   assert.match(overrides, /#save\[data-save-state="saved"\][\s\S]*?var\(--jz-ui-save-saved\)/);
   assert.match(overrides, /#save\[data-save-state="unsaved"\]:hover[\s\S]*?var\(--jz-ui-save-active\)/);

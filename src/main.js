@@ -717,7 +717,7 @@ async function openEditor(id,pageId=null) {
   editor.on('load',()=>{editor.loadProjectData(current.document.data);if(pageId&&editor.Pages.getAll().some(page=>page.get('id')===pageId))editor.Pages.select(pageId);applyDesignTokens(currentDesignTokens());loading=false;editor.clearDirtyCount();savedEditorSnapshot=JSON.stringify(editor.getProjectData());syncSaveButtonState();refreshPages();syncThemeForm();});
   editor.on('project:loaded',()=>queueMicrotask(syncSaveButtonState));
   editor.on('update',()=>{
-    if(!loading){if(aiComponentProposal){aiComponentProposal=null;$('#ai-component-preview').hidden=true;$('#ai-component-changes').replaceChildren();$('#ai-component-status').textContent='Страница изменилась. Составьте AI-правку заново.';}dirty=savedEditorSnapshot!==null&&JSON.stringify(editor.getProjectData())!==savedEditorSnapshot;if(dirty){$('#save-status').textContent=conflicted?'Версия изменилась в другой вкладке':'Есть несохранённые изменения';if(!conflicted)scheduleAutosave();}}
+    if(!loading){if(aiComponentProposal){aiComponentProposal=null;$('#ai-component-preview').hidden=true;$('#ai-component-changes').replaceChildren();$('#ai-component-status').textContent='Страница изменилась. Составьте AI-правку заново.';}const wasDirty=dirty;dirty=savedEditorSnapshot!==null&&JSON.stringify(editor.getProjectData())!==savedEditorSnapshot;if(dirty){$('#save-status').textContent=conflicted?'Версия изменилась в другой вкладке':'Есть несохранённые изменения';if(!conflicted)scheduleAutosave();}else if(wasDirty&&!saving&&!conflicted){clearTimeout(saveTimer);saveTimer=undefined;$('#save-status').textContent=`Сохранено · ревизия ${current.version}`;}}
     syncSaveButtonState();
     refreshEmpty();
   });

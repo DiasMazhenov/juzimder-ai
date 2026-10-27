@@ -62,6 +62,18 @@ final class GeneratedDesignDefaults {
             if(!$hasAuthoredPadding($section)){self::addClass($section,'ai-section-default-spacing');$defaultSpacingSections[]=$section;}
         }
         if($defaultSpacingSections)$extra.="\n.$scope section.ai-section-default-spacing{box-sizing:border-box;padding:48px clamp(20px,5vw,72px)}\n@media(max-width:767px){.$scope section.ai-section-default-spacing{padding:40px 20px}}";
+        $sharedContentRules='';
+        if($hero instanceof \DOMElement&&($alignment==='left'||$alignment==='start')){
+            $heroWidth=$value($hero,'width')??'100%';
+            $heroMaxWidth=$value($hero,'max-width')??'100%';
+            $heroPadding=$value($hero,'padding');
+            $paddingLeft=$value($hero,'padding-left')??self::horizontalPadding($heroPadding,'left')??'clamp(20px,5vw,72px)';
+            $paddingRight=$value($hero,'padding-right')??self::horizontalPadding($heroPadding,'right')??'clamp(20px,5vw,72px)';
+            foreach($blocks as $block)if($block instanceof \DOMElement&&$block!==$hero)self::addClass($block,'ai-shared-content-width');
+            $sharedContentRules="\n.$scope section.ai-shared-content-width.ai-shared-content-width{box-sizing:border-box;width:$heroWidth;max-width:$heroMaxWidth;margin-left:auto;margin-right:auto;padding-left:$paddingLeft;padding-right:$paddingRight}"
+                ."\n.$scope section.ai-shared-content-width.ai-shared-content-width .ai-container.ai-container{box-sizing:border-box;width:100%;max-width:100%;min-width:0;margin-left:0;margin-right:0;padding-left:0;padding-right:0}"
+                ."\n@media(max-width:767px){.$scope section.ai-shared-content-width.ai-shared-content-width{width:$heroWidth;max-width:$heroMaxWidth;padding-left:20px;padding-right:20px}.$scope section.ai-shared-content-width.ai-shared-content-width .ai-container.ai-container{width:100%;max-width:100%;margin-left:0;margin-right:0;padding-left:0;padding-right:0}.$scope section.ai-default-left.ai-default-left.ai-default-left{padding-left:20px;padding-right:20px}}";
+        }
         $radii=[];$cardRadii=[];foreach($xpath->query('//article|//button|//a|//div') as $element){$radius=$value($element,'border-radius');if($radius!==null&&$radius!=='inherit')$radii[$radius]=($radii[$radius]??0)+1;if($radius!==null&&($element->tagName==='article'||str_contains($element->getAttribute('class'),'card')))$cardRadii[$radius]=($cardRadii[$radius]??0)+1;}arsort($radii);arsort($cardRadii);$fallback=array_key_first($cardRadii)??array_key_first($radii)??'0px';
         $index=0;
         foreach($xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ")]') as $slot){
@@ -97,7 +109,32 @@ final class GeneratedDesignDefaults {
                     . "@media(max-width:767px){{$base}{grid-template-columns:minmax(0,1fr);padding:32px 20px;gap:28px}}\n";
             }
         }
+        if($sharedContentRules!==''){
+            // The generated split Hero rule is appended above. Emit shared content
+            // geometry last so nested max-width wrappers cannot shift later sections.
+            if($hero instanceof \DOMElement&&self::hasClass($hero,'ai-split-ready')){
+                $sharedContentRules=str_replace('padding-left:'.$paddingLeft.';padding-right:'.$paddingRight,'padding-left:32px;padding-right:32px',$sharedContentRules);
+            }
+            $extra.=$sharedContentRules;
+        }
         $design['html']=$dom->saveHTML($root);$design['css'].=$extra;return $design;
+    }
+    private static function horizontalPadding(?string $padding,string $side):?string {
+        if($padding===null)return null;
+        $parts=[];$part='';$depth=0;
+        for($index=0,$length=strlen($padding);$index<$length;$index++){
+            $char=$padding[$index];
+            if($char==='(')$depth++;elseif($char===')')$depth=max(0,$depth-1);
+            if(ctype_space($char)&&$depth===0){if($part!==''){$parts[]=$part;$part='';}continue;}
+            $part.=$char;
+        }
+        if($part!=='')$parts[]=$part;
+        if(!$parts||count($parts)>4)return null;
+        return match(count($parts)){
+            1=>$parts[0],
+            2,3=>$parts[1],
+            4=>$parts[$side==='left'?3:1],
+        };
     }
     private static function hasClass(\DOMElement $el,string $class):bool{return in_array($class,preg_split('/\s+/',trim($el->getAttribute('class'))),true);}
     private static function addClass(\DOMElement $el,string $class):void{$el->setAttribute('class',trim($el->getAttribute('class').' '.$class));}
