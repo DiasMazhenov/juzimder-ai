@@ -552,7 +552,34 @@ $sectionLowBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($se
 $sectionRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$sectionLowBody),new AiHttpResponse(200,$goodBody)]);
 $sectionRepairResult=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$sectionRepairTransport));
 $sectionRepairRequest=json_decode($sectionRepairTransport->calls[1]['body'],true);
-aiCheck($sectionRepairResult['metadata']['repairAttempted']&&str_contains($sectionRepairRequest['messages'][0]['content'],'one Hero section plus at least two distinct complete content sections'),'Section-count repair explains the complete minimum page skeleton');
+aiCheck($sectionRepairResult['metadata']['repairAttempted']&&str_contains($sectionRepairRequest['messages'][0]['content'],'at least three actual <section> elements under the main root'),'Section-count repair explains the complete minimum page skeleton');
+aiCheck(str_contains($sectionRepairRequest['messages'][1]['content'],'at least three actual <section> elements under the main root')&&str_contains($sectionRepairRequest['messages'][1]['content'],'Never invent facts to fill the required sections'),'Section-count correction is also explicit in the repair task without echoing rejected HTML');
+$brokenFragmentDesign=$generatedDesign;$brokenFragmentDesign['html']=str_replace('href="#contact"','href="#missing-target"',$brokenFragmentDesign['html']);
+$brokenFragmentBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($brokenFragmentDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$fragmentRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$brokenFragmentBody),new AiHttpResponse(200,$goodBody)]);
+$fragmentRepairResult=AiGeneratedWebsite::create('Сайт клиники',new OpenRouterProvider($settings,$fragmentRepairTransport));$fragmentRepairRequest=json_decode($fragmentRepairTransport->calls[1]['body'],true);
+aiCheck($fragmentRepairResult['metadata']['repairAttempted']&&str_contains($fragmentRepairRequest['messages'][0]['content'],'For each href="#target", include exactly one element with id="#target"')===false&&str_contains($fragmentRepairRequest['messages'][0]['content'],'For each href="#target", include exactly one element with id="target"'),'Fragment repair describes exact href/id matching without leaking rejected markup');
+aiCheck(str_contains($fragmentRepairRequest['messages'][1]['content'],'Verify every target exists and every id is unique'),'Fragment matching is explicit in the corrective user message');
+$cardPhotoPrompt='Сайт клиники. Фотографии должны быть в карточках услуг и врачей.';
+$missingCardPhotos=$generatedDesign;
+try{AiGeneratedWebsite::parseProviderOutput(json_encode($missingCardPhotos,JSON_UNESCAPED_UNICODE),'standard',$cardPhotoPrompt);throw new RuntimeException('Expected missing requested card photos to be rejected.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='required_photo_slots','Explicit card-photo requests require two separate queried card image slots');}
+$cardPhotoDesign=$generatedDesign;
+$firstCard='<article class="ai-card"><div class="ai-image-slot" data-image-slot="section-1" data-image-query="doctor medical clinic team"></div><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article>';
+$secondCard='<article class="ai-card"><div class="ai-image-slot" data-image-slot="section-2" data-image-query="medical clinic consultation"></div><h2>Профессиональная помощь</h2><p>Современное оборудование и внимательное отношение.</p></article>';
+$cardPhotoDesign['html']=str_replace('<article class="ai-card"><h2>Опытные врачи</h2><p>Внимание к каждому пациенту.</p></article>',$firstCard.$secondCard,$cardPhotoDesign['html']);
+$missingCardPhotoBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($missingCardPhotos,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$cardPhotoBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($cardPhotoDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$cardPhotoRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$missingCardPhotoBody),new AiHttpResponse(200,$cardPhotoBody)]);
+$cardPhotoResult=AiGeneratedWebsite::create($cardPhotoPrompt,new OpenRouterProvider($settings,$cardPhotoRepairTransport));
+$cardPhotoRepairRequest=json_decode($cardPhotoRepairTransport->calls[1]['body'],true);
+aiCheck($cardPhotoResult['metadata']['repairAttempted']&&array_column($cardPhotoResult['design']['imageSlots'],'id')===['hero','section-1','section-2'],'Main editor repairs omitted card photos and returns the requested distinct managed slots');
+aiCheck(str_contains($cardPhotoRepairRequest['messages'][0]['content'],'Explicit owner-requested photography requirement')&&str_contains($cardPhotoRepairRequest['messages'][1]['content'],'at least two distinct relevant product/category cards'),'Photo-card requirement is carried into both generation and bounded repair without echoing rejected markup');
+$invalidCardPhotoDesign=$generatedDesign;$invalidCardPhotoDesign['html'].='<script>unsafe()</script>';
+$invalidCardPhotoBody=json_encode(['choices'=>[['message'=>['content'=>json_encode($invalidCardPhotoDesign,JSON_UNESCAPED_UNICODE)]]]],JSON_UNESCAPED_UNICODE);
+$tagCardPhotoRepairTransport=new FakeAiTransport([new AiHttpResponse(200,$invalidCardPhotoBody),new AiHttpResponse(200,$cardPhotoBody)]);
+$tagCardPhotoResult=AiGeneratedWebsite::create($cardPhotoPrompt,new OpenRouterProvider($settings,$tagCardPhotoRepairTransport));
+$tagCardPhotoRepairRequest=json_decode($tagCardPhotoRepairTransport->calls[1]['body'],true);
+aiCheck($tagCardPhotoResult['metadata']['repairAttempted']&&str_contains($tagCardPhotoRepairRequest['messages'][0]['content'],'strict HTML allowlist')&&str_contains($tagCardPhotoRepairRequest['messages'][1]['content'],'Owner-requested card-photo requirement')&&str_contains($tagCardPhotoRepairRequest['messages'][1]['content'],'section-1 and section-2'),'An unrelated HTML repair retains explicit requested photo slots in its corrective user prompt');
 $sectionCountHigh=$generatedDesign;
 for($extra=0;$extra<7;$extra++)$sectionCountHigh['html'].='<section class="ai-extra"><h2 class="ai-extra-title">Дополнительный раздел</h2><p class="ai-extra-copy">Краткое описание дополнительной части страницы.</p></section>';
 try{AiGeneratedWebsite::parseProviderOutput(json_encode($sectionCountHigh,JSON_UNESCAPED_UNICODE));throw new RuntimeException('Expected high section count rejection.');}catch(AiProviderFailure $failure){aiCheck($failure->validationRule==='section_count_high','Markup diagnostics distinguish a section count above the maximum');}

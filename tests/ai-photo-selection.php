@@ -5,8 +5,9 @@ require __DIR__.'/../backend/Ai.php';
 require __DIR__.'/../backend/AiPhotoSelection.php';
 use Juzimder\{AiPhotoSelection,StructuredAiProvider};
 final class PhotoProvider implements StructuredAiProvider {
+ public string $userPrompt='';
  public function __construct(private string $content){}
- public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200):array{return ['content'=>$this->content];}
+ public function completeJson(string $systemPrompt,string $userPrompt,array $schema,string $schemaName,int $maxTokens=3200):array{$this->userPrompt=$userPrompt;return ['content'=>$this->content];}
 }
 function selectionCheck(bool $ok,string $name):void{if(!$ok)throw new RuntimeException($name);echo "PASS $name\n";}
 $base=['design'=>['imageSlots'=>[['id'=>'hero','query'=>'bread loaf'],['id'=>'section-1','query'=>'rye bread']]]];
@@ -39,3 +40,20 @@ $modernDental=['design'=>['imageSlots'=>[['id'=>'hero','query'=>'modern dentist 
 selectionCheck($result['design']['photoSelection']['assignments']===['hero'=>'commons:modern-clinic']&&$result['design']['photoSelection']['photos']===[$modernClinic],'A modern dental image request excludes dated archival photos before ranking and automatic fallback');
 $result=AiPhotoSelection::enrich($modernDental,new PhotoProvider('{"selections":[{"slotId":"hero","photoId":"commons:medical-clinic"}]}'),static fn()=>[$unrelatedClinic,$modernClinic]);
 selectionCheck($result['design']['photoSelection']['assignments']===['hero'=>'commons:modern-clinic']&&$result['design']['photoSelection']['photos']===[$modernClinic],'A general medical-centre entrance cannot satisfy a dental-photo slot when no dental subject is present');
+$stationery=['design'=>['imageSlots'=>[['id'=>'notebook-card','query'=>'notebook planner product photo','automatic'=>true]]]];
+$stationeryStore=['id'=>'commons:stationery-store','name'=>'Emerging professions - stationery store shelves.jpg','description'=>'Interior of a stationery store with shelves and display racks','url'=>'https://upload.wikimedia.org/stationery-store.jpg','author'=>'Author','license'=>'CC BY-SA 4.0','sourceUrl'=>'https://commons.wikimedia.org/wiki/File:Stationery_store.jpg','licenseUrl'=>'https://creativecommons.org/licenses/by-sa/4.0/','kind'=>'commons'];
+$militaryRecord=['id'=>'commons:military-record','name'=>'Enlistment Rank discharge record.jpg','description'=>'Archival military service record on paper','url'=>'https://upload.wikimedia.org/military-record.jpg','author'=>'Author','license'=>'Public domain','sourceUrl'=>'https://commons.wikimedia.org/wiki/File:Military_record.jpg','licenseUrl'=>'https://creativecommons.org/publicdomain/mark/1.0/','kind'=>'commons'];
+$notebookPhoto=['id'=>'commons:notebook','name'=>'Notebook_writing.jpg','description'=>'A person writing in an open notebook','url'=>'https://upload.wikimedia.org/notebook.jpg','author'=>'Author','license'=>'Public domain','sourceUrl'=>'https://commons.wikimedia.org/wiki/File:Notebook.jpg','licenseUrl'=>'https://creativecommons.org/publicdomain/mark/1.0/','kind'=>'commons'];
+$notebookProvider=new PhotoProvider('invalid');
+$result=AiPhotoSelection::enrich($stationery,$notebookProvider,static fn()=>[$stationeryStore,$militaryRecord,$notebookPhoto]);
+selectionCheck($result['design']['photoSelection']['assignments']===['notebook-card'=>'commons:notebook']&&$result['design']['photoSelection']['photos']===[$notebookPhoto],'Notebook product slot rejects stationery-shop interiors and archival records before automatic fallback');
+selectionCheck(str_contains($notebookProvider->userPrompt,'commons:notebook')&&!str_contains($notebookProvider->userPrompt,'commons:stationery-store')&&!str_contains($notebookProvider->userPrompt,'commons:military-record'),'Photo ranker only receives writing-goods candidates that pass the subject gate');
+$retryQueries=[];
+$result=AiPhotoSelection::enrich($stationery,new PhotoProvider('invalid'),static function(string $query)use(&$retryQueries,$stationeryStore,$militaryRecord):array{$retryQueries[]=$query;return $query==='notebook planner journal on desk'?[]:[$stationeryStore,$militaryRecord];});
+selectionCheck($retryQueries===['notebook planner product photo','notebook planner journal on desk']&&$result['design']['photoSelection']['status']==='no_matches'&&$result['design']['photoSelection']['assignments']===[],'No suitable writing-goods photo remains unassigned after one bounded search retry');
+$stationeryCards=['design'=>['imageSlots'=>[['id'=>'section-1','query'=>'paper notebooks stationery','automatic'=>true],['id'=>'section-2','query'=>'paper planners stationery','automatic'=>true]]]];$plannerPhoto=['id'=>'commons:planner','name'=>'Weekly planner open.jpg','description'=>'An open weekly planner on a desk','url'=>'https://upload.wikimedia.org/planner.jpg','author'=>'Author','license'=>'CC0','sourceUrl'=>'https://commons.wikimedia.org/wiki/File:Planner.jpg','licenseUrl'=>'https://creativecommons.org/publicdomain/zero/1.0/','kind'=>'commons'];$cardRetryQueries=[];
+$result=AiPhotoSelection::enrich($stationeryCards,new PhotoProvider('invalid'),static function(string $query)use(&$cardRetryQueries,$notebookPhoto,$plannerPhoto):array{$cardRetryQueries[]=$query;return match($query){'notebook journal on desk'=>[$notebookPhoto],'weekly planner agenda on desk'=>[$plannerPhoto],default=>[]};});
+selectionCheck($cardRetryQueries===['paper notebooks stationery','notebook journal on desk','paper planners stationery','weekly planner agenda on desk']&&$result['design']['photoSelection']['assignments']===['section-1'=>'commons:notebook','section-2'=>'commons:planner']&&count($result['design']['photoSelection']['photos'])===2,'Each product-card photo gets a cached, subject-specific Commons fallback query and only matching candidates are assigned');
+$shopSlot=['design'=>['imageSlots'=>[['id'=>'shop-interior','query'=>'stationery shop interior']]]];
+$result=AiPhotoSelection::enrich($shopSlot,new PhotoProvider('{"selections":[{"slotId":"shop-interior","photoId":"commons:stationery-store"}]}'),static fn()=>[$stationeryStore]);
+selectionCheck($result['design']['photoSelection']['assignments']===['shop-interior'=>'commons:stationery-store'],'Explicit stationery shop or interior requests can still select shop imagery');
