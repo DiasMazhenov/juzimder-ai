@@ -768,9 +768,12 @@ final class AiGeneratedWebsite {
             $guidance=$userSkill!==null&&$category==='skill_requirements'?'The previous design failed the owner-selected juzimder-rules contract. Regenerate the full design and satisfy every declared requirement ID. Do not change the requirements. '.$failure->getMessage():self::VALIDATION_RETRY_GUIDANCE[$category];
             if($category==='contrast_quality'&&$failure->validationRule!==null)$guidance.=' Specific contrast failures found by the server: '.$failure->validationRule.'. Correct those selectors directly and recheck every other text color against its rendered surface.';
             elseif($category==='copy_quality'&&$failure->validationRule!==null)$guidance.=' Failed safe copy audit code: '.$failure->validationRule.'. '.self::copyRepairGuidance($failure->validationRule);
-            elseif($failure->validationRule!==null)$guidance.=' Failed validation rule: '.$failure->validationRule.'. '.self::markupRepairGuidance($failure->validationRule);
+            elseif($failure->validationRule!==null){$repairRule=str_starts_with($failure->validationRule,'tag_allowlist:')?'tag_allowlist':$failure->validationRule;$guidance.=' Failed validation rule: '.$repairRule.'. '.self::markupRepairGuidance($repairRule);}
             $repairPrompt=$providerPrompt;
-            if($failure->validationRule==='tag_allowlist')$repairPrompt.="\n\nRequired HTML tag correction: ".self::markupRepairGuidance('tag_allowlist');
+            if($failure->validationRule==='tag_allowlist'||str_starts_with($failure->validationRule??'','tag_allowlist:')){
+                $repairPrompt.="\n\nRequired HTML tag correction: ".self::markupRepairGuidance('tag_allowlist');
+                if(preg_match('/^tag_allowlist:([a-z][a-z0-9-]{0,31})$/D',(string)$failure->validationRule,$rejectedTag))$repairPrompt.=" The specific rejected tag was <".$rejectedTag[1].">; replace it with an allowed semantic equivalent and do not repeat that tag.";
+            }
             if($failure->validationRule==='section_count_low')$repairPrompt.="\n\nRequired structural correction: ".self::markupRepairGuidance('section_count_low');
             if($failure->validationRule==='fragment_target')$repairPrompt.="\n\nRequired link correction: ".self::markupRepairGuidance('fragment_target');
             if($requiresCardPhotos)$repairPrompt.="\n\nOwner-requested card-photo requirement for the repaired HTML: ".self::markupRepairGuidance('required_photo_slots');
@@ -1396,7 +1399,7 @@ final class AiGeneratedWebsite {
 
     private static function rejectMarkup(string $rule): never {
         error_log('Juzimder AI: generated markup failed validation rule ' . $rule . '.');
-        $code=match(true){str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count below minimum'=>'section_count_low',$rule==='section count above maximum'=>'section_count_high',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
+        $code=match(true){preg_match('/^unsupported tag ([a-z][a-z0-9-]{0,31})$/D',$rule,$tagMatch)===1=>'tag_allowlist:'.$tagMatch[1],str_starts_with($rule,'unsupported tag')=>'tag_allowlist',str_starts_with($rule,'unsupported attribute')=>'attribute_allowlist',$rule==='section count below minimum'=>'section_count_low',$rule==='section count above maximum'=>'section_count_high',$rule==='hero count'=>'hero_count',$rule==='image-slot count'=>'image_slot_count',$rule==='unresolved internal link'=>'fragment_target',str_contains($rule,'class')=>'class_tokens',str_contains($rule,'icon')=>'icon_marker',str_contains($rule,'photo search')=>'photo_query',default=>'markup_structure'};
         throw new AiProviderFailure('AI provider returned an invalid design.',false,'invalid_markup',$code);
     }
 
