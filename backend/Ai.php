@@ -779,6 +779,9 @@ final class AiGeneratedWebsite {
                 $repairPrompt.="\n\nRequired HTML tag correction: ".self::markupRepairGuidance('tag_allowlist');
                 if(preg_match('/^tag_allowlist:([a-z][a-z0-9-]{0,31})$/D',(string)$failure->validationRule,$rejectedTag))$repairPrompt.=" The specific rejected tag was <".$rejectedTag[1].">; replace it with an allowed semantic equivalent and do not repeat that tag.";
             }
+            if($failure->validationRule==='attribute_allowlist'||str_starts_with($failure->validationRule??'','attribute_allowlist:')){
+                $repairPrompt.="\n\nRequired HTML attribute correction: ".self::markupRepairGuidance('attribute_allowlist');
+            }
             if($category==='contrast_quality'&&($contrastGuidance=self::contrastRepairGuidance($failure->validationRule))!==null)$repairPrompt.="\n\nRequired WCAG text contrast correction: ".$contrastGuidance;
             if($failure->validationRule==='section_count_low')$repairPrompt.="\n\nRequired structural correction: ".self::markupRepairGuidance('section_count_low');
             if($failure->validationRule==='fragment_target'||str_starts_with($failure->validationRule??'','fragment_target:')){
