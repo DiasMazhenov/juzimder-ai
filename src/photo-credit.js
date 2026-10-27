@@ -17,6 +17,15 @@ const FIGURE_STYLE={
   margin:'0',
 };
 
+const AI_PHOTO_FIGURE_STYLE={
+  display:'flex',
+  'flex-direction':'column',
+  'align-items':'stretch',
+  width:'100%',
+  'min-width':'0',
+  margin:'0',
+};
+
 const FIGURE_LAYOUT_PROPERTIES=['display','position','top','right','bottom','left','z-index','transform','width','min-width','max-width','margin','align-self','flex'];
 
 export function photoCreditCaption(content) {
@@ -48,17 +57,28 @@ export function photoCreditText(value) {
 // A caption belongs to its photo, never to the surrounding flex/grid layout.
 export function appendPhotoCredit(slot, asset) {
   if (asset.kind !== 'commons') return;
-  const host=slot.closest('.ai-hero-background') || slot;
-  const doc=slot.ownerDocument, credit=doc.createElement('p');
+  const doc=slot.ownerDocument;
+  const background=slot.closest('.ai-hero-background');
+  const credit=doc.createElement(background?'p':'figcaption');
   credit.className='ai-photo-credit';
-  Object.assign(host.style,{position:'relative'});
-  Object.assign(credit.style,{position:'absolute',left:'0px',right:'0px',bottom:'0px',margin:'0px',padding:'4px 6px',fontSize:'8px',lineHeight:'1.4',color:'#ffffff',backgroundColor:'#17211b',textAlign:'left'});
+  if(background){
+    Object.assign(background.style,{position:'relative'});
+    Object.assign(credit.style,{position:'absolute',left:'0px',right:'0px',bottom:'0px',margin:'0px',padding:'4px 6px',fontSize:'8px',lineHeight:'1.4',color:'#ffffff',backgroundColor:'#17211b',textAlign:'left'});
+  }else Object.assign(credit.style,{...PHOTO_CREDIT_STYLE,'margin-top':'2px'});
   for (const [url,label] of [[asset.sourceUrl,'Фото: '+asset.author+' / Wikimedia Commons'],[asset.licenseUrl,asset.license]]) {
     if(credit.childNodes.length)credit.append(doc.createTextNode(' · '));
     const link=doc.createElement('a');link.href=url;link.textContent=label;
-    Object.assign(link.style,{fontSize:'8px',lineHeight:'1.4',color:'#ffffff',textDecoration:'underline'});
+    Object.assign(link.style,{fontSize:'8px',lineHeight:'1.4',color:background?'#ffffff':'inherit',textDecoration:'underline'});
     credit.append(link);
   }
-  host.append(credit);
+  if(background){
+    background.append(credit);
+    return credit;
+  }
+  const figure=doc.createElement('figure');
+  figure.className='ai-photo-figure';
+  Object.assign(figure.style,AI_PHOTO_FIGURE_STYLE);
+  if(slot.parentNode)slot.parentNode.replaceChild(figure,slot);
+  figure.append(slot,credit);
   return credit;
 }
