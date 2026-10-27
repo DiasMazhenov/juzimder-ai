@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { blocks } from '../src/blocks.js';
 import { encodeCustomCode } from '../src/custom-code.js';
+import { requestApi } from '../src/api-client.js';
 import { AI_SECTION_TEXT_FIELDS, buildDesignPlanOperations } from '../src/ai-plan.js';
 let server, devServer, dir, devDir, testDbPath;
 const base='http://127.0.0.1:18081';
@@ -51,6 +52,36 @@ async function waitFor(url){for(let i=0;i<50;i++){try{await fetch(url+'/api/sess
 before(async()=>{dir=await mkdtemp(join(tmpdir(),'juzimder-api-'));devDir=await mkdtemp(join(tmpdir(),'juzimder-dev-api-'));testDbPath=join(dir,'test.sqlite');const testEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('OPENROUTER_'))),JUZIMDER_DB:testDbPath,JUZIMDER_PUBLIC_HOST_SUFFIX:'juzimder-ai.localhost:18081',JUZIMDER_PUBLIC_SCHEME:'http',JUZIMDER_TRUSTED_PROXY_IPS:'127.0.0.1'};server=spawn('php',['-S','127.0.0.1:18081','-t','public','public/router.php'],{env:testEnv,stdio:'ignore'});await waitFor(base);devServer=spawn('php',['-S','127.0.0.1:18082','-t','public','public/router.php'],{env:{...testEnv,JUZIMDER_DB:join(devDir,'test.sqlite'),JUZIMDER_DEV_AUTH:'1'},stdio:'ignore'});await waitFor(devBase);});
 after(async()=>{for(const child of [server,devServer])if(child){child.kill();await new Promise(r=>child.once('exit',r));}for(const path of [dir,devDir])if(path)await rm(path,{recursive:true,force:true});});
 beforeEach(()=>{if(testDbPath)execFileSync('php',['-r',"$db=new PDO('sqlite:'.\$argv[1]);$db->exec('DELETE FROM auth_attempts; DELETE FROM ai_request_limits');",testDbPath]);});
+test('API client refreshes a stale CSRF token and retries only once for the same account',async()=>{
+  const state={session:{user:{id:'owner-1'},csrf:'stale-token'}},calls=[];
+  const fetchImpl=async(url,options)=>{
+    calls.push({url,options});
+    if(url==='/api/session')return {status:200,ok:true,json:async()=>({user:{id:'owner-1'},csrf:'fresh-token',sessionExpired:false})};
+    if(options.headers['X-CSRF-Token']==='stale-token')return {status:403,ok:false,json:async()=>({error:'Invalid CSRF',code:'csrf_invalid'})};
+    return {status:200,ok:true,json:async()=>({version:42})};
+  };
+  const payload={version:41,document:{schemaVersion:1,engine:'grapesjs',data:{pages:[]}}};
+  const result=await requestApi({path:'/projects/project-1',method:'PUT',body:payload,getSession:()=>state.session,setSession:value=>{state.session=value;},fetchImpl});
+  assert.deepEqual(result,{version:42});
+  assert.equal(calls.length,3,'one CSRF rejection, one session refresh, and one retry');
+  assert.equal(calls[0].options.body,JSON.stringify(payload),'the original request body is sent unchanged');
+  assert.equal(calls[2].options.body,calls[0].options.body,'retry preserves the exact save snapshot');
+  assert.equal(calls[2].options.headers['X-CSRF-Token'],'fresh-token');
+  assert.equal(state.session.csrf,'fresh-token');
+});
+test('API client never retries a stale token under a different or expired account',async()=>{
+  for(const refreshed of [
+    {user:{id:'owner-2'},csrf:'other-token',sessionExpired:false},
+    {user:null,csrf:'guest-token',sessionExpired:true}
+  ]){
+    const calls=[],session={user:{id:'owner-1'},csrf:'stale-token'};
+    await assert.rejects(requestApi({path:'/projects/project-1',method:'PUT',body:{version:1},getSession:()=>session,setSession:()=>{},fetchImpl:async(url)=>{
+      calls.push(url);
+      return url==='/api/session'?{status:200,ok:true,json:async()=>refreshed}:{status:403,ok:false,json:async()=>({error:'Invalid CSRF',code:'csrf_invalid'})};
+    }}),error=>error.status===401&&error.code==='session_refresh_required');
+    assert.deepEqual(calls,['/api/projects/project-1','/api/session'],'the project write is not repeated after an account change');
+  }
+});
 test('Editor shell issues the CSP nonce shared with isolated child frames',async()=>{
   const response=await fetch(base+'/'),html=await response.text(),csp=response.headers.get('content-security-policy'),match=html.match(/<meta name=\"juzimder-csp-nonce\" content=\"([a-f0-9]{32})\">/);
   assert.ok(match,'the editor shell injects its request nonce into metadata');
@@ -129,7 +160,7 @@ assert.equal((await a.call(aiProfilesPath,'POST',{version:0,name:'CSRF profile',
 assert.equal((await a.call(aiProfilesPath,'POST',{version:0,name:'',apiKey:'sk-test-only',model:'openai/test-model'})).status,422,'Profile creation validates the profile name');
 assert.equal((await a.call(aiProfilesPath,'POST',{version:0,name:'Missing key',apiKey:'',model:'openai/test-model'})).status,422,'A new AI profile requires an API key');
 assert.equal((await a.call(aiProfilesPath,'POST',{version:0,name:'Duplicate fallback',apiKey:'sk-test-only',model:'openai/test-model',fallbackModel:'openai/test-model'})).status,422,'Fallback model must be valid and differ from primary');
-assert.equal((await a.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'},'bad')).status,403,'AI planning requires a valid CSRF token');
+const invalidCsrf=await a.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'},'bad');assert.equal(invalidCsrf.status,403,'AI planning requires a valid CSRF token');assert.equal(invalidCsrf.data.code,'csrf_invalid','CSRF failures expose a stable machine-readable code for safe client refresh');
 assert.equal((await anon.call(aiPlanPath,'POST',{prompt:'Создай сайт клиники'})).status,401,'AI planning requires an authenticated user');
 assert.equal((await a.call(aiPlanPath,'POST',{prompt:'   '})).status,422,'AI planning rejects empty prompts');
 assert.equal((await a.call(aiPlanPath,'POST',{prompt:'x'.repeat(4001)})).status,422,'AI planning enforces its prompt limit');

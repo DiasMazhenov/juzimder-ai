@@ -1,4 +1,5 @@
 import { serializedZero, sameOutsideZero } from './zero/sync.js';
+import { requestApi } from './api-client.js';
 import { registerZero } from './zero/register.js';
 import { blockMedia } from './block-media.js';
 import { installImagePicker } from './image-picker.js';
@@ -48,8 +49,12 @@ let session, editor, current, dirty=false, loading=false, saving=false, saveAgai
 const projectSlugs = new Map();
 const projectUrl = (id, suffix='') => `/projects/${encodeURIComponent(projectSlugs.get(id) || id)}${suffix}`;
 async function api(path, method='GET',body) {
-  const response = await fetch(`/api${path}`,{method,headers:{'Content-Type':'application/json',...(session?{'X-CSRF-Token':session.csrf}:{})},...(body?{body:JSON.stringify(body)}:{})});
-  let data;try{data=await response.json();}catch{const error=new Error('Сервер вернул некорректный ответ. Обновите страницу и повторите запрос.');error.status=response.status>=400?response.status:502;throw error;} if (!response.ok) { const error=new Error(data.error || `HTTP ${response.status}`);error.status=response.status;if(response.status===401&&session?.user&&path==='/projects'&&method==='POST'){session=null;location.assign('/?session=expired');}throw error; } return data;
+  try {
+    return await requestApi({path,method,body,getSession:()=>session,setSession:value=>{session=value;}});
+  } catch(error) {
+    if(error.status===401&&session?.user&&path==='/projects'&&method==='POST'){session=null;location.assign('/?session=expired');}
+    throw error;
+  }
 }
 function notify(message,error=false) { const el=$('#notice'); if(el){el.textContent=message;el.classList.toggle('error',error);} }
 function setEditorPanel(panel) {

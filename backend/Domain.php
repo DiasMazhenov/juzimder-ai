@@ -10,7 +10,7 @@ require_once __DIR__ . '/MigrationRunner.php';
 require_once __DIR__ . '/SkillRequirements.php';
 
 final class Problem extends \RuntimeException {
-    public function __construct(public int $status, string $message) { parent::__construct($message); }
+    public function __construct(public int $status, string $message, public ?string $errorCode = null) { parent::__construct($message); }
 }
 final class Document {
     public const MAX_PAGES = 30;

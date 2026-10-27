@@ -56,7 +56,7 @@ try {
     $backupUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/backup$~D', $path) === 1;
     $body = [];
     if ($method !== 'GET') {
-        if (!$sandboxRequest && !hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
+        if (!$sandboxRequest && !hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.','csrf_invalid');
         $bodyLimit = $assetUpload ? 4194304 : ($backupUpload ? 33554432 : ($sandboxRequest ? 100000 : 2100000));
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > $bodyLimit) throw new Problem(413,'Запрос слишком большой.');
         $raw = file_get_contents('php://input',false,null,0,$bodyLimit+1);
@@ -67,7 +67,7 @@ try {
         } elseif ($sandboxRequest) {
             if (!str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'application/x-www-form-urlencoded')) throw new Problem(415,'Передайте данные Custom Code как форму.');
             parse_str($raw, $body);
-            if (!hash_equals($_SESSION['csrf'], is_string($body['csrf'] ?? null) ? $body['csrf'] : '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.');
+            if (!hash_equals($_SESSION['csrf'], is_string($body['csrf'] ?? null) ? $body['csrf'] : '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.','csrf_invalid');
         } else {
             try { $decodedBody = json_decode($raw,false,64,JSON_THROW_ON_ERROR); } catch (JsonException) { throw new Problem(422,'Некорректный JSON.'); }
             if (!$decodedBody instanceof stdClass) throw new Problem(422,'Ожидается JSON-объект.');
@@ -609,4 +609,4 @@ try {
         }
     }
     throw new Problem(404,'Маршрут не найден.');
-} catch (Problem $e) { result(['error'=>$e->getMessage()],$e->status); } catch (Throwable $e) { error_log('Juzimder API: '.get_class($e)); result(['error'=>'Внутренняя ошибка сервера.'],500); }
+} catch (Problem $e) { $payload=['error'=>$e->getMessage()]; if($e->errorCode!==null)$payload['code']=$e->errorCode; result($payload,$e->status); } catch (Throwable $e) { error_log('Juzimder API: '.get_class($e)); result(['error'=>'Внутренняя ошибка сервера.'],500); }
