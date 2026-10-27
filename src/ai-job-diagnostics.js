@@ -1,6 +1,7 @@
 const MARKUP_RULE_LABELS = Object.freeze({
   tag_allowlist: 'найден тег, который нельзя использовать',
   attribute_allowlist: 'найден атрибут или встроенный стиль вне списка разрешённых',
+  contrast_quality: 'контраст текста ниже WCAG AA',
   section_count_low: 'найдено меньше 3 секций',
   section_count_high: 'превышен максимум в 9 секций',
   hero_count: 'должен быть ровно один Hero с классом ai-hero',

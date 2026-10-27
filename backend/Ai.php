@@ -774,6 +774,7 @@ final class AiGeneratedWebsite {
                 $repairPrompt.="\n\nRequired HTML tag correction: ".self::markupRepairGuidance('tag_allowlist');
                 if(preg_match('/^tag_allowlist:([a-z][a-z0-9-]{0,31})$/D',(string)$failure->validationRule,$rejectedTag))$repairPrompt.=" The specific rejected tag was <".$rejectedTag[1].">; replace it with an allowed semantic equivalent and do not repeat that tag.";
             }
+            if($category==='contrast_quality'&&($contrastGuidance=self::contrastRepairGuidance($failure->validationRule))!==null)$repairPrompt.="\n\nRequired WCAG text contrast correction: ".$contrastGuidance;
             if($failure->validationRule==='section_count_low')$repairPrompt.="\n\nRequired structural correction: ".self::markupRepairGuidance('section_count_low');
             if($failure->validationRule==='fragment_target')$repairPrompt.="\n\nRequired link correction: ".self::markupRepairGuidance('fragment_target');
             if($requiresCardPhotos)$repairPrompt.="\n\nOwner-requested card-photo requirement for the repaired HTML: ".self::markupRepairGuidance('required_photo_slots');
@@ -1418,6 +1419,15 @@ final class AiGeneratedWebsite {
             'photo_query'=>'Use a nonempty English photo topic up to 100 characters only on div[data-image-slot].',
             default=>'Return one main root containing the required sections, with no extra body content or unsupported nodes.'
         };
+    }
+
+    private static function contrastRepairGuidance(?string $rule):?string {
+        if($rule===null)return null;
+        if(preg_match('/^(<[a-z][a-z0-9]*>(?:\\.ai-[a-zA-Z0-9_-]{1,64})*) text uses (#[0-9A-F]{6}) on ((?:#[0-9A-F]{6}(?:, )?)+) \\(about ([0-9]+(?:\\.[0-9]+)?):1; required ([0-9]+(?:\\.[0-9]+)?):1 at ([0-9]+(?:\\.[0-9]+)?)px\\)\\. Set an explicit readable foreground color for the text on each surface\\.$/D',$rule,$match)){
+            return 'The server rejected '.$match[1].' because '.$match[2].' on '.$match[3].' is '.$match[4].':1, below '.$match[5].':1 for '.$match[6].'px text. Change this selector to a foreground color that meets the required ratio on every listed surface. Use dark text on light surfaces and light text on dark surfaces; reserve bright accent colors for decoration or large filled areas. Recheck every other text selector.';
+        }
+        if(preg_match('/^(<[a-z][a-z0-9]*>(?:\\.ai-[a-zA-Z0-9_-]{1,64})*) text has opacity below 100%; keep visible text fully opaque\\.$/D',$rule,$match))return 'Remove opacity from '.$match[1].' and every ancestor that contains visible text. Keep both the text and its ancestors fully opaque, then recheck all text contrast.';
+        return 'Correct text foreground colors and opacity so all visible text meets WCAG AA: at least 4.5:1 for normal text and 3:1 for large text on every rendered surface. Recheck every selector before returning.';
     }
 
     private static function repairUtf8Mojibake(string $value): string {
