@@ -1,6 +1,7 @@
 - [x] 00.00.200: Исправлена кнопка «Закрыть» Zero Editor: после сохранения она возвращает к странице основного редактора даже если Zero Editor открыт в той же вкладке; `window.close()` не закрывал такую вкладку. Добавлен regression test маршрута возврата.
 # План Juzimder AI
 
+- [x] 00.00.258: AI-правка компонента отбрасывает ответ, если во время запроса изменились локальный Project Data snapshot, страница, выбранный компонент, версия или статус конфликта; выбранная цель перепроверяется после предварительного сохранения и пользовательского подтверждения. Live AI style-edit/browser conflict acceptance остаётся открытой.
 - [x] 00.00.257: Предпросмотр пользовательского Skill отдельно показывает результат автоматических проверок и требования `humanReviewRequired`, которые требуют оценки владельца; произвольные требования не выдаются за машинно подтверждённые.
 - [x] 00.00.256: Per-attribute string length bounds согласованы между typed operations, static renderer и Project Schema через общий `ComponentAttributePolicy`; schema regression сверяет ограничения атрибутов и `data-*`, operation/export regressions покрывают лишнюю длину.
 - [x] 00.00.255: Typed operations и static renderer используют общий `ComponentAttributePolicy`; JSON Schema проверяется на совпадение полного набора common attributes, boolean types и ARIA enums. Универсализация typed operations/schema остаётся открытой.
@@ -357,7 +358,7 @@
 - [x] Intent → plan → structured text generation for supported section presets → server/client validation → editable GrapesJS output → revision.
 - [x] Address-scoped AI edits: selected component, stable ID/path checks, typed operations, diff confirmation and Project Data/CAS save; browser normal-editor save/reload verified in 00.00.030.
 - [x] Live AI text edit acceptance: real provider proposal → confirm → save → Undo/Redo → reload; QA revision59/60, stable persisted cmp-ID, verified in00.00.067.
-- [ ] Live AI style-edit acceptance and additional stale-selection/conflict scenarios.
+- [ ] Live AI style-edit acceptance and additional stale-selection/conflict scenarios. Automated guards now reject stale local snapshots and revalidate the target after confirmation; real-provider rendered style acceptance and browser CAS-conflict flow are still not verified.
 - [x] Project-scoped user Skill library: upload/paste Markdown, edit, activate, delete, owner/CAS protection, and select a saved Skill for full-page generation. The selected Skill text and design criteria are sent only after generation is confirmed; mandatory import checkboxes were removed in 00.00.063/066.
 - [x] Optional versioned juzimder-rules contract in uploaded Markdown: deterministic heading/section counts, DOM text requirements/prohibitions and max-width CSS presence, stable requirement IDs, measured evidence, conflict rejection and one bounded repair before fail-closed.
 - [x] AI-assisted extraction of natural-language Skill requirements into a reviewed draft: exact source quotations, allowlisted automatic rules, manual checks, source staleness guard, owner confirmation and separate save. Completeness and semantic equivalence require owner review.

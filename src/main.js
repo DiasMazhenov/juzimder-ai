@@ -18,6 +18,7 @@ import './ui-overrides.css';
 import { blocks, registerBlocks } from './blocks.js';
 import { installComponentActions } from './component-actions.js';
 import { removeUnassignedImageSlot } from './ai-image-slots.js';
+import { isAIComponentEditSnapshotCurrent, isAIComponentEditProposalCurrent } from './ai-component-edit-guards.js';
 import { createPageRoot } from './page-root.js';
 import { decodeCustomCode, encodeCustomCode, submitSandboxFrame, clearSandboxFrame, registerSafeRuntimeComponents } from './custom-code.js';
 import { DEFAULT_DESIGN_TOKENS, FONT_FAMILIES, FONT_WEIGHTS, TOKEN_FIELDS, designTokensFromStyle, designTokensToStyle, migrateLegacyTokenValue, normalizeDesignTokens, tokenValue } from './design-tokens.js';
@@ -757,15 +758,16 @@ async function openEditor(id,pageId=null) {
     if(conflicted){$('#ai-component-status').textContent='Сначала загрузите актуальную версию проекта с сервера.';return;}
     if(component!==aiComponentTargetModel){syncAIComponentTarget(component);$('#ai-component-status').textContent='Выбор элемента обновлён. Проверьте его и повторите запрос.';return;}
     if(componentIdentifier(component)!==aiComponentTargetId)syncAIComponentTarget(component);
-    if(dirty){await saveDocument(false);if(dirty||conflicted){$('#ai-component-status').textContent='Не удалось сохранить текущие правки. AI-изменение не запрошено.';return;}}
+    if(dirty){await saveDocument(false);if(dirty||conflicted){$('#ai-component-status').textContent='Не удалось сохранить текущие правки. AI-изменение не запрошено.';return;}if(editor.getSelected()!==component||editor.Pages.getSelected()?.get('id')!==page.get('id')){syncAIComponentTarget(editor.getSelected());$('#ai-component-status').textContent='Страница или выбор изменились во время сохранения. Проверьте их и повторите запрос.';return;}}
     const pageId=page.get('id'),componentId=aiComponentTargetId,path=componentPath(component,page),targetPath=aiComponentTargetPath,baseVersion=current.version;
     if(!Array.isArray(path)||path.length===0||JSON.stringify(path)!==JSON.stringify(targetPath)||component.get('type')==='wrapper'){syncAIComponentTarget(component);$('#ai-component-status').textContent='Выбор элемента изменился. Проверьте его и повторите запрос.';return;}
+    const requestSnapshot=JSON.stringify(editor.getProjectData());
     button.disabled=true;clearAIComponentProposal('Отправляем запрос с данными только выбранного элемента…');
     try{
       const response=await api(`/projects/${id}/ai/edit-component`,'POST',{prompt,pageId,componentPath:path,componentId,version:baseVersion});
-      if(editor.getSelected()!==component||editor.Pages.getSelected()?.get('id')!==pageId)throw new Error('Выбран другой элемент. Подготовьте AI-правку заново.');
+      if(!isAIComponentEditSnapshotCurrent({editor,component,pageId,baseVersion,currentVersion:current.version,snapshot:requestSnapshot,dirty,conflicted}))throw new Error('Страница, версия или выбранный элемент изменились во время AI-запроса. Подготовьте правку заново.');
       const models=validateAIComponentProposal(response,component,pageId,componentId);
-      aiComponentProposal={...response,requestedComponentId:componentId,componentModel:component,pageId,baseVersion};
+      aiComponentProposal={...response,requestedComponentId:componentId,componentModel:component,pageId,baseVersion,editorSnapshot:requestSnapshot};
       for(const operation of response.operations){const model=models.get(operation.componentId);if(operation.operation==='replace_text')appendAIChange(model,'Текст',model.getEl()?.textContent||model.get('content')||'',operation.content);else for(const [property,value] of Object.entries(operation.styles))appendAIChange(model,property,model.getStyle()?.[property]||'',value);}
       $('#ai-component-preview').hidden=false;$('#ai-component-status').textContent=`Предложено операций: ${response.changeCount||response.operations.length}. Проверьте каждое изменение перед применением.`;
     }catch(error){clearAIComponentProposal(error.message);notify(error.message,true);}
@@ -775,8 +777,9 @@ async function openEditor(id,pageId=null) {
     const proposal=aiComponentProposal;if(!proposal)return;
     if(conflicted||current.version!==proposal.baseVersion){clearAIComponentProposal('Версия проекта изменилась. Составьте правку заново.');return;}
     const component=editor.getSelected(),page=editor.Pages.getSelected();
-    if(component!==proposal.componentModel||componentIdentifier(component)!==proposal.requestedComponentId||page?.get('id')!==proposal.pageId){clearAIComponentProposal('Выбран другой элемент. Составьте правку заново.');return;}
+    if(!isAIComponentEditProposalCurrent({proposal,currentProposal:aiComponentProposal,editor,component,componentId:componentIdentifier(component),pageId:page?.get('id'),currentVersion:current.version,conflicted})){clearAIComponentProposal('Версия проекта или выбранный элемент изменились. Составьте правку заново.');return;}
     if(!await askConfirmation(`Применить ${proposal.operations.length} AI-изменений к «${component.getName()}» и сохранить новую ревизию?`,'Применить AI-правку'))return;
+    if(!isAIComponentEditProposalCurrent({proposal,currentProposal:aiComponentProposal,editor,component:editor.getSelected(),componentId:componentIdentifier(editor.getSelected()),pageId:editor.Pages.getSelected()?.get('id'),currentVersion:current.version,conflicted})){clearAIComponentProposal('Версия проекта или выбранный элемент изменились. Составьте правку заново.');return;}
     const button=$('#ai-component-apply'),originalData=editor.getProjectData(),models=new Map([[proposal.componentId,component]]),baseVersion=proposal.baseVersion;button.disabled=true;$('#ai-component-status').textContent='Применяем проверенные изменения и сохраняем ревизию…';
     try{
       loading=true;
