@@ -26,6 +26,8 @@ final class ComponentTypePolicy {
     /** @return list<string> */
     public static function tags(): array { return self::TAGS; }
     /** @return list<string> */
+    public static function types(): array { return array_keys(self::DEFAULT_TAG_BY_TYPE); }
+    /** @return list<string> */
     public static function voidTags(): array { return self::VOID_TAGS; }
     /** @return list<string> */
     public static function semanticTags(string $type): array { return self::SEMANTIC_TAGS_BY_TYPE[$type] ?? []; }

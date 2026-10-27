@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../backend/Domain.php';
+require __DIR__.'/../backend/ComponentTypePolicy.php';
 use Juzimder\Document;
+use Juzimder\ComponentTypePolicy;
 
 function schemaCheck(bool $ok, string $message): void {
     if (!$ok) throw new RuntimeException($message);
@@ -21,6 +23,16 @@ schemaCheck($page->properties->id->minLength === 1 && $page->properties->id->max
 schemaCheck($page->properties->frames->minItems === Document::FRAMES_PER_PAGE && $page->properties->frames->maxItems === Document::FRAMES_PER_PAGE, 'Schema frame count matches runtime policy');
 schemaCheck($componentProperties->type->enum === Document::COMPONENT_TYPES, 'Schema component types match runtime policy');
 schemaCheck($componentProperties->tagName->enum === Document::TAG_NAMES, 'Schema tag allowlist matches runtime policy');
+$policyTypes = ComponentTypePolicy::types();
+$schemaTypes = Document::COMPONENT_TYPES;
+sort($policyTypes);
+sort($schemaTypes);
+schemaCheck($policyTypes === $schemaTypes, 'Every schema component type has an explicit renderer type policy');
+$taglessRendererTypes = ['head','textnode','zero-block'];
+foreach (Document::COMPONENT_TYPES as $type) {
+    $defaultTag = ComponentTypePolicy::tagFor($type, null);
+    schemaCheck($defaultTag === null ? in_array($type, $taglessRendererTypes, true) : in_array($defaultTag, ComponentTypePolicy::tags(), true), 'Renderer type policy resolves a safe default or explicit special case for ' . ($type === '' ? '(empty)' : $type));
+}
 schemaCheck($componentProperties->attributes->type === 'object' && $componentProperties->style->type === 'object' && $componentProperties->content->type === 'string', 'Schema component field types are explicit');
 schemaCheck($componentProperties->classes->type === 'array' && $componentProperties->classes->maxItems === 32 && $componentProperties->classes->items->anyOf[1]->required === ['name'], 'Schema describes bounded GrapesJS CSS class tags');
 schemaCheck(isset($componentProperties->attributes->properties->src, $componentProperties->attributes->properties->href), 'Schema explicitly describes href and scoped managed-image references');

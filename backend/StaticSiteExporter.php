@@ -257,7 +257,8 @@ final class StaticSiteExporter {
             $title = is_string($component->name ?? null) && $component->name !== '' ? $component->name : ($type === 'countdown' ? 'Обратный отсчёт' : 'Пользовательский код в изолированной песочнице');
             return '<div' . $attributes . '><iframe title="' . self::escape($title) . '" sandbox="allow-scripts" referrerpolicy="no-referrer" style="display:block;width:100%;height:360px;border:0" srcdoc="' . self::escape($sandbox) . '"></iframe></div>';
         }
-        $tag = ComponentTypePolicy::tagFor($type, is_string($component->tagName ?? null) ? $component->tagName : null) ?? 'div';
+        $tag = ComponentTypePolicy::tagFor($type, is_string($component->tagName ?? null) ? $component->tagName : null);
+        if ($tag === null) throw new Problem(422, 'Статический renderer не имеет отображения для типа компонента.');
         if (!in_array($tag, ComponentTypePolicy::tags(), true)) throw new Problem(422, 'Статический экспорт встретил неподдерживаемый HTML-тег.');
         $attributes = self::renderAttributes(self::componentAttributes($component), $component->style ?? null, $assetPaths);
         if ($type === 'form' && isset($formComponents[spl_object_id($component)])) {
