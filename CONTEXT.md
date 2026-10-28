@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-**Текущая версия на 28.10.2026: 00.00.317 (npm 0.1.317).**
+**Текущая версия на 28.10.2026: 00.00.318 (npm 0.1.318).**
+
+00.00.318: Этап 2 OpenDesign дополнен явными регрессиями общего Design Spec для Standard, Taste и пользовательского Skill; Zero AI уже покрыт отдельной проверкой, в которой сохраняется абсолютная геометрия. Схемы ответов и Project Data не менялись. Полный `npm test`, production build в `/private/tmp/juzimder-ai-build-318`, PHP syntax и `git diff --check` PASS; сборка сообщает о крупном существующем GrapesJS chunk. Визуальное соответствие остаётся открытым; новый screenshot NOT RUN, Codex Browser недоступен.
 
 00.00.317: В рамках Этапа 2 OpenDesignPlan общий компактный Design Spec вынесен в `backend/AiDesignGuidelines.php` и включён в основной генератор (Standard/Taste/User Skill) и Zero AI. Renderer-specific геометрия и схемы остаются отдельными: поток HTML/CSS для основной страницы и абсолютные координаты Zero. Project Data и JSON-контракты не менялись. `npm test` PASS после разрешения только локального loopback для fake SMTP; production build с `--configLoader runner` в `/private/tmp/juzimder-ai-build-317`, PHP syntax и `git diff --check` PASS. Codex Browser сообщил `Browser is not available`, поэтому новый preview/screenshot после изменения NOT RUN; существующий пользовательский кандидат не затронут. Этап 1 и оставшиеся пункты Этапа 2 остаются открытыми.
 
