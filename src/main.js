@@ -473,18 +473,23 @@ async function openEditor(id,pageId=null) {
   $('#ai-plan-title').textContent='Дизайн страницы';
   $('#ai-plan-dialog .eyebrow').textContent='AI-ГЕНЕРАЦИЯ';
   $('#ai-generate').textContent='Создать дизайн';
-  $('.ai-disclosure').textContent='В OpenRouter отправятся описание из этого поля и инструкции выбранного встроенного профиля. Project Data и содержимое страницы не передаются. Если ответ нарушит формат или проверки профиля, система выполнит одну исправляющую попытку с тем же описанием; повторный провал остановит генерацию. Изображения подбираются автоматически; применение — отдельной кнопкой.';
+  $('.ai-disclosure').textContent='В OpenRouter отправятся описание из этого поля, инструкции выбранного встроенного профиля и только палитра/типографические настройки проекта. Полные Project Data и содержимое страниц не передаются. Если ответ нарушит формат или проверки профиля, система выполнит одну исправляющую попытку с тем же контекстом; повторный провал остановит генерацию. Изображения подбираются автоматически; применение — отдельной кнопкой.';
   const skillProfileLabel=document.createElement('label');skillProfileLabel.className='ai-skill-profile-field';skillProfileLabel.textContent='Профиль генерации';
   const skillProfileSelect=document.createElement('select');skillProfileSelect.id='ai-skill-profile';skillProfileSelect.setAttribute('aria-label','Профиль генерации');
   for(const [value,label] of [['taste','Taste · выразительный дизайн'],['standard','Стандартный дизайн']]){const option=document.createElement('option');option.value=value;option.textContent=label;skillProfileSelect.append(option);}
   skillProfileLabel.append(skillProfileSelect);$('#ai-prompt').closest('label').before(skillProfileLabel);
   let userSkillLibrary={version:0,activeSkillId:null,skills:[]},userSkillOptionsLoaded=false,userSkillLoadError='';
+  const aiProjectDesignDisclosure=' Сохранённые настройки палитры и типографики проекта используются только как визуальные ориентиры; полные Project Data и содержимое страниц не передаются.';
   const updateAIDisclosure=()=>{
     const value=skillProfileSelect.value;
-    if(value.startsWith('user:'))$('.ai-disclosure').textContent='После нажатия «Создать дизайн» в OpenRouter отправятся описание и полный текст выбранного Skill с его ручным чек-листом. Project Data и содержимое страницы не передаются. Модель постарается соблюдать Skill, но это не гарантия: результат доступен в предпросмотре.';
-    else if(value==='taste')$('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенный профиль Taste. Project Data и содержимое страницы не передаются. Изображения подбираются автоматически. Посмотрите результат и нажмите «Добавить дизайн».';
-    else $('.ai-disclosure').textContent='В OpenRouter отправятся описание и встроенные инструкции стандартного профиля. Project Data и содержимое страницы не передаются. Изображения подбираются автоматически. Применение — отдельной кнопкой.';
-    $('.ai-disclosure').textContent+=' Генерация идёт в фоне до 10 минут. Закрытие окна не отменяет запрос и его расход. Задачу можно восстановить; описание, Skill и результат хранятся приватно до 24 часов. Применение — отдельно.';
+    let disclosure;
+    if(value.startsWith('user:')) disclosure='После нажатия «Создать дизайн» в OpenRouter отправятся описание и полный текст выбранного Skill с его ручным чек-листом.';
+    else if(value==='taste') disclosure='После нажатия «Создать дизайн» в OpenRouter отправятся описание и инструкции встроенного профиля Taste.';
+    else disclosure='После нажатия «Создать дизайн» в OpenRouter отправятся описание и инструкции стандартного профиля.';
+    disclosure+=aiProjectDesignDisclosure;
+    if(!value.startsWith('user:')) disclosure+=' Изображения подбираются автоматически.';
+    disclosure+=' Генерация идёт в фоне до 10 минут. Закрытие окна не отменяет запрос и его расход. Задачу можно восстановить; описание, Skill и результат хранятся приватно до 24 часов. Результат сначала доступен в предпросмотре и применяется только по отдельному действию.';
+    $('.ai-disclosure').textContent=disclosure;
   };
   const refreshUserSkillOptions=async()=>{
     const previous=skillProfileSelect.value;
@@ -535,6 +540,12 @@ async function openEditor(id,pageId=null) {
     const response=await fetch(asset.url,{credentials:'same-origin'});if(!response.ok)throw new Error('Не удалось загрузить изображение из библиотеки проекта.');
     const url=URL.createObjectURL(await response.blob());aiPreviewObjectUrls.set(asset.id,url);return url;
   };
+  const aiPhotoNeedsContain=asset=>{
+    if(asset?.displayFit==='contain')return true;
+    const width=Number(asset?.width),height=Number(asset?.height);
+    if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)return false;
+    const ratio=width/height;return ratio<0.8||ratio>2.2;
+  };
   const setHeroBackground=(slot,url)=>{const hero=slot.closest('.ai-hero-background');if(!hero)return false;hero.style.setProperty('background-image',backgroundValue(url,'#000000',0.55));hero.style.setProperty('background-size','cover');hero.style.setProperty('background-position','center');hero.style.setProperty('background-repeat','no-repeat');slot.classList.remove('ai-image-slot');slot.style.display='none';return true;};
   const updateAIDesignFrame=async()=>{
     if(!aiDesignState)return;const frame=$('#ai-design-preview-frame');if(!frame)return;
@@ -542,6 +553,7 @@ async function openEditor(id,pageId=null) {
     for(const slot of markup.querySelectorAll('[data-image-slot]')){
       const asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slot.dataset.imageSlot]);if(!asset){removeUnassignedImageSlot(slot);continue;}
       if(slot.dataset.imageSlot==='hero'&&slot.closest('.ai-hero-background')){const source=await getAIPreviewUrl(asset);const hero=slot.closest('.ai-hero-background');hero.style.backgroundImage=`linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), url("${source}")`;hero.style.backgroundSize='cover';hero.style.backgroundPosition='center';slot.classList.remove('ai-image-slot');slot.style.display='none';appendAIPhotoCredit(slot,asset);continue;}
+      if(aiPhotoNeedsContain(asset))slot.classList.add('ai-photo-fit-contain');
       const image=markup.createElement('img');image.src=await getAIPreviewUrl(asset);image.alt=aiDesignState.imageAlt[slot.dataset.imageSlot]||'';slot.replaceChildren(image);appendAIPhotoCredit(slot,asset);
     }
     if(renderId!==aiPreviewRenderId||!frame.isConnected)return;
@@ -633,6 +645,7 @@ async function openEditor(id,pageId=null) {
       const slotId=slot.dataset.imageSlot,asset=aiDesignState.assets.find(item=>item.id===aiDesignState.imageAssignments[slotId]);slot.removeAttribute('data-image-slot');slot.replaceChildren();
       if(!asset){removeUnassignedImageSlot(slot);continue;}
       if(slotId==='hero'&&setHeroBackground(slot,asset.url)){appendAIPhotoCredit(slot,asset);continue;}
+      if(aiPhotoNeedsContain(asset))slot.classList.add('ai-photo-fit-contain');
       const image=markup.createElement('img');image.src=asset.url;image.alt=aiDesignState.imageAlt[slotId]||'';slot.append(image);appendAIPhotoCredit(slot,asset);
     }
     return markup.body.innerHTML;
@@ -889,8 +902,12 @@ async function openEditor(id,pageId=null) {
       if(dirty){await saveDocument(false);if(dirty||conflicted)throw new Error('Не удалось сохранить текущие изменения. План не применён.');}
       aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-image-slot-list').replaceChildren();$('#ai-plan-preview').replaceChildren();$('#ai-plan-preview').hidden=true;$('#ai-plan-status').textContent='';$('#ai-provider-status').textContent='Проверяем настройку AI-сервера…';$('#ai-generate').disabled=true;
       $('#ai-plan-dialog').showModal();
-      try{await refreshUserSkillOptions();userSkillLoadError='';}catch(error){userSkillLoadError=error.message;}
-      const status=await api(`/projects/${id}/ai/settings`);
+      const withTimeout=(promise,ms,message)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error(message)),ms);promise.then(value=>{clearTimeout(timer);resolve(value);},error=>{clearTimeout(timer);reject(error);});});
+      const [status,skillLoadError]=await Promise.all([
+        withTimeout(api(`/projects/${id}/ai/settings`),10000,'Настройки AI не ответили за 10 секунд. Проверьте соединение и повторите.'),
+        withTimeout(refreshUserSkillOptions(),5000,'Библиотека Skills не ответила за 5 секунд. Можно продолжить без пользовательского Skill.').then(()=>'',error=>error.message)
+      ]);
+      userSkillLoadError=skillLoadError;
       if(status.configured===true){$('#ai-generate').disabled=false;$('#ai-settings-link').hidden=true;$('#ai-provider-status').textContent=`OpenRouter настроен для проекта${status.model?` · ${status.model}`:''}. Запрос будет отправлен только после нажатия «Создать дизайн».${userSkillLoadError?' Библиотека Skills недоступна: '+userSkillLoadError:''}`;$('#ai-panel-status').textContent='AI настроен для проекта.';}
       else{$('#ai-settings-link').hidden=false;$('#ai-provider-status').textContent='AI не настроен. Описание останется на этой странице и не будет отправлено.';$('#ai-panel-status').textContent='Задайте ключ в «Настройки сайта → AI Engine».';}
     }catch(error){$('#ai-settings-link').hidden=false;$('#ai-provider-status').textContent=error.message;$('#ai-panel-status').textContent=error.message;notify(error.message,true);}

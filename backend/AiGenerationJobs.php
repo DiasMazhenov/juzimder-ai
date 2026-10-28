@@ -64,8 +64,8 @@ final class AiGenerationJobs {
             if($project['version']!==(int)$row['base_version'])throw new Problem(409,'Проект изменился до запуска задачи. Создайте новую генерацию.');
             $payload=json_decode($row['payload'],true,32,JSON_THROW_ON_ERROR);
             $provider=$providerFactory($row['project_id'],$row['owner_id']);
-            $result=AiGeneratedWebsite::create($payload['prompt'],$provider,$payload['skillProfile'],$payload['userSkill']);
-            $result=AiPhotoSelection::enrich($result,$provider);
+            $result=AiGeneratedWebsite::create($payload['prompt'],$provider,$payload['skillProfile'],$payload['userSkill'],$payload['projectDesignTokens']??null);
+            $result=AiPhotoSelection::enrich($result,$provider,null,$payload['prompt']);
             $this->store->query("UPDATE ai_generation_jobs SET status='succeeded',result=?,diagnostics=?,updated_at=? WHERE id=? AND status='running'",[json_encode($result,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),$diagnostics('succeeded'),time(),$id]);
         }catch(\Throwable $error){
             $category=$error instanceof AiProviderFailure?AiProviderFailure::publicCategory($error->category):($error instanceof Problem&&$error->status===409?'project_changed':'internal');

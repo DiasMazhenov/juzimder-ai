@@ -7,6 +7,14 @@ $input=['html'=>'<div class="ai-scope-test"><section class="ai-hero"><h1>Гла�
 $out=GeneratedDesignDefaults::apply($input);
 defaultsCheck(substr_count($out['html'],'ai-pill-badge')===2,'Each content section gets one pill badge');
 defaultsCheck(substr_count($out['html'],'ai-default-left')===2,'Left aligned Hero sets consistent section alignment');
+defaultsCheck(str_contains($out['css'],'.ai-photo-fit-contain img{object-fit:contain!important}'),'Selected portrait photos can opt out of destructive cover cropping');
+defaultsCheck(str_contains($out['html'],'ai-hero-default-viewport-height')&&str_contains($out['css'],'min-height:75vh'),'Hero receives a deterministic minimum height of 75vh');
+$textOnlyHero=['html'=>'<div class="ai-scope-radio"><section class="ai-hero"><div class="ai-hero-copy"><span class="ai-pill-badge">РАДИО</span><h1>Городские истории и местная музыка в эфире</h1><p>Программы о городе и музыкантах.</p><a href="#programs">Слушать</a></div></section></div>','css'=>'.ai-scope-radio .ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}.ai-scope-radio .ai-hero-copy{max-width:620px}'];
+$textOnlyHero=GeneratedDesignDefaults::apply($textOnlyHero);
+defaultsCheck(str_contains($textOnlyHero['html'],'ai-hero-copy-only')&&str_contains($textOnlyHero['css'],'.ai-hero > .ai-hero-copy-only.ai-hero-copy-only{grid-column:1/-1;box-sizing:border-box;width:100%;max-width:min(100%,760px)'),'A text-only Hero uses the available width instead of leaving an empty media column');
+$mediaHero=['html'=>'<div class="ai-scope-radio"><section class="ai-hero"><div class="ai-hero-copy"><h1>Радио</h1></div><div class="ai-image-slot"></div></section></div>','css'=>'.ai-scope-radio .ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}'];
+$mediaHero=GeneratedDesignDefaults::apply($mediaHero);
+defaultsCheck(!str_contains($mediaHero['html'],'ai-hero-copy-only')&&str_contains($mediaHero['css'],'.ai-hero > .ai-hero-copy-only.ai-hero-copy-only{grid-column:1/-1;box-sizing:border-box;width:100%;max-width:min(100%,760px)'),'A Hero with media retains its two-column composition unless photo removal marks the remaining copy');
 defaultsCheck(str_contains($out['css'],'ai-photo-radius-2.ai-photo-radius-2')&&str_contains($out['css'],'border-radius:16px'),'Photo uses containing card radius');
 $differentWidths=$input;
 $differentWidths['css'].='.ai-scope-test .ai-hero{width:100%;max-width:1200px;padding:64px 32px}.ai-scope-test .ai-menu{width:800px;max-width:800px;margin:24px auto;padding:48px 20px}';
@@ -21,6 +29,9 @@ defaultsCheck(substr_count($again['html'],'ai-pill-badge')===2,'Existing badges 
 
 defaultsCheck(str_contains($out['css'],'width:fit-content;align-self:flex-start;justify-self:start'),'Pill badge remains compact inside flex and grid containers');
 defaultsCheck(str_contains($out['css'],'@media(max-width:767px){.ai-scope-test .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}')&&str_contains($out['css'],'.ai-scope-test .ai-hero p{max-width:100%;overflow-wrap:anywhere}'),'Mobile Hero typography scales and long Russian words wrap inside the text lane');
+defaultsCheck(str_contains($out['css'],'@media(max-width:980px){.ai-scope-test .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(36px,6vw,56px)'),'Tablet Hero typography scales before it overflows its copy lane');
+$tallHero=$input;$tallHero['css'].='.ai-scope-test .ai-hero{min-height:900px}';$tallHero=GeneratedDesignDefaults::apply($tallHero);
+defaultsCheck(str_contains($tallHero['css'],'min-height:max(75vh,900px)'),'Hero keeps a taller authored minimum while enforcing at least 75vh');
 defaultsCheck(str_contains($out['css'],'.ai-scope-test nav{display:flex;flex-wrap:wrap')&&str_contains($out['css'],'.ai-scope-test nav ul{display:flex;flex-wrap:wrap'),'Generated navigation and its list wrap at narrow viewport widths');
 defaultsCheck(str_contains($out['html'],'ai-section-default-spacing')&&str_contains($out['css'],'padding:48px clamp(20px,5vw,72px)')&&str_contains($out['css'],'padding:40px 20px'),'Sections without authored padding receive consistent desktop and mobile spacing');
 $authoredSpacing=$input;$authoredSpacing['css'].='.ai-scope-test .ai-menu{padding:24px 32px}';$authoredSpacing=GeneratedDesignDefaults::apply($authoredSpacing);

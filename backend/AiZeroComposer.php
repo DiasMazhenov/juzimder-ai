@@ -156,7 +156,7 @@ final class AiZeroComposer {
             if($query!==''&&count($slots)<2){$slots[]=['id'=>'slot-'.$index,'query'=>mb_substr($query,0,100),'fallbackAllowed'=>!self::explicitlyForbidsPhoto($prompt)];if($autoPhotoAdded&&$index===$automaticPhotoIndex)$slots[array_key_last($slots)]['automatic']=true;}
         }
         $photoResult=['design'=>['imageSlots'=>$slots]];
-        if($slots)$photoResult=AiPhotoSelection::enrich($photoResult,$provider,$photoSearch);
+        if($slots)$photoResult=AiPhotoSelection::enrich($photoResult,$provider,$photoSearch,$prompt);
         $photos=[];foreach($photoResult['design']['photoSelection']['photos']??[] as $photo)if(is_array($photo)&&is_string($photo['id']??null))$photos[$photo['id']]=$photo;
         if($photoRequired&&!$photos)throw new AiProviderFailure('An explicitly requested open-source photo could not be selected.',false,'photo_unavailable');
         $assignments=$photoResult['design']['photoSelection']['assignments']??[];

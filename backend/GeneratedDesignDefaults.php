@@ -17,9 +17,24 @@ final class GeneratedDesignDefaults {
             return $result;
         };
         $hero=$xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ai-hero ")]')->item(0);
+        $heroMinHeightRule='';
+        $heroCopyOnly=null;
+        if($hero instanceof \DOMElement){
+            self::addClass($hero,'ai-hero-default-viewport-height');
+            $heroMinHeight=$value($hero,'min-height');
+            $unboundedMinHeight=in_array($heroMinHeight,['auto','fit-content','min-content','max-content','inherit','initial','unset'],true);
+            $heroMinHeightRule=$heroMinHeight!==null&&!$unboundedMinHeight?'max(75vh,'.$heroMinHeight.')':'75vh';
+            $heroChildren=array_values(array_filter(iterator_to_array($hero->childNodes),static fn($node)=>$node instanceof \DOMElement));
+            if(count($heroChildren)===1&&$heroChildren[0]->getElementsByTagName('h1')->length){
+                $heroCopyOnly=$heroChildren[0];
+                self::addClass($heroCopyOnly,'ai-hero-copy-only');
+            }
+        }
         $alignment='left';$heading=$hero instanceof \DOMElement?$hero->getElementsByTagName('h1')->item(0):null;
         for($node=$heading??$hero;$node instanceof \DOMElement;$node=$node->parentNode){$found=$value($node,'text-align');if($found!==null&&$found!=='inherit'){$alignment=$found;break;}}
         $extra='';$blocks=[];
+        if($hero instanceof \DOMElement)$extra="\n.$scope .ai-hero.ai-hero-default-viewport-height{box-sizing:border-box;min-height:$heroMinHeightRule}";
+        if($hero instanceof \DOMElement)$extra.="\n.$scope .ai-hero > .ai-hero-copy-only.ai-hero-copy-only{grid-column:1/-1;box-sizing:border-box;width:100%;max-width:min(100%,760px);min-width:0;justify-self:start;margin-left:0;margin-right:auto}";
         if($hero instanceof \DOMElement && ($radius=$value($hero,'border-radius'))!==null && !in_array($radius,['0','0px','none','inherit'],true)) {
             self::addClass($hero,'ai-hero-rounded');
             $extra.="\n.$scope .ai-hero.ai-hero-rounded{overflow:hidden}";
@@ -84,9 +99,10 @@ final class GeneratedDesignDefaults {
         // when the model forgets to wrap its links or gives the menu a fixed width.
         $extra.="\n.$scope nav{display:flex;flex-wrap:wrap;align-items:center;gap:12px;max-width:100%;min-width:0}\n.$scope .ai-nav.ai-nav{display:flex;flex-wrap:wrap;align-items:center;max-width:100%;min-width:0}\n.$scope nav ul{display:flex;flex-wrap:wrap;align-items:center;gap:12px;list-style-type:none;margin:0;padding:0;max-width:100%;min-width:0}\n.$scope nav a{max-width:100%;min-width:0}";
         $extra.="\n.$scope .ai-default-left.ai-default-left,.$scope .ai-default-left h1,.$scope .ai-default-left h2,.$scope .ai-default-left p{text-align:left}\n.$scope .ai-pill-badge.ai-pill-badge{display:inline-block;border-radius:9999px;padding:6px 12px;border:1px solid currentColor;font-size:12px;line-height:1.3;margin:0 0 16px;max-width:100%;width:fit-content;align-self:flex-start;justify-self:start}";
+        $extra.="\n.$scope .ai-photo-fit-contain img{object-fit:contain!important}";
         // Generated desktop heading sizes can exceed a mobile Hero's text lane.
         // Keep long words inside the copy column without changing desktop styling.
-        $extra.="\n@media(max-width:767px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{max-width:100%;overflow-wrap:anywhere}}";
+        $extra.="\n@media(max-width:980px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(36px,6vw,56px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{min-width:0;max-width:100%;overflow-wrap:anywhere}}\n@media(max-width:767px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{max-width:100%;overflow-wrap:anywhere}}";
         // One opt-in composition, using the model's existing native elements.
         if ($hero instanceof \DOMElement && self::hasClass($hero, 'ai-hero-split') && !self::hasClass($hero, 'ai-hero-background')) {
             $children = array_values(iterator_to_array($hero->childNodes));

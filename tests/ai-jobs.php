@@ -7,7 +7,9 @@ use Juzimder\{Store,AiGenerationJobs,StructuredAiProvider,Problem,AiProviderFail
 function jobCheck(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);echo "PASS $message\n";}
 function jobReject(callable $fn,int $status):void{try{$fn();}catch(Problem $e){jobCheck($e->status===$status,'Job rejects HTTP '.$status);return;}throw new RuntimeException('Expected job rejection');}
 final class JobProvider implements StructuredAiProvider{
+ public static string $lastUserPrompt='';
  public function completeJson(string $s,string $u,array $schema,string $name,int $maxTokens=3200):array{
+  self::$lastUserPrompt=$u;
   return ['model'=>'test/model','content'=>json_encode(['siteType'=>'Workshop','audience'=>'Adults','goal'=>'Book','style'=>'Warm','html'=>'<section class="ai-hero"><div class="ai-hero-copy"><h1>Pottery</h1><p>A calm evening with clay.</p><a href="#booking">Book</a></div><div class="ai-image-slot" data-image-slot="hero"></div></section><section class="ai-formats"><h2>Formats</h2><p>Learn hand building with clay.</p></section><section class="ai-booking" id="booking"><h2>Booking</h2><p>Choose your workshop format.</p></section>','css'=>'.ai-hero{padding:40px;color:#222222}@media (max-width:768px){.ai-hero{padding:20px}}'],JSON_THROW_ON_ERROR)];
  }
 }
@@ -15,11 +17,13 @@ $path=sys_get_temp_dir().'/juzimder-jobs-'.bin2hex(random_bytes(6)).'.sqlite';
 try{
  $store=new Store($path);$store->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['owner','jobs@example.test','hash']);
  $store->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['other','other@example.test','hash']);
- $project=$store->create('owner','Jobs QA');$id=$project['id'];$jobs=new AiGenerationJobs($store);$page=$project['document']->data->pages[0]->id;$payload=['prompt'=>'Workshop','skillProfile'=>'standard','userSkill'=>null];
+ $project=$store->create('owner','Jobs QA');$id=$project['id'];$jobs=new AiGenerationJobs($store);$page=$project['document']->data->pages[0]->id;$payload=['prompt'=>'Workshop','skillProfile'=>'standard','userSkill'=>null,'projectDesignTokens'=>['ink'=>'#123456']];
  $job=$jobs->create($id,'owner',$page,0,$payload);jobCheck($job['status']==='queued'&&$job['result']===null,'Job creation returns immediately without generating or saving content');
  jobReject(fn()=>$jobs->create($id,'owner',$page,0,$payload),409);jobReject(fn()=>$jobs->get($id,'other',$job['id']),404);jobReject(fn()=>$jobs->get($id,'owner',str_repeat('a',24)),404);
  jobCheck($jobs->run($job['id'],fn()=>new JobProvider()),'Worker claims queued job');
+ jobCheck(str_contains(JobProvider::$lastUserPrompt,'"ink":"#123456"'),'Generation worker forwards only the queued project design-token context to the existing model request');
  $result=(new AiGenerationJobs(new Store($path)))->get($id,'owner',null,$page);
+ jobCheck(!array_key_exists('projectDesignTokens',$result['request']),'Generation-job status does not expose the project-token snapshot or extend its public request shape');
  jobCheck($result['diagnostics']['outcome']==='succeeded','Job diagnostics persist across reopening');
  jobCheck($result['status']==='succeeded'&&$result['result']['design']['sectionCount']===3,'Validated result persists and can be restored after reopening');
  jobCheck(!$jobs->run($job['id'],fn()=>throw new RuntimeException('Duplicate worker')),'Duplicate workers cannot repeat a completed provider call');

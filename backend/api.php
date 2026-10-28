@@ -467,21 +467,23 @@ try {
         $settings = $credentials->failoverSettings($aiDesignMatch[1], $user);
         if (!$settings) throw new Problem(503,'AI-провайдер не настроен на сервере.');
         $userSkill=$skillId===null?null:(new Juzimder\ProjectAiSkills($store))->forGeneration($aiDesignMatch[1],$user,$skillId);
+        $generationProject=$store->owned($aiDesignMatch[1],$user);
+        $projectDesignTokens=$generationProject['settings']['designTokens'];
         if($aiDesignMatch[2]==='generation-jobs'){
             if(!is_string($body['pageId']??null)||!is_int($body['version']??null)||$body['version']<0)throw new Problem(422,'Укажите страницу и текущую версию проекта.');
-            $quotaProject=$store->owned($aiDesignMatch[1],$user);
+            $quotaProject=$generationProject;
             if($quotaProject['version']!==$body['version'])throw new Problem(409,'Версия проекта изменилась. Обновите страницу и попробуйте снова.');
             if(!in_array($body['pageId'],array_column($quotaProject['document']->data->pages,'id'),true))throw new Problem(404,'Страница не найдена.');
             $store->consumeAiRequestAllowance($user);
             $jobs=new Juzimder\AiGenerationJobs($store);
-            $job=$jobs->create($aiDesignMatch[1],$user,$body['pageId'],$body['version'],['prompt'=>$prompt,'skillProfile'=>$skillProfile,'userSkill'=>$userSkill]);
+            $job=$jobs->create($aiDesignMatch[1],$user,$body['pageId'],$body['version'],['prompt'=>$prompt,'skillProfile'=>$skillProfile,'userSkill'=>$userSkill,'projectDesignTokens'=>$projectDesignTokens]);
             $jobs->launch($job['id']);
             result($jobs->get($aiDesignMatch[1],$user,$job['id']),202);
         }
         $store->consumeAiRequestAllowance($user);
         set_time_limit(120);
         try {
-            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\ProfileFailoverProvider($settings), $skillProfile, $userSkill));
+            result(Juzimder\AiGeneratedWebsite::create($prompt, new Juzimder\ProfileFailoverProvider($settings), $skillProfile, $userSkill, $projectDesignTokens));
         } catch (Juzimder\AiProviderFailure $failure) {
             throw new Problem(502,$failure->userMessage());
         }
