@@ -116,17 +116,21 @@ final class AiPhotoSelection {
         $root=$document->getElementsByTagName('body')->item(0);if(!$root)return $result;
         $hero=null;foreach($document->getElementsByTagName('section') as $section){$classes=preg_split('/\s+/',trim($section->getAttribute('class')),-1,PREG_SPLIT_NO_EMPTY)?:[];if(in_array('ai-hero',$classes,true)){$hero=$section;break;}}
         if(!$hero)return $result;
+        $slot=(new \DOMXPath($document))->query('.//div[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ") and @data-image-slot="hero"]',$hero)->item(0);
+        if(!$slot instanceof \DOMElement)return $result;
+        foreach($slot->childNodes as $child)if($child instanceof \DOMElement||($child instanceof \DOMText&&trim($child->textContent)!==''))return $result;
         $heroClasses=preg_split('/\s+/',trim($hero->getAttribute('class')),-1,PREG_SPLIT_NO_EMPTY)?:[];
         $isSplit=in_array('ai-hero-split',$heroClasses,true);
         $isBackground=in_array('ai-hero-background',$heroClasses,true);
-        if(!$isSplit&&!$isBackground)return $result;
-        if($isSplit)$heroClasses=array_values(array_diff($heroClasses,['ai-hero-split','ai-split-ready']));
-        $heroClasses[]='ai-hero-no-photo';$hero->setAttribute('class',implode(' ',array_unique($heroClasses)));
-        $slot=(new \DOMXPath($document))->query('.//div[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ") and @data-image-slot="hero"]',$hero)->item(0);
-        if($slot instanceof \DOMElement){
-            $removable=$slot;$parent=$removable->parentNode;
+        $removable=$slot;
+        if($isSplit||$isBackground){
+            $parent=$removable->parentNode;
             while($parent instanceof \DOMElement&&strtolower($parent->tagName)==='div'&&!$parent->hasAttribute('id')&&!$parent->hasAttribute('role')&&!$parent->hasAttribute('aria-label')&&$parent->childNodes->length===1&&trim($parent->textContent)===''){$removable=$parent;$parent=$removable->parentNode;}
-            $removable->parentNode?->removeChild($removable);
+        }
+        $removable->parentNode?->removeChild($removable);
+        if($isSplit||$isBackground){
+            if($isSplit)$heroClasses=array_values(array_diff($heroClasses,['ai-hero-split','ai-split-ready']));
+            $heroClasses[]='ai-hero-no-photo';$hero->setAttribute('class',implode(' ',array_unique($heroClasses)));
         }
         $heroChildren=array_values(array_filter(iterator_to_array($hero->childNodes),static fn($node)=>$node instanceof \DOMElement));
         if(count($heroChildren)===1&&$heroChildren[0]->getElementsByTagName('h1')->length){
@@ -136,7 +140,7 @@ final class AiPhotoSelection {
         }
         $html='';foreach($root->childNodes as $child)$html.=$document->saveHTML($child);$result['design']['html']=$html;
         $rootElement=$document->getElementsByTagName('div')->item(0);$scope=$rootElement instanceof \DOMElement?(preg_split('/\s+/',trim($rootElement->getAttribute('class')),-1,PREG_SPLIT_NO_EMPTY)[0]??''):'';
-        if($scope!==''&&is_string($result['design']['css']??null)){
+        if(($isSplit||$isBackground)&&$scope!==''&&is_string($result['design']['css']??null)){
             $result['design']['css'].=$isSplit
                 ?"\n.$scope .ai-hero.ai-hero-no-photo{display:flex;flex-direction:column;justify-content:center;grid-template-columns:none}"
                 :"\n.$scope .ai-hero.ai-hero-no-photo{grid-template-columns:none}";
