@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-**Текущая версия на 28.10.2026: 00.00.322 (npm 0.1.322).**
+**Текущая версия на 28.10.2026: 00.00.323 (npm 0.1.323).**
+
+00.00.323: Open Design matcher расширен явными content-only сигналами для мобильных приложений, веб/онлайн-сервисов и систем управления; неоднозначные и нерелевантные брифы остаются без reference. Matcher regression, загрузчик pinned source, автоматический Commons photo selection, лицензии/авторы/ссылки и PHP syntax проверены. Audit upstream `main` подтвердил совпадение его SHA с pin `d297055b83b6226c2c5e40800bbb4287156c4025`, поэтому источник не переключался. Codex Browser недоступен (`Browser is not available: 14`): свежую генерацию, screenshots, сохранение/reopen/Undo не запускал, открытые вкладки и пользовательский диалог не трогал.
 
 00.00.322: Закреплённые Open Design источники подключены к основному генератору как необязательная структурная справка. Для явного совпадения загружается один allowlisted-файл; локально он сокращается до закрытого набора layout-сигналов, без передачи source copy, claims, URLs, markup, styles, scripts или инструкций. При недоступном источнике используется проверенная общая подсказка, а статус reference уходит отдельно от Design JSON. Добавлены проверки single-path allowlist, prompt leakage и network-fallback. `php tests/open-design-template-source.php`, `php tests/ai.php`, полный `npm test` и production build в `/private/tmp/juzimder-ai-build-322` PASS; PHP syntax и `git diff --check` PASS. В сборке остаётся существующее предупреждение Vite о крупном GrapesJS chunk. Живая генерация и screenshot-приёмка NOT RUN: в уже открытом редакторе активен диалог AI-генерации с незавершённым пользовательским брифом; его не отправлял и не заменял. Open Design проверка композиции, persistence и редактируемости остаётся открытой.
 
