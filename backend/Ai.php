@@ -900,7 +900,8 @@ final class AiGeneratedWebsite {
     }
 
     private static function requiresPhysicalProductCardPhotos(string $prompt): bool {
-        $catalogIntent = preg_match('/магазин\\p{L}*|интернет-магазин|лавк\\p{L}*|бутик\\p{L}*|в\\s+ассортименте|каталог|прода(?:е|ё)м|\\b(?:shop|store|catalog(?:ue)?|assortment|retail)\\b/iu', $prompt) === 1;
+        // A shop mentioned as a B2B shipment destination (e.g. "отгрузки магазинам") does not make the site a retail catalog.
+        $catalogIntent = preg_match('/магазин(?!а[мх]|ами)\\p{L}*|лавк\\p{L}*|бутик\\p{L}*|в\\s+ассортименте|каталог|прода(?:е|ё)м|\\b(?:shop|store|catalog(?:ue)?|assortment|retail)\\b/iu', $prompt) === 1;
         $physicalProduct = preg_match('/товар\\p{L}*|продукт\\p{L}*|инструмент\\p{L}*|гитар\\p{L}*|клавишн\\p{L}*|барабан\\p{L}*|обув\\p{L}*|кроссов\\p{L}*|ботинк\\p{L}*|одежд\\p{L}*|велосипед\\p{L}*|книг\\p{L}*|чай\\p{L}*|кофе|букет\\p{L}*|цвет\\p{L}*|керамик\\p{L}*|хлеб\\p{L}*|выпечк\\p{L}*|мебел\\p{L}*|оправ\\p{L}*|очк\\p{L}*|линз\\p{L}*|корм\\p{L}*|игрушк\\p{L}*|\\b(?:product|guitar|keyboard|drum|shoes?|sneakers?|boots?|clothing|bicycles?|books?|tea|coffee|bouquets?|flowers?|ceramics?|bread|furniture|frames|lenses|pet food|toys)\\b/iu', $prompt) === 1;
         // Keep Russian "стол" bounded: it is also a substring of "настольных игр".
         $physicalProduct = $physicalProduct || preg_match('/стул\\p{L}*|кресл\\p{L}*|(?<!\\p{L})стол(?:ы|а|у|ом|е|ов|ик\\p{L}*)?(?!\\p{L})|полк\\p{L}*|стеллаж\\p{L}*|диван\\p{L}*|кроват\\p{L}*|настольн\\p{L}*\\s+игр\\p{L}*|карточн\\p{L}*\\s+игр\\p{L}*|шахмат\\p{L}*|головолом\\p{L}*|\\b(?:chairs?|stools?|tables?|desks?|bookshelves?|bookcases?|shelves?|sofas?|couches?|beds?|bedframes?|board\\s+games?|tabletop\\s+games?|card\\s+games?|playing\\s+cards?|chess|puzzles?)\\b/iu', $prompt) === 1;

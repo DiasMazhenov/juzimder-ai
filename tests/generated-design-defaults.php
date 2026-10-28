@@ -8,6 +8,7 @@ $out=GeneratedDesignDefaults::apply($input);
 defaultsCheck(substr_count($out['html'],'ai-pill-badge')===2,'Each content section gets one pill badge');
 defaultsCheck(substr_count($out['html'],'ai-default-left')===2,'Left aligned Hero sets consistent section alignment');
 defaultsCheck(str_contains($out['css'],'.ai-photo-fit-contain img{object-fit:contain!important}'),'Selected portrait photos can opt out of destructive cover cropping');
+defaultsCheck(str_contains($out['css'],'.ai-photo-fit-contain{background-color:transparent!important}'),'Contained photos reveal their parent surface instead of an unrelated matte');
 defaultsCheck(str_contains($out['html'],'ai-hero-default-viewport-height')&&str_contains($out['css'],'min-height:75vh'),'Hero receives a deterministic minimum height of 75vh');
 $textOnlyHero=['html'=>'<div class="ai-scope-radio"><section class="ai-hero"><div class="ai-hero-copy"><span class="ai-pill-badge">РАДИО</span><h1>Городские истории и местная музыка в эфире</h1><p>Программы о городе и музыкантах.</p><a href="#programs">Слушать</a></div></section></div>','css'=>'.ai-scope-radio .ai-hero{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}.ai-scope-radio .ai-hero-copy{max-width:620px}'];
 $textOnlyHero=GeneratedDesignDefaults::apply($textOnlyHero);

@@ -1,6 +1,6 @@
 # Juzimder AI — контекст проекта
 
-**Текущая версия на 28.10.2026: 00.00.327 (npm 0.1.327).**
+**Текущая версия на 28.10.2026: 00.00.331 (npm 0.1.331).**
 
 00.00.327: В Open Design matcher удалён низкоуверенный одиночный сигнал `дизайнер`: обычный сайт специалиста больше не получает портфолио-reference без явного типа страницы. Regression покрывает выбор общего `web-prototype` для дизайн-студии и портфолио керамиста, отказ для сайта мебельного дизайнера, SaaS и неоднозначные запросы. `php tests/ai.php` PASS; Project Data и пользовательские страницы не затронуты. Live generation и screenshots остаются NOT RUN: редактор в прежней вкладке по-прежнему требует повторного входа.
 
@@ -1312,3 +1312,10 @@ Screenshot review минералогического content-only preview обн
 Повторный Standard preview прошёл серверную проверку после repair. Текст использует «со стеклянным блеском» и содержит естественные инструкции по безопасному обращению с минералами. Четыре автоматически подобранных изображения загрузились: Hero quartz photo и три минерала; лицензии и авторы отображаются в preview. DOM-геометрия: Desktop document/canvas 1141/1141 px, Tablet 751/751 px, Mobile 358/358 px; горизонтального overflow нет. Кандидат не применялся, Project Data остался на revision 380; Save и Publish не нажимались.
 
 Post-fix screenshot capture — NOT RUN: `elementScreenshot` недоступен в выбранном ChatGPT in-app browser (`playwright_element_screenshot` unsupported). DOM-проверка не заменяет screenshot review и не доказывает визуальную приёмку. Полный `npm test` прошёл с разрешённым локальным fake SMTP loopback; `php tests/ai.php`, PHP syntax и `git diff --check` прошли; production build в `/private/tmp/juzimder-ai-build-329` и штатный build в `public` прошли с предупреждением о размере GrapesJS chunk. Версия 00.00.329. Open Design этапы 1–3 и post-fix visual acceptance остаются открытыми.
+
+
+## Open Design · B2B-классификация и подложка Hero-фото — 28.10.2026, 00.00.331
+
+Screenshot review показал, что портретное фото с `object-fit: contain` получало фоновый цвет своего slot и создавало тёмные поля. Общий `GeneratedDesignDefaults` делает фон такого slot прозрачным, сохраняя изображение целиком и показывая поверхность Hero за ним. Для регрессии добавлено отдельное CSS assertion. Параллельно исправлена ошибка классификации фото-каталога: фраза «отгрузки магазинам» в описании B2B software service больше не распознаётся как розничный магазин; regression проверяет, что реальный магазин физического товара по-прежнему требует фото карточек.
+
+Контрольная Standard-генерация прошла серверную проверку; Desktop, Tablet и Mobile candidate до исправления и после него сняты и визуально просмотрены: [docs/qa/open-design-balqa-photo-fit-2026-10-28](docs/qa/open-design-balqa-photo-fit-2026-10-28/). После исправления не осталось тёмной подложки вокруг вписанного портретного фото; изображение целиком сохранено. DOM-проверка подтвердила отсутствие горизонтального переполнения на всех трёх ширинах. Это preview-only: Project Data revision 380 не менялась, Apply/Save/Publish не выполнялись. Полный `npm test`, production build, PHP lint изменённых файлов и `git diff --check` PASS; предупреждение о крупном GrapesJS chunk сохраняется. Одна удачная генерация не закрывает критерии этапов Open Design.
