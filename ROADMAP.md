@@ -1,6 +1,8 @@
 # План Juzimder AI
 
-**Текущее состояние на 28.10.2026:** версия продукта 00.00.326 (`package.json`: 0.1.326). Общий AI Design Spec уточнён правилами единого визуального языка; live generation и screenshot QA по-прежнему ожидают доступности Codex Browser.
+**Текущее состояние на 28.10.2026:** версия продукта 00.00.327 (`package.json`: 0.1.327). Общий AI Design Spec уточнён правилами единого визуального языка; live generation и screenshot QA по-прежнему ожидают повторного входа в текущей вкладке.
+
+- [x] 00.00.327: Open Design matcher больше не выбирает портфолио по одному общему слову «дизайнер». Проверки подтверждают общий reference по типу страницы для дизайн-студии и портфолио разных ниш, а также abstain для сайта отдельного дизайнера. `php tests/ai.php` PASS; live-генерация/скриншоты и дальнейшая приёмка Project Data остаются открытыми.
 
 - [x] 00.00.326: Общий Design Spec явно передаёт Standard/Taste/User Skill и Zero AI требования к pill-badge, общей левой линии с Hero, радиусу фото и копирайту фото (8px максимум, положение зависит от inline/background). Regression проверяет все генераторы; JSON и Project Data не менялись. Полный `npm test`, build в `/private/tmp/juzimder-ai-build-326`, PHP syntax и diff-check PASS; Vite сообщает о крупном GrapesJS chunk. В существующей вкладке просмотрены candidate screenshots `/private/tmp/juzimder-ai-opendesign-326-{desktop,tablet,mobile}.png`; это не новая генерация .326, а runtime показывает 00.00.313. Новый Standard content-only запуск остановился на запросе повторного входа в той же вкладке (`/private/tmp/juzimder-ai-opendesign-326-session-expired.png`), поэтому свежего candidate нет; Project Data не применялся и не менялся. Screenshot-приёмка текущей версии и визуальное соблюдение новых правил остаются открытыми.
 

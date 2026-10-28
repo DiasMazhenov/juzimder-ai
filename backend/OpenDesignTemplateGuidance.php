@@ -24,7 +24,7 @@ final class OpenDesignTemplateGuidance {
             'path' => 'design-templates/web-prototype/references/layouts.md',
             'terms' => [
                 'портфолио', 'дизайн студия', 'студия дизайна', 'креативное агентство',
-                'брендинговое агентство', 'веб дизайн', 'веб дизайнер', 'дизайнер',
+                'брендинговое агентство', 'веб дизайн', 'веб дизайнер',
                 'ux ui', 'ui ux', 'web design', 'design studio', 'creative agency',
                 'digital agency', 'portfolio',
             ],
