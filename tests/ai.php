@@ -220,6 +220,7 @@ try {
     $cssSchemaDescription=AiGeneratedWebsite::schema()['properties']['css']['description'];
     aiCheck(str_contains(AiGeneratedWebsite::schema()['properties']['html']['description'],'single direct div.ai-hero-copy child'),'HTML schema requires one Hero copy wrapper for the heading, body and action');
     $generatedSystemPrompt=$generatedRequest['messages'][0]['content'];
+    aiCheck(str_contains($generatedSystemPrompt,'choose euphonic preposition forms such as «со стеклянным блеском»')&&str_contains($generatedSystemPrompt,'use natural imperative forms when addressing the reader'),'Main generation includes a general Russian grammar review rule for euphonic prepositions and natural imperatives');
     $sharedVisualRules=['Give every content block a compact pill badge sized to its label','Align section containers to the Hero’s left edge when the Hero copy is left-aligned','match photo corner radii to that same radius','Keep image credits as text and links at 8px or smaller','place credits below inline photos, and discreetly inside the block for background photos'];
     aiCheck(str_contains($generatedSystemPrompt,'Use only one icon family per page: Tabler Outline; never mix icon libraries, weights or filled styles'),'Main AI generation receives the shared single-family Tabler Outline rule');
     aiCheck(!array_filter($sharedVisualRules,static fn(string $rule):bool=>!str_contains($generatedSystemPrompt,$rule)),'Main AI generation receives explicit shared badge, alignment, radius and image credit rules');
