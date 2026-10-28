@@ -24,6 +24,9 @@ $source=new OpenDesignTemplateSource($cache,$fetcher,$manifest);
 $loaded=$source->load('demo');
 sourceCheck($loaded===['id'=>'demo','revision'=>$revision,'files'=>[$path=>$body]],'Pinned allowlisted source loads as inert UTF-8 text');
 sourceCheck(count($calls)===1&&$calls[0][0]==='https://raw.githubusercontent.com/nexu-io/open-design/'.$revision.'/'.$path&&$calls[0][1]===5&&$calls[0][2]===32768,'Fetch uses one fixed HTTPS host, immutable commit, allowlisted path and bounded limits');
+$singleFile=$source->load('demo',$path);
+sourceCheck($singleFile['files']===[$path=>$body],'Caller can load only one exact allowlisted path for bounded generation context');
+sourceReject(fn()=>$source->load('demo','design-templates/demo/references/unreviewed.md'),'not approved','Single-file loading rejects paths absent from the reviewed manifest');
 
 $offline=new OpenDesignTemplateSource($cache,static function():array{throw new RuntimeException('offline');},$manifest);
 sourceCheck($offline->load('demo')['files'][$path]===$body,'Verified immutable cache serves the exact pinned file while offline');

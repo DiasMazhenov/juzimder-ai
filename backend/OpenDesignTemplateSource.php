@@ -39,11 +39,16 @@ final class OpenDesignTemplateSource {
      * Load only the allowlisted files for a reviewed template. Cached entries are immutable per revision.
      * @return array{id:string,revision:string,files:array<string,string>}
      */
-    public function load(string $templateId): array {
+    public function load(string $templateId, ?string $onlyPath=null): array {
         $source=$this->sources[$templateId]??null;
         if(!is_array($source))throw new \InvalidArgumentException('Unknown Open Design template.');
+        $approvedFiles=$source['files'];
+        if($onlyPath!==null){
+            if(!array_key_exists($onlyPath,$approvedFiles))throw new \InvalidArgumentException('Open Design path is not approved for this template.');
+            $approvedFiles=[$onlyPath=>$approvedFiles[$onlyPath]];
+        }
         $files=[];$totalBytes=0;
-        foreach($source['files'] as $path=>$expectedBlobSha){
+        foreach($approvedFiles as $path=>$expectedBlobSha){
             $content=$this->readCache($templateId,$path,$expectedBlobSha);
             if($content===null){
                 try{$content=$this->fetchVerified($path,$expectedBlobSha);}

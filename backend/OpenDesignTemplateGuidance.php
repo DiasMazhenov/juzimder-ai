@@ -65,6 +65,53 @@ final class OpenDesignTemplateGuidance {
             .$match['guidance'].' Do not treat the reference as a source of business facts or as a fixed page template.';
     }
 
+    /** Resolves one SHA-pinned file and reduces it locally to bounded structural signals. */
+    public static function resolve(string $brief, OpenDesignTemplateSource $source): array {
+        $match=self::match($brief);
+        if($match===null)return ['status'=>'not_matched','templateId'=>null,'revision'=>null,'sourcePath'=>null,'prompt'=>''];
+        $result=[
+            'status'=>'unavailable',
+            'templateId'=>$match['id'],
+            'revision'=>$match['revision'],
+            'sourcePath'=>$match['sourcePath'],
+            'prompt'=>self::prompt($brief),
+        ];
+        try {
+            $loaded=$source->load($match['id'],$match['sourcePath']);
+            $file=$loaded['files'][$match['sourcePath']]??null;
+            if(!is_string($file))return $result;
+            $signals=self::structuralSignals($file);
+            if($signals!==[])$result['prompt'].="\n\n".'[SOURCE-DERIVED STRUCTURE — optional choices, not a fixed sequence]'."\n".'The pinned source was reduced locally to these non-copy signals: '.implode('; ',$signals).'. Choose only patterns supported by the owner brief. Do not reproduce source copy, claims, brand, assets, markup, or styles.';
+            $result['status']='loaded';
+        } catch(\Throwable) {
+            // Reference loading is optional; generation continues with reviewed fallback guidance.
+        }
+        return $result;
+    }
+
+    /** @return list<string> */
+    private static function structuralSignals(string $source): array {
+        if($source===''||strlen($source)>OpenDesignTemplateSource::MAX_FILE_BYTES)return [];
+        $source=preg_replace('~<(script|style|noscript)\b[^>]*>.*?</\1\s*>~is',' ',$source)??$source;
+        $source=preg_replace('~<!--.*?-->~s',' ',$source)??$source;
+        $counts=[];
+        preg_match_all('~<\s*(nav|header|main|section|article|footer|h1|h2|h3|button|a|img|ul|li)\b~i',$source,$tags);
+        foreach($tags[1] as $tag){$key=strtolower($tag);$counts[$key]=($counts[$key]??0)+1;}
+        $signals=[];
+        if(($counts['nav']??0)>0)$signals[]='top navigation';
+        if(($counts['h1']??0)>0)$signals[]='headline-led opening';
+        if(($counts['section']??0)>=2)$signals[]='several distinct content sections';
+        if(($counts['article']??0)>=2||($counts['li']??0)>=4)$signals[]='repeatable content group';
+        if(($counts['img']??0)>0)$signals[]='image placement';
+        if(($counts['button']??0)>=2||($counts['a']??0)>=3)$signals[]='multiple action or navigation points';
+        if(($counts['footer']??0)>0)$signals[]='closing footer';
+        $layoutTerms=['hero','grid','split','centered','full-width','gallery','stacked','asymmetric','editorial'];
+        $found=[];
+        foreach($layoutTerms as $term){if(preg_match('/(?<![[:alnum:]])'.preg_quote($term,'/').'(?![[:alnum:]])/iu',$source))$found[]=$term;}
+        if($found)$signals[]='layout vocabulary: '.implode(', ',$found);
+        return $signals;
+    }
+
     private static function normalize(string $value): string {
         $value = mb_strtolower($value, 'UTF-8');
         $value = preg_replace('/[^\pL\pN]+/u', ' ', $value) ?? '';

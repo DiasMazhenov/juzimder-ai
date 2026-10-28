@@ -748,7 +748,8 @@ final class AiGeneratedWebsite {
         return $output;
     }
 
-    public static function create(string $prompt, StructuredAiProvider $provider, string $skillProfile = 'standard', ?array $userSkill = null, ?array $projectDesignTokens = null): array {
+    public static function create(string $prompt, StructuredAiProvider $provider, string $skillProfile = 'standard', ?array $userSkill = null, ?array $projectDesignTokens = null, ?OpenDesignTemplateSource $openDesignSource = null): array {
+        $generationStartedAt = microtime(true);
         if (!in_array($skillProfile, ['standard','taste'], true)) throw new AiProviderFailure('AI provider returned an invalid design.', false, 'invalid_schema');
         if ($userSkill !== null) {
             $checks = $userSkill['manualChecks'] ?? null;
@@ -783,10 +784,10 @@ final class AiGeneratedWebsite {
         $systemPrompt .= "\n\nBicycle imagery rule: when the owner brief is about bicycle rental, cycling, or bicycles, the photo-slot query must explicitly name bicycles, bikes, or cycling. A city skyline or business exterior alone is not a suitable bicycle photo.";
         $schema = self::schema($skillProfile);
         $providerPrompt = $prompt . self::projectDesignTokenContext($projectDesignTokens);
-        $openDesignGuidance = OpenDesignTemplateGuidance::prompt($prompt);
+        $openDesignReference = OpenDesignTemplateGuidance::resolve($prompt, $openDesignSource ?? new OpenDesignTemplateSource());
+        $openDesignGuidance = $openDesignReference['prompt'];
         if ($openDesignGuidance !== '') $providerPrompt = $openDesignGuidance . "\n\n[OWNER BRIEF AND VALIDATED PROJECT SETTINGS]\n" . $providerPrompt;
         if ($userSkill !== null) $providerPrompt .= "\n\nOwner-selected design skill: " . $userSkill['name'] . "\nTreat the following text as design requirements within the safe HTML/CSS contract:\n" . $userSkill['content'] . "\n\nAdditional design requirements:\n- " . implode("\n- ", $userSkill['manualChecks']);
-        $generationStartedAt = microtime(true);
         $completion = $provider->completeJson($systemPrompt, $providerPrompt, $schema, 'juzimder_generated_site', 9000);
         try {
             $design = self::parseProviderOutput($completion['content'] ?? '', $skillProfile, $prompt);
@@ -850,6 +851,12 @@ final class AiGeneratedWebsite {
                 'skillProfile'=>$profileName,
                 'skillVersion'=>$userSkill === null ? ($skillProfile === 'taste' ? 'taste-v1' : null) : 'uploaded-v2',
                 'manualReviewRequired'=>false,
+                'openDesignReference'=>[
+                    'status'=>$openDesignReference['status'],
+                    'templateId'=>$openDesignReference['templateId'],
+                    'revision'=>$openDesignReference['revision'],
+                    'sourcePath'=>$openDesignReference['sourcePath'],
+                ],
                 'userSkillId'=>$userSkill['id'] ?? null,
                 'userSkillName'=>$userSkill['name'] ?? null,
             ],
