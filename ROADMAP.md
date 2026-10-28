@@ -1,8 +1,9 @@
 # План Juzimder AI
 
-**Текущее состояние на 28.10.2026:** версия продукта 00.00.318 (`package.json`: 0.1.318). Фото-подписи без специальных 500-символьных ограничений; новые и ранее сохранённые подписи фонового Hero отображаются внутри секции компактным overlay. Общие проверки безопасности Project Data сохранены.
+**Текущее состояние на 28.10.2026:** версия продукта 00.00.319 (`package.json`: 0.1.319). Фото-подписи без специальных 500-символьных ограничений; новые и ранее сохранённые подписи фонового Hero отображаются внутри секции компактным overlay. Общие проверки безопасности Project Data сохранены.
 
 - [x] 00.00.318: Добавлены явные проверки общего Design Spec в промптах Standard, Taste и пользовательского Skill; Zero AI уже покрыт отдельной regression. Ответные схемы и Project Data неизменны. Полный `npm test`, build в `/private/tmp/juzimder-ai-build-318`, PHP syntax и `git diff --check` PASS; screenshot-приёмка NOT RUN — Codex Browser недоступен. Визуальное сравнение остаётся открытым.
+- [x] 00.00.319: Без подходящей фотографии удаляется пустой image slot фонового Hero, сохраняется тёмный CSS fallback, схлопывается незаполненная grid-колонка. `npm test`, build, PHP syntax и `git diff --check` PASS. Screenshot-приёмка NOT RUN: существующая вкладка редактора содержит открытый диалог генерации и runtime 00.00.315; вкладка не менялась. Этапы Open Design остаются открытыми.
 
 - [x] 00.00.317: Общий компактный AI Design Spec вынесен в `backend/AiDesignGuidelines.php` и применяется основным генератором и Zero AI; модель HTML/CSS и абсолютная геометрия Zero остаются отдельными. Project Data/schema неизменны. Полный `npm test` прошёл после разрешения только локального loopback для fake SMTP; production build через `--configLoader runner` в `/private/tmp/juzimder-ai-build-317`, PHP syntax и `git diff --check` PASS. Screenshot-приёмка после изменения NOT RUN — Codex Browser недоступен, существующий preview не менялся.
 

@@ -107,7 +107,7 @@ final class AiPhotoSelection {
         return self::collapseEmptyHero($result);
     }
 
-    /** A split Hero is only a two-column composition while its contextual photo is assigned. */
+    /** Remove an unavailable Hero slot while retaining a coherent text or background fallback. */
     private static function collapseEmptyHero(array $result): array {
         if(isset($result['design']['photoSelection']['assignments']['hero'])||!is_string($result['design']['html']??null))return $result;
         $document=new \DOMDocument('1.0','UTF-8');$previous=libxml_use_internal_errors(true);
@@ -117,8 +117,11 @@ final class AiPhotoSelection {
         $hero=null;foreach($document->getElementsByTagName('section') as $section){$classes=preg_split('/\s+/',trim($section->getAttribute('class')),-1,PREG_SPLIT_NO_EMPTY)?:[];if(in_array('ai-hero',$classes,true)){$hero=$section;break;}}
         if(!$hero)return $result;
         $heroClasses=preg_split('/\s+/',trim($hero->getAttribute('class')),-1,PREG_SPLIT_NO_EMPTY)?:[];
-        if(!in_array('ai-hero-split',$heroClasses,true))return $result;
-        $heroClasses=array_values(array_diff($heroClasses,['ai-hero-split','ai-split-ready']));$heroClasses[]='ai-hero-no-photo';$hero->setAttribute('class',implode(' ',array_unique($heroClasses)));
+        $isSplit=in_array('ai-hero-split',$heroClasses,true);
+        $isBackground=in_array('ai-hero-background',$heroClasses,true);
+        if(!$isSplit&&!$isBackground)return $result;
+        if($isSplit)$heroClasses=array_values(array_diff($heroClasses,['ai-hero-split','ai-split-ready']));
+        $heroClasses[]='ai-hero-no-photo';$hero->setAttribute('class',implode(' ',array_unique($heroClasses)));
         $slot=(new \DOMXPath($document))->query('.//div[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ") and @data-image-slot="hero"]',$hero)->item(0);
         if($slot instanceof \DOMElement){
             $removable=$slot;$parent=$removable->parentNode;
@@ -133,7 +136,11 @@ final class AiPhotoSelection {
         }
         $html='';foreach($root->childNodes as $child)$html.=$document->saveHTML($child);$result['design']['html']=$html;
         $rootElement=$document->getElementsByTagName('div')->item(0);$scope=$rootElement instanceof \DOMElement?(preg_split('/\s+/',trim($rootElement->getAttribute('class')),-1,PREG_SPLIT_NO_EMPTY)[0]??''):'';
-        if($scope!==''&&is_string($result['design']['css']??null))$result['design']['css'].="\n.$scope .ai-hero.ai-hero-no-photo{display:flex;flex-direction:column;justify-content:center;grid-template-columns:none}";
+        if($scope!==''&&is_string($result['design']['css']??null)){
+            $result['design']['css'].=$isSplit
+                ?"\n.$scope .ai-hero.ai-hero-no-photo{display:flex;flex-direction:column;justify-content:center;grid-template-columns:none}"
+                :"\n.$scope .ai-hero.ai-hero-no-photo{grid-template-columns:none}";
+        }
         return $result;
     }
 
