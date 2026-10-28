@@ -1,6 +1,8 @@
 # Juzimder AI — контекст проекта
 
-**Текущая версия на 28.10.2026: 00.00.323 (npm 0.1.323).**
+**Текущая версия на 28.10.2026: 00.00.324 (npm 0.1.324).**
+
+00.00.324: В общий renderer-neutral Design Spec добавлено краткое правило выбора Hero-композиции по функции и уместности фото: typography-led для абстрактной темы, split когда фото поддерживает содержание рядом с текстом, background только для релевантной сцены с читаемым текстом. Заранее предусмотрен осмысленный вариант без найденного фото. Правило общее для основного AI и Zero AI; schema и HTML/Project Data не менялись. `php tests/ai.php`, `php tests/zero-ai.php`, полный `npm test`, production build в `/private/tmp/juzimder-ai-build-324`, PHP syntax и `git diff --check` PASS. Vite сохранил предупреждение о крупном GrapesJS chunk. Live generation/screenshots NOT RUN: в предыдущей проверке Codex Browser сообщил `Browser is not available: 14`; открытые вкладки не менялись.
 
 00.00.323: Open Design matcher расширен явными content-only сигналами для мобильных приложений, веб/онлайн-сервисов и систем управления; неоднозначные и нерелевантные брифы остаются без reference. Matcher regression, загрузчик pinned source, автоматический Commons photo selection, лицензии/авторы/ссылки и PHP syntax проверены. Audit upstream `main` подтвердил совпадение его SHA с pin `d297055b83b6226c2c5e40800bbb4287156c4025`, поэтому источник не переключался. Codex Browser недоступен (`Browser is not available: 14`): свежую генерацию, screenshots, сохранение/reopen/Undo не запускал, открытые вкладки и пользовательский диалог не трогал.
 

@@ -1,6 +1,8 @@
 # План Juzimder AI
 
-**Текущее состояние на 28.10.2026:** версия продукта 00.00.323 (`package.json`: 0.1.323). Open Design matcher распознаёт явные брифы мобильных приложений и веб-сервисов; основной JSON-контракт и безопасность загрузчика не менялись. Свежая генерация и screenshot QA ожидают доступности Codex Browser.
+**Текущее состояние на 28.10.2026:** версия продукта 00.00.324 (`package.json`: 0.1.324). В общий AI Design Spec добавлено функциональное правило выбора Hero-композиции с учётом уместности и отсутствия фото. Live generation и screenshot QA по-прежнему ожидают доступности Codex Browser.
+
+- [x] 00.00.324: Добавлено общее для основного редактора и Zero AI руководство выбирать Hero по функции и релевантности фото; промпт больше не трактует image slot как гарантию найденного снимка. `php tests/ai.php`, `php tests/zero-ai.php`, полный `npm test`, production build, PHP syntax и diff-check PASS. Live screenshot-приёмка не выполнена: Codex Browser в предыдущей проверке сообщил `Browser is not available: 14`.
 
 - [x] 00.00.323: Расширены явные content-only сигналы Open Design SaaS-reference (мобильное приложение, веб/онлайн-сервис, система управления); нерелевантные/неоднозначные брифы и учебная программа остаются без совпадения. `php tests/ai.php`, `php tests/open-design-template-source.php`, `php tests/stock-photos.php`, `php tests/ai-photo-selection.php`, PHP syntax и `git diff --check` PASS. Upstream `main` совпадает с закреплённым SHA. Codex Browser вернул `Browser is not available: 14`, поэтому live generation/screenshots/save-reopen-undo NOT RUN; пользовательские вкладки не изменялись.
 
