@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Juzimder;
 require_once __DIR__.'/ZeroBlock.php';
 require_once __DIR__.'/AiPhotoSelection.php';
+require_once __DIR__.'/AiDesignGuidelines.php';
 
 /** Generates a safe, editable Zero Data proposal. This class never saves Project Data. */
 final class AiZeroComposer {
@@ -58,7 +59,7 @@ final class AiZeroComposer {
         foreach($zeroData->artboards as $id=>$item)$breakpoints[]=['id'=>$id,'width'=>$item->width,'height'=>$item->height];
         try{$userPrompt=json_encode(['brief'=>$prompt,'desktopArtboard'=>['width'=>$board->width,'height'=>$board->height,'backgroundColor'=>$board->background??'#ffffff','hasBackgroundImage'=>!empty($board->backgroundImage)],'breakpoints'=>$breakpoints],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}catch(\JsonException){throw new \InvalidArgumentException('Не удалось подготовить описание композиции.');}
         $schema=self::schema($board->width,$board->height,!$photoForbidden);
-        $systemPrompt=self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT.($photoForbidden?"\nThe brief explicitly prohibits photos. Do not create image elements or photo search slots.":'');
+        $systemPrompt=AiDesignGuidelines::prompt()."\n\n".self::SYSTEM."\n".self::FACTUALITY."\n".self::CARD_LAYOUT.($photoForbidden?"\nThe brief explicitly prohibits photos. Do not create image elements or photo search slots.":'');
         $completion=$provider->completeJson($systemPrompt,$userPrompt,$schema,'juzimder_zero_composition',3000);
         try{$decoded=json_decode($completion['content']??'',true,32,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new AiProviderFailure('Zero composition returned invalid JSON.',false,'invalid_output','zero:invalid_json');}
         if(!is_array($decoded)||!is_array($decoded['elements']??null)||!array_is_list($decoded['elements'])||count($decoded['elements'])<3||count($decoded['elements'])>16)throw new AiProviderFailure('Zero composition has an invalid element list.',false,'invalid_output','zero:invalid_element_list');
