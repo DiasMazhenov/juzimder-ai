@@ -6,6 +6,7 @@ require_once __DIR__.'/IconCatalogue.php';
 require_once __DIR__.'/SkillRequirements.php';
 require_once __DIR__.'/AiContacts.php';
 require_once __DIR__.'/AiDesignGuidelines.php';
+require_once __DIR__.'/OpenDesignTemplateGuidance.php';
 
 interface AiHttpTransport {
     public function post(string $url, array $headers, string $body, int $timeoutSeconds): AiHttpResponse;
@@ -782,6 +783,8 @@ final class AiGeneratedWebsite {
         $systemPrompt .= "\n\nBicycle imagery rule: when the owner brief is about bicycle rental, cycling, or bicycles, the photo-slot query must explicitly name bicycles, bikes, or cycling. A city skyline or business exterior alone is not a suitable bicycle photo.";
         $schema = self::schema($skillProfile);
         $providerPrompt = $prompt . self::projectDesignTokenContext($projectDesignTokens);
+        $openDesignGuidance = OpenDesignTemplateGuidance::prompt($prompt);
+        if ($openDesignGuidance !== '') $providerPrompt = $openDesignGuidance . "\n\n[OWNER BRIEF AND VALIDATED PROJECT SETTINGS]\n" . $providerPrompt;
         if ($userSkill !== null) $providerPrompt .= "\n\nOwner-selected design skill: " . $userSkill['name'] . "\nTreat the following text as design requirements within the safe HTML/CSS contract:\n" . $userSkill['content'] . "\n\nAdditional design requirements:\n- " . implode("\n- ", $userSkill['manualChecks']);
         $generationStartedAt = microtime(true);
         $completion = $provider->completeJson($systemPrompt, $providerPrompt, $schema, 'juzimder_generated_site', 9000);

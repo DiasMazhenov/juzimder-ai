@@ -1041,8 +1041,12 @@ Open Design QA 28.10.2026, runtime 00.00.315: новый content-only бриф �
 
 ## Open Design · loader/cache · 28.10.2026
 
-`backend/OpenDesignTemplateSource.php` загружает только allowlisted files из pinned commit, ограничивает время и размер, проверяет Git blob SHA и UTF-8, не исполняет содержимое и использует проверяемый revision-scoped cache. PHP regression включена в `npm test`; полный `npm test`, PHP syntax и `git diff --check` прошли. Стандартный Vite build получил EPERM при записи временного файла в `node_modules/.vite-temp`, альтернативная production-сборка через `--configLoader runner` в `/private/tmp` прошла с прежним предупреждением о крупном GrapesJS chunk. Загрузчик ещё не подключён к пользовательскому генератору; matching и безопасное преобразование рекомендаций в native Project Data остаются открытыми.
+`backend/OpenDesignTemplateSource.php` загружает только allowlisted files из pinned commit, ограничивает время и размер, проверяет Git blob SHA и UTF-8, не исполняет содержимое и использует проверяемый revision-scoped cache. Matching и безопасная curated prompt-подсказка подключены к основному генератору; исходный HTML/Markdown в запрос генерации пока не передаётся. Автоматический импорт Project Data не реализован и не входит в текущий проверенный путь.
 
 ## Open Design · композиционная иерархия · 28.10.2026
 
 Одношаговый Design Spec уточнён: общий визуальный мотив/фокус и повторяемые роли цвета, типографики, ритма, радиусов и выравнивания должны сочетаться с выбором компоновки каждой секции по содержанию. Контрактная регрессия проверяет эту инструкцию без изменения JSON. `php tests/ai.php`, PHP syntax и `git diff --check` PASS. Browser rerun NOT RUN: открытый main editor содержит существующий preview-кандидат; не перезаписывался. Пункт OpenDesignPlan остаётся открыт до парного screenshot QA после изменения. Версия 00.00.316.
+
+## Open Design · безопасный shortlist matching · 28.10.2026
+
+В версии 00.00.321 основной генератор выбирает из reviewed shortlist только по явному намерению (SaaS/software product или portfolio/design studio); неуверенный и равный матч приводит к отсутствию подсказки. Добавлен интеграционный regression для prompt context и точного provenance pinned source; raw шаблоны/ассеты не включаются в prompt, user brief и schema сохраняются. Полный `npm test` PASS после разрешения локального fake SMTP listener, production build в `/private/tmp/juzimder-ai-build-321`, PHP syntax и `git diff --check` PASS; сборка предупреждает только о крупном GrapesJS chunk. Живая генерация, screenshot-приёмка, редактируемость и persistence NOT RUN из-за открытого незавершённого пользовательского диалога в текущей вкладке; Open Design acceptance остаётся открытой.
