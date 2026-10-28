@@ -1,6 +1,10 @@
 # План Juzimder AI
 
-**Текущее состояние на 28.10.2026:** версия продукта 00.00.324 (`package.json`: 0.1.324). В общий AI Design Spec добавлено функциональное правило выбора Hero-композиции с учётом уместности и отсутствия фото. Live generation и screenshot QA по-прежнему ожидают доступности Codex Browser.
+**Текущее состояние на 28.10.2026:** версия продукта 00.00.326 (`package.json`: 0.1.326). Общий AI Design Spec уточнён правилами единого визуального языка; live generation и screenshot QA по-прежнему ожидают доступности Codex Browser.
+
+- [x] 00.00.326: Общий Design Spec явно передаёт Standard/Taste/User Skill и Zero AI требования к pill-badge, общей левой линии с Hero, радиусу фото и копирайту фото (8px максимум, положение зависит от inline/background). Regression проверяет все генераторы; JSON и Project Data не менялись. Полный `npm test`, build в `/private/tmp/juzimder-ai-build-326`, PHP syntax и diff-check PASS; Vite сообщает о крупном GrapesJS chunk. В существующей вкладке просмотрены candidate screenshots `/private/tmp/juzimder-ai-opendesign-326-{desktop,tablet,mobile}.png`; это не новая генерация .326, а runtime показывает 00.00.313. Новый Standard content-only запуск остановился на запросе повторного входа в той же вкладке (`/private/tmp/juzimder-ai-opendesign-326-session-expired.png`), поэтому свежего candidate нет; Project Data не применялся и не менялся. Screenshot-приёмка текущей версии и визуальное соблюдение новых правил остаются открытыми.
+
+- [x] 00.00.325: Общая инструкция закрепляет одну библиотеку и один outline-стиль Tabler для Standard/Taste/User Skill и Zero AI; добавлены проверки передачи во все пути. Полный `npm test`, production build в `/private/tmp/juzimder-ai-build-325`, PHP syntax и diff-check PASS; Vite сообщает о крупном GrapesJS chunk. Screenshot-приёмка NOT RUN: Codex Browser был недоступен в предыдущей проверке. Визуальные пункты Open Design остаются открытыми.
 
 - [x] 00.00.324: Добавлено общее для основного редактора и Zero AI руководство выбирать Hero по функции и релевантности фото; промпт больше не трактует image slot как гарантию найденного снимка. `php tests/ai.php`, `php tests/zero-ai.php`, полный `npm test`, production build, PHP syntax и diff-check PASS. Live screenshot-приёмка не выполнена: Codex Browser в предыдущей проверке сообщил `Browser is not available: 14`.
 
