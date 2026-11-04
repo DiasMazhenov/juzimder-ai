@@ -4,6 +4,7 @@
         "league/oauth2-server": "^9.2",
         "firebase/php-jwt": "^7.0",
         "nyholm/psr7": "^1.8",
-        "nyholm/psr7-server": "^1.1"
+        "nyholm/psr7-server": "^1.1",
+        "symfony/uid": "^7.3"
     }
 }
