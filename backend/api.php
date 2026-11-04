@@ -53,7 +53,7 @@ try {
     $sandboxRequest = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox$~D', $path) === 1;
     $sandboxPreviewRequest = $method === 'GET' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox/[a-f0-9]{64}$~D', $path) === 1;
     $assetUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/assets$~D', $path) === 1;
-    $backupUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/backup$~D', $path) === 1;
+    $backupUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/(?:[a-f0-9]{24}/backup|restore-from-backup)$~D', $path) === 1;
     $body = [];
     if ($method !== 'GET') {
         if (!$sandboxRequest && !hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.','csrf_invalid');
@@ -153,6 +153,10 @@ try {
     }
     if (preg_match('~^/api/projects/resolve/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$~D', $path, $slugMatch) && $method === 'GET') {
         result($store->resolveProjectSlug($slugMatch[1], $user));
+    }
+    if ($path === '/api/projects/restore-from-backup' && $method === 'POST') {
+        if (array_diff(array_keys($body), ['backup']) || !array_key_exists('backup', $body)) throw new Problem(422, 'Передайте файл резервной копии.');
+        result($store->restoreBackupAsNewProject($user, $body['backup']), 201);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/backup$~D', $path, $backupMatch)) {
         if ($method === 'GET') {

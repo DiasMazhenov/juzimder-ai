@@ -170,6 +170,26 @@ async function dashboard() {
   const projects=await api('/projects');
   for(const project of projects)if(project.slug)projectSlugs.set(project.id,project.slug);
   app.innerHTML=`<div class="dashboard"><aside class="dash-sidebar"><a class="brand" href="/">${mark} Juzimder <span>AI</span></a><div class="workspace-label">ЛИЧНОЕ ПРОСТРАНСТВО</div><div class="nav-active">▦ <span>Мои проекты</span><small>${projects.length}</small></div><div class="sidebar-note"><span class="status-dot"></span> FOUNDATION<div class="version-label">Версия продукта <strong>${productVersion}</strong></div><p>От первой идеи<br>до первой страницы.</p></div><button id="logout" class="text-button">Выйти из аккаунта ↗</button></aside><main class="dash-main"><header class="dash-top"><span>Workspace <span class="slash">/</span> Мои проекты</span><span class="dash-user"><span>${esc(session.user.email)}</span><span class="version-label">Версия ${productVersion}</span></span></header><section class="project-intro"><p class="eyebrow">СОЗДАВАЙТЕ В СВОЁМ РИТМЕ</p><div class="title-row"><div><h1>Мои проекты<span class="accent">.</span></h1><p class="muted">Хорошие сайты начинаются с чистого листа.</p></div><button id="new-project" class="primary">+ Новый проект</button></div></section><section class="project-list">${projects.map(p=>`<button class="project-card" data-project="${esc(p.id)}"><div class="project-art"><div class="mini-window"><div></div><i></i><i></i><span></span></div><span class="project-arrow">↗</span></div><div class="project-info"><h3>${esc(p.name)}</h3><p>${p.version?'Ревизия '+p.version:'Новый проект'} <span>Страницы →</span></p></div></button>`).join('')}<button class="project-card new-card" id="empty-create"><span class="plus">+</span><strong>Новая идея</strong><span>Создайте сайт с нуля</span></button></section><p id="notice" role="status"></p><footer class="dash-footer"><span>YOUR IDEAS, TAKING SHAPE.</span><span>GrapesJS Core · PHP · SQLite</span></footer></main></div><dialog id="create-dialog"><form id="create-form"><p class="eyebrow">НОВОЕ ПРОСТРАНСТВО</p><h2>Как назовём проект?</h2><label>Название проекта<input name="name" required maxlength="100" placeholder="Например, Сайт студии"></label><p class="muted">Начнём с пустой главной страницы.</p><p id="create-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-create">Отмена</button><button class="primary">Создать проект →</button></div></form></dialog>`;
+  const newProjectButton=$('#new-project'),projectActions=document.createElement('div'),restoreButton=document.createElement('button'),restoreInput=document.createElement('input');
+  projectActions.className='project-actions dashboard-project-actions';
+  restoreButton.type='button';restoreButton.className='secondary-link';restoreButton.textContent='Восстановить из бэкапа';
+  restoreInput.type='file';restoreInput.accept='application/json,.json';restoreInput.hidden=true;restoreInput.setAttribute('aria-label','Файл резервной копии проекта');
+  newProjectButton.replaceWith(projectActions);projectActions.append(newProjectButton,restoreButton);$('.project-intro').append(restoreInput);
+  restoreButton.onclick=()=>restoreInput.click();
+  restoreInput.onchange=async()=>{
+    const file=restoreInput.files?.[0];if(!file)return;
+    restoreButton.disabled=true;
+    try{
+      if(file.size>33554432)throw new Error('Файл превышает допустимый размер 32 МБ.');
+      const backup=JSON.parse(await file.text());
+      if(backup?.format!=='juzimder-project-backup'||backup?.backupVersion!==1||!backup?.project||typeof backup.project.name!=='string')throw new Error('Файл не является резервной копией Juzimder поддерживаемого формата.');
+      notify(`Восстанавливаем «${backup.project.name}» как новый проект…`);
+      const restored=await api('/projects/restore-from-backup','POST',{backup});
+      projectSlugs.set(restored.id,restored.slug);
+      location.assign(projectUrl(restored.id));
+    }catch(error){notify(error.message,true);}
+    finally{restoreButton.disabled=false;restoreInput.value='';}
+  };
   installAccountRecovery();
   const open=()=>$('#create-dialog').showModal(); $('#new-project').onclick=open;$('#empty-create').onclick=open;$('#cancel-create').onclick=()=>$('#create-dialog').close();
   $('#create-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('.primary');b.disabled=true;try{const project=await api('/projects','POST',{name:new FormData(e.target).get('name')});projectSlugs.set(project.id,project.slug);location.assign(projectUrl(project.id));}catch(error){$('#create-error').textContent=error.message;b.disabled=false;}};

@@ -481,6 +481,54 @@ final class Store {
         } catch (\Throwable $error) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $error; }
         return $this->owned($id,$user);
     }
+    public function restoreBackupAsNewProject(string $user, mixed $backup): array {
+        try { $snapshot = json_decode(json_encode($backup, JSON_THROW_ON_ERROR), true, 64, JSON_THROW_ON_ERROR); }
+        catch (\Throwable) { throw new Problem(422, 'Не удалось прочитать файл резервной копии.'); }
+        if (!is_array($snapshot) || array_is_list($snapshot) || ($snapshot['format'] ?? null) !== 'juzimder-project-backup' || ($snapshot['backupVersion'] ?? null) !== 1 || !is_string($snapshot['sourceProjectId'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $snapshot['sourceProjectId'])) throw new Problem(422, 'Файл не является резервной копией поддерживаемого формата.');
+        $project = $snapshot['project'] ?? null;
+        if (!is_array($project) || array_is_list($project) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
+        ProjectSettings::validateSlug($project['slug']);
+        $assetIds = []; $skillIds = [];
+        foreach ($project['assets'] as $asset) {
+            if (!is_array($asset) || !is_string($asset['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $asset['id']) || isset($assetIds[$asset['id']])) throw new Problem(422, 'В резервной копии есть некорректные или повторяющиеся изображения.');
+            $assetIds[$asset['id']] = bin2hex(random_bytes(12));
+        }
+        $skills = $project['aiSkills']['skills'] ?? null;
+        if (is_array($skills) && array_is_list($skills)) foreach ($skills as $skill) {
+            if (!is_array($skill) || !is_string($skill['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $skill['id']) || isset($skillIds[$skill['id']])) throw new Problem(422, 'В резервной копии есть некорректные или повторяющиеся AI Skills.');
+            $skillIds[$skill['id']] = bin2hex(random_bytes(12));
+        }
+        $created = $this->create($user, trim($project['name']));
+        $newId = (string)$created['id'];
+        try {
+            $snapshot['sourceProjectId'] = $newId;
+            $snapshot['project']['slug'] = $created['slug'];
+            foreach ($snapshot['project']['assets'] as &$asset) $asset['id'] = $assetIds[$asset['id']];
+            unset($asset);
+            if (isset($snapshot['project']['aiSkills']['skills']) && is_array($snapshot['project']['aiSkills']['skills'])) {
+                foreach ($snapshot['project']['aiSkills']['skills'] as &$skill) $skill['id'] = $skillIds[$skill['id']];
+                unset($skill);
+                $activeSkillId = $snapshot['project']['aiSkills']['activeSkillId'] ?? null;
+                if (is_string($activeSkillId) && isset($skillIds[$activeSkillId])) $snapshot['project']['aiSkills']['activeSkillId'] = $skillIds[$activeSkillId];
+            }
+            $sourceId = (string)($backup instanceof \stdClass ? ($backup->sourceProjectId ?? '') : ($backup['sourceProjectId'] ?? ''));
+            $rewriteUrl = static function (string $url) use ($sourceId, $newId, $assetIds): string {
+                if (!preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $url, $match) || !hash_equals($sourceId, $match[1]) || !isset($assetIds[$match[2]])) return $url;
+                return '/api/projects/' . $newId . '/assets/' . $assetIds[$match[2]] . '/file';
+            };
+            $rewriteReferences = function (&$value, ?string $key = null) use (&$rewriteReferences, $rewriteUrl): void {
+                if (is_array($value)) { foreach ($value as $childKey => &$child) $rewriteReferences($child, (string)$childKey); unset($child); return; }
+                if (!is_string($value)) return;
+                if ($key === 'background-image') { $source = BackgroundImage::source($value); if ($source !== null) $value = str_replace($source, $rewriteUrl($source), $value); return; }
+                if (in_array($key, ['src','backgroundImage'], true)) $value = $rewriteUrl($value);
+            };
+            $rewriteReferences($snapshot['project']['document']);
+            return $this->restoreBackup($newId, $user, (int)$created['version'], $snapshot);
+        } catch (\Throwable $error) {
+            $this->query('DELETE FROM projects WHERE id=? AND owner_id=?', [$newId, $user]);
+            throw $error;
+        }
+    }
     public function uploadAsset(string $id, string $user, string $name, string $content): array {
         $this->owned($id, $user);
         if ($content === '' || strlen($content) > 4194304) throw new Problem(413, 'Изображение должно занимать не более 4 МБ.');

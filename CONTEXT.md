@@ -1,5 +1,7 @@
 # Juzimder AI — контекст проекта
 
+04.11.2026 · 00.00.332 Shared hosting и backup import: ByetHost ранее показывал Apache error после распаковки; .htaccess включал Options/SetEnv и rewrite без защиты, точная директива не была изолирована. Добавлен portable flat-root ZIP с router, guarded rewrite, deny rules и видимой копией htaccess.txt. Импорт бэкапа создаёт новый проект, перепривязывает медиа и AI Skills, частичный импорт откатывается. npm run package:shared-hosting, npm test, PHP syntax и git diff --check PASS; архив проверен на отсутствие local DB/sidecars. Live host acceptance NOT RUN.
+
 **Текущая версия на 28.10.2026: 00.00.331 (npm 0.1.331).**
 
 00.00.327: В Open Design matcher удалён низкоуверенный одиночный сигнал `дизайнер`: обычный сайт специалиста больше не получает портфолио-reference без явного типа страницы. Regression покрывает выбор общего `web-prototype` для дизайн-студии и портфолио керамиста, отказ для сайта мебельного дизайнера, SaaS и неоднозначные запросы. `php tests/ai.php` PASS; Project Data и пользовательские страницы не затронуты. Live generation и screenshots остаются NOT RUN: редактор в прежней вкладке по-прежнему требует повторного входа.

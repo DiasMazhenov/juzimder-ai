@@ -232,3 +232,5 @@
 .settings-dashboard .project-sidebar-title{margin:0 8px 4px}
 .settings-dashboard .project-side-link,.settings-dashboard .dash-sidebar>.nav-active{padding:10px 12px}
 @media(max-width:800px){.settings-dashboard{height:auto;min-height:100dvh;overflow:visible}.settings-dashboard>.dash-sidebar{position:static;inset:auto;width:auto;height:auto;min-height:0;overflow:visible}.settings-dashboard>.dash-main{grid-column:1;height:auto;min-height:0;overflow:visible}.settings-dashboard .dash-sidebar .sidebar-settings-nav{flex:0 0 calc(100% + 40px);max-height:none}}
+
+.dashboard-project-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
