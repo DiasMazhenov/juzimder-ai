@@ -1,6 +1,14 @@
 <?php
 declare(strict_types=1);
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (is_file(__DIR__ . '/../var/update-maintenance')) {
+    http_response_code(503);
+    header('Retry-After: 5');
+    header('Cache-Control: no-store');
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Juzimder AI is updating. Please retry shortly.';
+    return true;
+}
 require_once __DIR__ . '/../backend/PublicOrigin.php';
 require_once __DIR__ . '/../backend/TrustedProxyPolicy.php';
 $publicProjectId = Juzimder\PublicOrigin::projectIdForHost((string)($_SERVER['HTTP_HOST'] ?? ''));

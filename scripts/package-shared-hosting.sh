@@ -38,6 +38,7 @@ cp public/index.html "$stage/index.html"
 sed 's#\.\./backend/#backend/#g; s#\.\./var/#var/#g' public/router.php > "$stage/router.php"
 cp -R public/assets "$stage/assets"
 cp -R backend resources schemas "$stage/"
+node --input-type=commonjs -e 'const fs=require("node:fs");const p=JSON.parse(fs.readFileSync("package.json","utf8"));process.stdout.write(JSON.stringify({productVersion:p.productVersion,packageVersion:p.version})+"\n")' > "$stage/release.json"
 if [ -f composer.json ]; then
   cp -R vendor "$stage/vendor"
 fi
@@ -49,6 +50,7 @@ RewriteEngine On
 RewriteRule ^\.well-known/oauth-(authorization-server|protected-resource)(/mcp)?$ router.php [L]
 RewriteRule (^|/)\. - [F,L]
 RewriteRule ^(backend|resources|schemas|var|vendor)(/|$) - [F,L]
+RewriteRule ^release\.json$ - [F,L]
 RewriteCond %{REQUEST_URI} !^/assets/[a-zA-Z0-9_.-]+$
 RewriteRule ^ router.php [L]
 </IfModule>
@@ -74,9 +76,13 @@ Juzimder AI shared hosting package
 
 1. Use PHP 8.2 or newer with PDO SQLite, Fileinfo, DOM/libxml, mbstring, Sodium, OpenSSL and ZIP.
 2. Extract every file into the domain document root. Confirm the hidden root .htaccess exists; if the file manager skipped it, rename the visible htaccess.txt to .htaccess.
-3. Make the var/ directory writable by the PHP service user. Keep it private.
+3. Make var/ writable by the PHP service user. Keep it private. For one-click updates, PHP must also be allowed to replace the application files and directories in the document root; otherwise use a fresh package manually.
 4. Enable Apache mod_rewrite and AllowOverride for this directory. Use HTTPS for login.
-5. Open the domain and create your own account. Do not upload a local database or .env file.
+5. Open the domain and create your own account. The first account is the installation manager and can check/install updates. Do not upload a local database or .env file.
+
+Updates are downloaded from published stable GitHub Releases for DiasMazhenov/juzimder-ai. The updater requires outbound HTTPS access to GitHub and either PHP cURL or allow_url_fopen. It verifies the release checksum and version before replacing application files. Before installation, SQLite and its encryption keys are copied to the private var/updates/ directory. Keep enough free disk space for the update archive, temporary files and backup.
+
+The first release must be installed manually. Later releases can be checked from the projects dashboard by the installation manager. The public release metadata contains only the product version.
 
 The SQLite database is created automatically in var/app.sqlite. Private application
 files and storage have access-denial rules. Do not remove the .htaccess files.
