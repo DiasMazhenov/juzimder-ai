@@ -74,6 +74,14 @@ if ($publicProjectId !== null) {
     if ($method !== 'HEAD') echo $publishedFile['content'];
     return true;
 }
+if (is_file(__DIR__ . '/../var/update-maintenance')) {
+    http_response_code(503);
+    header('Retry-After: 5');
+    header('Cache-Control: no-store');
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Juzimder AI is updating. Please retry shortly.';
+    return true;
+}
 $appNonce = bin2hex(random_bytes(16));
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
@@ -84,6 +92,7 @@ if (in_array(strtolower((string)($_SERVER['HTTP_HOST'] ?? '')), ['127.0.0.1:8080
     return true;
 }
 if (str_starts_with($path, '/api/')) { require __DIR__ . '/../backend/api.php'; return true; }
+if ($path === '/mcp' || str_starts_with($path, '/oauth/') || str_starts_with($path, '/.well-known/oauth-')) { require __DIR__ . '/../backend/mcp.php'; return true; }
 if ($path === '/' || $path === '/index.html' || preg_match('~^/projects/(?:[a-f0-9]{24}|[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)(?:/settings|/pages/[A-Za-z0-9_-]{1,128}/(?:edit|zero/[A-Za-z][A-Za-z0-9_-]{0,127}/edit))?$~D',$path)) {
     $index = is_file(__DIR__ . '/index.html') ? file_get_contents(__DIR__ . '/index.html') : false;
     if (is_string($index)) {
@@ -92,5 +101,6 @@ if ($path === '/' || $path === '/index.html' || preg_match('~^/projects/(?:[a-f0
     } else { http_response_code(503); echo 'Run npm run build'; }
     return true;
 }
+if ($path === '/favicon.png' && is_file(__DIR__ . '/favicon.png')) return false;
 if (preg_match('~^/assets/[a-zA-Z0-9_.-]+$~D', $path) && is_file(__DIR__.$path)) return false;
 http_response_code(404); echo 'Not found';

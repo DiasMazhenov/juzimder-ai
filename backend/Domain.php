@@ -248,6 +248,11 @@ final class Store {
         $row['settings'] = ProjectSettings::reconcile($settings, $row['document']);
         unset($row['payload'], $row['settings_payload']); return $row;
     }
+    public function projects(string $user, ?int $limit = null, int $offset = 0): array {
+        if ($limit === null) return $this->query('SELECT p.id,p.slug,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC', [$user])->fetchAll();
+        $limit = max(1, min(51, $limit)); $offset = max(0, min(100000, $offset));
+        return $this->query('SELECT p.id,p.slug,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE owner_id=? ORDER BY p.created_at DESC LIMIT ? OFFSET ?', [$user,$limit,$offset])->fetchAll();
+    }
     public function publication(string $id, string $user): ?array {
         $this->owned($id, $user);
         $row = $this->query('SELECT v.id,v.version,v.source_project_version,v.created_at FROM project_publications p JOIN publication_versions v ON v.project_id=p.project_id AND v.id=p.publication_id WHERE p.project_id=?', [$id])->fetch();
@@ -406,6 +411,8 @@ final class Store {
     }
     public function backup(string $id, string $user): array {
         $project = $this->owned($id, $user);
+        require_once __DIR__ . '/AiCredentials.php';
+        $aiProfiles = (new AiCredentialVault($this))->backupSnapshot($id, $user);
         $assets = $this->query('SELECT id,name,mime,byte_length,width,height,sha256,content FROM project_assets WHERE project_id=? ORDER BY id', [$id])->fetchAll();
         $packedAssets = [];
         foreach ($assets as $asset) {
@@ -416,15 +423,16 @@ final class Store {
         $skillState = $this->query('SELECT active_skill_id,version FROM project_ai_skill_state WHERE project_id=?', [$id])->fetch() ?: ['active_skill_id'=>null,'version'=>0];
         $skills = $this->query('SELECT id,name,content,manual_checks_json FROM project_ai_skills WHERE project_id=? ORDER BY created_at,id', [$id])->fetchAll();
         $packedSkills = array_map(static fn(array $skill): array => ['id'=>$skill['id'],'name'=>$skill['name'],'content'=>$skill['content'],'manualChecks'=>json_decode($skill['manual_checks_json'],true,16,JSON_THROW_ON_ERROR)], $skills);
-        return ['format'=>'juzimder-project-backup','backupVersion'=>1,'createdAt'=>gmdate('c'),'sourceProjectId'=>$id,'project'=>['name'=>$project['name'],'slug'=>$project['slug'],'document'=>$project['document'],'settings'=>$project['settings'],'assets'=>$packedAssets,'aiSkills'=>['version'=>(int)$skillState['version'],'activeSkillId'=>$skillState['active_skill_id'],'skills'=>$packedSkills]]];
+        return ['format'=>'juzimder-project-backup','backupVersion'=>2,'createdAt'=>gmdate('c'),'sourceProjectId'=>$id,'project'=>['name'=>$project['name'],'slug'=>$project['slug'],'document'=>$project['document'],'settings'=>$project['settings'],'assets'=>$packedAssets,'aiSkills'=>['version'=>(int)$skillState['version'],'activeSkillId'=>$skillState['active_skill_id'],'skills'=>$packedSkills],'aiProfiles'=>$aiProfiles]];
     }
     public function restoreBackup(string $id, string $user, int $version, mixed $backup): array {
         $this->owned($id, $user);
         $fields = $backup instanceof \stdClass ? get_object_vars($backup) : (is_array($backup) && !array_is_list($backup) ? $backup : null);
         $projectValue = $fields['project'] ?? null;
-        if ($fields === null || ($fields['format'] ?? null) !== 'juzimder-project-backup' || ($fields['backupVersion'] ?? null) !== 1 || ($fields['sourceProjectId'] ?? null) !== $id || !($projectValue instanceof \stdClass || (is_array($projectValue) && !array_is_list($projectValue)))) throw new Problem(422, 'Файл не является резервной копией этого проекта или имеет неподдерживаемую версию.');
+        $backupVersion = $fields['backupVersion'] ?? null;
+        if ($fields === null || ($fields['format'] ?? null) !== 'juzimder-project-backup' || !in_array($backupVersion, [1,2], true) || ($fields['sourceProjectId'] ?? null) !== $id || !($projectValue instanceof \stdClass || (is_array($projectValue) && !array_is_list($projectValue)))) throw new Problem(422, 'Файл не является резервной копией этого проекта или имеет неподдерживаемую версию.');
         $project = $projectValue instanceof \stdClass ? get_object_vars($projectValue) : $projectValue;
-        if (array_diff(array_keys($project), ['name','slug','document','settings','assets','aiSkills']) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
+        if (array_diff(array_keys($project), ['name','slug','document','settings','assets','aiSkills','aiProfiles']) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200 || ($backupVersion === 2 && !array_key_exists('aiProfiles', $project))) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
         $slug = ProjectSettings::validateSlug($project['slug']);
         $document = $project['document'] ?? null;
         Document::validate($document);
@@ -458,6 +466,11 @@ final class Store {
             $packedSkills[$skill['id']]=['name'=>trim($skill['name']),'content'=>$skill['content'],'checks'=>$skill['manualChecks']];
         }
         $activeSkillId=$skillState['activeSkillId'];if($activeSkillId!==null&&!isset($packedSkills[$activeSkillId])) throw new Problem(422,'Активный AI Skill отсутствует в резервной копии.');
+        $packedAiProfiles = null;
+        if (array_key_exists('aiProfiles', $project)) {
+            require_once __DIR__ . '/AiCredentials.php';
+            $packedAiProfiles = (new AiCredentialVault($this))->validateBackupSnapshot($id, $user, $project['aiProfiles']);
+        }
         $current = $this->owned($id, $user); if ($current['version'] !== $version) throw new Problem(409, 'Проект изменился. Обновите страницу и повторите восстановление.');
         $this->db->exec('BEGIN IMMEDIATE');
         try {
@@ -475,11 +488,82 @@ final class Store {
             $this->query('DELETE FROM project_ai_skills WHERE project_id=?',[$id]);
             foreach($packedSkills as $skillId=>$skill){$this->query('INSERT INTO project_ai_skills(id,project_id,name,content,manual_checks_json) VALUES(?,?,?,?,?)',[$skillId,$id,$skill['name'],$skill['content'],json_encode($skill['checks'],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)]);}
             $this->query('INSERT INTO project_ai_skill_state(project_id,active_skill_id,version) VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET active_skill_id=excluded.active_skill_id,version=excluded.version,updated_at=CURRENT_TIMESTAMP',[$id,$activeSkillId,$nextSkillVersion]);
+            if ($packedAiProfiles !== null) {
+                $this->query('DELETE FROM project_ai_profiles WHERE project_id=?',[$id]);
+                foreach ($packedAiProfiles['profiles'] as $profile) {
+                    $this->query('INSERT INTO project_ai_profiles(id,project_id,name,api_key_ciphertext,model,fallback_model) VALUES(?,?,?,?,?,?)',[$profile['id'],$id,$profile['name'],$profile['credentialCiphertext'],$profile['model'],$profile['fallbackModel']]);
+                }
+                $currentProfileVersion=$this->query('SELECT version FROM project_ai_profile_state WHERE project_id=?',[$id])->fetchColumn();
+                $nextProfileVersion=$currentProfileVersion===false?1:(int)$currentProfileVersion+1;
+                $this->query('INSERT INTO project_ai_profile_state(project_id,active_profile_id,version) VALUES(?,?,?) ON CONFLICT(project_id) DO UPDATE SET active_profile_id=excluded.active_profile_id,version=excluded.version,updated_at=CURRENT_TIMESTAMP',[$id,$packedAiProfiles['activeProfileId'],$nextProfileVersion]);
+            }
             $this->query('INSERT INTO revisions(project_id,version,payload,settings_payload) VALUES(?,?,?,?)', [$id,$version+1,$payload,$settingsPayload]);
             $this->query('DELETE FROM revisions WHERE project_id=? AND version NOT IN (SELECT version FROM revisions WHERE project_id=? ORDER BY version DESC LIMIT 200)', [$id,$id]);
             $this->db->commit();
         } catch (\Throwable $error) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $error; }
         return $this->owned($id,$user);
+    }
+    public function restoreBackupAsNewProject(string $user, mixed $backup): array {
+        try { $snapshot = json_decode(json_encode($backup, JSON_THROW_ON_ERROR), true, 64, JSON_THROW_ON_ERROR); }
+        catch (\Throwable) { throw new Problem(422, 'Не удалось прочитать файл резервной копии.'); }
+        if (!is_array($snapshot) || array_is_list($snapshot) || ($snapshot['format'] ?? null) !== 'juzimder-project-backup' || !in_array($snapshot['backupVersion'] ?? null, [1,2], true) || !is_string($snapshot['sourceProjectId'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $snapshot['sourceProjectId'])) throw new Problem(422, 'Файл не является резервной копией поддерживаемого формата.');
+        $project = $snapshot['project'] ?? null;
+        if (!is_array($project) || array_is_list($project) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
+        ProjectSettings::validateSlug($project['slug']);
+        $assetIds = []; $skillIds = []; $aiProfileIds = [];
+        foreach ($project['assets'] as $asset) {
+            if (!is_array($asset) || !is_string($asset['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $asset['id']) || isset($assetIds[$asset['id']])) throw new Problem(422, 'В резервной копии есть некорректные или повторяющиеся изображения.');
+            $assetIds[$asset['id']] = bin2hex(random_bytes(12));
+        }
+        $skills = $project['aiSkills']['skills'] ?? null;
+        if (is_array($skills) && array_is_list($skills)) foreach ($skills as $skill) {
+            if (!is_array($skill) || !is_string($skill['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $skill['id']) || isset($skillIds[$skill['id']])) throw new Problem(422, 'В резервной копии есть некорректные или повторяющиеся AI Skills.');
+            $skillIds[$skill['id']] = bin2hex(random_bytes(12));
+        }
+        $aiProfiles = $project['aiProfiles']['profiles'] ?? null;
+        if (is_array($aiProfiles) && array_is_list($aiProfiles)) foreach ($aiProfiles as $profile) {
+            if (!is_array($profile) || !is_string($profile['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $profile['id']) || isset($aiProfileIds[$profile['id']])) throw new Problem(422, 'В резервной копии есть некорректные или повторяющиеся AI-профили.');
+            $aiProfileIds[$profile['id']] = bin2hex(random_bytes(12));
+        }
+        $validatedAiProfiles = null;
+        $sourceId = $snapshot['sourceProjectId'];
+        if (array_key_exists('aiProfiles', $project)) {
+            require_once __DIR__ . '/AiCredentials.php';
+            $vault = new AiCredentialVault($this);
+            $validatedAiProfiles = $vault->validateBackupSnapshot($sourceId, $user, $project['aiProfiles'], false);
+        }
+        $created = $this->create($user, trim($project['name']));
+        $newId = (string)$created['id'];
+        try {
+            $snapshot['sourceProjectId'] = $newId;
+            $snapshot['project']['slug'] = $created['slug'];
+            foreach ($snapshot['project']['assets'] as &$asset) $asset['id'] = $assetIds[$asset['id']];
+            unset($asset);
+            if (isset($snapshot['project']['aiSkills']['skills']) && is_array($snapshot['project']['aiSkills']['skills'])) {
+                foreach ($snapshot['project']['aiSkills']['skills'] as &$skill) $skill['id'] = $skillIds[$skill['id']];
+                unset($skill);
+                $activeSkillId = $snapshot['project']['aiSkills']['activeSkillId'] ?? null;
+                if (is_string($activeSkillId) && isset($skillIds[$activeSkillId])) $snapshot['project']['aiSkills']['activeSkillId'] = $skillIds[$activeSkillId];
+            }
+            if ($validatedAiProfiles !== null) {
+                $snapshot['project']['aiProfiles'] = $vault->rebindBackupSnapshot($sourceId, $newId, $user, $validatedAiProfiles, $aiProfileIds);
+            }
+            $rewriteUrl = static function (string $url) use ($sourceId, $newId, $assetIds): string {
+                if (!preg_match('~^/api/projects/([a-f0-9]{24})/assets/([a-f0-9]{24})/file$~D', $url, $match) || !hash_equals($sourceId, $match[1]) || !isset($assetIds[$match[2]])) return $url;
+                return '/api/projects/' . $newId . '/assets/' . $assetIds[$match[2]] . '/file';
+            };
+            $rewriteReferences = function (&$value, ?string $key = null) use (&$rewriteReferences, $rewriteUrl): void {
+                if (is_array($value)) { foreach ($value as $childKey => &$child) $rewriteReferences($child, (string)$childKey); unset($child); return; }
+                if (!is_string($value)) return;
+                if ($key === 'background-image') { $source = BackgroundImage::source($value); if ($source !== null) $value = str_replace($source, $rewriteUrl($source), $value); return; }
+                if (in_array($key, ['src','backgroundImage'], true)) $value = $rewriteUrl($value);
+            };
+            $rewriteReferences($snapshot['project']['document']);
+            return $this->restoreBackup($newId, $user, (int)$created['version'], $snapshot);
+        } catch (\Throwable $error) {
+            $this->query('DELETE FROM projects WHERE id=? AND owner_id=?', [$newId, $user]);
+            throw $error;
+        }
     }
     public function uploadAsset(string $id, string $user, string $name, string $content): array {
         $this->owned($id, $user);

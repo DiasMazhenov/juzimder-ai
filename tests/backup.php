@@ -25,6 +25,10 @@ try {
     backupCheck($restored['settings']['forms']['notificationsEnabled']===true&&$restored['settings']['forms']['recipients']===['owner@example.test'],'Restore returns all project settings');
     backupCheck(count($store->listAssets($id,'backup-user'))===1&&$store->assetFile($id,'backup-user',$asset['id'])['content']===$png,'Restore atomically reinstates the media library and preserves stable asset references');
     backupCheck($store->query('SELECT active_skill_id FROM project_ai_skill_state WHERE project_id=?',[$id])->fetchColumn()===str_repeat('a',24)&&$store->query('SELECT name FROM project_ai_skills WHERE project_id=?',[$id])->fetchColumn()==='Backup skill','Restore reinstates the active Skill and its content');
+    $imported=$store->restoreBackupAsNewProject('backup-user',$backup);$importedAssets=$store->listAssets($imported['id'],'backup-user');$importedSkillId=$store->query('SELECT active_skill_id FROM project_ai_skill_state WHERE project_id=?',[$imported['id']])->fetchColumn();$importedSource=$imported['document']->data->pages[0]->frames[0]->component->components[0]->attributes->src;
+    backupCheck($imported['id']!==$id&&$imported['slug']==='backup-qa-2'&&$imported['name']==='Backup QA','Backup import creates a distinct project with a unique readable URL');
+    backupCheck(count($importedAssets)===1&&$importedAssets[0]['id']!==$asset['id']&&$store->assetFile($imported['id'],'backup-user',$importedAssets[0]['id'])['content']===$png&&$importedSource==='/api/projects/'.$imported['id'].'/assets/'.$importedAssets[0]['id'].'/file','Backup import rekeys image IDs and rewrites page asset references');
+    backupCheck(is_string($importedSkillId)&&$importedSkillId!==str_repeat('a',24)&&$store->query('SELECT name FROM project_ai_skills WHERE project_id=?',[$imported['id']])->fetchColumn()==='Backup skill','Backup import rekeys and preserves the active AI Skill');
     backupReject(fn()=>$store->restoreBackup($id,'backup-user',2,$backup),409);
     $corrupt=$backup;$corrupt['project']['assets'][0]['sha256']=str_repeat('0',64);
     backupReject(fn()=>$store->restoreBackup($id,'backup-user',3,$corrupt),422);

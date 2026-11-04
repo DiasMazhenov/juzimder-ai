@@ -4,7 +4,7 @@ namespace Juzimder;
 
 /** Deterministic defaults applied after the HTML/CSS allowlists, before Skill audits. */
 final class GeneratedDesignDefaults {
-    public static function apply(array $design):array {
+    public static function apply(array $design,bool $enforceHeroViewportMinimum=true,bool $preserveAuthoredComposition=false):array {
         $dom=new \DOMDocument('1.0','UTF-8');$dom->loadHTML('<?xml encoding="UTF-8">'.$design['html'],LIBXML_HTML_NOIMPLIED|LIBXML_HTML_NODEFDTD|LIBXML_NOERROR|LIBXML_NOWARNING);
         $xpath=new \DOMXPath($dom);$root=$xpath->query('//div')->item(0);if(!$root instanceof \DOMElement)return $design;
         $scope=explode(' ',$root->getAttribute('class'))[0];
@@ -20,12 +20,14 @@ final class GeneratedDesignDefaults {
         $heroMinHeightRule='';
         $heroCopyOnly=null;
         if($hero instanceof \DOMElement){
-            self::addClass($hero,'ai-hero-default-viewport-height');
-            $heroMinHeight=$value($hero,'min-height');
-            $unboundedMinHeight=in_array($heroMinHeight,['auto','fit-content','min-content','max-content','inherit','initial','unset'],true);
-            $heroMinHeightRule=$heroMinHeight!==null&&!$unboundedMinHeight?'max(75vh,'.$heroMinHeight.')':'75vh';
+            if($enforceHeroViewportMinimum){
+                self::addClass($hero,'ai-hero-default-viewport-height');
+                $heroMinHeight=$value($hero,'min-height');
+                $unboundedMinHeight=in_array($heroMinHeight,['auto','fit-content','min-content','max-content','inherit','initial','unset'],true);
+                $heroMinHeightRule=$heroMinHeight!==null&&!$unboundedMinHeight?'max(75vh,'.$heroMinHeight.')':'75vh';
+            }
             $heroChildren=array_values(array_filter(iterator_to_array($hero->childNodes),static fn($node)=>$node instanceof \DOMElement));
-            if(count($heroChildren)===1&&$heroChildren[0]->getElementsByTagName('h1')->length){
+            if(!$preserveAuthoredComposition&&count($heroChildren)===1&&$heroChildren[0]->getElementsByTagName('h1')->length){
                 $heroCopyOnly=$heroChildren[0];
                 self::addClass($heroCopyOnly,'ai-hero-copy-only');
             }
@@ -33,19 +35,21 @@ final class GeneratedDesignDefaults {
         $alignment='left';$heading=$hero instanceof \DOMElement?$hero->getElementsByTagName('h1')->item(0):null;
         for($node=$heading??$hero;$node instanceof \DOMElement;$node=$node->parentNode){$found=$value($node,'text-align');if($found!==null&&$found!=='inherit'){$alignment=$found;break;}}
         $extra='';$blocks=[];
-        if($hero instanceof \DOMElement)$extra="\n.$scope .ai-hero.ai-hero-default-viewport-height{box-sizing:border-box;min-height:$heroMinHeightRule}";
-        if($hero instanceof \DOMElement)$extra.="\n.$scope .ai-hero > .ai-hero-copy-only.ai-hero-copy-only{grid-column:1/-1;box-sizing:border-box;width:100%;max-width:min(100%,760px);min-width:0;justify-self:start;margin-left:0;margin-right:auto}";
+        if($hero instanceof \DOMElement&&$enforceHeroViewportMinimum)$extra="\n.$scope .ai-hero.ai-hero-default-viewport-height{box-sizing:border-box;min-height:$heroMinHeightRule}";
+        if($hero instanceof \DOMElement&&!$preserveAuthoredComposition)$extra.="\n.$scope .ai-hero > .ai-hero-copy-only.ai-hero-copy-only{grid-column:1/-1;box-sizing:border-box;width:100%;max-width:min(100%,760px);min-width:0;justify-self:start;margin-left:0;margin-right:auto}";
         if($hero instanceof \DOMElement && ($radius=$value($hero,'border-radius'))!==null && !in_array($radius,['0','0px','none','inherit'],true)) {
             self::addClass($hero,'ai-hero-rounded');
             $extra.="\n.$scope .ai-hero.ai-hero-rounded{overflow:hidden}";
         }
         foreach($xpath->query('//section') as $section)$blocks[]=$section;
         if($hero instanceof \DOMElement&&!in_array($hero,$blocks,true))array_unshift($blocks,$hero);
-        foreach($blocks as $block){
-            if($alignment==='left'||$alignment==='start')self::addClass($block,'ai-default-left');
-            $h=$block->getElementsByTagName('h1')->item(0)??$block->getElementsByTagName('h2')->item(0);
-            $badge=$xpath->query('.//*[contains(concat(" ",normalize-space(@class)," ")," ai-pill-badge ")]',$block)->item(0);
-            if(!$badge){$badge=$dom->createElement('span');$badge->appendChild($dom->createTextNode(mb_substr(trim($h?->textContent??'Раздел'),0,40)));self::addClass($badge,'ai-pill-badge');if($h)$h->parentNode->insertBefore($badge,$h);else $block->insertBefore($badge,$block->firstChild);}
+        if(!$preserveAuthoredComposition){
+            foreach($blocks as $block){
+                if($alignment==='left'||$alignment==='start')self::addClass($block,'ai-default-left');
+                $h=$block->getElementsByTagName('h1')->item(0)??$block->getElementsByTagName('h2')->item(0);
+                $badge=$xpath->query('.//*[contains(concat(" ",normalize-space(@class)," ")," ai-pill-badge ")]',$block)->item(0);
+                if(!$badge&&!self::hasClass($block,'ai-blog-section')){$badge=$dom->createElement('span');$badge->appendChild($dom->createTextNode(mb_substr(trim($h?->textContent??'Раздел'),0,40)));self::addClass($badge,'ai-pill-badge');if($h)$h->parentNode->insertBefore($badge,$h);else $block->insertBefore($badge,$block->firstChild);}
+            }
         }
         $defaultSpacingNavs=[];
         foreach($xpath->query('//nav') as $nav){
@@ -54,7 +58,7 @@ final class GeneratedDesignDefaults {
             foreach(['padding','padding-top','padding-right','padding-bottom','padding-left','padding-inline','padding-inline-start','padding-inline-end'] as $property){
                 if($value($nav,$property)!==null){$hasExplicitPadding=true;break;}
             }
-            if(!$hasExplicitPadding){self::addClass($nav,'ai-nav-default-spacing');$defaultSpacingNavs[]=$nav;}
+            if(!$preserveAuthoredComposition&&!$hasExplicitPadding){self::addClass($nav,'ai-nav-default-spacing');$defaultSpacingNavs[]=$nav;}
         }
         if($defaultSpacingNavs)$extra.="\n.$scope nav.ai-nav-default-spacing{box-sizing:border-box;padding:12px 20px}";
         $defaultSpacingSections=[];
@@ -74,11 +78,11 @@ final class GeneratedDesignDefaults {
         };
         foreach($xpath->query('//section') as $section){
             if(!$section instanceof \DOMElement)continue;
-            if(!$hasAuthoredPadding($section)){self::addClass($section,'ai-section-default-spacing');$defaultSpacingSections[]=$section;}
+            if(!$preserveAuthoredComposition&&!$hasAuthoredPadding($section)){self::addClass($section,'ai-section-default-spacing');$defaultSpacingSections[]=$section;}
         }
         if($defaultSpacingSections)$extra.="\n.$scope section.ai-section-default-spacing{box-sizing:border-box;padding:48px clamp(20px,5vw,72px)}\n@media(max-width:767px){.$scope section.ai-section-default-spacing{padding:40px 20px}}";
         $sharedContentRules='';
-        if($hero instanceof \DOMElement&&($alignment==='left'||$alignment==='start')){
+        if(!$preserveAuthoredComposition&&$hero instanceof \DOMElement&&($alignment==='left'||$alignment==='start')){
             $heroWidth=$value($hero,'width')??'100%';
             $heroMaxWidth=$value($hero,'max-width')??'100%';
             $heroPadding=$value($hero,'padding');
@@ -93,18 +97,40 @@ final class GeneratedDesignDefaults {
         $index=0;
         foreach($xpath->query('//*[contains(concat(" ",normalize-space(@class)," ")," ai-image-slot ")]') as $slot){
             $radius=$value($slot,'border-radius');if($radius===null||$radius==='inherit')for($node=$slot->parentNode;$node instanceof \DOMElement&&$node!==$root;$node=$node->parentNode){$radius=$value($node,'border-radius');if($radius!==null&&$radius!=='inherit')break;}
-            if($radius===null||$radius==='inherit')$radius=$fallback;$name='ai-photo-radius-'.++$index;self::addClass($slot,$name);$extra.="\n.$scope .$name.$name,.$scope .$name img{border-radius:$radius}";
+            if($radius===null||$radius==='inherit'){if($preserveAuthoredComposition)continue;$radius=$fallback;}$name='ai-photo-radius-'.++$index;self::addClass($slot,$name);$extra.="\n.$scope .$name.$name,.$scope .$name img{border-radius:$radius}";
         }
         // Generated navigation must remain usable in narrow preview widths even
         // when the model forgets to wrap its links or gives the menu a fixed width.
-        $extra.="\n.$scope nav{display:flex;flex-wrap:wrap;align-items:center;gap:12px;max-width:100%;min-width:0}\n.$scope .ai-nav.ai-nav{display:flex;flex-wrap:wrap;align-items:center;max-width:100%;min-width:0}\n.$scope nav ul{display:flex;flex-wrap:wrap;align-items:center;gap:12px;list-style-type:none;margin:0;padding:0;max-width:100%;min-width:0}\n.$scope nav a{max-width:100%;min-width:0}";
-        $extra.="\n.$scope .ai-default-left.ai-default-left,.$scope .ai-default-left h1,.$scope .ai-default-left h2,.$scope .ai-default-left p{text-align:left}\n.$scope .ai-pill-badge.ai-pill-badge{display:inline-block;border-radius:9999px;padding:6px 12px;border:1px solid currentColor;font-size:12px;line-height:1.3;margin:0 0 16px;max-width:100%;width:fit-content;align-self:flex-start;justify-self:start}";
+        if($preserveAuthoredComposition)$extra.="\n.$scope nav{box-sizing:border-box;max-width:100%;min-width:0}\n.$scope nav a{max-width:100%;min-width:0}";
+        else $extra.="\n.$scope nav{display:flex;flex-wrap:wrap;align-items:center;gap:12px;max-width:100%;min-width:0}\n.$scope .ai-nav.ai-nav{display:flex;flex-wrap:wrap;align-items:center;max-width:100%;min-width:0}\n.$scope nav ul{display:flex;flex-wrap:wrap;align-items:center;gap:12px;list-style-type:none;margin:0;padding:0;max-width:100%;min-width:0}\n.$scope nav a{max-width:100%;min-width:0}";
+        // Browsers place default list markers outside grid/flex items. In a
+        // styled card collection that makes bullets escape the card edge on
+        // mobile. Remove markers only for visibly card-styled list items;
+        // leave plain editorial lists and explicitly authored list treatments.
+        $cardLists=[];
+        foreach($xpath->query('//ul|//ol') as $list){
+            if(!$list instanceof \DOMElement||!in_array($value($list,'display'),['grid','flex'],true)||$value($list,'list-style-type')!==null)continue;
+            foreach($list->childNodes as $item){
+                if(!$item instanceof \DOMElement||$item->tagName!=='li')continue;
+                foreach(['background','background-color','border','border-radius','box-shadow'] as $property){
+                    $style=$value($item,$property);
+                    if($style===null||in_array(strtolower($style),['none','transparent','0','0px'],true))continue;
+                    self::addClass($list,'ai-card-list');$cardLists[]=$list;break 2;
+                }
+            }
+        }
+        if($cardLists)$extra.="\n.$scope ul.ai-card-list,.$scope ol.ai-card-list{list-style-type:none}";
+        // Flex items can keep an intrinsic/min-content width larger than their
+        // mobile parent. Bound generated cards without forcing a new layout.
+        $extra.="\n.$scope .ai-card,.$scope .ai-product-card,.$scope .ai-category-card{box-sizing:border-box;min-width:0;max-width:100%}";
+        if(!$preserveAuthoredComposition)$extra.="\n.$scope .ai-default-left.ai-default-left,.$scope .ai-default-left h1,.$scope .ai-default-left h2,.$scope .ai-default-left p{text-align:left}\n.$scope .ai-pill-badge.ai-pill-badge{display:inline-block;border-radius:9999px;padding:6px 12px;border:1px solid currentColor;font-size:12px;line-height:1.3;margin:0 0 16px;max-width:100%;width:fit-content;align-self:flex-start;justify-self:start}";
         $extra.="\n.$scope .ai-photo-fit-contain{background-color:transparent!important}\n.$scope .ai-photo-fit-contain img{object-fit:contain!important}";
         // Generated desktop heading sizes can exceed a mobile Hero's text lane.
         // Keep long words inside the copy column without changing desktop styling.
-        $extra.="\n@media(max-width:980px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(36px,6vw,56px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{min-width:0;max-width:100%;overflow-wrap:anywhere}}\n@media(max-width:767px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{max-width:100%;overflow-wrap:anywhere}}";
+        if($preserveAuthoredComposition)$extra.="\n@media(max-width:980px){.$scope .ai-hero h1,.$scope .ai-hero p{box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere}}";
+        else $extra.="\n@media(max-width:980px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(36px,6vw,56px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{min-width:0;max-width:100%;overflow-wrap:anywhere}}\n@media(max-width:767px){.$scope .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(28px,8vw,44px);line-height:1.12;overflow-wrap:anywhere}.$scope .ai-hero p{max-width:100%;overflow-wrap:anywhere}}";
         // One opt-in composition, using the model's existing native elements.
-        if ($hero instanceof \DOMElement && self::hasClass($hero, 'ai-hero-split') && !self::hasClass($hero, 'ai-hero-background')) {
+        if (!$preserveAuthoredComposition && $hero instanceof \DOMElement && self::hasClass($hero, 'ai-hero-split') && !self::hasClass($hero, 'ai-hero-background')) {
             $children = array_values(iterator_to_array($hero->childNodes));
             $elements = array_values(array_filter($children, static fn($node) => $node instanceof \DOMElement));
             $text = null; $media = null;
@@ -118,7 +144,13 @@ final class GeneratedDesignDefaults {
                 self::addClass($text, 'ai-split-copy');
                 $hero->insertBefore($text, $media);
                 $base = ".$scope .ai-hero.ai-split-ready";
+                $hasExplicitHeroFrame=false;
+                foreach($rules as [$selector,$props]){
+                    if(!str_contains($selector,'ai-hero')||!self::matches($hero,$selector))continue;
+                    if(array_intersect(['width','max-width','margin','margin-left','margin-right'],array_keys($props))){$hasExplicitHeroFrame=true;break;}
+                }
                 $extra .= "\n{$base}{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:48px;padding:64px 32px}\n"
+                    . (!$hasExplicitHeroFrame?"{$base}{box-sizing:border-box;width:100%;max-width:none;margin-left:0;margin-right:0}\n":'')
                     . "$base .ai-split-copy{display:flex;flex-direction:column;align-items:flex-start;min-width:0;max-width:100%;gap:20px}\n"
                     . "$base h1,$base p{margin:0;max-width:100%}\n"
                     . "$base .ai-pill-badge{margin:0;width:fit-content}\n"

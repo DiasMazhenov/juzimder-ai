@@ -82,7 +82,26 @@ sourceReject(fn()=>$unwritableCache->load('demo'),'cache could not be written','
 sourceReject(fn()=>$source->load('../demo'),'Unknown Open Design template','Caller cannot choose a source path');
 sourceReject(fn()=>new OpenDesignTemplateSource($cache.'-path',null,['demo'=>['files'=>['design-templates/demo/scripts/run.js'=>$blobSha]]]),'Invalid Open Design source manifest','Script paths are outside the allowlist');
 sourceReject(fn()=>new OpenDesignTemplateSource(''), 'absolute directory path','Empty cache path is rejected');
-sourceCheck(array_column(OpenDesignTemplateSource::catalog(),'id')===['saas-landing','web-prototype'],'Public catalog exposes only the reviewed shortlist');
+$catalog=OpenDesignTemplateSource::catalog();
+$expectedCatalog=[
+    ['id'=>'saas-landing','sourcePath'=>'design-templates/saas-landing/example.html'],
+    ['id'=>'web-prototype','sourcePath'=>'design-templates/web-prototype/references/layouts.md'],
+    ['id'=>'blog-post','sourcePath'=>'design-templates/blog-post/example.html'],
+    ['id'=>'docs-page','sourcePath'=>'design-templates/docs-page/example.html'],
+    ['id'=>'pricing-page','sourcePath'=>'design-templates/pricing-page/example.html'],
+    ['id'=>'waitlist-page','sourcePath'=>'design-templates/waitlist-page/example.html'],
+    ['id'=>'dashboard','sourcePath'=>'design-templates/dashboard/example.html'],
+];
+sourceCheck(array_map(static fn(array $entry):array=>['id'=>$entry['id'],'sourcePath'=>$entry['sourcePath']],$catalog)===$expectedCatalog,'Public catalog exposes the seven reviewed external website references with stable IDs and paths');
+$catalogSource=new OpenDesignTemplateSource($cache.'-catalog-probe',static fn()=>throw new RuntimeException('offline'));
+foreach($expectedCatalog as $entry){
+    try{$catalogSource->load($entry['id'],$entry['sourcePath']);throw new RuntimeException('Expected the source probe to remain offline.');}
+    catch(InvalidArgumentException $error){throw new RuntimeException('Catalog entry is not backed by an approved source path: '.$entry['id'],0,$error);}
+    catch(RuntimeException $error){sourceCheck(str_contains($error->getMessage(),'no valid cached copy exists'),'Catalog entry '.$entry['id'].' resolves through the immutable allowlist');}
+}
+try{$catalogSource->load('web-prototype','design-templates/web-prototype/assets/template.html');throw new RuntimeException('Expected the approved supplemental template probe to remain offline.');}
+catch(InvalidArgumentException $error){throw new RuntimeException('The pinned Web Prototype visual reference is not allowlisted.',0,$error);}
+catch(RuntimeException $error){sourceCheck(str_contains($error->getMessage(),'no valid cached copy exists'),'Web Prototype CSS source is allowlisted for pinned, bounded visual-signal extraction');}
 
 foreach(glob($cache.'*',GLOB_ONLYDIR)?:[] as $directory){
     $iterator=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);

@@ -11,6 +11,7 @@ import { tablerIcon, tablerCoreIcons, installEditorIcons, updateFlexIcons } from
 import { backgroundValue, installBackgroundControls } from './editor-background.js';
 import { persistedComponentId } from './component-identity.js';
 import { summarizeSharedSections } from './shared-sections.js';
+import { calculatePreviewFit } from './ai-preview-fit.js';
 import 'grapesjs/dist/css/grapes.min.css';
 import './ui-theme.css';
 import './ui/color-picker.css';
@@ -20,7 +21,7 @@ import { blocks, registerBlocks } from './blocks.js';
 import { installComponentActions } from './component-actions.js';
 import { removeUnassignedImageSlot } from './ai-image-slots.js';
 import { isAIComponentEditSnapshotCurrent, isAIComponentEditProposalCurrent } from './ai-component-edit-guards.js';
-import { copyRuleLabel, markupRuleLabel } from './ai-job-diagnostics.js';
+import { generationPipelineLabel, copyRuleLabel, cssRuleLabel, generationEventEvidenceLabel, generationEventRuleLabel, generationReferenceStatusLabel, generationStageLabel, generationStageStateLabel, generationTemplateReferenceFromEvents, generationTemplateReferenceLabel, markupRuleLabel, visibleGenerationEvents } from './ai-job-diagnostics.js';
 import { createPageRoot } from './page-root.js';
 import { decodeCustomCode, encodeCustomCode, submitSandboxFrame, clearSandboxFrame, registerSafeRuntimeComponents } from './custom-code.js';
 import { DEFAULT_DESIGN_TOKENS, FONT_FAMILIES, FONT_WEIGHTS, TOKEN_FIELDS, designTokensFromStyle, designTokensToStyle, migrateLegacyTokenValue, normalizeDesignTokens, tokenValue } from './design-tokens.js';
@@ -146,7 +147,7 @@ function auth(register=false,recovery=false) {
   const expiredSession=session?.sessionExpired||new URLSearchParams(location.search).get('session')==='expired';
   const title=recovery?'Восстановление доступа':register?'Создайте своё пространство':'С возвращением';
   const description=recovery?'Используйте один из заранее сохранённых резервных кодов.':register?'Начните с первой страницы.':'Войдите, чтобы продолжить работу над сайтом.';
-  const form=recovery?`<label>Email аккаунта<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="${devAuth?'admin@localhost.test':'you@studio.kz'}"></label><label>Резервный код<input name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="40" placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX"></label><label>Новый пароль<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="72" required placeholder="Не менее 12 символов"></label><button class="primary" type="submit">Восстановить доступ <span>→</span></button>`:`<label>${devAdmin?'Email или локальный логин':'Email'}<input name="email" type="${devAdmin?'text':'email'}" autocomplete="${register?'email':'username'}" required ${register||!session?.devAuth?'minlength="12"':''} maxlength="254" placeholder="${devAdmin?'admin или you@studio.kz':'you@studio.kz'}"></label><label>Пароль<input name="password" type="password" autocomplete="${register?'new-password':'current-password'}" required ${register||!session?.devAuth?'minlength="12"':''} maxlength="72" placeholder="${devAdmin?'admin или не менее 12 символов':'Не менее 12 символов'}"></label><button class="primary" type="submit">${register?'Создать аккаунт':'Войти в пространство'} <span>→</span></button>`;
+  const form=recovery?`<label>Email аккаунта<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="${devAuth?'admin@localhost.test':'you@studio.kz'}"></label><label>Резервный код<input name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="40" placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX"></label><label>Новый пароль<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="72" required placeholder="Не менее 10 символов"></label><button class="primary" type="submit">Восстановить доступ <span>→</span></button>`:`<label>${devAdmin?'Email или локальный логин':'Email'}<input name="email" type="${devAdmin?'text':'email'}" autocomplete="${register?'email':'username'}" required ${register||!session?.devAuth?'minlength="10"':''} maxlength="254" placeholder="${devAdmin?'admin или you@studio.kz':'you@studio.kz'}"></label><label>Пароль<input name="password" type="password" autocomplete="${register?'new-password':'current-password'}" required ${register||!session?.devAuth?'minlength="10"':''} maxlength="72" placeholder="${devAdmin?'admin или не менее 10 символов':'Не менее 10 символов'}"></label><button class="primary" type="submit">${register?'Создать аккаунт':'Войти в пространство'} <span>→</span></button>`;
   app.innerHTML=`<main class="auth"><div class="auth-story"><a class="brand" href="/">${mark} Juzimder <span>AI</span></a><div><p class="eyebrow">ВАШ СЛЕДУЮЩИЙ ПРОЕКТ НАЧИНАЕТСЯ ЗДЕСЬ</p><h1>Из идеи —<br>в живой сайт.</h1><p class="intro">Пространство, где дизайн складывается.<br>Одна секция, одна страница, одна идея за раз.</p></div><p class="muted">На базе GrapesJS Core · Открытая платформа</p></div><section class="auth-form"><p class="eyebrow">JUZIMDER WORKSPACE / 01</p><h2>${title}</h2><p class="muted">${description}</p>${!recovery&&expiredSession?'<p class="muted" role="status">Сессия не относится к текущей локальной базе. Войдите снова.</p>':''}<form id="auth-form">${form}<p id="notice" role="status"></p></form>${devAdmin?'<p class="muted small">Локальный тестовый вход: <strong>admin / admin</strong></p>':''}${recovery?'<button class="text-button" id="toggle-auth" type="button">Вернуться ко входу</button>':`<button class="text-button" id="toggle-auth" type="button">${register?'Уже есть аккаунт? Войти':'Первый раз здесь? Создать аккаунт'}</button>${!register?'<button class="text-button" id="recover-auth" type="button">Есть резервный код? Восстановить доступ</button>':''}`}<p class="auth-foot">Ранняя версия · Визуальное редактирование и сохранение</p></section></main>`;
   $('#toggle-auth').onclick=()=>recovery?auth(false):auth(!register);
   $('#recover-auth')?.addEventListener('click',()=>auth(false,true));
@@ -173,6 +174,52 @@ async function dashboard() {
   installAccountRecovery();
   const open=()=>$('#create-dialog').showModal(); $('#new-project').onclick=open;$('#empty-create').onclick=open;$('#cancel-create').onclick=()=>$('#create-dialog').close();
   $('#create-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('.primary');b.disabled=true;try{const project=await api('/projects','POST',{name:new FormData(e.target).get('name')});projectSlugs.set(project.id,project.slug);location.assign(projectUrl(project.id));}catch(error){$('#create-error').textContent=error.message;b.disabled=false;}};
+  const newProjectButton=$('#new-project'),projectActions=document.createElement('div'),restoreButton=document.createElement('button'),restoreInput=document.createElement('input');
+  projectActions.className='project-actions dashboard-project-actions';
+  restoreButton.type='button';restoreButton.className='secondary-link';restoreButton.textContent='Восстановить из бэкапа';
+  restoreInput.type='file';restoreInput.accept='application/json,.json';restoreInput.hidden=true;restoreInput.setAttribute('aria-label','Файл резервной копии проекта');
+  newProjectButton.replaceWith(projectActions);projectActions.append(newProjectButton,restoreButton);$('.project-intro').append(restoreInput);
+  if(session?.canManageUpdates===true){
+    const checkButton=document.createElement('button'),installButton=document.createElement('button'),updateStatus=document.createElement('p');
+    checkButton.type='button';checkButton.className='secondary-link';checkButton.textContent='Проверить обновления';
+    installButton.type='button';installButton.className='primary';installButton.textContent='Установить обновление';installButton.hidden=true;
+    updateStatus.className='muted small app-update-status';updateStatus.setAttribute('role','status');updateStatus.setAttribute('aria-live','polite');
+    projectActions.append(checkButton,installButton);$('.project-intro').append(updateStatus);
+    let checkedVersion=null,checkedSource=null,checkedCommit=null;
+    checkButton.onclick=async()=>{
+      checkButton.disabled=true;installButton.hidden=true;updateStatus.textContent='Проверяем выпуск и последнюю сборку репозитория…';
+      try{
+        const info=await api('/system/updates');checkedVersion=info.latestVersion;checkedSource=info.source;checkedCommit=info.sourceCommit;
+        if(info.updateAvailable){updateStatus.textContent='Доступна версия '+info.latestVersion+' из '+info.sourceLabel+(info.currentVersion?' · установлена '+info.currentVersion:'')+'. Перед заменой файлов приложение сохранит SQLite-базу и ключи в закрытом var/.';installButton.textContent='Обновить до '+info.latestVersion;installButton.hidden=false;}
+        else updateStatus.textContent='Установлена последняя версия '+info.currentVersion+'. Новейший источник: '+info.sourceLabel+'.';
+      }catch(error){checkedVersion=null;checkedSource=null;checkedCommit=null;updateStatus.textContent=error.message;}
+      finally{checkButton.disabled=false;}
+    };
+    installButton.onclick=async()=>{
+      if(!checkedVersion||!checkedSource)return;
+      const sourceName=checkedSource==='repository'?'последней успешной сборки репозитория main':'стабильного GitHub Release';
+      if(!window.confirm('Установить Juzimder AI '+checkedVersion+' из '+sourceName+'? Перед заменой будет сохранена база и ключи приложения.'))return;
+      checkButton.disabled=true;installButton.disabled=true;updateStatus.textContent='Скачиваем, проверяем архив и устанавливаем…';
+      try{const result=await api('/system/updates/install','POST',{expectedVersion:checkedVersion,expectedSource:checkedSource,expectedCommit:checkedCommit});updateStatus.textContent=result.message;setTimeout(()=>location.reload(),900);}
+      catch(error){updateStatus.textContent=error.message;installButton.disabled=false;}
+      finally{checkButton.disabled=false;}
+    };
+  }
+  restoreButton.onclick=()=>restoreInput.click();
+  restoreInput.onchange=async()=>{
+    const file=restoreInput.files?.[0];if(!file)return;
+    restoreButton.disabled=true;
+    try{
+      if(file.size>33554432)throw new Error('Файл превышает допустимый размер 32 МБ.');
+      const backup=JSON.parse(await file.text());
+      if(backup?.format!=='juzimder-project-backup'||![1,2].includes(backup?.backupVersion)||!backup?.project||typeof backup.project.name!=='string')throw new Error('Файл не является резервной копией Juzimder поддерживаемого формата.');
+      notify(`Восстанавливаем «${backup.project.name}» как новый проект…`);
+      const restored=await api('/projects/restore-from-backup','POST',{backup});
+      projectSlugs.set(restored.id,restored.slug);
+      location.assign(projectUrl(restored.id));
+    }catch(error){notify(error.message,true);}
+    finally{restoreButton.disabled=false;restoreInput.value='';}
+  };
   for(const btn of document.querySelectorAll('[data-project]')) btn.onclick=()=>location.assign(projectUrl(btn.dataset.project));
   $('#logout').onclick=async()=>{await api('/logout','POST',{});session=await api('/session');auth();};
 }
@@ -296,7 +343,7 @@ async function siteSettings(id) {
 ]}
 \`\`\`</pre><p class="muted small">Также доступны section_count (min/max от 3 до 9), text_present и text_absent (text до 200 символов). До 20 правил; каждый id уникален. Текст проверяется в DOM, адаптация — по наличию CSS-правила.</p></details><div class="ai-skill-manager"><div class="ai-profile-list-column"><div class="ai-profile-list-heading"><h4>Сохранённые Skills</h4><button id="ai-skill-add" class="secondary-link" type="button">+ Добавить Skill</button></div><div id="ai-skill-list" class="ai-profile-list"></div></div><form id="ai-skill-form" class="settings-form ai-skill-form"><input type="hidden" name="skillId" value=""><label class="settings-field">Название<input name="skillName" required maxlength="64" placeholder="Например, фирменный стиль"></label><label class="settings-field">Загрузить Markdown-файл<input id="ai-skill-file" type="file" accept=".md,.markdown,text/markdown,text/plain"></label><label class="settings-field">Текст Skill<textarea name="content" rows="12" maxlength="16000" required placeholder="# Название Skill&#10;&#10;Опишите правила и ограничения дизайна"></textarea><small class="muted">UTF-8 · максимум 16 000 символов</small></label><label class="settings-field">Пункты ручной проверки<textarea name="manualChecks" rows="4" maxlength="3000" required placeholder="Проверь адаптивность на телефоне&#10;Убедись, что CTA заметна"></textarea><small class="muted">По одному пункту в строке · от 1 до 12 пунктов</small></label><p class="muted small">«Разобрать Skill» отправит текущий текст (до 15 000 символов) в OpenRouter через активный профиль. При нарушении формата или цитат возможна одна исправляющая попытка с дополнительным расходом токенов. Ответ — черновик: проверьте полноту и точность извлечённых требований.</p><button id="ai-skill-analyze" type="button">Разобрать Skill с AI</button><section id="ai-skill-analysis" hidden aria-label="Черновик требований Skill"></section><div class="settings-form-actions"><button id="ai-skill-save" class="primary" type="submit">Сохранить Skill</button><button id="ai-skill-activate" class="secondary-link" type="button" hidden>Использовать в редакторе</button><button id="ai-skill-delete" class="secondary-link danger-action" type="button" hidden>Удалить Skill</button><span id="ai-skill-status" class="muted small" role="status">${esc(aiSkillLibrary.error||`Библиотека Skills · версия ${aiSkillLibrary.version}`)}</span></div></form></div></section>`;
   }
-  else if(selected[0]==='backup')body=`<section class="settings-backup"><p class="muted settings-form-intro">Файл содержит страницы, настройки проекта, библиотеку AI Skills и всю медиатеку. Восстановление заменит это содержимое проекта и создаст новую ревизию.</p><div class="settings-notice"><div class="settings-notice-icon" aria-hidden="true">↧</div><div><strong>Скачать резервную копию</strong><p>Сохраните файл в надёжном месте. Экспорт включает страницы, дизайн-токены, SEO, формы, Zero Block, Skills и изображения.</p><button id="backup-download" class="primary" type="button">Скачать бэкап</button></div></div><div class="settings-notice settings-backup-restore"><div class="settings-notice-icon" aria-hidden="true">↥</div><div><strong>Восстановить из файла</strong><p>Выберите бэкап этого проекта. Перед восстановлением скачайте свежую копию текущего состояния.</p><label class="settings-field">Файл бэкапа<input id="backup-file" type="file" accept="application/json,.json"></label><button id="backup-restore" type="button" disabled>Восстановить проект</button></div></div><p class="muted small">Профили AI (включая модели и API-ключи) и подключение SMTP не включаются: после восстановления их нужно настроить заново. API-ключи и пароль SMTP не экспортируются. Заявки из inbox, история ревизий и опубликованный снимок остаются на сервере.</p><p id="backup-status" class="muted small" role="status" aria-live="polite"></p></section>`;
+  else if(selected[0]==='backup')body=`<section class="settings-backup"><p class="muted settings-form-intro">Файл содержит страницы, настройки проекта, AI Skills, профили AI Engine и всю медиатеку. Восстановление заменит это содержимое проекта и создаст новую ревизию.</p><div class="settings-notice"><div class="settings-notice-icon" aria-hidden="true">↧</div><div><strong>Скачать резервную копию</strong><p>Сохраните файл в надёжном месте. Экспорт включает страницы, дизайн-токены, SEO, формы, Zero Block, Skills, профили AI Engine и изображения.</p><button id="backup-download" class="primary" type="button">Скачать бэкап</button></div></div><div class="settings-notice settings-backup-restore"><div class="settings-notice-icon" aria-hidden="true">↥</div><div><strong>Восстановить из файла</strong><p>Выберите бэкап этого проекта. Перед восстановлением скачайте свежую копию текущего состояния.</p><label class="settings-field">Файл бэкапа<input id="backup-file" type="file" accept="application/json,.json"></label><button id="backup-restore" type="button" disabled>Восстановить проект</button></div></div><p class="muted small">Профили и модели AI Engine входят в файл. API-ключи сохраняются только в зашифрованном виде и восстанавливаются на той же установке Juzimder с исходным закрытым файлом ключа AI рядом с базой. Для переноса на другой сервер сохраните системную копию базы вместе с этим файлом. Пароль SMTP не экспортируется. Заявки из inbox, история ревизий и опубликованный снимок остаются на сервере.</p><p id="backup-status" class="muted small" role="status" aria-live="polite"></p></section>`;
   else if(selected[0]==='code')body=`<form id="custom-css-form" class="settings-form"><p class="muted settings-form-intro">Дополнительный CSS применяется только к страницам опубликованного сайта и ZIP-экспорта. Он не загружается в редактор и не меняет его интерфейс. JavaScript и произвольный HTML здесь не исполняются.</p><label class="settings-field">CSS сайта<textarea name="customCss" id="custom-css-input" rows="16" maxlength="12000" spellcheck="false" placeholder=".hero { background-color: #222629; color: white; }&#10;.card { box-sizing: border-box; min-height: 240px; }&#10;img { object-fit: cover; }&#10;.cta:hover { background-color: #61892f; }&#10;.field:focus-visible { outline: 2px solid #86c232; }">${esc(project.settings?.customCss||'')}</textarea><span class="muted small">До 12 000 символов и 100 правил. Классы/теги, типографика, размеры, flex/grid, изображения, состояния hover/focus-visible/active и min-width/max-width 320–2560 px. Без URL, скриптов, вложенных @-правил и позиционирования.</span></label><div class="settings-form-actions"><button class="primary" type="submit">Сохранить CSS</button><button id="custom-css-preview" type="button">Предпросмотр</button><span id="custom-css-status" class="muted small" role="status"></span></div><iframe id="custom-css-preview-frame" sandbox="" title="Изолированный предпросмотр опубликованной страницы" hidden></iframe></form>`;
   else if(selected[0]==='header-footer'){
     const componentOptions=(selectedId)=>`<option value="">Не выбрано</option>${sharedCandidates.map(item=>`<option value="${esc(item.id)}" ${selectedId===item.id?'selected':''}>${esc(item.pageName)} · ${esc(item.name)}</option>`).join('')}`;
@@ -308,9 +355,9 @@ async function siteSettings(id) {
   app.innerHTML=`<div class="dashboard project-dashboard settings-dashboard"><aside class="dash-sidebar"><a class="brand" href="/">${mark} Juzimder <span>AI</span></a><div class="workspace-label">ПРОЕКТ</div><div class="project-sidebar-title">${esc(project.name)}</div><a class="project-side-link" href="${projectUrl(id)}">▦ <span>Страницы</span></a><a class="nav-active" href="${projectUrl(id)}/settings">⚙ <span>Настройки сайта</span></a>${settingsNav}<div class="sidebar-note"><span class="status-dot"></span> FOUNDATION<div class="version-label">Версия продукта <strong>${productVersion}</strong></div></div><a class="text-button" href="/">← Все проекты</a><button id="logout" class="text-button">Выйти из аккаунта ↗</button></aside><main class="dash-main settings-main"><header class="dash-top"><span><a href="/">Мои проекты</a><span class="slash">/</span><a href="${projectUrl(id)}">${esc(project.name)}</a><span class="slash">/</span>Настройки сайта</span><span class="version-label">Версия ${productVersion}</span></header><section class="project-intro"><p class="eyebrow">НАСТРОЙКИ ПРОЕКТА</p><h1>Настройки сайта<span class="accent">.</span></h1><p class="muted">Общие параметры проекта и подключённые возможности.</p></section><div class="settings-layout"><section class="settings-content"><div class="section-title-row"><div><p class="eyebrow">${esc(selected[1].toUpperCase())}</p><h2>${esc(selected[1])}</h2></div><span id="settings-revision" class="version-label">Проект · ревизия ${project.version}</span></div>${body}</section></div><footer class="dash-footer"><span>YOUR IDEAS, TAKING SHAPE.</span><span>GrapesJS Core · PHP · SQLite</span></footer></main></div><dialog id="confirm-dialog"><form method="dialog"><p id="confirm-message"></p><div class="dialog-actions"><button value="cancel">Отмена</button><button id="confirm-submit" class="primary" value="confirm">Продолжить</button></div></form></dialog>`;
   if(selected[0]==='backup'){
     const fileInput=$('#backup-file'),restoreButton=$('#backup-restore'),status=$('#backup-status');let parsedBackup=null;
-    fileInput.onchange=async()=>{parsedBackup=null;restoreButton.disabled=true;const file=fileInput.files?.[0];if(!file){status.textContent='';return;}try{if(file.size>33554432)throw new Error('Файл превышает допустимый размер 32 МБ.');parsedBackup=JSON.parse(await file.text());if(parsedBackup.format!=='juzimder-project-backup'||parsedBackup.backupVersion!==1||parsedBackup.sourceProjectId!==id)throw new Error('Выберите резервную копию именно этого проекта.');restoreButton.disabled=false;status.textContent=`Файл проверен · ${parsedBackup.project?.document?.data?.pages?.length||0} страниц · ${parsedBackup.project?.assets?.length||0} изображений.`;}catch(error){parsedBackup=null;status.textContent=error.message;}}
+    fileInput.onchange=async()=>{parsedBackup=null;restoreButton.disabled=true;const file=fileInput.files?.[0];if(!file){status.textContent='';return;}try{if(file.size>33554432)throw new Error('Файл превышает допустимый размер 32 МБ.');parsedBackup=JSON.parse(await file.text());if(parsedBackup.format!=='juzimder-project-backup'||![1,2].includes(parsedBackup.backupVersion)||parsedBackup.sourceProjectId!==id)throw new Error('Выберите резервную копию именно этого проекта.');restoreButton.disabled=false;const profileSummary=parsedBackup.backupVersion===1?'AI-профили не сохранены в старом формате':(parsedBackup.project?.aiProfiles?.profiles?.length||0)+' AI-профилей';status.textContent=`Файл проверен · ${parsedBackup.project?.document?.data?.pages?.length||0} страниц · ${parsedBackup.project?.assets?.length||0} изображений · ${profileSummary}.`;}catch(error){parsedBackup=null;status.textContent=error.message;}}
     $('#backup-download').onclick=async()=>{const button=$('#backup-download');button.disabled=true;status.textContent='Формируем резервную копию…';try{const response=await fetch(`/api/projects/${id}/backup`,{headers:session?{'X-CSRF-Token':session.csrf}:{}});if(!response.ok){const error=await response.json().catch(()=>({}));throw new Error(error.error||`HTTP ${response.status}`);}const blob=await response.blob(),disposition=response.headers.get('Content-Disposition')||'',filename=disposition.match(/filename="([^"]+)"/)?.[1]||`juzimder-backup-${id}.json`;download(filename,blob,'application/json');status.textContent=`Бэкап скачан · ревизия ${project.version}`;}catch(error){status.textContent=error.message;}finally{button.disabled=false;}};
-    restoreButton.onclick=async()=>{if(!parsedBackup)return;if(!await askConfirmation('Восстановление заменит страницы, настройки проекта и медиатеку текущими данными файла. Будет создана новая ревизия. Продолжить?','Восстановить проект'))return;restoreButton.disabled=true;status.textContent='Проверяем файл и восстанавливаем проект…';try{project=await api(`/projects/${id}/backup`,'POST',{version:project.version,backup:parsedBackup});status.textContent=`Проект восстановлен · новая ревизия ${project.version}`;await siteSettings(id);return;}catch(error){status.textContent=error.message;}finally{restoreButton.disabled=!parsedBackup;}}
+    restoreButton.onclick=async()=>{if(!parsedBackup)return;const aiRestoreNotice=parsedBackup.backupVersion===1?' AI-профили отсутствуют в старом файле и останутся без изменений.':' Будут восстановлены профили AI.';if(!await askConfirmation('Восстановление заменит страницы, настройки проекта, медиатеку и Skills данными файла.'+aiRestoreNotice+' Будет создана новая ревизия. Продолжить?','Восстановить проект'))return;restoreButton.disabled=true;status.textContent='Проверяем файл и восстанавливаем проект…';try{project=await api(`/projects/${id}/backup`,'POST',{version:project.version,backup:parsedBackup});if(project.slug)projectSlugs.set(id,project.slug);$('#settings-revision').textContent=`Проект · ревизия ${project.version}`;history.replaceState(null,'',`${projectUrl(id)}/settings?section=backup`);parsedBackup=null;fileInput.value='';restoreButton.disabled=true;status.textContent=`Проект восстановлен · новая ревизия ${project.version}`;}catch(error){status.textContent=error.message;}finally{restoreButton.disabled=!parsedBackup;}}
   }
   const settingsForm=$('#design-tokens-form')||$('#font-tokens-form');
   if(settingsForm)settingsForm.onsubmit=async event=>{event.preventDefault();const button=settingsForm.querySelector('[type="submit"]'),status=$('#settings-save-status');button.disabled=true;status.textContent='Сохранение…';try{const nextTokens=normalizeDesignTokens({...project.settings.designTokens,...Object.fromEntries(new FormData(settingsForm))});project=await api(`/projects/${id}/settings`,'PUT',{version:project.version,designTokens:nextTokens});$('#settings-revision').textContent=`Проект · ревизия ${project.version}`;status.textContent=`Сохранено · ревизия ${project.version}`;}catch(error){status.textContent=error.message;}finally{button.disabled=false;}};
@@ -529,8 +576,8 @@ async function openEditor(id,pageId=null) {
     for(const field of TOKEN_FIELDS){const control=$(`#theme-form [name="${field.name}"]`);if(control)control.value=tokens[field.name];}
     syncColorInputs($('#theme-form'));
   };
-  let aiDesignState=null,aiPreviewRenderId=0,aiComponentProposal=null,aiComponentTargetId=null,aiComponentTargetModel=null,aiComponentTargetPath=null;
-  const syncAIApply=()=>{const button=$('#ai-plan-apply');if(button)button.disabled=isAIDesignReadOnly()||Boolean(aiDesignState?.photosPending);};
+  let aiDesignState=null,aiPreviewRenderId=0,aiComponentProposal=null,aiComponentTargetId=null,aiComponentTargetModel=null,aiComponentTargetPath=null,aiPreviewResizeObserver=null;
+  const syncAIApply=()=>{const disabled=isAIDesignReadOnly()||Boolean(aiDesignState?.photosPending);for(const button of document.querySelectorAll('#ai-plan-apply, #ai-plan-replace'))button.disabled=disabled;};
   const isAIDesignReadOnly=()=>!aiDesignState||aiDesignState.baseVersion!==current.version||aiDesignState.design.contactAudit?.status!=='passed';
   const aiPreviewObjectUrls=new Map();
   const clearAIPreviewUrls=()=>{aiPreviewRenderId++;for(const url of aiPreviewObjectUrls.values())URL.revokeObjectURL(url);aiPreviewObjectUrls.clear();};
@@ -581,13 +628,16 @@ async function openEditor(id,pageId=null) {
     state.photoNotice=needsReview?'Подходящего фото не найдено. Дизайн подготовлен без этого изображения.':photos.length?'Изображения подобраны автоматически.':'Подходящее фото не найдено. Дизайн подготовлен без этого изображения.';$('#ai-plan-status').textContent=state.photoNotice;
   };
   const renderAIImageSlots=()=>{ $('#ai-image-slot-chooser').hidden=true; $('#ai-image-slot-list').replaceChildren(); };
-  const renderAIDesign=(design,metadata)=>{
+  const renderAIDesign=(design,metadata,diagnosticEvents=[])=>{
+    aiPreviewResizeObserver?.disconnect();aiPreviewResizeObserver=null;
     const preview=$('#ai-plan-preview');preview.replaceChildren();
     const facts=document.createElement('div');facts.className='ai-plan-facts';
     const title=document.createElement('p');title.textContent=design.siteType;facts.append(title);
     for(const [label,value] of [['Аудитория',design.audience],['Цель',design.goal],['Стиль',design.style]]){
       const row=document.createElement('p'),caption=document.createElement('span');caption.textContent=label;row.append(caption,document.createTextNode(value));facts.append(row);
     }
+    const sourceReference=generationTemplateReferenceFromEvents(diagnosticEvents);
+    if(sourceReference){const row=document.createElement('p');row.className='ai-open-design-reference';const caption=document.createElement('span');caption.textContent='Внешний референс';row.append(caption,document.createTextNode(generationTemplateReferenceLabel(sourceReference.templateId)+' · '+generationReferenceStatusLabel(sourceReference.referenceStatus)));facts.append(row);}
     const isTaste=metadata?.skillProfile==='taste';
     const isUserSkill=metadata?.skillProfile==='user_skill';
     if(isTaste&&design.concept){const row=document.createElement('p'),caption=document.createElement('span');caption.textContent='Идея';row.append(caption,document.createTextNode(design.concept));facts.append(row);}
@@ -616,14 +666,26 @@ async function openEditor(id,pageId=null) {
     }
     const frame=document.createElement('iframe');frame.id='ai-design-preview-frame';frame.className='ai-design-preview-frame';frame.title='Предпросмотр AI-дизайна';frame.setAttribute('sandbox','');
     const frameViewport=document.createElement('div');frameViewport.className='ai-skill-preview-scroll';frameViewport.append(frame);preview.append(frameViewport);
+    let selectedFrameWidth=0,fitPreview=false;
+    const applyPreviewFit=()=>{
+      if(!selectedFrameWidth)return;
+      const style=getComputedStyle(frame),verticalMargins=(Number.parseFloat(style.marginTop)||0)+(Number.parseFloat(style.marginBottom)||0);
+      const fit=calculatePreviewFit(frameViewport.clientWidth,selectedFrameWidth,frame.offsetHeight,verticalMargins);
+      const fitted=fitPreview&&fit.fitted;
+      frame.style.transformOrigin='top left';frame.style.transform=fitted?`scale(${fit.scale})`:'';
+      frameViewport.style.height=fitted?`${fit.wrapperHeight}px`:'';frameViewport.style.overflow=fitted?'hidden':'auto';
+      frameViewport.dataset.fitted=String(fitted);
+    };
     {
       const viewNote=document.createElement('p');viewNote.className='muted small ai-taste-view-note';viewNote.textContent='Предпросмотр на компьютере, планшете и телефоне.';preview.append(viewNote);
       const viewportControls=document.createElement('div');viewportControls.className='ai-taste-viewport-controls';viewportControls.setAttribute('role','group');viewportControls.setAttribute('aria-label','Размер предпросмотра');
       const viewportWidths={desktop:1440,tablet:768,mobile:375};
-      for(const [name,width] of Object.entries(viewportWidths)){const button=document.createElement('button');button.type='button';button.dataset.viewport=name;button.textContent=(name==='desktop'?'Desktop':name==='tablet'?'Tablet':'Mobile')+' · '+width+' px';button.setAttribute('aria-pressed','false');button.onclick=()=>{frame.style.width=width+'px';frame.style.maxWidth='none';for(const item of viewportControls.querySelectorAll('[data-viewport]'))item.setAttribute('aria-pressed',String(item===button));};viewportControls.append(button);}
-      const expandButton=document.createElement('button');expandButton.type='button';expandButton.textContent='Расширить окно';expandButton.setAttribute('aria-pressed','false');expandButton.onclick=()=>{const expanded=$('#ai-plan-dialog').classList.toggle('ai-preview-expanded');expandButton.setAttribute('aria-pressed',String(expanded));expandButton.textContent=expanded?'Обычное окно':'Расширить окно';};viewportControls.append(expandButton);
+      for(const [name,width] of Object.entries(viewportWidths)){const button=document.createElement('button');button.type='button';button.dataset.viewport=name;button.textContent=(name==='desktop'?'Desktop':name==='tablet'?'Tablet':'Mobile')+' · '+width+' px';button.setAttribute('aria-pressed','false');button.onclick=()=>{selectedFrameWidth=width;frame.style.width=width+'px';frame.style.maxWidth='none';for(const item of viewportControls.querySelectorAll('[data-viewport]'))item.setAttribute('aria-pressed',String(item===button));applyPreviewFit();};viewportControls.append(button);}
+      const fitButton=document.createElement('button');fitButton.type='button';fitButton.dataset.fitPreview='true';fitButton.textContent='Вписать';fitButton.setAttribute('aria-label','Уместить выбранную ширину предпросмотра в окне');fitButton.setAttribute('aria-pressed','false');fitButton.onclick=()=>{fitPreview=!fitPreview;fitButton.setAttribute('aria-pressed',String(fitPreview));applyPreviewFit();};viewportControls.append(fitButton);
+      const expandButton=document.createElement('button');expandButton.type='button';expandButton.textContent='Расширить окно';expandButton.setAttribute('aria-pressed','false');expandButton.onclick=()=>{const expanded=$('#ai-plan-dialog').classList.toggle('ai-preview-expanded');expandButton.setAttribute('aria-pressed',String(expanded));expandButton.textContent=expanded?'Обычное окно':'Расширить окно';requestAnimationFrame(applyPreviewFit);};viewportControls.append(expandButton);
       preview.insertBefore(viewportControls,frameViewport);
     }
+    if(typeof ResizeObserver==='function'){aiPreviewResizeObserver=new ResizeObserver(applyPreviewFit);aiPreviewResizeObserver.observe(frameViewport);}
     renderAIImageSlots();updateAIDesignFrame().catch(error=>{$('#ai-plan-status').textContent=error.message;});
     const contactsNote=document.createElement('p');contactsNote.className='muted small';contactsNote.textContent=design.contactAudit?.status==='passed'?'Контакты и внешние ссылки проверены автоматически.':'Контакты этого старого результата автоматически не проверены.';preview.append(contactsNote);
     const note=document.createElement('p');note.className='muted small';note.textContent='Секций: '+design.sectionCount+'. Фото подбираются автоматически с сохранением автора и лицензии. Изображения можно изменить в редакторе.';preview.append(note);
@@ -633,11 +695,12 @@ async function openEditor(id,pageId=null) {
     const photoUsage=metadata?.photoSelectionUsage;if(photoUsage){if(Number.isInteger(photoUsage.totalTokens))usageParts.push('подбор фото: '+photoUsage.totalTokens+' токенов');if(typeof photoUsage.costUsd==='number'&&Number.isFinite(photoUsage.costUsd)&&photoUsage.costUsd>=0)usageParts.push('подбор фото: $'+photoUsage.costUsd.toFixed(6));}
     const model=typeof metadata?.resolvedModel==='string'?metadata.resolvedModel:'модель не указана';
     const meta=document.createElement('p');meta.className='muted small ai-plan-metadata';meta.textContent=(metadata?.resolvedProfileName?metadata.resolvedProfileName+' · ':'')+model+(usageParts.length?' · '+usageParts.join(' · '):'');preview.append(meta);
-    const actions=document.createElement('div');actions.className='dialog-actions';
-    const apply=document.createElement('button');apply.type='button';apply.id='ai-plan-apply';apply.className='primary';apply.textContent='Добавить дизайн · '+design.sectionCount+' секций';apply.onclick=applyAIDesign;
-    apply.disabled=isAIDesignReadOnly()||Boolean(aiDesignState?.photosPending);
-    if(isAIDesignReadOnly())apply.textContent='Только просмотр · требуется новая генерация';
-    actions.append(apply);preview.append(actions);preview.hidden=false;
+    const actions=document.createElement('div');actions.className='dialog-actions ai-design-apply-actions';
+    const replace=document.createElement('button');replace.type='button';replace.id='ai-plan-replace';replace.className='primary';replace.textContent='Заменить содержимое · '+design.sectionCount+' секций';replace.onclick=()=>applyAIDesign('replace');
+    const apply=document.createElement('button');apply.type='button';apply.id='ai-plan-apply';apply.textContent='Добавить · '+design.sectionCount+' секций';apply.onclick=()=>applyAIDesign('append');
+    for(const button of [replace,apply])button.disabled=isAIDesignReadOnly()||Boolean(aiDesignState?.photosPending);
+    if(isAIDesignReadOnly()){replace.textContent='Заменить · только просмотр';apply.textContent='Добавить · только просмотр';}
+    actions.append(replace,apply);preview.append(actions);preview.hidden=false;
   };
   const buildAIDesignHtml=()=>{
     const markup=new DOMParser().parseFromString(aiDesignState.design.html,'text/html');
@@ -650,30 +713,35 @@ async function openEditor(id,pageId=null) {
     }
     return markup.body.innerHTML;
   };
-  const applyAIDesign=async()=>{
+  const applyAIDesign=async(mode='append')=>{
     if(!aiDesignState||aiDesignState.photosPending)return;
     if(isAIDesignReadOnly()){$('#ai-plan-status').textContent='Версия проекта изменилась или отсутствует проверка контактов. Создайте новую генерацию.';return;}
     const page=editor.Pages.getAll().find(item=>item.get('id')===aiDesignState.pageId);
     if(!page){notify('Страница предпросмотра больше не существует.',true);return;}
     if(editor.Pages.getSelected()?.get('id')!==aiDesignState.pageId){$('#ai-plan-status').textContent='Выбрана другая страница. Составьте дизайн заново для текущей страницы.';return;}
-    if(!await askConfirmation('Добавить '+aiDesignState.design.sectionCount+' сгенерированных секций в конец страницы «'+(page.get('name')||page.get('id'))+'»? Текущие секции сохранятся. Будет создана новая ревизия.','Добавить дизайн'))return;
-    const button=$('#ai-plan-apply'),originalData=editor.getProjectData(),version=current.version;button.disabled=true;$('#ai-plan-status').textContent='Импортируем HTML/CSS в редактируемые компоненты…';
+    const replacing=mode==='replace',verb=replacing?'Заменить содержимое':'Добавить дизайн';
+    const message=replacing
+      ?'Заменить все текущие секции страницы «'+(page.get('name')||page.get('id'))+'» на '+aiDesignState.design.sectionCount+' сгенерированных секций? Настройки страницы и другие страницы останутся без изменений. Будет создана новая ревизия проекта.'
+      :'Добавить '+aiDesignState.design.sectionCount+' сгенерированных секций в конец страницы «'+(page.get('name')||page.get('id'))+'»? Текущие секции сохранятся. Будет создана новая ревизия проекта.';
+    if(!await askConfirmation(message,verb))return;
+    const buttons=Array.from(document.querySelectorAll('#ai-plan-apply, #ai-plan-replace')),originalData=editor.getProjectData(),version=current.version;for(const button of buttons)button.disabled=true;$('#ai-plan-status').textContent=replacing?'Заменяем содержимое страницы редактируемыми компонентами…':'Добавляем дизайн редактируемыми компонентами…';
     try{
       loading=true;
       const root=page.getMainComponent(),previousCount=root.components().length;
+      if(replacing)root.components().reset();
       root.append(buildAIDesignHtml());
-      if(root.components().length!==previousCount+1)throw new Error('Редактор не смог разобрать сгенерированную структуру.');
+      if(root.components().length!==(replacing?1:previousCount+1))throw new Error('Редактор не смог разобрать сгенерированную структуру.');
       editor.addStyle(aiDesignState.design.css);
     }catch(error){
       try{editor.loadProjectData(originalData);editor.clearDirtyCount();dirty=false;refreshPages();refreshEmpty();}
-      catch(restoreError){$('#ai-plan-status').textContent='Импорт не завершился, а локальное состояние нужно перезагрузить.';button.disabled=false;return;}
-      $('#ai-plan-status').textContent=error.message;button.disabled=false;return;
+      catch(restoreError){$('#ai-plan-status').textContent='Импорт не завершился, а локальное состояние нужно перезагрузить.';for(const button of buttons)button.disabled=false;return;}
+      $('#ai-plan-status').textContent=error.message;for(const button of buttons)button.disabled=false;return;
     }finally{loading=false;}
     dirty=true;refreshEmpty();$('#save-status').textContent='Сохраняем AI-дизайн…';$('#ai-plan-status').textContent='Сохраняем редактируемую страницу…';
     try{
       await saveDocument(false);
       if(!dirty&&current.version>version){
-        $('#ai-plan-dialog').close();notify('AI-дизайн добавлен · ревизия '+current.version);
+        $('#ai-plan-dialog').close();notify('AI-дизайн '+(replacing?'заменил содержимое страницы':'добавлен')+' · ревизия '+current.version);
       }else{
         $('#ai-plan-status').textContent='Дизайн импортирован в редактор, но сервер не подтвердил сохранение. Проверьте статус редактора; несохранённые изменения можно отменить.';
         notify('AI-дизайн пока не сохранён на сервере.',true);
@@ -681,7 +749,7 @@ async function openEditor(id,pageId=null) {
     }catch(error){
       $('#ai-plan-status').textContent=error.message;notify(error.message,true);
     }finally{
-      if($('#ai-plan-apply'))$('#ai-plan-apply').disabled=false;
+      for(const button of buttons)button.disabled=isAIDesignReadOnly()||Boolean(aiDesignState?.photosPending);
     }
   };
   const currentDesignTokens=()=>normalizeDesignTokens(current.settings?.designTokens||designTokensFromStyle(editor.Pages.getSelected()?.getMainComponent()?.getStyle()||{}));
@@ -894,7 +962,7 @@ async function openEditor(id,pageId=null) {
   $('#cancel-theme').onclick=()=>$('#theme-dialog').close();
   $('#theme-form').onsubmit=e=>{e.preventDefault();try{applyDesignTokens(Object.fromEntries(new FormData(e.target)));$('#theme-dialog').close();notify('Тема применена ко всем страницам');}catch(error){notify(error.message,true);}};
   $('#close-ai-plan').onclick=()=>$('#ai-plan-dialog').close();
-  $('#ai-plan-dialog').addEventListener('close',()=>{$('#ai-plan-dialog').classList.remove('ai-preview-expanded');$('#ai-job-diagnostics').hidden=true;generationEpoch++;aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-image-slot-list').replaceChildren();$('#ai-plan-preview').replaceChildren();});
+  $('#ai-plan-dialog').addEventListener('close',()=>{aiPreviewResizeObserver?.disconnect();aiPreviewResizeObserver=null;$('#ai-plan-dialog').classList.remove('ai-preview-expanded');$('#ai-job-diagnostics').hidden=true;generationEpoch++;aiDesignState=null;clearAIPreviewUrls();$('#ai-image-slot-chooser').hidden=true;$('#ai-image-slot-list').replaceChildren();$('#ai-plan-preview').replaceChildren();});
   $('#ai-plan-open').onclick=async()=>{
     const openButton=$('#ai-plan-open');openButton.disabled=true;
     try{
@@ -918,10 +986,14 @@ async function openEditor(id,pageId=null) {
     const section=$('#ai-job-diagnostics');section.replaceChildren();section.hidden=false;
     const heading=document.createElement('h3');heading.textContent='Диагностика задачи';section.append(heading);
     if(!job.diagnostics){const note=document.createElement('p');note.className='muted small';note.textContent='Для этой задачи подробная диагностика не сохранена.';section.append(note);return;}
-    const labels={launcher:'Не удалось запустить worker',expired:'Истёк срок выполнения задачи',succeeded:'Дизайн прошёл серверную проверку',response_received:'Ответ модели получен',timeout:'Таймаут ответа',rate_limited:'Ограничение запросов · HTTP 429',unavailable:'Сетевая ошибка или временный отказ',credentials:'Отказ доступа к модели',invalid_output:'Результат не прошёл безопасную проверку',invalid_component_edit:'Правка элемента не прошла проверку',invalid_response:'Модель не вернула структурированный JSON',invalid_schema:'Неверный формат дизайна',invalid_markup:'HTML не прошёл проверку',invalid_css:'CSS не прошёл проверку',copy_quality:'Проверка текста не пройдена',contrast_quality:'Проверка контраста не пройдена',hero_alignment:'Проверка композиции Hero не пройдена',contact_requirements:'Контакт отсутствует в описании',skill_requirements:'Не выполнены правила Skill',cancelled:'Задача отменена',project_changed:'Версия проекта изменилась',internal:'Внутренняя ошибка',provider:'Отказ провайдера'};
+    const labels={queued:'Задача в очереди',running:'Генерация выполняется',launcher:'Не удалось запустить worker',expired:'Истёк срок выполнения задачи',succeeded:'Дизайн прошёл серверную проверку',response_received:'Ответ модели получен',timeout:'Таймаут ответа',rate_limited:'Ограничение запросов · HTTP 429',unavailable:'Сетевая ошибка или временный отказ',credentials:'Отказ доступа к модели',invalid_output:'Результат не прошёл безопасную проверку',invalid_component_edit:'Правка элемента не прошла проверку',invalid_response:'Модель не вернула структурированный JSON',invalid_schema:'Неверный формат дизайна',invalid_markup:'HTML не прошёл проверку',invalid_css:'CSS не прошёл проверку',copy_quality:'Проверка текста не пройдена',contrast_quality:'Проверка контраста не пройдена',hero_alignment:'Проверка композиции Hero не пройдена',contact_requirements:'Контакт отсутствует в описании',skill_requirements:'Не выполнены правила Skill',cancelled:'Задача отменена',project_changed:'Версия проекта изменилась',internal:'Внутренняя ошибка',provider:'Отказ провайдера'};
     const outcome=document.createElement('p');outcome.textContent=labels[job.diagnostics.outcome]||'Запрос не завершён';section.append(outcome);
-    if(job.diagnostics.validationRule){const validation=document.createElement('p');validation.className='muted small';validation.textContent=job.diagnostics.outcome==='copy_quality'?'Проверка текста: '+copyRuleLabel(job.diagnostics.validationRule):'Проверка HTML: '+markupRuleLabel(job.diagnostics.validationRule);section.append(validation);}
-    const note=document.createElement('p');note.className='muted small';note.textContent='Обращения к профилям, включая исправление дизайна. Внутренние повторы и резервная модель профиля объединены в одно обращение. Исходные ответы и ключи не показываются.';section.append(note);
+    if(job.diagnostics.stage&&['queued','running','cancelling'].includes(job.status)){const current=document.createElement('p');current.className='muted small';current.textContent='Текущий этап: '+generationStageLabel(job.diagnostics.stage);section.append(current);}
+    if(job.diagnostics.failureStage){const failed=document.createElement('p');failed.className='muted small';failed.textContent=(job.status==='running'?'Проблема на этапе: ':'Остановка на этапе: ')+generationStageLabel(job.diagnostics.failureStage);section.append(failed);}
+    if(job.diagnostics.validationRule){const validation=document.createElement('p');validation.className='muted small';validation.textContent=job.diagnostics.outcome==='copy_quality'?'Проверка текста: '+copyRuleLabel(job.diagnostics.validationRule):job.diagnostics.outcome==='invalid_css'?'Проверка CSS: '+cssRuleLabel(job.diagnostics.validationRule):'Проверка HTML: '+markupRuleLabel(job.diagnostics.validationRule);section.append(validation);}
+    const events=visibleGenerationEvents(job.diagnostics.events);
+    if(events.length){const timeline=document.createElement('ol');timeline.className='ai-generation-timeline';timeline.setAttribute('aria-label','Этапы генерации');for(const event of events){const item=document.createElement('li');const parts=[generationStageLabel(event.stage),generationStageStateLabel(event.state)];if(Number.isInteger(event.attempt)&&event.attempt>1)parts.push('попытка '+event.attempt);if(Number.isFinite(event.durationMs))parts.push((event.durationMs/1000).toFixed(1)+' с');if(event.templateId){const templateLabel=generationTemplateReferenceLabel(event.templateId);if(templateLabel)parts.push(templateLabel);}const pipelineLabel=generationPipelineLabel(event.pipelineStage);if(pipelineLabel)parts.push(pipelineLabel);if(event.revision&&/^[a-f0-9]{40}$/.test(event.revision))parts.push(event.revision.slice(0,8));if(event.stage==='open_design_pipeline'&&typeof event.genericDefaults==='boolean')parts.push(event.genericDefaults?'общие defaults':'без общих defaults');const referenceStatusLabel=generationReferenceStatusLabel(event.referenceStatus);if(referenceStatusLabel)parts.push(referenceStatusLabel);if(event.decision==='repair_available')parts.push('будет повторная попытка');if(event.decision==='no_repair_rule')parts.push('исправление не предусмотрено');if(event.decision==='safe_fallback')parts.push('применена безопасная раскладка');item.textContent=parts.join(' · ');if(event.validationRule){const reason=document.createElement('span');reason.className='muted small';const evidence=generationEventEvidenceLabel(event);reason.textContent=' — '+generationEventRuleLabel(event)+(evidence?` (${evidence})`:'');item.append(reason);}timeline.append(item);}section.append(timeline);}
+    const note=document.createElement('p');note.className='muted small';note.textContent='Показываются только этапы, длительность и фиксированные коды проверок. Промпт, ответы модели, тексты страницы и ключи не записываются в диагностику.';section.append(note);
     for(const attempt of job.diagnostics.attempts||[]){const row=document.createElement('p');row.className='muted small';row.textContent=attempt.profileName+' · '+attempt.model+' · '+(labels[attempt.outcome]||'Отказ провайдера')+' · '+(attempt.elapsedMs/1000).toFixed(1)+' с';section.append(row);}
   };
 
@@ -941,7 +1013,8 @@ async function openEditor(id,pageId=null) {
       const statuses={queued:'В очереди',running:'Выполняется',cancelling:'Отменяется',cancelled:'Отменена',succeeded:'Готово',failed:'Ошибка'};
       for(const job of history.items){
         const row=document.createElement('div');row.className='ai-job-history-row';
-        const text=document.createElement('p');text.textContent=new Date(job.createdAt*1000).toLocaleString('ru-RU')+' · '+(statuses[job.status]||job.status)+' · '+job.skillName+' · ревизия '+job.baseVersion+' — '+job.promptExcerpt;
+        const reference=job.templateReference?generationTemplateReferenceLabel(job.templateReference.templateId)+' · '+generationReferenceStatusLabel(job.templateReference.referenceStatus):'';
+        const text=document.createElement('p');text.textContent=new Date(job.createdAt*1000).toLocaleString('ru-RU')+' · '+(statuses[job.status]||job.status)+' · профиль '+job.skillName+(reference?' · референс '+reference:'')+' · ревизия '+job.baseVersion+' — '+job.promptExcerpt;
         const open=document.createElement('button');open.type='button';open.className='secondary-link';open.textContent=job.hasResult?'Посмотреть результат':'Открыть задачу';open.onclick=()=>$('#ai-plan-form').onsubmit({preventDefault(){},resumeJob:true,jobId:job.id});row.append(text,open);list.append(row);
       }
     }catch(error){list.textContent=error.message;}finally{button.disabled=false;}
@@ -962,7 +1035,9 @@ async function openEditor(id,pageId=null) {
       activeGenerationJobId=job.id;$('#ai-job-cancel').hidden=!['queued','running','cancelling'].includes(job.status);
       userSkillId=job.request.skillId;skillProfile=job.request.skillProfile;$('#ai-prompt').value=job.request.prompt;skillProfileSelect.value=userSkillId?'user:'+userSkillId:skillProfile;updateAIDisclosure();
       while(['queued','running','cancelling'].includes(job.status)){
-        $('#ai-plan-status').textContent=(job.status==='cancelling'?'Отменяем генерацию':job.status==='queued'?'Задача в очереди':'Генерация выполняется')+' · '+Math.max(0,Math.floor(Date.now()/1000-job.createdAt))+' с. Можно закрыть окно и восстановить задачу позже. Лимит задачи — 10 минут.';
+        renderAIJobDiagnostics(job);
+        const currentStage=job.diagnostics?.stage?' · '+generationStageLabel(job.diagnostics.stage):'';
+        $('#ai-plan-status').textContent=(job.status==='cancelling'?'Отменяем генерацию':job.status==='queued'?'Задача в очереди':'Генерация выполняется')+currentStage+' · '+Math.max(0,Math.floor(Date.now()/1000-job.createdAt))+' с. Можно закрыть окно и восстановить задачу позже. Лимит задачи — 10 минут.';
         await new Promise(resolve=>setTimeout(resolve,2000));
         if(!$('#ai-plan-dialog')?.open||pollEpoch!==generationEpoch)return;
         job=await api(`/projects/${id}/ai/generation-jobs/${job.id}`);
@@ -978,7 +1053,7 @@ async function openEditor(id,pageId=null) {
       let assets=[],assetWarning='';try{assets=await api(`/projects/${id}/assets`);}catch(error){assetWarning=' Не удалось загрузить библиотеку изображений: '+error.message;}
       const slots=response.design.imageSlots||[];
       aiDesignState={baseVersion:job.baseVersion,design:response.design,metadata:response.metadata,pageId:page.get('id'),photosPending:true,photoNotice:response.design.photoSelection?.status==='unavailable'?'Подбор фото временно недоступен. Дизайн готов без изображений.':response.design.photoSelection?.status==='no_matches'?'Подходящих фото не найдено. Дизайн готов без изображений.':response.design.photoSelection?.photos?.length?'Изображения подобраны автоматически.':'',assets:[...assets,...(response.design.photoSelection?.photos||[])],imageAssignments:response.design.photoSelection?.assignments||{},imageAlt:Object.fromEntries(slots.map(slot=>[slot.id,slot.label]))};
-      renderAIDesign(response.design,response.metadata);if(!response.design.photoSelection&&!isAIDesignReadOnly()){for(const slot of response.design.imageSlots||[]){if(slot.query){try{await findAIStockPhoto(slot.id,slot.query);}catch(error){if(aiDesignState){aiDesignState.photoNotice=error.message;$('#ai-plan-status').textContent=error.message;}}}}}if(!$('#ai-plan-dialog')?.open||pollEpoch!==generationEpoch)return;aiDesignState.photosPending=false;syncAIApply();if(isAIDesignReadOnly()){$('#ai-image-slot-chooser').hidden=true;for(const input of $('#ai-plan-preview').querySelectorAll('input'))input.disabled=true;}$('#ai-plan-status').textContent=response.design.contactAudit?.status!=='passed'?'Старый результат без проверки контактов: только просмотр. Создайте новую генерацию.':job.baseVersion!==current.version?'Результат ревизии '+job.baseVersion+' доступен только для просмотра: текущая ревизия '+current.version+'. Для применения создайте новую генерацию.':'Проверьте предпросмотр. Страница изменится только после отдельного подтверждения. '+(aiDesignState.photoNotice||'');
+      renderAIDesign(response.design,response.metadata,job.diagnostics?.events);if(!response.design.photoSelection&&!isAIDesignReadOnly()){for(const slot of response.design.imageSlots||[]){if(slot.query){try{await findAIStockPhoto(slot.id,slot.query);}catch(error){if(aiDesignState){aiDesignState.photoNotice=error.message;$('#ai-plan-status').textContent=error.message;}}}}}if(!$('#ai-plan-dialog')?.open||pollEpoch!==generationEpoch)return;aiDesignState.photosPending=false;syncAIApply();if(isAIDesignReadOnly()){$('#ai-image-slot-chooser').hidden=true;for(const input of $('#ai-plan-preview').querySelectorAll('input'))input.disabled=true;}$('#ai-plan-status').textContent=response.design.contactAudit?.status!=='passed'?'Старый результат без проверки контактов: только просмотр. Создайте новую генерацию.':job.baseVersion!==current.version?'Результат ревизии '+job.baseVersion+' доступен только для просмотра: текущая ревизия '+current.version+'. Для применения создайте новую генерацию.':'Проверьте предпросмотр. Страница изменится только после отдельного подтверждения. '+(aiDesignState.photoNotice||'');
       if(assetWarning)$('#ai-plan-status').textContent+=assetWarning;
     }catch(error){$('#ai-plan-status').textContent=error.message;notify(error.message,true);}
     finally{generationPolling=false;activeGenerationJobId=null;$('#ai-job-cancel').hidden=true;button.disabled=false;}

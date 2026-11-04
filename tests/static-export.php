@@ -125,14 +125,14 @@ $heroCreditProject['document']->data->pages[0]->frames[0]->component->components
         (object)['tagName'=>'div','type'=>'text','classes'=>['ai-hero-copy'],'content'=>'Hero copy'],
         (object)[
             'tagName'=>'p','type'=>'text','classes'=>['ai-photo-credit'],
-            'style'=>(object)['position'=>'absolute','right'=>'12px','bottom'=>'10px','z-index'=>'2','width'=>'max-content','max-width'=>'48%','margin'=>'0','padding'=>'4px 8px','border-radius'=>'999px','background-color'=>'rgba(0, 0, 0, 0.62)','color'=>'#ffffff','font-size'=>'8px','line-height'=>'1.3','text-align'=>'right'],
+            'style'=>(object)['position'=>'absolute','right'=>'12px','bottom'=>'10px','z-index'=>'2','width'=>'max-content','max-width'=>'calc(100% - 24px)','margin'=>'0','padding'=>'4px 8px','border-radius'=>'999px','background-color'=>'rgba(0, 0, 0, 0.62)','color'=>'#ffffff','font-size'=>'8px','line-height'=>'1.3','text-align'=>'right'],
             'components'=>[(object)['type'=>'textnode','content'=>'Photo: Author · CC BY-SA 4.0']],
         ],
     ],
 ];
 Document::validate($heroCreditProject['document']);
 $heroCreditHtml=StaticSiteExporter::files($heroCreditProject)['index.html'];
-exportCheck(str_contains($heroCreditHtml,'<section class="ai-hero-background" style="position:relative')&&str_contains($heroCreditHtml,'<p class="ai-photo-credit" style="position:absolute;right:12px;bottom:10px;z-index:2;width:max-content;max-width:48%;margin:0;padding:4px 8px;border-radius:999px;background-color:rgba(0, 0, 0, 0.62);color:#ffffff;font-size:8px;line-height:1.3;text-align:right">Photo: Author · CC BY-SA 4.0</p></section>'),'Background-image Hero attribution remains inside its clipped container as an 8px overlay in static export');
+exportCheck(str_contains($heroCreditHtml,'<section class="ai-hero-background" style="position:relative')&&str_contains($heroCreditHtml,'<p class="ai-photo-credit" style="position:absolute;right:12px;bottom:10px;z-index:2;width:max-content;max-width:calc(100% - 24px);margin:0;padding:4px 8px;border-radius:999px;background-color:rgba(0, 0, 0, 0.62);color:#ffffff;font-size:8px;line-height:1.3;text-align:right">Photo: Author · CC BY-SA 4.0</p></section>'),'Background-image Hero attribution remains inside its clipped container with responsive-safe width in static export');
 
 $filterProject=$project;
 $filterProject['document']=json_decode(json_encode($project['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);

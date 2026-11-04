@@ -64,7 +64,7 @@ test('generated image attribution is a readable 8px caption below the photo',()=
   assert.equal(credit.children[2].href,'https://creativecommons.org/licenses/by/4.0/');
 });
 
-test('full-bleed hero background attribution stays inside the hero as a compact overlay',()=>{
+test('full-bleed hero background attribution stays inside the hero and has room for long mobile credits',()=>{
   const background=new FakeElement('section',null);background.maxWidth='1000px';background.marginBottom='40px';const {slot}=fakePhotoSlot(background);
   const credit=appendPhotoCredit(slot,{kind:'commons',sourceUrl:'https://commons.wikimedia.org/photo',licenseUrl:'https://creativecommons.org/licenses/by/4.0/',author:'Photo Author',license:'CC BY 4.0'});
   assert.equal(background.parentNode.children.length,1);
@@ -76,13 +76,17 @@ test('full-bleed hero background attribution stays inside the hero as a compact 
   assert.equal(credit.style.bottom,'10px');
   assert.equal(credit.style['z-index'],'2');
   assert.equal(credit.style.width,'max-content');
-  assert.equal(credit.style['max-width'],'48%');
+  assert.equal(credit.style['max-width'],'calc(100% - 24px)');
   assert.equal(credit.style.padding,'4px 8px');
   assert.equal(credit.style['background-color'],'rgba(0, 0, 0, 0.62)');
   assert.equal(credit.style.color,'#ffffff');
   assert.equal(credit.style['font-size'],'8px');
   assert.equal(credit.style.margin,'0');
   assert.equal(credit.children[0].href,'https://commons.wikimedia.org/photo');
+  assert.equal(credit.children[0].style.display,'inline');
+  assert.equal(credit.children[0].style.padding,'0');
+  assert.equal(credit.children[0].style['background-color'],'transparent');
+  assert.equal(credit.children[0].style['font-weight'],'400');
   assert.equal(credit.children[0].style.color,'inherit');
   assert.equal(credit.children[0].style['text-decoration'],'underline');
   assert.equal(credit.children[2].href,'https://creativecommons.org/licenses/by/4.0/');
@@ -123,8 +127,12 @@ test('legacy adjacent Hero attribution migrates into the Hero without moving reg
   assert.equal(legacyCredit.style.right,'12px');
   assert.equal(legacyCredit.style.bottom,'10px');
   assert.equal(legacyCredit.style['font-size'],'8px');
-  assert.deepEqual(sourceLink.style,{'font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'});
-  assert.deepEqual(licenseLink.style,{'font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'});
+  assert.equal(sourceLink.style.display,'inline');
+  assert.equal(sourceLink.style.padding,'0');
+  assert.equal(sourceLink.style['background-color'],'transparent');
+  const expectedCreditLinkStyle={display:'inline',padding:'0','border-radius':'0','background-color':'transparent','font-weight':'400','font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'};
+  assert.deepEqual(sourceLink.style,expectedCreditLinkStyle);
+  assert.deepEqual(licenseLink.style,expectedCreditLinkStyle);
   assert.equal(figure.children[1],figureCredit);
   assert.equal(normalizeLegacyHeroPhotoCredits(editor),0);
 });

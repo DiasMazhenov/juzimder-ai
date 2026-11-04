@@ -5,6 +5,7 @@ use Juzimder\GeneratedDesignDefaults;
 function defaultsCheck(bool $ok,string $name):void{if(!$ok)throw new RuntimeException($name);echo "PASS $name\n";}
 $input=['html'=>'<div class="ai-scope-test"><section class="ai-hero"><h1>Главная</h1><div class="ai-image-slot"></div></section><section class="ai-menu"><h2>Меню</h2><article class="ai-card"><div class="ai-image-slot"></div></article></section></div>','css'=>'.ai-scope-test .ai-hero{text-align:left}.ai-scope-test .ai-menu{text-align:center}.ai-scope-test .ai-card{border-radius:16px}.ai-scope-test button{border-radius:8px}'];
 $out=GeneratedDesignDefaults::apply($input);
+defaultsCheck(str_contains($out['css'],'.ai-scope-test .ai-card,.ai-scope-test .ai-product-card,.ai-scope-test .ai-category-card{box-sizing:border-box;min-width:0;max-width:100%}'),'Generated card variants stay within their parent instead of causing mobile horizontal overflow');
 defaultsCheck(substr_count($out['html'],'ai-pill-badge')===2,'Each content section gets one pill badge');
 defaultsCheck(substr_count($out['html'],'ai-default-left')===2,'Left aligned Hero sets consistent section alignment');
 defaultsCheck(str_contains($out['css'],'.ai-photo-fit-contain img{object-fit:contain!important}'),'Selected portrait photos can opt out of destructive cover cropping');
@@ -33,6 +34,8 @@ defaultsCheck(str_contains($out['css'],'@media(max-width:767px){.ai-scope-test .
 defaultsCheck(str_contains($out['css'],'@media(max-width:980px){.ai-scope-test .ai-hero h1{box-sizing:border-box;min-width:0;max-width:100%;font-size:clamp(36px,6vw,56px)'),'Tablet Hero typography scales before it overflows its copy lane');
 $tallHero=$input;$tallHero['css'].='.ai-scope-test .ai-hero{min-height:900px}';$tallHero=GeneratedDesignDefaults::apply($tallHero);
 defaultsCheck(str_contains($tallHero['css'],'min-height:max(75vh,900px)'),'Hero keeps a taller authored minimum while enforcing at least 75vh');
+$compactHero=GeneratedDesignDefaults::apply($input,false);
+defaultsCheck(!str_contains($compactHero['html'],'ai-hero-default-viewport-height')&&!str_contains($compactHero['css'],'min-height:75vh'),'Operational app headings can opt out of the public-page 75vh Hero minimum');
 defaultsCheck(str_contains($out['css'],'.ai-scope-test nav{display:flex;flex-wrap:wrap')&&str_contains($out['css'],'.ai-scope-test nav ul{display:flex;flex-wrap:wrap'),'Generated navigation and its list wrap at narrow viewport widths');
 defaultsCheck(str_contains($out['html'],'ai-section-default-spacing')&&str_contains($out['css'],'padding:48px clamp(20px,5vw,72px)')&&str_contains($out['css'],'padding:40px 20px'),'Sections without authored padding receive consistent desktop and mobile spacing');
 $authoredSpacing=$input;$authoredSpacing['css'].='.ai-scope-test .ai-menu{padding:24px 32px}';$authoredSpacing=GeneratedDesignDefaults::apply($authoredSpacing);
@@ -45,11 +48,27 @@ defaultsCheck(str_contains($navSpacingOut['html'],'ai-nav-default-spacing')&&str
 $authoredNav=$navSpacing;$authoredNav['css'].='.ai-scope-test nav{padding:8px 32px}';$authoredNav=GeneratedDesignDefaults::apply($authoredNav);
 defaultsCheck(!str_contains($authoredNav['html'],'ai-nav-default-spacing'),'Generated navigation preserves model-authored padding');
 
+$cardList=['html'=>'<div class="ai-scope-test"><section class="ai-hero"><h1>Коллекция</h1><ul class="ai-items"><li><strong>Минералы</strong><p>Образцы горных пород.</p></li><li><strong>Окаменелости</strong><p>История древней природы.</p></li></ul></section></div>','css'=>'.ai-scope-test .ai-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.ai-scope-test .ai-items li{padding:24px;border:1px solid #DDE4DE;border-radius:8px;background-color:#FFFFFF}'];
+$cardList=GeneratedDesignDefaults::apply($cardList);
+defaultsCheck(str_contains($cardList['html'],'class="ai-items ai-card-list"')&&str_contains($cardList['css'],'.ai-scope-test ul.ai-card-list,.ai-scope-test ol.ai-card-list{list-style-type:none}'),'Styled grid/flex cards suppress browser list markers that would escape their card edges');
+$plainGridList=['html'=>'<div class="ai-scope-test"><section class="ai-hero"><h1>Пункты</h1><ul class="ai-items"><li><p>Первый пункт</p></li><li><p>Второй пункт</p></li></ul></section></div>','css'=>'.ai-scope-test .ai-items{display:grid;gap:12px}'];
+$plainGridList=GeneratedDesignDefaults::apply($plainGridList);
+defaultsCheck(!str_contains($plainGridList['html'],'ai-card-list'),'Unstyled editorial lists keep their browser markers');
+$explicitCardList=$cardList;$explicitCardList['html']=str_replace('ai-items ai-card-list','ai-items',$explicitCardList['html']);$explicitCardList['css'].='.ai-scope-test .ai-items{list-style-type:disc}';
+$explicitCardList=GeneratedDesignDefaults::apply($explicitCardList);
+defaultsCheck(!str_contains($explicitCardList['html'],'ai-card-list'),'Explicit list marker choices are preserved for authored card lists');
+
 $split=['html'=>'<div class="ai-scope-test"><section class="ai-hero ai-hero-split"><div class="ai-image-slot" data-image-slot="hero"></div><div class="ai-copy"><h1>Clinic</h1><p>Care</p><a href="#contact">Book</a></div></section></div>','css'=>'.ai-scope-test .ai-hero{background-color:#123456}'];
 $composed=GeneratedDesignDefaults::apply($split);
 defaultsCheck(strpos($composed['html'],'ai-split-copy') < strpos($composed['html'],'data-image-slot="hero"'),'Split Hero orders text before photo in native DOM');
 defaultsCheck(str_contains($composed['css'],'@media(max-width:767px)')&&str_contains($composed['css'],'grid-template-columns:minmax(0,1fr)'),'Split Hero has single-column mobile layout');
 defaultsCheck(str_contains($composed['css'],'background-color:#123456'),'Split composition retains model palette');
+$genericSectionFrame=$split;$genericSectionFrame['css'].='.ai-scope-test section{max-width:960px;margin:0 auto}';
+$genericSectionFrame=GeneratedDesignDefaults::apply($genericSectionFrame);
+defaultsCheck(str_contains($genericSectionFrame['css'],'.ai-scope-test .ai-hero.ai-split-ready{box-sizing:border-box;width:100%;max-width:none;margin-left:0;margin-right:0}'),'Split Hero escapes a generic section max-width while keeping following sections independently constrained');
+$authoredHeroFrame=$split;$authoredHeroFrame['css'].='.ai-scope-test .ai-hero{max-width:1080px;margin:0 auto}';
+$authoredHeroFrame=GeneratedDesignDefaults::apply($authoredHeroFrame);
+defaultsCheck(!str_contains($authoredHeroFrame['css'],'ai-hero.ai-split-ready{box-sizing:border-box;width:100%;max-width:none'),'An explicitly authored Hero frame is preserved');
 $splitWithSection=$split;
 $splitWithSection['html']=str_replace('</section></div>','</section><section class="ai-menu"><div class="ai-container"><h2>Services</h2></div></section></div>',$splitWithSection['html']);
 $splitWithSection['css'].='.ai-scope-test .ai-container{width:960px;max-width:960px;margin:0 auto;padding:24px}.ai-scope-test .ai-menu{padding:48px 24px}';
@@ -70,3 +89,10 @@ defaultsCheck(str_contains($rounded['html'],'ai-hero-rounded')&&str_contains($ro
 
 $separate=$input;$separate['css'].='.ai-scope-test .ai-hero{border-radius:24px}.ai-scope-test .ai-image-slot{border-radius:8px}';
 defaultsCheck(str_contains(GeneratedDesignDefaults::apply($separate)['css'],'ai-photo-radius-1 img{border-radius:8px}'),'Explicit photo radius is independent of Hero container radius');
+
+$pinnedComposition=['html'=>'<div class="ai-scope-reference"><header class="ai-nav"><nav><a href="#features">Features</a></nav></header><section class="ai-hero ai-hero-split"><div class="ai-hero-copy"><h1>Distinctive offer</h1><p>Source-shaped lead.</p><a href="#features">Explore</a></div><div class="ai-image-slot" data-image-slot="hero"></div></section><section class="ai-features"><div class="ai-container"><h2>Features</h2><article class="ai-card"><p>One detail.</p></article></div></section></div>','css'=>'.ai-scope-reference .ai-hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr);gap:68px;padding:88px 36px;text-align:left}.ai-scope-reference .ai-hero h1{font-size:clamp(56px,7vw,96px)}.ai-scope-reference .ai-features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;padding:72px 36px}.ai-scope-reference nav{display:grid;grid-template-columns:1fr auto;gap:32px}.ai-scope-reference .ai-card{border:1px solid #123456;border-radius:18px}'];
+$pinnedComposition=GeneratedDesignDefaults::apply($pinnedComposition,true,true);
+defaultsCheck(!str_contains($pinnedComposition['html'],'ai-pill-badge')&&!str_contains($pinnedComposition['html'],'ai-default-left')&&!str_contains($pinnedComposition['html'],'ai-section-default-spacing')&&!str_contains($pinnedComposition['html'],'ai-nav-default-spacing')&&!str_contains($pinnedComposition['html'],'ai-shared-content-width')&&!str_contains($pinnedComposition['html'],'ai-split-ready')&&!str_contains($pinnedComposition['html'],'ai-hero-copy-only'),'A loaded external reference keeps its authored elements, alignment, spacing and split structure');
+defaultsCheck(str_contains($pinnedComposition['css'],'grid-template-columns:minmax(0,1.35fr) minmax(0,.65fr)')&&str_contains($pinnedComposition['css'],'gap:68px')&&str_contains($pinnedComposition['css'],'grid-template-columns:repeat(3,minmax(0,1fr))')&&str_contains($pinnedComposition['css'],'display:grid;grid-template-columns:1fr auto'),'Authored unequal Hero, feature and navigation layouts survive the safety post-pass');
+defaultsCheck(!str_contains($pinnedComposition['css'],'ai-default-left.ai-default-left')&&!str_contains($pinnedComposition['css'],'ai-section-default-spacing{')&&!str_contains($pinnedComposition['css'],'ai-split-ready{display:grid;')&&!str_contains($pinnedComposition['css'],'ai-photo-radius-1'),'The source-preserving path appends no generic visual defaults');
+defaultsCheck(str_contains($pinnedComposition['html'],'ai-hero-default-viewport-height')&&str_contains($pinnedComposition['css'],'min-height:75vh')&&str_contains($pinnedComposition['css'],'overflow-wrap:anywhere'),'The authored composition still receives the requested Hero minimum and narrow-screen text safety');

@@ -5,6 +5,134 @@ namespace Juzimder;
 final class AiCredentialVault {
     public function __construct(private readonly Store $store) {}
 
+    /**
+     * Return a project-backup projection. API keys stay encrypted with this
+     * installation's secretbox key and are bound to the owner and source project.
+     */
+    public function backupSnapshot(string $projectId, string $userId): array {
+        $this->store->owned($projectId, $userId);
+        $state = $this->state($projectId);
+        $rows = $this->store->query(
+            'SELECT id,name,api_key_ciphertext,model,fallback_model FROM project_ai_profiles WHERE project_id=? ORDER BY created_at,id',
+            [$projectId]
+        )->fetchAll();
+        $profiles = [];
+        foreach ($rows as $row) {
+            try {
+                self::validateName((string)$row['name']);
+                $model = self::validateModel((string)$row['model']);
+                $fallback = self::validateFallbackModel($row['fallback_model'], $model);
+                $ciphertext = (string)$row['api_key_ciphertext'];
+                self::validateStoredCredential($ciphertext);
+                self::validateApiKey($this->decrypt($ciphertext), true);
+            } catch (Problem $error) {
+                if ($error->status === 503) throw $error;
+                throw new Problem(500, 'Не удалось добавить защищённые настройки AI Engine в резервную копию. Проверьте ключ хранилища AI.');
+            } catch (\Throwable) {
+                throw new Problem(500, 'Не удалось добавить защищённые настройки AI Engine в резервную копию. Проверьте ключ хранилища AI.');
+            }
+            $profiles[] = [
+                'id'=>(string)$row['id'],
+                'name'=>(string)$row['name'],
+                'model'=>$model,
+                'fallbackModel'=>$fallback,
+                'credentialCiphertext'=>$ciphertext,
+            ];
+        }
+        $activeId = $state['active_profile_id'] ?? null;
+        if ($activeId !== null && (!is_string($activeId) || !in_array($activeId, array_column($profiles, 'id'), true))) {
+            throw new Problem(500, 'Не удалось проверить активный профиль AI для резервной копии.');
+        }
+        return ['activeProfileId'=>$activeId, 'profiles'=>$profiles, 'integrity'=>$profiles === [] ? null : $this->snapshotIntegrity($projectId, $userId, $activeId, $profiles)];
+    }
+
+    /** Validate encrypted profile data from a backup without returning plaintext credentials. */
+    public function validateBackupSnapshot(string $projectId, string $userId, mixed $value, bool $requireOwnedProject = true): array {
+        if ($requireOwnedProject) $this->store->owned($projectId, $userId);
+        $fields = $value instanceof \stdClass ? get_object_vars($value) : (is_array($value) && !array_is_list($value) ? $value : null);
+        if ($fields === null || array_diff(array_keys($fields), ['activeProfileId','profiles','integrity']) || !array_key_exists('activeProfileId', $fields) || !is_array($fields['profiles'] ?? null) || !array_is_list($fields['profiles']) || !array_key_exists('integrity', $fields)) {
+            throw new Problem(422, 'Некорректные настройки AI Engine в резервной копии.');
+        }
+        $profiles = []; $seen = [];
+        foreach ($fields['profiles'] as $value) {
+            $profile = $value instanceof \stdClass ? get_object_vars($value) : (is_array($value) && !array_is_list($value) ? $value : null);
+            if ($profile === null || array_diff(array_keys($profile), ['id','name','model','fallbackModel','credentialCiphertext']) || !is_string($profile['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $profile['id']) || isset($seen[$profile['id']]) || !is_string($profile['name'] ?? null) || !is_string($profile['model'] ?? null) || !(($profile['fallbackModel'] ?? null) === null || is_string($profile['fallbackModel'])) || !is_string($profile['credentialCiphertext'] ?? null)) {
+                throw new Problem(422, 'Некорректная запись профиля AI в резервной копии.');
+            }
+            $name = self::validateName($profile['name']);
+            $model = self::validateModel($profile['model']);
+            $fallback = self::validateFallbackModel($profile['fallbackModel'], $model);
+            $ciphertext = self::validateStoredCredential($profile['credentialCiphertext']);
+            try {
+                $plaintext = $this->decrypt($ciphertext);
+                self::validateApiKey($plaintext, true);
+            } catch (Problem $error) {
+                if ($error->status === 503 && str_contains($error->getMessage(), 'Сохранённый ключ AI недоступен')) {
+                    throw new Problem(422, 'Зашифрованные ключи AI из этого бэкапа принадлежат другой установке или повреждены. Для переноса сервера сохраните системную базу вместе с файлом ключа AI.');
+                }
+                throw $error;
+            }
+            $seen[$profile['id']] = true;
+            $profiles[] = ['id'=>$profile['id'],'name'=>$name,'model'=>$model,'fallbackModel'=>$fallback,'credentialCiphertext'=>$ciphertext];
+        }
+        $activeId = $fields['activeProfileId'];
+        if (!(($activeId === null) || (is_string($activeId) && isset($seen[$activeId])))) {
+            throw new Problem(422, 'Активный AI-профиль отсутствует в резервной копии.');
+        }
+        if ($profiles === []) {
+            if ($activeId !== null || $fields['integrity'] !== null) throw new Problem(422, 'Некорректная подпись пустых настроек AI в резервной копии.');
+            $integrity = null;
+        } else {
+            if (!is_string($fields['integrity']) || !preg_match('/^[a-f0-9]{64}$/D', $fields['integrity'])) throw new Problem(422, 'Подпись профилей AI в резервной копии некорректна.');
+            $integrity = $this->snapshotIntegrity($projectId, $userId, $activeId, $profiles);
+            if (!hash_equals($integrity, $fields['integrity'])) throw new Problem(422, 'Профили AI в бэкапе не принадлежат этому аккаунту или были изменены.');
+        }
+        return ['activeProfileId'=>$activeId,'profiles'=>$profiles,'integrity'=>$integrity];
+    }
+
+    /** Rebind a validated snapshot while importing it as a new project for the same owner. */
+    public function rebindBackupSnapshot(string $sourceProjectId, string $targetProjectId, string $userId, mixed $value, array $profileIds): array {
+        $snapshot = $this->validateBackupSnapshot($sourceProjectId, $userId, $value, false);
+        $oldActiveId = $snapshot['activeProfileId'];
+        foreach ($snapshot['profiles'] as &$profile) {
+            $oldId = $profile['id'];
+            if (!isset($profileIds[$oldId]) || !is_string($profileIds[$oldId]) || !preg_match('/^[a-f0-9]{24}$/D', $profileIds[$oldId])) {
+                throw new Problem(422, 'Некорректная привязка AI-профиля при восстановлении.');
+            }
+            $profile['id'] = $profileIds[$oldId];
+        }
+        unset($profile);
+        if (is_string($oldActiveId)) $snapshot['activeProfileId'] = $profileIds[$oldActiveId] ?? null;
+        $snapshot['integrity'] = $snapshot['profiles'] === [] ? null : $this->snapshotIntegrity($targetProjectId, $userId, $snapshot['activeProfileId'], $snapshot['profiles']);
+        return $snapshot;
+    }
+
+    private function snapshotIntegrity(string $projectId, string $userId, ?string $activeProfileId, array $profiles): string {
+        $key = $this->encryptionKey(false);
+        $payload = json_encode([
+            'projectId'=>$projectId,
+            'userId'=>$userId,
+            'activeProfileId'=>$activeProfileId,
+            'profiles'=>array_map(static fn(array $profile): array => [
+                'id'=>$profile['id'],
+                'name'=>$profile['name'],
+                'model'=>$profile['model'],
+                'fallbackModel'=>$profile['fallbackModel'],
+                'credentialCiphertext'=>$profile['credentialCiphertext'],
+            ], $profiles),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        return hash_hmac('sha256', $payload, $key);
+    }
+
+    private static function validateStoredCredential(string $ciphertext): string {
+        if (!function_exists('sodium_crypto_secretbox_open')) throw new Problem(503, 'На сервере недоступно защищённое хранилище ключей AI.');
+        $decoded = base64_decode($ciphertext, true);
+        if ($decoded === false || strlen($decoded) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES || strlen($ciphertext) > 1200) {
+            throw new Problem(422, 'Некорректный зашифрованный ключ AI в резервной копии.');
+        }
+        return $ciphertext;
+    }
+
     public function status(string $projectId, string $userId): array {
         $this->store->owned($projectId, $userId);
         $state = $this->state($projectId);
@@ -175,6 +303,9 @@ final class AiCredentialVault {
                 [$activeProfileId, $projectId]
             );
             $this->store->db->commit();
+        } catch (Problem $error) {
+            if ($this->store->db->inTransaction()) $this->store->db->rollBack();
+            throw $error;
         } catch (\Throwable $error) {
             if ($this->store->db->inTransaction()) $this->store->db->rollBack();
             if ($error instanceof \PDOException && preg_match('/locked|busy/i', $error->getMessage())) {

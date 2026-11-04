@@ -1,0 +1,83 @@
+name: Shared hosting repository build
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shared-hosting-main-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build shared hosting package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+          cache: npm
+
+      - name: Set up PHP and required extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, fileinfo, mbstring, pdo_sqlite, sodium, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Build shared hosting ZIP
+        run: |
+          npm ci
+          npm run package:shared-hosting
+          (cd build && sha256sum juzimder-ai-shared-hosting.zip > juzimder-ai-shared-hosting.zip.sha256)
+
+      - name: Record source and version
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const metadata = {
+            productVersion: pkg.productVersion,
+            packageVersion: pkg.version,
+            sourceCommit: process.env.SOURCE_COMMIT,
+            workflowRunId: Number(process.env.WORKFLOW_RUN_ID),
+            workflowRunAttempt: Number(process.env.WORKFLOW_RUN_ATTEMPT),
+            zipSha256: fs.readFileSync('build/juzimder-ai-shared-hosting.zip.sha256', 'utf8').trim().split(/\s+/)[0],
+            builtAt: new Date().toISOString()
+          };
+          if (!/^\d{2}\.\d{2}\.\d{3}$/.test(metadata.productVersion)) throw new Error('Invalid productVersion');
+          if (!/^[a-f0-9]{64}$/.test(metadata.zipSha256)) throw new Error('Invalid shared-hosting package checksum');
+          fs.writeFileSync('build/repository-build.json', JSON.stringify(metadata) + '\n');
+          NODE
+
+      - name: Publish current package on a public repository branch
+        run: |
+          set -eu
+          output_dir="$RUNNER_TEMP/juzimder-shared-hosting-build"
+          mkdir -p "$output_dir"
+          cp build/juzimder-ai-shared-hosting.zip "$output_dir/"
+          cp build/juzimder-ai-shared-hosting.zip.sha256 "$output_dir/"
+          cp build/repository-build.json "$output_dir/"
+          git switch --orphan shared-hosting-build
+          git rm -rf . >/dev/null 2>&1 || true
+          git clean -fdx
+          cp "$output_dir/juzimder-ai-shared-hosting.zip" .
+          cp "$output_dir/juzimder-ai-shared-hosting.zip.sha256" .
+          cp "$output_dir/repository-build.json" .
+          git add juzimder-ai-shared-hosting.zip juzimder-ai-shared-hosting.zip.sha256 repository-build.json
+          source_commit=$(node -p "JSON.parse(require('fs').readFileSync('repository-build.json','utf8')).sourceCommit")
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Build shared-hosting package for $source_commit"
+          git push --force origin HEAD:refs/heads/shared-hosting-build

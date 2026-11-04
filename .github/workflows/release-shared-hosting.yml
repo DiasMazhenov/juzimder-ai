@@ -1,0 +1,62 @@
+name: Shared hosting release
+
+on:
+  push:
+    tags:
+      - 'v[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9]'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shared-hosting-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+          cache: npm
+
+      - name: Set up PHP and required extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, fileinfo, mbstring, pdo_sqlite, sodium, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Ensure tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          expected="${RELEASE_TAG#v}"
+          actual="$(node -p "require('./package.json').productVersion")"
+          if [ "$expected" != "$actual" ]; then
+            echo "Tag $RELEASE_TAG does not match package productVersion $actual" >&2
+            exit 1
+          fi
+
+      - name: Build hosting package
+        run: |
+          npm ci
+          npm run package:shared-hosting
+          (cd build && sha256sum juzimder-ai-shared-hosting.zip > juzimder-ai-shared-hosting.zip.sha256)
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          build/juzimder-ai-shared-hosting.zip
+          build/juzimder-ai-shared-hosting.zip.sha256
+          --verify-tag
+          --title "Juzimder AI ${GITHUB_REF_NAME#v}"
+          --generate-notes

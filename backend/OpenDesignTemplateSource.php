@@ -31,7 +31,12 @@ final class OpenDesignTemplateSource {
     public static function catalog(): array {
         return [
             ['id'=>'saas-landing','name'=>'SaaS Landing','mode'=>'prototype','category'=>'marketing','sourcePath'=>'design-templates/saas-landing/example.html','usage'=>'composition-reference'],
-            ['id'=>'web-prototype','name'=>'Web Prototype','mode'=>'prototype','category'=>'design','sourcePath'=>'design-templates/web-prototype/references/layouts.md','usage'=>'layout-reference'],
+            ['id'=>'web-prototype','name'=>'Web Prototype','mode'=>'prototype','category'=>'design','sourcePath'=>'design-templates/web-prototype/references/layouts.md','usage'=>'layout-visual-reference'],
+            ['id'=>'blog-post','name'=>'Blog Post','mode'=>'prototype','category'=>'content','sourcePath'=>'design-templates/blog-post/example.html','usage'=>'composition-reference'],
+            ['id'=>'docs-page','name'=>'Docs Page','mode'=>'prototype','category'=>'documentation','sourcePath'=>'design-templates/docs-page/example.html','usage'=>'composition-reference'],
+            ['id'=>'pricing-page','name'=>'Pricing Page','mode'=>'prototype','category'=>'sales','sourcePath'=>'design-templates/pricing-page/example.html','usage'=>'composition-reference'],
+            ['id'=>'waitlist-page','name'=>'Waitlist Page','mode'=>'prototype','category'=>'marketing','sourcePath'=>'design-templates/waitlist-page/example.html','usage'=>'composition-reference'],
+            ['id'=>'dashboard','name'=>'Dashboard','mode'=>'prototype','category'=>'operations','sourcePath'=>'design-templates/dashboard/example.html','usage'=>'composition-reference'],
         ];
     }
 
@@ -77,6 +82,22 @@ final class OpenDesignTemplateSource {
             'web-prototype'=>['files'=>[
                 'design-templates/web-prototype/references/layouts.md'=>'4e7be706db8c40abf3ef2de859f30e1ff3403520',
                 'design-templates/web-prototype/references/checklist.md'=>'a70db7578fff980c7105db31d3155baf82dad995',
+                'design-templates/web-prototype/assets/template.html'=>'a3f8874ef51beca0de2f0658fb7e55696fb1e297',
+            ]],
+            'blog-post'=>['files'=>[
+                'design-templates/blog-post/example.html'=>'a8e1e46dc63a6ec949426cbfe8a62126ef4315d9',
+            ]],
+            'docs-page'=>['files'=>[
+                'design-templates/docs-page/example.html'=>'871f6b26bd7748d16ded80053042560f79d3afbb',
+            ]],
+            'pricing-page'=>['files'=>[
+                'design-templates/pricing-page/example.html'=>'3086a6dc3f88f4f3d08b6710984472f5b603d7cd',
+            ]],
+            'waitlist-page'=>['files'=>[
+                'design-templates/waitlist-page/example.html'=>'8dd97563e2fde9125a9f111fa01b7d8a7854e9ab',
+            ]],
+            'dashboard'=>['files'=>[
+                'design-templates/dashboard/example.html'=>'499f329c59326fbe7d55a4d9917c7ee65761e9d7',
             ]],
         ];
     }
@@ -88,7 +109,7 @@ final class OpenDesignTemplateSource {
             if(!is_string($id)||!preg_match('/^[a-z0-9-]{1,48}$/D',$id)||!is_array($source)||!is_array($source['files']??null)||!$source['files'])throw new \InvalidArgumentException('Invalid Open Design source manifest.');
             foreach($source['files'] as $path=>$blobSha){
                 $totalFiles++;
-                if(!is_string($path)||strlen($path)>240||!preg_match('~^design-templates/[a-z0-9-]+/(?:example\.html|references/[a-z0-9-]+\.md)$~D',$path)||!is_string($blobSha)||!preg_match('/^[a-f0-9]{40}$/D',$blobSha))throw new \InvalidArgumentException('Invalid Open Design source manifest.');
+                if(!is_string($path)||strlen($path)>240||!preg_match('~^design-templates/[a-z0-9-]+/(?:example\.html|assets/template\.html|references/[a-z0-9-]+\.md)$~D',$path)||!is_string($blobSha)||!preg_match('/^[a-f0-9]{40}$/D',$blobSha))throw new \InvalidArgumentException('Invalid Open Design source manifest.');
             }
         }
         if($totalFiles>16)throw new \InvalidArgumentException('Open Design source manifest is too large.');

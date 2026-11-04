@@ -1,4 +1,7 @@
-Options -Indexes
+<IfModule mod_rewrite.c>
 RewriteEngine On
+RewriteRule ^(backend|resources|schemas|var|vendor|scripts|tests|docs)(/|$) - [F,L]
+RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|\.env(\..*)?|AGENTS\.md|CONTEXT\.md|ROADMAP\.md)$ - [F,L]
 RewriteCond %{REQUEST_URI} !^/assets/[a-zA-Z0-9_.-]+$
 RewriteRule ^ router.php [L]
+</IfModule>

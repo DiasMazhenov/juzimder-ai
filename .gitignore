@@ -1,4 +1,6 @@
 node_modules/
+vendor/
+build/
 public/assets/
 public/index.html
 var/

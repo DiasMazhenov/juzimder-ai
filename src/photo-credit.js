@@ -33,7 +33,9 @@ const HERO_CREDIT_STYLE={
   bottom:'10px',
   'z-index':'2',
   width:'max-content',
-  'max-width':'48%',
+  // Credits can be long (author + source + licence); keep enough width on
+  // narrow Heroes so a multi-line caption cannot collide with the CTA.
+  'max-width':'calc(100% - 24px)',
   margin:'0',
   padding:'4px 8px',
   'border-radius':'999px',
@@ -45,7 +47,7 @@ const HERO_CREDIT_STYLE={
   'white-space':'normal',
 };
 
-const HERO_CREDIT_LINK_STYLE={'font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'};
+const HERO_CREDIT_LINK_STYLE={display:'inline',padding:'0','border-radius':'0','background-color':'transparent','font-weight':'400','font-size':'8px','line-height':'1.4',color:'inherit','text-decoration':'underline'};
 
 function applyInlineStyle(element, style) {
   if(typeof element?.style?.setProperty==='function'){

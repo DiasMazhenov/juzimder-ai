@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Juzimder;
 
 final class MigrationRunner {
-    public const CURRENT_VERSION = 17;
+    public const CURRENT_VERSION = 19;
     private const MIGRATIONS = [
         1 => '002_project_settings.sql', 2 => '003_ai_credentials.sql',
         3 => '004_publications.sql', 4 => '005_ai_profiles.sql',
@@ -13,6 +13,7 @@ final class MigrationRunner {
         11 => '012_form_submissions.sql', 12 => '013_project_slugs.sql',
         13 => '014_form_mail.sql', 14 => '015_form_mail_test_limits.sql',
         15 => '016_account_recovery_codes.sql', 16 => '017_ai_request_limits.sql',
+        17 => '018_mcp_oauth.sql', 18 => '019_mcp_oauth_refresh_tokens.sql',
     ];
 
     public function __construct(private readonly \PDO $db) {}
