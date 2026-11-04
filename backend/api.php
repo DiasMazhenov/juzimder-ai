@@ -15,6 +15,7 @@ require_once __DIR__ . '/PublicOrigin.php';
 require_once __DIR__ . '/SessionPolicy.php';
 require_once __DIR__ . '/TrustedProxyPolicy.php';
 require_once __DIR__ . '/AccountRecovery.php';
+require_once __DIR__ . '/Updates.php';
 use Juzimder\{Store, Problem, CustomCode};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -53,7 +54,7 @@ try {
     $sandboxRequest = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox$~D', $path) === 1;
     $sandboxPreviewRequest = $method === 'GET' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/custom-code/sandbox/[a-f0-9]{64}$~D', $path) === 1;
     $assetUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/assets$~D', $path) === 1;
-    $backupUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/[a-f0-9]{24}/backup$~D', $path) === 1;
+    $backupUpload = $method === 'POST' && is_string($path) && preg_match('~^/api/projects/(?:[a-f0-9]{24}/backup|restore-from-backup)$~D', $path) === 1;
     $body = [];
     if ($method !== 'GET') {
         if (!$sandboxRequest && !hash_equals($_SESSION['csrf'],$_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) throw new Problem(403,'Обновите страницу: недействительный CSRF-токен.','csrf_invalid');
@@ -79,13 +80,27 @@ try {
         $sessionUser = null;
     }
     if ($path === '/api/session' && $method === 'GET') {
-        result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired]);
+        $canManageUpdates = is_array($sessionUser) && is_string($sessionUser['id'] ?? null)
+            ? Juzimder\AppUpdates::isInstallationManager($store, $sessionUser['id'])
+            : false;
+        result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired,'canManageUpdates'=>$canManageUpdates]);
+    }
+    if ($path === '/api/system/updates' && $method === 'GET') {
+        if (!is_array($sessionUser) || !is_string($sessionUser['id'] ?? null)) throw new Problem(401,'Войдите, чтобы проверять обновления.');
+        if (!Juzimder\AppUpdates::isInstallationManager($store, $sessionUser['id'])) throw new Problem(403,'Проверять и устанавливать обновления может только первый аккаунт этой установки.');
+        result((new Juzimder\AppUpdates($store, dirname(__DIR__)))->check());
+    }
+    if ($path === '/api/system/updates/install' && $method === 'POST') {
+        if (!is_array($sessionUser) || !is_string($sessionUser['id'] ?? null)) throw new Problem(401,'Войдите, чтобы устанавливать обновления.');
+        if (!Juzimder\AppUpdates::isInstallationManager($store, $sessionUser['id'])) throw new Problem(403,'Устанавливать обновления может только первый аккаунт этой установки.');
+        if (array_diff(array_keys($body), ['expectedVersion']) || !is_string($body['expectedVersion'] ?? null)) throw new Problem(422,'Укажите версию обновления, которую вы проверили.');
+        result((new Juzimder\AppUpdates($store, dirname(__DIR__)))->install($body['expectedVersion']));
     }
     if ($path === '/api/recover' && $method === 'POST') {
         $store->consumeAuthAttemptAllowance(Juzimder\TrustedProxyPolicy::clientIp($_SERVER) ?? '');
         if (array_diff(array_keys($body), ['email','code','password']) || !is_string($body['email'] ?? null) || !is_string($body['code'] ?? null) || !is_string($body['password'] ?? null)) throw new Problem(422,'Укажите email, резервный код и новый пароль.');
         $email = strtolower(trim($body['email'])); $password = $body['password']; $code = Juzimder\AccountRecoveryCodes::normalize($body['code']);
-        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || strlen($password)<12 || strlen($password)>72 || $code===null) throw new Problem(422,'Проверьте email, код и пароль от 12 до 72 байт.');
+        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || mb_strlen($password,'UTF-8')<10 || strlen($password)>72 || $code===null) throw new Problem(422,'Пароль должен содержать не менее 10 символов и не более 72 байт.');
         $store->db->exec('BEGIN IMMEDIATE');
         try {
             $account = $store->query('SELECT id FROM users WHERE email=?', [$email])->fetch();
@@ -113,8 +128,8 @@ try {
         $devAdminLogin = $devAuth && $path === '/api/login' && $identity === 'admin';
         $email = $devAdminLogin ? 'admin@localhost.test' : $identity;
         $password = $body['password'] ?? '';
-        $validPassword = is_string($password) && strlen($password)<=72 && ($devAdminLogin ? strlen($password)>=1 : strlen($password)>=12);
-        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || !$validPassword) throw new Problem(422,'Укажите email и пароль от 12 до 72 байт.');
+        $validPassword = is_string($password) && strlen($password)<=72 && ($devAdminLogin ? strlen($password)>=1 : mb_strlen($password,'UTF-8')>=10);
+        if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>254 || !$validPassword) throw new Problem(422,'Укажите email и пароль длиной не менее 10 символов (до 72 байт).');
         $user = $store->query('SELECT * FROM users WHERE email=?',[$email])->fetch();
         if ($path === '/api/register') {
             if ($user) throw new Problem(422,'Не удалось зарегистрироваться с этим email.');
@@ -127,7 +142,7 @@ try {
             }
             if (!$user || !password_verify($password,$user['password_hash'])) throw new Problem(401,'Неверный email или пароль.');
         }
-        session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['auth_version']=(int)$store->query('SELECT auth_version FROM users WHERE id=?', [$user['id']])->fetchColumn(); $_SESSION['created_at']=time(); $_SESSION['last_activity_at']=$_SESSION['created_at']; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf']]);
+        session_regenerate_id(true); $_SESSION['user']=['id'=>$user['id'],'email'=>$user['email']]; $_SESSION['auth_version']=(int)$store->query('SELECT auth_version FROM users WHERE id=?', [$user['id']])->fetchColumn(); $_SESSION['created_at']=time(); $_SESSION['last_activity_at']=$_SESSION['created_at']; $_SESSION['csrf']=bin2hex(random_bytes(32)); result(['user'=>$_SESSION['user'],'csrf'=>$_SESSION['csrf'],'canManageUpdates'=>Juzimder\AppUpdates::isInstallationManager($store,$user['id'])]);
     }
     $user = $_SESSION['user']['id'] ?? null; if (!$user) throw new Problem(401,$sessionExpired ? 'Локальная сессия устарела. Войдите снова.' : 'Войдите в аккаунт.');
     if ($store->query('SELECT 1 FROM users WHERE id=?', [$user])->fetchColumn() === false) {
@@ -153,6 +168,10 @@ try {
     }
     if (preg_match('~^/api/projects/resolve/([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)$~D', $path, $slugMatch) && $method === 'GET') {
         result($store->resolveProjectSlug($slugMatch[1], $user));
+    }
+    if ($path === '/api/projects/restore-from-backup' && $method === 'POST') {
+        if (array_diff(array_keys($body), ['backup']) || !array_key_exists('backup', $body)) throw new Problem(422, 'Передайте файл резервной копии.');
+        result($store->restoreBackupAsNewProject($user, $body['backup']), 201);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/backup$~D', $path, $backupMatch)) {
         if ($method === 'GET') {

@@ -146,11 +146,11 @@ function auth(register=false,recovery=false) {
   const expiredSession=session?.sessionExpired||new URLSearchParams(location.search).get('session')==='expired';
   const title=recovery?'Восстановление доступа':register?'Создайте своё пространство':'С возвращением';
   const description=recovery?'Используйте один из заранее сохранённых резервных кодов.':register?'Начните с первой страницы.':'Войдите, чтобы продолжить работу над сайтом.';
-  const form=recovery?`<label>Email аккаунта<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="${devAuth?'admin@localhost.test':'you@studio.kz'}"></label><label>Резервный код<input name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="40" placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX"></label><label>Новый пароль<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="72" required placeholder="Не менее 12 символов"></label><button class="primary" type="submit">Восстановить доступ <span>→</span></button>`:`<label>${devAdmin?'Email или локальный логин':'Email'}<input name="email" type="${devAdmin?'text':'email'}" autocomplete="${register?'email':'username'}" required ${register||!session?.devAuth?'minlength="12"':''} maxlength="254" placeholder="${devAdmin?'admin или you@studio.kz':'you@studio.kz'}"></label><label>Пароль<input name="password" type="password" autocomplete="${register?'new-password':'current-password'}" required ${register||!session?.devAuth?'minlength="12"':''} maxlength="72" placeholder="${devAdmin?'admin или не менее 12 символов':'Не менее 12 символов'}"></label><button class="primary" type="submit">${register?'Создать аккаунт':'Войти в пространство'} <span>→</span></button>`;
+  const form=recovery?`<label>Email аккаунта<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="${devAuth?'admin@localhost.test':'you@studio.kz'}"></label><label>Резервный код<input name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="40" placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX"></label><label>Новый пароль<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="72" required placeholder="Не менее 10 символов"></label><button class="primary" type="submit">Восстановить доступ <span>→</span></button>`:`<label>${devAdmin?'Email или локальный логин':'Email'}<input name="email" type="${devAdmin?'text':'email'}" autocomplete="${register?'email':'username'}" required maxlength="254" placeholder="${devAdmin?'admin или you@studio.kz':'you@studio.kz'}"></label><label>Пароль<input name="password" type="password" autocomplete="${register?'new-password':'current-password'}" required ${register||!session?.devAuth?'minlength="10"':''} maxlength="72" placeholder="${devAdmin?'admin или не менее 10 символов':'Не менее 10 символов'}"></label><button class="primary" type="submit">${register?'Создать аккаунт':'Войти в пространство'} <span>→</span></button>`;
   app.innerHTML=`<main class="auth"><div class="auth-story"><a class="brand" href="/">${mark} Juzimder <span>AI</span></a><div><p class="eyebrow">ВАШ СЛЕДУЮЩИЙ ПРОЕКТ НАЧИНАЕТСЯ ЗДЕСЬ</p><h1>Из идеи —<br>в живой сайт.</h1><p class="intro">Пространство, где дизайн складывается.<br>Одна секция, одна страница, одна идея за раз.</p></div><p class="muted">На базе GrapesJS Core · Открытая платформа</p></div><section class="auth-form"><p class="eyebrow">JUZIMDER WORKSPACE / 01</p><h2>${title}</h2><p class="muted">${description}</p>${!recovery&&expiredSession?'<p class="muted" role="status">Сессия не относится к текущей локальной базе. Войдите снова.</p>':''}<form id="auth-form">${form}<p id="notice" role="status"></p></form>${devAdmin?'<p class="muted small">Локальный тестовый вход: <strong>admin / admin</strong></p>':''}${recovery?'<button class="text-button" id="toggle-auth" type="button">Вернуться ко входу</button>':`<button class="text-button" id="toggle-auth" type="button">${register?'Уже есть аккаунт? Войти':'Первый раз здесь? Создать аккаунт'}</button>${!register?'<button class="text-button" id="recover-auth" type="button">Есть резервный код? Восстановить доступ</button>':''}`}<p class="auth-foot">Ранняя версия · Визуальное редактирование и сохранение</p></section></main>`;
   $('#toggle-auth').onclick=()=>recovery?auth(false):auth(!register);
   $('#recover-auth')?.addEventListener('click',()=>auth(false,true));
-  $('#auth-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;try{const values=Object.fromEntries(new FormData(e.target));if(recovery){const result=await api('/recover','POST',values);session=await api('/session');auth(false);$('#notice').textContent=result.message;return;}session=await api(register?'/register':'/login','POST',values);history.replaceState(null,'','/');await dashboard();}catch(error){notify(error.message,true);}finally{if(b.isConnected)b.disabled=false;}};
+  $('#auth-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('button');b.disabled=true;try{const values=Object.fromEntries(new FormData(e.target));if(recovery){const result=await api('/recover','POST',values);session=await api('/session');auth(false);$('#notice').textContent=result.message;return;}session=await api(register?'/register':'/login','POST',values);session=await api('/session');history.replaceState(null,'','/');await dashboard();}catch(error){notify(error.message,true);}finally{if(b.isConnected)b.disabled=false;}};
 }
 function installAccountRecovery() {
   const userHeader=$('.dash-user');if(!userHeader)return;
@@ -170,6 +170,52 @@ async function dashboard() {
   const projects=await api('/projects');
   for(const project of projects)if(project.slug)projectSlugs.set(project.id,project.slug);
   app.innerHTML=`<div class="dashboard"><aside class="dash-sidebar"><a class="brand" href="/">${mark} Juzimder <span>AI</span></a><div class="workspace-label">ЛИЧНОЕ ПРОСТРАНСТВО</div><div class="nav-active">▦ <span>Мои проекты</span><small>${projects.length}</small></div><div class="sidebar-note"><span class="status-dot"></span> FOUNDATION<div class="version-label">Версия продукта <strong>${productVersion}</strong></div><p>От первой идеи<br>до первой страницы.</p></div><button id="logout" class="text-button">Выйти из аккаунта ↗</button></aside><main class="dash-main"><header class="dash-top"><span>Workspace <span class="slash">/</span> Мои проекты</span><span class="dash-user"><span>${esc(session.user.email)}</span><span class="version-label">Версия ${productVersion}</span></span></header><section class="project-intro"><p class="eyebrow">СОЗДАВАЙТЕ В СВОЁМ РИТМЕ</p><div class="title-row"><div><h1>Мои проекты<span class="accent">.</span></h1><p class="muted">Хорошие сайты начинаются с чистого листа.</p></div><button id="new-project" class="primary">+ Новый проект</button></div></section><section class="project-list">${projects.map(p=>`<button class="project-card" data-project="${esc(p.id)}"><div class="project-art"><div class="mini-window"><div></div><i></i><i></i><span></span></div><span class="project-arrow">↗</span></div><div class="project-info"><h3>${esc(p.name)}</h3><p>${p.version?'Ревизия '+p.version:'Новый проект'} <span>Страницы →</span></p></div></button>`).join('')}<button class="project-card new-card" id="empty-create"><span class="plus">+</span><strong>Новая идея</strong><span>Создайте сайт с нуля</span></button></section><p id="notice" role="status"></p><footer class="dash-footer"><span>YOUR IDEAS, TAKING SHAPE.</span><span>GrapesJS Core · PHP · SQLite</span></footer></main></div><dialog id="create-dialog"><form id="create-form"><p class="eyebrow">НОВОЕ ПРОСТРАНСТВО</p><h2>Как назовём проект?</h2><label>Название проекта<input name="name" required maxlength="100" placeholder="Например, Сайт студии"></label><p class="muted">Начнём с пустой главной страницы.</p><p id="create-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-create">Отмена</button><button class="primary">Создать проект →</button></div></form></dialog>`;
+  const newProjectButton=$('#new-project'),projectActions=document.createElement('div'),restoreButton=document.createElement('button'),restoreInput=document.createElement('input');
+  projectActions.className='project-actions dashboard-project-actions';
+  restoreButton.type='button';restoreButton.className='secondary-link';restoreButton.textContent='Восстановить из бэкапа';
+  restoreInput.type='file';restoreInput.accept='application/json,.json';restoreInput.hidden=true;restoreInput.setAttribute('aria-label','Файл резервной копии проекта');
+  newProjectButton.replaceWith(projectActions);projectActions.append(newProjectButton,restoreButton);$('.project-intro').append(restoreInput);
+  if(session?.canManageUpdates===true){
+    const checkButton=document.createElement('button'),installButton=document.createElement('button'),updateStatus=document.createElement('span');
+    checkButton.type='button';checkButton.className='secondary-link';checkButton.textContent='Проверить обновления';
+    installButton.type='button';installButton.className='primary';installButton.textContent='Установить обновление';installButton.hidden=true;
+    updateStatus.className='muted small app-update-status';updateStatus.setAttribute('role','status');updateStatus.setAttribute('aria-live','polite');
+    projectActions.append(checkButton,installButton);$('.project-intro').append(updateStatus);
+    let checkedVersion=null;
+    checkButton.onclick=async()=>{
+      checkButton.disabled=true;installButton.hidden=true;updateStatus.textContent='Проверяем выпуск в GitHub…';
+      try{
+        const info=await api('/system/updates');
+        checkedVersion=info.latestVersion;
+        if(info.updateAvailable){updateStatus.textContent='Доступна версия '+info.latestVersion+(info.currentVersion?' · установлена '+info.currentVersion:'')+'. Перед заменой файлов приложение сохранит SQLite-базу и ключи в закрытом var/.';installButton.textContent='Обновить до '+info.latestVersion;installButton.hidden=false;}
+        else updateStatus.textContent='Установлена последняя версия '+info.currentVersion+'.';
+      }catch(error){checkedVersion=null;updateStatus.textContent=error.message;}
+      finally{checkButton.disabled=false;}
+    };
+    installButton.onclick=async()=>{
+      if(!checkedVersion)return;
+      if(!window.confirm('Установить Juzimder AI '+checkedVersion+' из официального GitHub Releases? Перед обновлением будет сохранена база проекта.'))return;
+      checkButton.disabled=true;installButton.disabled=true;updateStatus.textContent='Скачиваем, проверяем архив и устанавливаем…';
+      try{const result=await api('/system/updates/install','POST',{expectedVersion:checkedVersion});updateStatus.textContent=result.message;setTimeout(()=>location.reload(),900);}
+      catch(error){updateStatus.textContent=error.message;installButton.disabled=false;}
+      finally{checkButton.disabled=false;}
+    };
+  }
+  restoreButton.onclick=()=>restoreInput.click();
+  restoreInput.onchange=async()=>{
+    const file=restoreInput.files?.[0];if(!file)return;
+    restoreButton.disabled=true;
+    try{
+      if(file.size>33554432)throw new Error('Файл превышает допустимый размер 32 МБ.');
+      const backup=JSON.parse(await file.text());
+      if(backup?.format!=='juzimder-project-backup'||backup?.backupVersion!==1||!backup?.project||typeof backup.project.name!=='string')throw new Error('Файл не является резервной копией Juzimder поддерживаемого формата.');
+      notify(`Восстанавливаем «${backup.project.name}» как новый проект…`);
+      const restored=await api('/projects/restore-from-backup','POST',{backup});
+      projectSlugs.set(restored.id,restored.slug);
+      location.assign(projectUrl(restored.id));
+    }catch(error){notify(error.message,true);}
+    finally{restoreButton.disabled=false;restoreInput.value='';}
+  };
   installAccountRecovery();
   const open=()=>$('#create-dialog').showModal(); $('#new-project').onclick=open;$('#empty-create').onclick=open;$('#cancel-create').onclick=()=>$('#create-dialog').close();
   $('#create-form').onsubmit=async e=>{e.preventDefault();const b=e.target.querySelector('.primary');b.disabled=true;try{const project=await api('/projects','POST',{name:new FormData(e.target).get('name')});projectSlugs.set(project.id,project.slug);location.assign(projectUrl(project.id));}catch(error){$('#create-error').textContent=error.message;b.disabled=false;}};

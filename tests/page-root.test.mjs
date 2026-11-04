@@ -83,6 +83,14 @@ test('project dashboard sidebar stays fixed while the page list scrolls independ
   assert.match(styles, /@media\(max-width:800px\)\{\.project-dashboard\{height:auto;min-height:100dvh;overflow:visible\}\.project-dashboard>\.dash-sidebar\{position:static;inset:auto;width:auto;height:auto;min-height:0;overflow:visible\}\.project-dashboard>\.dash-main\{grid-column:1;height:auto;min-height:0;overflow:visible\}\}/);
 });
 
+test('project dashboard places backup restore beside new-project action', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /id="new-project" class="primary">\+ Новый проект<\/button>/);
+  assert.match(source, /restoreButton\.textContent='Восстановить из бэкапа'/);
+  assert.match(source, /projectActions\.append\(newProjectButton,restoreButton\)/);
+  assert.match(source, /api\('\/projects\/restore-from-backup','POST',\{backup\}\)/);
+});
+
 test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
