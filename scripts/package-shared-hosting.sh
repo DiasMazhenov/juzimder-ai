@@ -45,7 +45,9 @@ sed 's#\.\./backend/#backend/#g; s#\.\./var/#var/#g' public/router.php > "$stage
 cp -R "$web_path/assets" "$stage/assets"
 cp -R backend resources schemas "$stage/"
 if [ -f composer.json ]; then
-  cp -R vendor "$stage/vendor"
+  # Keep Composer dependencies beneath the already-managed backend/ directory.
+  # Older installed updaters may reject a new top-level vendor/ directory.
+  cp -R vendor "$stage/backend/vendor"
 fi
 mkdir -p "$stage/var"
 

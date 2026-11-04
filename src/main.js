@@ -180,10 +180,13 @@ async function dashboard() {
   restoreInput.type='file';restoreInput.accept='application/json,.json';restoreInput.hidden=true;restoreInput.setAttribute('aria-label','Файл резервной копии проекта');
   newProjectButton.replaceWith(projectActions);projectActions.append(newProjectButton,restoreButton);$('.project-intro').append(restoreInput);
   if(session?.canManageUpdates===true){
-    const checkButton=document.createElement('button'),installButton=document.createElement('button'),updateStatus=document.createElement('p');
+    const checkButton=document.createElement('button'),installButton=document.createElement('button'),updateStatus=document.createElement('p'),updateDialog=document.createElement('dialog');
     checkButton.type='button';checkButton.className='secondary-link';checkButton.textContent='Проверить обновления';
     installButton.type='button';installButton.className='primary';installButton.textContent='Установить обновление';installButton.hidden=true;
     updateStatus.className='muted small app-update-status';updateStatus.setAttribute('role','status');updateStatus.setAttribute('aria-live','polite');
+    updateDialog.id='update-install-dialog';updateDialog.setAttribute('aria-labelledby','update-install-title');
+    updateDialog.innerHTML='<form method="dialog"><p class="eyebrow">ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ</p><h2 id="update-install-title">Установить обновление?</h2><p id="update-install-details" class="muted"></p><p class="muted small">Перед установкой приложение проверит архив и сохранит базу SQLite вместе с ключами. Если проверка или установка завершится ошибкой, текущие файлы останутся на месте.</p><div class="dialog-actions"><button type="submit" value="cancel">Отмена</button><button id="update-install-confirm" class="primary" type="button">Установить</button></div></form>';
+    document.body.append(updateDialog);
     projectActions.append(checkButton,installButton);$('.project-intro').append(updateStatus);
     let checkedVersion=null,checkedSource=null,checkedCommit=null;
     checkButton.onclick=async()=>{
@@ -198,7 +201,12 @@ async function dashboard() {
     installButton.onclick=async()=>{
       if(!checkedVersion||!checkedSource)return;
       const sourceName=checkedSource==='repository'?'последней успешной сборки репозитория main':'стабильного GitHub Release';
-      if(!window.confirm('Установить Juzimder AI '+checkedVersion+' из '+sourceName+'? Перед заменой будет сохранена база и ключи приложения.'))return;
+      $('#update-install-details').textContent='Установить Juzimder AI '+checkedVersion+' из '+sourceName+'?';
+      updateDialog.showModal();
+    };
+    $('#update-install-confirm').onclick=async()=>{
+      if(!checkedVersion||!checkedSource)return;
+      updateDialog.close();
       checkButton.disabled=true;installButton.disabled=true;updateStatus.textContent='Скачиваем, проверяем архив и устанавливаем…';
       try{const result=await api('/system/updates/install','POST',{expectedVersion:checkedVersion,expectedSource:checkedSource,expectedCommit:checkedCommit});updateStatus.textContent=result.message;setTimeout(()=>location.reload(),900);}
       catch(error){updateStatus.textContent=error.message;installButton.disabled=false;}
