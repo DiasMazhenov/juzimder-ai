@@ -118,6 +118,46 @@ $updater = $makeUpdater([
 ]);
 $workspace = $root . '/workspace';
 mkdir($workspace, 0700);
+$archivePath = $workspace . '/bootstrap-compatible.zip';
+$zipFixture = new ZipArchive();
+if ($zipFixture->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Unable to create archive validation fixture.');
+foreach ([
+    'index.html'=>'<link rel="icon" href="/assets/favicon.png">',
+    'assets/app.js'=>'fixture',
+    'assets/favicon.png'=>'png-fixture',
+    'router.php'=>'<?php',
+    '.htaccess'=>'RewriteEngine On',
+    'backend/api.php'=>'<?php',
+    'release.json'=>'{"productVersion":"00.00.365"}',
+] as $name=>$contents) $zipFixture->addFromString($name, $contents);
+$zipFixture->close();
+$extractMethod = new ReflectionMethod(AppUpdates::class, 'extractArchive');
+$extractedPath = $workspace . '/extracted-compatible';
+mkdir($extractedPath, 0700);
+$extractMethod->invoke($updater, $archivePath, $extractedPath, '00.00.365');
+updatesCheck(is_file($extractedPath . '/assets/favicon.png') && !is_file($extractedPath . '/favicon.png'), 'A hosting ZIP can carry the favicon under the legacy updater allowlisted assets directory');
+
+$legacyRejectedArchive = $workspace . '/root-favicon.zip';
+$zipFixture = new ZipArchive();
+if ($zipFixture->open($legacyRejectedArchive, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Unable to create legacy path fixture.');
+foreach ([
+    'index.html'=>'<link rel="icon" href="/favicon.png">',
+    'assets/app.js'=>'fixture',
+    'assets/favicon.png'=>'png-fixture',
+    'favicon.png'=>'legacy-root-icon',
+    'router.php'=>'<?php',
+    '.htaccess'=>'RewriteEngine On',
+    'backend/api.php'=>'<?php',
+    'release.json'=>'{"productVersion":"00.00.365"}',
+] as $name=>$contents) $zipFixture->addFromString($name, $contents);
+$zipFixture->close();
+$rejectedPath = $workspace . '/extracted-root-favicon';
+mkdir($rejectedPath, 0700);
+$rejectedRootFavicon = false;
+try { $extractMethod->invoke($updater, $legacyRejectedArchive, $rejectedPath, '00.00.365'); }
+catch (Problem $error) { $rejectedRootFavicon = $error->status === 422; }
+updatesCheck($rejectedRootFavicon, 'A root-level favicon outside the legacy updater allowlist is rejected');
+
 $method = new ReflectionMethod(AppUpdates::class, 'downloadRepositoryArchive');
 $build = [
     'version'=>'00.00.363',

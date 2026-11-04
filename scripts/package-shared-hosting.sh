@@ -39,10 +39,10 @@ if [ -f composer.json ]; then
   composer install --no-dev --classmap-authoritative --no-interaction --prefer-dist --no-scripts --no-plugins
 fi
 
-cp "$web_path/index.html" "$stage/index.html"
-cp public/favicon.png "$stage/favicon.png"
+sed 's#href="/favicon.png"#href="/assets/favicon.png"#g' "$web_path/index.html" > "$stage/index.html"
 sed 's#\.\./backend/#backend/#g; s#\.\./var/#var/#g' public/router.php > "$stage/router.php"
 cp -R "$web_path/assets" "$stage/assets"
+cp public/favicon.png "$stage/assets/favicon.png"
 cp -R backend resources schemas "$stage/"
 if [ -f composer.json ]; then
   # Keep Composer dependencies beneath the already-managed backend/ directory.

@@ -14,7 +14,7 @@ final class AppUpdates {
     private const MAX_ARCHIVE_BYTES = 209715200;
     private const MAX_ARCHIVE_FILES = 4000;
     private const MANAGED_DIRECTORIES = ['assets','backend','resources','schemas','vendor'];
-    private const MANAGED_FILES = ['.htaccess','htaccess.txt','index.html','favicon.png','router.php','INSTALL.txt','release.json'];
+    private const MANAGED_FILES = ['.htaccess','htaccess.txt','index.html','router.php','INSTALL.txt','release.json'];
 
     private readonly ?\Closure $requestOverride;
 
@@ -295,7 +295,7 @@ final class AppUpdates {
             if ($zip->numFiles < 6 || $zip->numFiles > self::MAX_ARCHIVE_FILES) throw new Problem(422, 'В архиве обновления некорректное число файлов.');
             $total = 0;
             $seen = [];
-            $required = ['index.html'=>false,'favicon.png'=>false,'router.php'=>false,'.htaccess'=>false,'backend/api.php'=>false,'release.json'=>false];
+            $required = ['index.html'=>false,'assets/favicon.png'=>false,'router.php'=>false,'.htaccess'=>false,'backend/api.php'=>false,'release.json'=>false];
             $assetsFound = false;
             for ($index = 0; $index < $zip->numFiles; $index++) {
                 $entry = $zip->getNameIndex($index);
