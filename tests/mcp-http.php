@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../backend/Domain.php';
+require __DIR__ . '/../backend/TrustedProxyPolicy.php';
 require __DIR__ . '/../backend/Operations.php';
 require __DIR__ . '/../backend/McpOAuth.php';
 require __DIR__ . '/../backend/McpReadTools.php';

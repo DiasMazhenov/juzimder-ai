@@ -7,6 +7,7 @@ use DateInterval;
 use DateTimeImmutable;
 use Juzimder\Problem;
 use Juzimder\Store;
+use Juzimder\TrustedProxyPolicy;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
@@ -156,11 +157,38 @@ final class OAuthConfig
             }
             return rtrim(trim($configured), '/');
         }
+        // Shared hosts commonly do not let an application set environment variables.
+        // In that case use the HTTPS origin that served this request, after strict host
+        // validation. Explicit configuration remains preferred for unusual proxy setups.
+        $origin = self::requestOrigin($_SERVER);
+        if ($origin !== null) return $origin;
+
         $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-        if (!self::isLoopbackHost(preg_replace('/:\d+$/', '', $host) ?? $host) || getenv('JUZIMDER_DEV_AUTH') !== '1') {
-            throw new \RuntimeException('Set JUZIMDER_PUBLIC_BASE_URL to the public HTTPS origin before enabling MCP.');
+        $hostWithoutPort = preg_replace('/:\\d+$/', '', $host) ?? $host;
+        if (getenv('JUZIMDER_DEV_AUTH') === '1' && self::isLoopbackHost($hostWithoutPort)) {
+            return 'http://' . $host;
         }
-        return 'http://' . $host;
+        throw new \RuntimeException('MCP OAuth requires a valid HTTPS origin. Configure JUZIMDER_PUBLIC_BASE_URL when the hosting proxy does not expose HTTPS to PHP.');
+    }
+
+    private static function requestOrigin(array $server): ?string
+    {
+        if (!TrustedProxyPolicy::isHttps($server)) return null;
+        $authority = $server['HTTP_HOST'] ?? null;
+        if (!is_string($authority) || $authority === '' || strlen($authority) > 260
+            || preg_match('/[\\s\\/\\\\@?#,\\x00-\\x1F\\x7F]/', $authority)) return null;
+        $parts = parse_url('https://' . $authority);
+        if (!is_array($parts) || ($parts['scheme'] ?? null) !== 'https'
+            || isset($parts['user']) || isset($parts['pass']) || isset($parts['path']) || isset($parts['query']) || isset($parts['fragment'])) return null;
+
+        $host = strtolower(trim((string)($parts['host'] ?? ''), '[]'));
+        if ($host === '' || (filter_var($host, FILTER_VALIDATE_IP) === false
+            && !preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $host))) return null;
+        $port = $parts['port'] ?? null;
+        if ($port !== null && ($port < 1 || $port > 65535)) return null;
+        $hostForUrl = str_contains($host, ':') ? '[' . $host . ']' : $host;
+        $portSuffix = $port !== null && $port !== 443 ? ':' . $port : '';
+        return 'https://' . $hostForUrl . $portSuffix;
     }
 
     private static function isLoopbackHost(string $host): bool

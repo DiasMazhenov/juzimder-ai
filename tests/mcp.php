@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../backend/Domain.php';
+require __DIR__ . '/../backend/TrustedProxyPolicy.php';
 require __DIR__ . '/../backend/Operations.php';
 require __DIR__ . '/../backend/McpOAuth.php';
 require __DIR__ . '/../backend/McpReadTools.php';
@@ -100,6 +101,24 @@ try {
     $config = new OAuthConfig($store);
     $metadata = $config->metadata();
     mcpCheck($metadata['authorization_response_iss_parameter_supported'] === true && $metadata['code_challenge_methods_supported'] === ['S256'] && $metadata['grant_types_supported'] === ['authorization_code','refresh_token'] && $metadata['scopes_supported'] === OAuthConfig::allowedScopes() && $config->resource() === 'https://mcp.example.test/mcp', 'OAuth metadata advertises issuer identification, PKCE, refresh, resource and read/write scopes');
+    $originalServer = $_SERVER;
+    putenv('JUZIMDER_PUBLIC_BASE_URL');
+    putenv('JUZIMDER_DEV_AUTH');
+    $_SERVER['HTTP_HOST'] = 'builder.example.test';
+    $_SERVER['HTTPS'] = 'on';
+    $_SERVER['REMOTE_ADDR'] = '198.51.100.10';
+    mcpCheck(OAuthConfig::issuerUrl() === 'https://builder.example.test', 'Shared HTTPS host can derive OAuth issuer without environment-variable support');
+    $_SERVER['HTTP_HOST'] = 'builder.example.test/path';
+    $invalidHostRejected = false;
+    try { OAuthConfig::issuerUrl(); } catch (RuntimeException $error) { $invalidHostRejected = str_contains($error->getMessage(), 'valid HTTPS origin'); }
+    mcpCheck($invalidHostRejected, 'Reject malformed Host values when deriving OAuth issuer');
+    $_SERVER['HTTP_HOST'] = 'juzimder-ai.localhost:8080';
+    $_SERVER['HTTPS'] = 'off';
+    putenv('JUZIMDER_DEV_AUTH=1');
+    mcpCheck(OAuthConfig::issuerUrl() === 'http://juzimder-ai.localhost:8080', 'Explicit loopback development mode retains its local HTTP issuer');
+    $_SERVER = $originalServer;
+    putenv('JUZIMDER_PUBLIC_BASE_URL=https://mcp.example.test');
+    putenv('JUZIMDER_DEV_AUTH');
     mcpCheck(OAuthConfig::normalizeScopes(null) === [OAuthConfig::SCOPE], 'OAuth requests default to read only; write must be explicitly requested and approved');
     $store->query('INSERT INTO mcp_oauth_clients(client_id,client_name,redirect_uris,created_at) VALUES(?,?,?,?)', ['legacy-client','Legacy client',json_encode(['http://127.0.0.1:7777/callback'], JSON_THROW_ON_ERROR),time()]);
     $legacyClient = $config->repositories()->getClientEntity('legacy-client');
