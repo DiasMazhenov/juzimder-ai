@@ -1612,3 +1612,5 @@ Regression fix for the content-only «Сарыарка» archive preview: the pi
 
 
 30.10.2026 · Open Design post-change live check: в существующей QA-вкладке отправлен один новый content-only бриф о сервисе мониторинга качества воды (не повтор предыдущих). Сразу после submission вкладка сообщила о сменившейся/истёкшей сессии и требовании повторного входа; результат не удалось прочитать. Candidate не считается pass или fail, повторно запрос не отправлялся. Требуется восстановить сессию в этой вкладке для продолжения визуальной проверки.
+
+05.11.2026 · `00.00.367`: backup v3 interface copy now describes import on any compatible target server instead of naming one host. Portable AI credentials still require PHP Sodium (`sodium_crypto_pwhash` with Argon2id and XChaCha20-Poly1305) and a protected writable `var/` for the target installation key. Versions 1 and 2 remain same-install formats. Local build, tests, PHP syntax, and diff check passed.

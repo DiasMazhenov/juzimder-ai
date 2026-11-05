@@ -108,6 +108,8 @@ test('portable project backups prompt for a transfer passphrase and accept v3 re
   assert.match(source, /id="backup-passphrase" type="password"/);
   assert.match(source, /portablePassphrase!==null\?\{portablePassphrase\}:\{\}/);
   assert.match(source, /зашифрованы ключом целевого сервера/);
+  assert.match(source, /При импорте на другом сервере введите ту же фразу/);
+  assert.doesNotMatch(source, /ByetHost/i);
   assert.match(source, /этот файл восстановит включённые в него профили; прежние шифротексты останутся недоступны/);
 });
 
