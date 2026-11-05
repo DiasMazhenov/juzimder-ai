@@ -96,6 +96,8 @@ try{
  $history=$jobs->history($id,'owner',$page);
  jobCheck($history['items'][0]['id']===$workerJob['id']&&in_array($job['id'],array_column($history['items'],'id'),true),'History includes earlier success after a later cancellation or failure, newest first');
  jobCheck(!array_key_exists('result',$history['items'][0])&&!array_key_exists('payload',$history['items'][0]),'History summaries omit full result and Skill source');
+ $unavailableLaunch=$jobs->create($id,'owner',$page,0,$payload);$jobs->failLaunch($unavailableLaunch['id'],'exec_unavailable');$launchDiagnostic=$jobs->get($id,'owner',$unavailableLaunch['id']);
+ jobCheck($launchDiagnostic['diagnostics']['outcome']==='launcher'&&$launchDiagnostic['diagnostics']['launchCode']==='exec_unavailable'&&$launchDiagnostic['error']==='Хостинг отключил запуск фоновых процессов PHP.','Worker launch failures expose only a fixed hosting-capability code and safe explanation');
  jobReject(fn()=>$jobs->history($id,'other',$page),404);jobReject(fn()=>$jobs->history($id,'owner','missing'),404);
  for($i=0;$i<23;$i++){$entry=$jobs->create($id,'owner',$page,0,$payload);$jobs->failLaunch($entry['id']);}
  jobCheck(count($jobs->history($id,'owner',$page)['items'])===20,'History response is bounded to the newest twenty tasks');

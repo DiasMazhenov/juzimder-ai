@@ -1297,3 +1297,8 @@ Verification follow-up, 30.10.2026: PHP composition and AI tests, full `npm test
 Live QA follow-up: submitted one new, distinct environment-monitoring SaaS content-only brief after the adapter change. The existing tab then reported an expired/changed session before the result could be inspected. This is BLOCKED/NOT VERIFIED; the request was not repeated and no candidate was applied or saved. Same-tab reauthentication is required to finish the live visual check.
 
 05.11.2026 · `00.00.367` backup interface copy generalized to compatible Juzimder target servers. No OpenDesign roadmap scope added or closed.
+
+
+### AI worker launch diagnostics · 00.00.368
+
+Web API requests were rejected by a PHP SAPI allowlist before the worker was started. The launcher now allows a web SAPI to invoke an available PHP CLI when `exec()` is enabled; diagnostics distinguish fixed codes for disabled process execution, missing CLI, and other launch failure. It does not log prompts, model responses, page text, or keys. Local detached-worker, full `npm test`, PHP syntax, runner production build, and `git diff --check` PASS. Standard build is blocked by sandbox EPERM writing Vite's temporary config. ByetHost live behavior and its `exec()`/CLI availability are not yet verified; no AI request was sent. No OpenDesign plan item was added or closed.

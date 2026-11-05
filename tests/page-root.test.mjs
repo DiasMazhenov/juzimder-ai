@@ -113,6 +113,18 @@ test('portable project backups prompt for a transfer passphrase and accept v3 re
   assert.match(source, /этот файл восстановит включённые в него профили; прежние шифротексты останутся недоступны/);
 });
 
+test('AI generation diagnostics explain worker launch limits with fixed safe codes', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const jobs = readFileSync(new URL('../backend/AiGenerationJobs.php', import.meta.url), 'utf8');
+  const launcher = jobs.slice(jobs.indexOf('public function launch('));
+  assert.match(source, /exec_unavailable:'Хостинг отключил запуск фоновых процессов PHP\.'/);
+  assert.match(source, /cli_binary_unavailable:'На сервере не найден доступный PHP CLI\.'/);
+  assert.match(jobs, /\['exec_unavailable','cli_binary_unavailable','launch_failed'\]/);
+  assert.match(launcher, /if\(!function_exists\('exec'\)\)/);
+  assert.doesNotMatch(launcher, /PHP_SAPI/);
+  assert.doesNotMatch(jobs, /diagnostics[^\n]{0,240}\$error->getMessage\(\)/);
+});
+
 test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');

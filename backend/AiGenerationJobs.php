@@ -105,7 +105,16 @@ final class AiGenerationJobs {
         $status=$this->store->query('SELECT status FROM ai_generation_jobs WHERE id=?',[$id])->fetchColumn();
         return $status===false||in_array($status,['cancelling','cancelled','failed'],true);
     }
-    public function failLaunch(string $id): void {$this->store->query("UPDATE ai_generation_jobs SET status='failed',diagnostics='{\"outcome\":\"launcher\",\"attempts\":[]}',error=?,updated_at=? WHERE id=? AND status='queued'",['Не удалось запустить PHP worker. Проверьте конфигурацию сервера.',time(),$id]);}
+    public function failLaunch(string $id,string $launchCode='launch_failed'): void {
+        $launchCode=in_array($launchCode,['exec_unavailable','cli_binary_unavailable','launch_failed'],true)?$launchCode:'launch_failed';
+        $message=match($launchCode){
+            'exec_unavailable'=>'Хостинг отключил запуск фоновых процессов PHP.',
+            'cli_binary_unavailable'=>'На сервере не найден доступный PHP CLI для фоновой генерации.',
+            default=>'Хостинг не смог запустить PHP worker.'
+        };
+        $diagnostics=json_encode(['outcome'=>'launcher','launchCode'=>$launchCode,'attempts'=>[]],JSON_THROW_ON_ERROR);
+        $this->store->query("UPDATE ai_generation_jobs SET status='failed',diagnostics=?,error=?,updated_at=? WHERE id=? AND status='queued'",[$diagnostics,$message,time(),$id]);
+    }
     public function run(string $id,callable $providerFactory): bool {
         $claim=$this->store->query("UPDATE ai_generation_jobs SET status='running',updated_at=? WHERE id=? AND status='queued'",[time(),$id]);
         if($claim->rowCount()!==1)return false;
@@ -173,9 +182,27 @@ final class AiGenerationJobs {
         $this->store->query("UPDATE ai_generation_jobs SET status='cancelled',result=NULL,diagnostics=?,updated_at=? WHERE id=? AND status='cancelling'",[$diagnostics('cancelled'),time(),$id]);
         return true;
     }
+    private static function cliBinary(): ?string {
+        $candidates=[PHP_BINARY];
+        if(defined('PHP_BINDIR')){
+            $directory=rtrim(PHP_BINDIR,DIRECTORY_SEPARATOR);
+            $candidates[]=$directory.DIRECTORY_SEPARATOR.'php';
+            $candidates[]=$directory.DIRECTORY_SEPARATOR.'php'.PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;
+        }
+        foreach(array_unique(array_filter($candidates,'is_string')) as $candidate){
+            if($candidate===''||str_contains($candidate,"\0"))continue;
+            $probe=escapeshellarg($candidate).' -r '.escapeshellarg('echo PHP_SAPI;').' 2>/dev/null';
+            $output=[];$status=1;
+            exec($probe,$output,$status);
+            if($status===0&&($output[0]??null)==='cli')return $candidate;
+        }
+        return null;
+    }
     public function launch(string $id): void {
-        if(!in_array(PHP_SAPI,['cli','cli-server'],true)||!function_exists('exec')){$this->failLaunch($id);return;}
-        $command=escapeshellarg(PHP_BINARY).' '.escapeshellarg(__DIR__.'/../scripts/ai-generation-worker.php').' '.escapeshellarg($this->store->path).' '.escapeshellarg($id).' > /dev/null 2>&1 &';
-        exec($command,$unused,$code);if($code!==0)$this->failLaunch($id);
+        if(!function_exists('exec')){$this->failLaunch($id,'exec_unavailable');return;}
+        $phpBinary=self::cliBinary();
+        if($phpBinary===null){$this->failLaunch($id,'cli_binary_unavailable');return;}
+        $command=escapeshellarg($phpBinary).' '.escapeshellarg(__DIR__.'/../scripts/ai-generation-worker.php').' '.escapeshellarg($this->store->path).' '.escapeshellarg($id).' > /dev/null 2>&1 &';
+        exec($command,$unused,$code);if($code!==0)$this->failLaunch($id,'launch_failed');
     }
 }
