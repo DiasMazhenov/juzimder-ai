@@ -1,13 +1,21 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/../backend/Domain.php';
-use Juzimder\{Document, Problem, ProjectSettings, Store};
+require_once __DIR__.'/../backend/Ai.php';
+require_once __DIR__.'/../backend/AiCredentials.php';
+use Juzimder\{AiCredentialVault, Document, Problem, ProjectSettings, Store};
 function backupCheck(bool $ok,string $message): void { if (!$ok) throw new RuntimeException($message); echo "PASS $message\n"; }
-function backupReject(callable $fn,int $status): void { try {$fn();} catch (Problem $error) { backupCheck($error->status===$status,'Reject backup operation with '.$status); return; } throw new RuntimeException('Expected backup rejection '.$status); }
+function backupReject(callable $fn,int $status): void { try {$fn();} catch (Problem $error) { backupCheck($error->status===$status,'Reject backup operation with '.$status.' (received '.$error->status.')'); return; } throw new RuntimeException('Expected backup rejection '.$status); }
 $path=sys_get_temp_dir().'/juzimder-backup-'.bin2hex(random_bytes(6)).'.sqlite';
+$foreignPath=sys_get_temp_dir().'/juzimder-backup-foreign-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
     $store=new Store($path);$store->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['backup-user','backup@example.test','hash']);
     $project=$store->create('backup-user','Backup QA');$id=$project['id'];
+    $vault=new AiCredentialVault($store);
+    $primaryKey='sk-or-v1-backup-primary-test-key';$fallbackKey='sk-or-v1-backup-secondary-test-key';
+    $primaryProfile=$vault->createProfile($id,'backup-user',0,'Primary backup profile',$primaryKey,'openai/backup-primary','openai/backup-fallback');
+    $secondaryProfile=$vault->createProfile($id,'backup-user',$primaryProfile['version'],'Secondary backup profile',$fallbackKey,'anthropic/backup-secondary',null);
+    $activeProfiles=$vault->activateProfile($id,'backup-user',$secondaryProfile['version'],$primaryProfile['activeProfileId']);
     $store->query('INSERT INTO project_ai_skills(id,project_id,name,content,manual_checks_json) VALUES(?,?,?,?,?)',[str_repeat('a',24),$id,'Backup skill','Use one H1.','["Check the page hierarchy."]']);
     $store->query('INSERT INTO project_ai_skill_state(project_id,active_skill_id,version) VALUES(?,?,?)',[$id,str_repeat('a',24),1]);
     $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7KcAAAAASUVORK5CYII=',true);
@@ -18,10 +26,18 @@ try {
     $saved=$store->save($id,'backup-user',0,$document,$settings);
     $backup=$store->backup($id,'backup-user');
     backupCheck($backup['format']==='juzimder-project-backup'&&count($backup['project']['document']->data->pages)===1&&count($backup['project']['assets'])===1&&count($backup['project']['aiSkills']['skills'])===1,'Backup captures page data, the full private asset library and AI Skills');
+    $backupProfiles=$backup['project']['aiProfiles']['profiles']??[];$backupJson=json_encode($backup,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    $primaryBackupProfile=array_values(array_filter($backupProfiles,static fn(array $profile):bool=>$profile['id']===$primaryProfile['activeProfileId']))[0]??null;
+    backupCheck($backup['backupVersion']===2&&count($backupProfiles)===2&&$backup['project']['aiProfiles']['activeProfileId']===$primaryProfile['activeProfileId']&&$primaryBackupProfile!==null&&$primaryBackupProfile['name']==='Primary backup profile'&&$primaryBackupProfile['model']==='openai/backup-primary'&&$primaryBackupProfile['fallbackModel']==='openai/backup-fallback'&&is_string($primaryBackupProfile['credentialCiphertext']??null)&&$primaryBackupProfile['credentialCiphertext']!==$primaryKey&&!str_contains($backupJson,$primaryKey)&&!str_contains($backupJson,$fallbackKey),'Backup v2 includes active AI profiles, model settings and encrypted keys without plaintext credentials');
+    $portablePassphrase='Transfer this backup safely 2026';$portableBackup=$store->backup($id,'backup-user',$portablePassphrase);$portableJson=json_encode($portableBackup,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    backupCheck($portableBackup['backupVersion']===3&&($portableBackup['project']['aiProfiles']['format']??null)==='juzimder-ai-portable-v1'&&!str_contains($portableJson,$primaryKey)&&!str_contains($portableJson,$fallbackKey),'Portable backup v3 encrypts AI credentials under a passphrase without exposing plaintext');
+    backupReject(fn()=>$store->backup($id,'backup-user','too-short'),422);
     $changed=json_decode(json_encode($saved['document'],JSON_THROW_ON_ERROR),false,64,JSON_THROW_ON_ERROR);$changed->data->pages[0]->name='Changed after backup';
     $next=$store->save($id,'backup-user',1,$changed);
     $restored=$store->restoreBackup($id,'backup-user',$next['version'],$backup);
     backupCheck($restored['version']===3&&$restored['document']->data->pages[0]->name==='Главная','Restore creates a new revision and restores the saved page tree');
+    $restoredProfileStatus=$vault->status($id,'backup-user');$restoredCredential=$vault->settings($id,'backup-user');
+    backupCheck(count($restoredProfileStatus['profiles'])===2&&$restoredProfileStatus['activeProfileId']===$primaryProfile['activeProfileId']&&$restoredCredential?->apiKey===$primaryKey&&$restoredCredential?->model==='openai/backup-primary'&&$restoredCredential?->fallbackModel==='openai/backup-fallback','Same-install restore reinstates AI profiles, active selection, credentials, primary model and fallback model');
     backupCheck($restored['settings']['forms']['notificationsEnabled']===true&&$restored['settings']['forms']['recipients']===['owner@example.test'],'Restore returns all project settings');
     backupCheck(count($store->listAssets($id,'backup-user'))===1&&$store->assetFile($id,'backup-user',$asset['id'])['content']===$png,'Restore atomically reinstates the media library and preserves stable asset references');
     backupCheck($store->query('SELECT active_skill_id FROM project_ai_skill_state WHERE project_id=?',[$id])->fetchColumn()===str_repeat('a',24)&&$store->query('SELECT name FROM project_ai_skills WHERE project_id=?',[$id])->fetchColumn()==='Backup skill','Restore reinstates the active Skill and its content');
@@ -29,9 +45,31 @@ try {
     backupCheck($imported['id']!==$id&&$imported['slug']==='backup-qa-2'&&$imported['name']==='Backup QA','Backup import creates a distinct project with a unique readable URL');
     backupCheck(count($importedAssets)===1&&$importedAssets[0]['id']!==$asset['id']&&$store->assetFile($imported['id'],'backup-user',$importedAssets[0]['id'])['content']===$png&&$importedSource==='/api/projects/'.$imported['id'].'/assets/'.$importedAssets[0]['id'].'/file','Backup import rekeys image IDs and rewrites page asset references');
     backupCheck(is_string($importedSkillId)&&$importedSkillId!==str_repeat('a',24)&&$store->query('SELECT name FROM project_ai_skills WHERE project_id=?',[$imported['id']])->fetchColumn()==='Backup skill','Backup import rekeys and preserves the active AI Skill');
+    $importedProfileStatus=$vault->status($imported['id'],'backup-user');$importedCredential=$vault->settings($imported['id'],'backup-user');
+    backupCheck(count($importedProfileStatus['profiles'])===2&&$importedProfileStatus['activeProfileId']!==$primaryProfile['activeProfileId']&&$importedCredential?->apiKey===$primaryKey&&$importedCredential?->fallbackModel==='openai/backup-fallback','Import as a new project rekeys profile IDs and preserves the active credentials and model settings');
+    $foreignStore=new Store($foreignPath);$foreignStore->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['backup-user','destination@example.test','hash']);$foreignVault=new AiCredentialVault($foreignStore);
+    backupReject(fn()=>$foreignVault->validateBackupSnapshot($id,'backup-user',$backup['project']['aiProfiles'],false),422);
+    backupReject(fn()=>$foreignStore->restoreBackupAsNewProject('backup-user',$portableBackup),422);
+    $wrongPassphraseBackupCount=(int)$foreignStore->query('SELECT COUNT(*) FROM projects')->fetchColumn();
+    backupReject(fn()=>$foreignStore->restoreBackupAsNewProject('backup-user',$portableBackup,'wrong transfer passphrase'),422);
+    backupCheck((int)$foreignStore->query('SELECT COUNT(*) FROM projects')->fetchColumn()===$wrongPassphraseBackupCount,'Wrong portable passphrase creates no partial project');
+    backupCheck(!file_exists($foreignPath.'.ai-key'),'Wrong portable passphrase does not create an installation key');
+    $importedAcrossInstall=$foreignStore->restoreBackupAsNewProject('backup-user',$portableBackup,$portablePassphrase);
+    $foreignCredential=$foreignVault->settings($importedAcrossInstall['id'],'backup-user');
+    backupCheck($importedAcrossInstall['name']==='Backup QA'&&$foreignCredential?->apiKey===$primaryKey&&$foreignCredential?->model==='openai/backup-primary'&&$foreignCredential?->fallbackModel==='openai/backup-fallback','Portable restore decrypts on another installation then re-encrypts credentials for its own key');
+    @unlink($foreignPath.'.ai-key');$beforeLostSidecarImport=(int)$foreignStore->query('SELECT COUNT(*) FROM projects')->fetchColumn();
+    $recoveredImport=$foreignStore->restoreBackupAsNewProject('backup-user',$portableBackup,$portablePassphrase);
+    $recoveredCredential=$foreignVault->settings($recoveredImport['id'],'backup-user');
+    backupCheck(is_file($foreignPath.'.ai-key')&&$recoveredCredential?->apiKey===$primaryKey&&(int)$foreignStore->query('SELECT COUNT(*) FROM projects')->fetchColumn()===$beforeLostSidecarImport+1,'An authenticated portable import creates a fresh destination key and restores its profiles');
+    backupCheck((int)$foreignStore->query('SELECT COUNT(*) FROM project_ai_profiles WHERE project_id=?',[$importedAcrossInstall['id']])->fetchColumn()===2,'Portable key recovery preserves older ciphertext rows instead of deleting them');
+    backupReject(fn()=>$foreignVault->settings($importedAcrossInstall['id'],'backup-user'),503);
+    $corruptPortable=json_decode(json_encode($portableBackup,JSON_THROW_ON_ERROR),true,64,JSON_THROW_ON_ERROR);$corruptPortable['project']['aiProfiles']['ciphertext'][10]=$corruptPortable['project']['aiProfiles']['ciphertext'][10]==='A'?'B':'A';
+    $beforeCorruptImport=(int)$foreignStore->query('SELECT COUNT(*) FROM projects')->fetchColumn();
+    backupReject(fn()=>$foreignStore->restoreBackupAsNewProject('backup-user',$corruptPortable,$portablePassphrase),422);
+    backupCheck((int)$foreignStore->query('SELECT COUNT(*) FROM projects')->fetchColumn()===$beforeCorruptImport,'Tampered portable envelope is rejected before project creation');
     backupReject(fn()=>$store->restoreBackup($id,'backup-user',2,$backup),409);
     $corrupt=$backup;$corrupt['project']['assets'][0]['sha256']=str_repeat('0',64);
     backupReject(fn()=>$store->restoreBackup($id,'backup-user',3,$corrupt),422);
     backupReject(fn()=>$store->restoreBackup($id,'another-user',3,$backup),404);
     backupReject(fn()=>$store->restoreBackup($id,'backup-user',3,['format'=>'invalid']),422);
-} finally { unset($store);@unlink($path);@unlink($path.'-wal');@unlink($path.'-shm'); }
+} finally { unset($store,$foreignStore);foreach([$path,$foreignPath] as $databasePath)foreach(['','-wal','-shm','.ai-key'] as $suffix)@unlink($databasePath.$suffix); }

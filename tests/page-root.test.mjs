@@ -83,6 +83,34 @@ test('project dashboard sidebar stays fixed while the page list scrolls independ
   assert.match(styles, /@media\(max-width:800px\)\{\.project-dashboard\{height:auto;min-height:100dvh;overflow:visible\}\.project-dashboard>\.dash-sidebar\{position:static;inset:auto;width:auto;height:auto;min-height:0;overflow:visible\}\.project-dashboard>\.dash-main\{grid-column:1;height:auto;min-height:0;overflow:visible\}\}/);
 });
 
+test('project list and project dashboard expose accessible project action menus', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(source, /class="project-card project-entry"/);
+  assert.match(source, /projectActionMenuMarkup\(p,'project-card-menu'\)/);
+  assert.match(source, /projectActionMenuMarkup\(project,'project-title-menu'\)/);
+  assert.match(source, /aria-label="Действия проекта: \$\{name\}"/);
+  assert.match(source, /data-project-action="rename"/);
+  assert.match(source, /data-project-action="backup"/);
+  assert.match(source, /data-project-action="duplicate"/);
+  assert.match(source, /data-project-action="delete"/);
+  assert.match(source, /\/settings`/);
+  assert.match(source, /expectedName:project\.name/);
+  assert.match(styles, /\.project-card-menu\{position:absolute/);
+  assert.match(styles, /\.project-menu \.page-menu-popover/);
+});
+
+test('portable project backups prompt for a transfer passphrase and accept v3 restore', () => {
+  const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(source, /collectBackupPassphrase\('export'\)/);
+  assert.match(source, /portablePassphrase:passphrase/);
+  assert.match(source, /\[1,2,3\]\.includes\(backup\?\.backupVersion\)/);
+  assert.match(source, /id="backup-passphrase" type="password"/);
+  assert.match(source, /portablePassphrase!==null\?\{portablePassphrase\}:\{\}/);
+  assert.match(source, /зашифрованы ключом целевого сервера/);
+  assert.match(source, /этот файл восстановит включённые в него профили; прежние шифротексты останутся недоступны/);
+});
+
 test('site custom CSS is validated, saved and previewed only in a sandboxed public frame', () => {
   const source = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');

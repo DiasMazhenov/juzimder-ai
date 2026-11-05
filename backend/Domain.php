@@ -409,10 +409,12 @@ final class Store {
         $rows = $this->query('SELECT id,name,mime,byte_length,width,height,created_at FROM project_assets WHERE project_id=? ORDER BY created_at DESC,id DESC', [$id])->fetchAll();
         return array_map(static fn(array $row): array => ['id'=>$row['id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>(int)$row['byte_length'],'width'=>(int)$row['width'],'height'=>(int)$row['height'],'createdAt'=>$row['created_at'],'url'=>'/api/projects/' . $id . '/assets/' . $row['id'] . '/file'], $rows);
     }
-    public function backup(string $id, string $user): array {
+    public function backup(string $id, string $user, ?string $portablePassphrase = null): array {
         $project = $this->owned($id, $user);
         require_once __DIR__ . '/AiCredentials.php';
-        $aiProfiles = (new AiCredentialVault($this))->backupSnapshot($id, $user);
+        $aiProfiles = $portablePassphrase === null
+            ? (new AiCredentialVault($this))->backupSnapshot($id, $user)
+            : (new AiCredentialVault($this))->portableBackupSnapshot($id, $user, $portablePassphrase);
         $assets = $this->query('SELECT id,name,mime,byte_length,width,height,sha256,content FROM project_assets WHERE project_id=? ORDER BY id', [$id])->fetchAll();
         $packedAssets = [];
         foreach ($assets as $asset) {
@@ -423,15 +425,22 @@ final class Store {
         $skillState = $this->query('SELECT active_skill_id,version FROM project_ai_skill_state WHERE project_id=?', [$id])->fetch() ?: ['active_skill_id'=>null,'version'=>0];
         $skills = $this->query('SELECT id,name,content,manual_checks_json FROM project_ai_skills WHERE project_id=? ORDER BY created_at,id', [$id])->fetchAll();
         $packedSkills = array_map(static fn(array $skill): array => ['id'=>$skill['id'],'name'=>$skill['name'],'content'=>$skill['content'],'manualChecks'=>json_decode($skill['manual_checks_json'],true,16,JSON_THROW_ON_ERROR)], $skills);
-        return ['format'=>'juzimder-project-backup','backupVersion'=>2,'createdAt'=>gmdate('c'),'sourceProjectId'=>$id,'project'=>['name'=>$project['name'],'slug'=>$project['slug'],'document'=>$project['document'],'settings'=>$project['settings'],'assets'=>$packedAssets,'aiSkills'=>['version'=>(int)$skillState['version'],'activeSkillId'=>$skillState['active_skill_id'],'skills'=>$packedSkills],'aiProfiles'=>$aiProfiles]];
+        return ['format'=>'juzimder-project-backup','backupVersion'=>$portablePassphrase === null ? 2 : 3,'createdAt'=>gmdate('c'),'sourceProjectId'=>$id,'project'=>['name'=>$project['name'],'slug'=>$project['slug'],'document'=>$project['document'],'settings'=>$project['settings'],'assets'=>$packedAssets,'aiSkills'=>['version'=>(int)$skillState['version'],'activeSkillId'=>$skillState['active_skill_id'],'skills'=>$packedSkills],'aiProfiles'=>$aiProfiles]];
     }
-    public function restoreBackup(string $id, string $user, int $version, mixed $backup): array {
+    public function restoreBackup(string $id, string $user, int $version, mixed $backup, ?string $portablePassphrase = null): array {
         $this->owned($id, $user);
         $fields = $backup instanceof \stdClass ? get_object_vars($backup) : (is_array($backup) && !array_is_list($backup) ? $backup : null);
         $projectValue = $fields['project'] ?? null;
         $backupVersion = $fields['backupVersion'] ?? null;
-        if ($fields === null || ($fields['format'] ?? null) !== 'juzimder-project-backup' || !in_array($backupVersion, [1,2], true) || ($fields['sourceProjectId'] ?? null) !== $id || !($projectValue instanceof \stdClass || (is_array($projectValue) && !array_is_list($projectValue)))) throw new Problem(422, 'Файл не является резервной копией этого проекта или имеет неподдерживаемую версию.');
+        if ($fields === null || ($fields['format'] ?? null) !== 'juzimder-project-backup' || !in_array($backupVersion, [1,2,3], true) || ($fields['sourceProjectId'] ?? null) !== $id || !($projectValue instanceof \stdClass || (is_array($projectValue) && !array_is_list($projectValue)))) throw new Problem(422, 'Файл не является резервной копией этого проекта или имеет неподдерживаемую версию.');
         $project = $projectValue instanceof \stdClass ? get_object_vars($projectValue) : $projectValue;
+        if (!is_array($project) || array_is_list($project)) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
+        if ($backupVersion === 3) {
+            if (!is_string($portablePassphrase)) throw new Problem(422, 'Введите пароль-фразу, заданную при создании переносимого бэкапа.');
+            require_once __DIR__ . '/AiCredentials.php';
+            $project['aiProfiles'] = (new AiCredentialVault($this))->restorePortableBackupSnapshot($id, $user, $project['aiProfiles'] ?? null, $portablePassphrase);
+            $backupVersion = 2;
+        }
         if (array_diff(array_keys($project), ['name','slug','document','settings','assets','aiSkills','aiProfiles']) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200 || ($backupVersion === 2 && !array_key_exists('aiProfiles', $project))) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
         $slug = ProjectSettings::validateSlug($project['slug']);
         $document = $project['document'] ?? null;
@@ -503,10 +512,18 @@ final class Store {
         } catch (\Throwable $error) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $error; }
         return $this->owned($id,$user);
     }
-    public function restoreBackupAsNewProject(string $user, mixed $backup): array {
+    public function restoreBackupAsNewProject(string $user, mixed $backup, ?string $portablePassphrase = null): array {
         try { $snapshot = json_decode(json_encode($backup, JSON_THROW_ON_ERROR), true, 64, JSON_THROW_ON_ERROR); }
         catch (\Throwable) { throw new Problem(422, 'Не удалось прочитать файл резервной копии.'); }
-        if (!is_array($snapshot) || array_is_list($snapshot) || ($snapshot['format'] ?? null) !== 'juzimder-project-backup' || !in_array($snapshot['backupVersion'] ?? null, [1,2], true) || !is_string($snapshot['sourceProjectId'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $snapshot['sourceProjectId'])) throw new Problem(422, 'Файл не является резервной копией поддерживаемого формата.');
+        if (!is_array($snapshot) || array_is_list($snapshot) || ($snapshot['format'] ?? null) !== 'juzimder-project-backup' || !in_array($snapshot['backupVersion'] ?? null, [1,2,3], true) || !is_string($snapshot['sourceProjectId'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $snapshot['sourceProjectId'])) throw new Problem(422, 'Файл не является резервной копией поддерживаемого формата.');
+        if (!is_array($snapshot['project'] ?? null) || array_is_list($snapshot['project'])) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
+        $sourceId = $snapshot['sourceProjectId'];
+        if ($snapshot['backupVersion'] === 3) {
+            if (!is_string($portablePassphrase)) throw new Problem(422, 'Введите пароль-фразу, заданную при создании переносимого бэкапа.');
+            require_once __DIR__ . '/AiCredentials.php';
+            $snapshot['project']['aiProfiles'] = (new AiCredentialVault($this))->restorePortableBackupSnapshot($sourceId, $user, $snapshot['project']['aiProfiles'] ?? null, $portablePassphrase);
+            $snapshot['backupVersion'] = 2;
+        }
         $project = $snapshot['project'] ?? null;
         if (!is_array($project) || array_is_list($project) || !is_string($project['name'] ?? null) || trim($project['name']) === '' || mb_strlen(trim($project['name']), 'UTF-8') > 100 || !is_string($project['slug'] ?? null) || !is_array($project['assets'] ?? null) || !array_is_list($project['assets']) || count($project['assets']) > 200) throw new Problem(422, 'Резервная копия содержит некорректные данные проекта.');
         ProjectSettings::validateSlug($project['slug']);
@@ -649,6 +666,23 @@ final class Store {
             throw $e;
         }
         return $this->owned($id,$user);
+    }
+    public function deleteProject(string $id, string $user, int $version, string $expectedName): array {
+        $expectedName = trim($expectedName);
+        if ($expectedName === '' || mb_strlen($expectedName, 'UTF-8') > 100) throw new Problem(422, 'Укажите актуальное название проекта.');
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $row = $this->query('SELECT p.name,d.version FROM projects p JOIN documents d ON p.id=d.project_id WHERE p.id=? AND p.owner_id=?', [$id,$user])->fetch();
+            if (!$row) throw new Problem(404, 'Проект не найден.');
+            if ((int)$row['version'] !== $version || !hash_equals((string)$row['name'], $expectedName)) throw new Problem(409, 'Проект изменился в другой вкладке. Обновите страницу и повторите удаление.');
+            $deleted = $this->query('DELETE FROM projects WHERE id=? AND owner_id=? AND name=?', [$id,$user,$expectedName]);
+            if ($deleted->rowCount() !== 1) throw new Problem(409, 'Проект изменился. Обновите страницу и повторите удаление.');
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+        return ['id'=>$id,'deleted'=>true];
     }
     public function save(string $id,string $user,int $version,mixed $doc,?array $settingsOverride=null): array {
         $current = $this->owned($id,$user); Document::validate($doc); $this->assertDocumentAssets($id,$doc);

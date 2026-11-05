@@ -236,11 +236,8 @@
 .ai-design-apply-actions{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:8px}.ai-design-apply-actions button{width:100%;min-width:0;line-height:1.35}.ai-design-apply-actions #ai-plan-replace{white-space:normal}
 @media(max-width:520px){.ai-design-apply-actions{grid-template-columns:1fr}}
 .dashboard-project-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
-#update-install-dialog{box-sizing:border-box;width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:24px;background:#1d241f;color:#e9edeb;border:1px solid #3a443d;border-radius:11px;box-shadow:0 24px 80px #0009}
-#update-install-dialog::backdrop{background:#080b09b8;backdrop-filter:blur(3px)}
-#update-install-dialog form{margin:0}
-#update-install-dialog h2{margin:8px 0 12px;font-size:21px;font-weight:500}
-#update-install-dialog p{line-height:1.6}
-#update-install-dialog .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-#update-install-dialog .dialog-actions button{min-height:38px;padding:9px 15px}
-@media(max-width:520px){#update-install-dialog{padding:18px}}
+.backup-passphrase-dialog{max-width:520px}.backup-passphrase-dialog .settings-field{margin:12px 0}.backup-passphrase-dialog .settings-field input{width:100%}.backup-passphrase-error{min-height:18px;margin:0;color:#efb4a4;font-size:12px}
+.project-entry{position:relative;min-height:260px;padding:0;border:1px solid #303a33;border-radius:7px;overflow:visible;transition:border-color .15s,background .15s}.project-entry:hover{border-color:#7f9e89;background:#202a23}.project-card-link{display:block;min-height:260px;overflow:hidden;border-radius:6px;color:inherit}.project-card-link:hover{background:transparent}.project-card-menu{position:absolute;z-index:7;top:8px;right:8px}.project-card-menu summary{background:#202722d9;border-color:#435047;color:#edf3ee}.project-title-menu{flex:none}.project-menu .page-menu-popover{min-width:196px}.project-menu .danger-action{color:#e7a89a}.project-menu .danger-action:hover{background:#3a2b28}
+
+#update-install-confirm form{margin:0}
+#update-install-message{line-height:1.6}

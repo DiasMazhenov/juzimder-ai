@@ -6,6 +6,137 @@ final class AiCredentialVault {
     public function __construct(private readonly Store $store) {}
 
     /**
+     * Encrypt AI credentials for a portable project backup. The backup passphrase
+     * is never stored; the destination decrypts once and re-encrypts with its own
+     * installation key.
+     */
+    public function portableBackupSnapshot(string $projectId, string $userId, string $passphrase): array {
+        $snapshot = $this->backupSnapshot($projectId, $userId);
+        self::validatePortablePassphrase($passphrase);
+        $profiles = [];
+        foreach ($snapshot['profiles'] as $profile) {
+            $profiles[] = [
+                'id'=>$profile['id'],
+                'name'=>$profile['name'],
+                'model'=>$profile['model'],
+                'fallbackModel'=>$profile['fallbackModel'],
+                'apiKey'=>$this->decrypt($profile['credentialCiphertext']),
+            ];
+        }
+        $payload = json_encode([
+            'format'=>'juzimder-ai-portable-credentials',
+            'version'=>1,
+            'sourceProjectId'=>$projectId,
+            'activeProfileId'=>$snapshot['activeProfileId'],
+            'profiles'=>$profiles,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (strlen($payload) > 524272) {
+            foreach ($profiles as &$profile) sodium_memzero($profile['apiKey']);
+            unset($profile);
+            sodium_memzero($payload);
+            throw new Problem(413, 'Переносимые AI-профили слишком велики для защищённого бэкапа.');
+        }
+        $salt = random_bytes(SODIUM_CRYPTO_PWHASH_SALTBYTES);
+        $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+        $key = null;
+        try {
+            $key = self::portableKey($passphrase, $salt);
+            $ciphertext = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($payload, self::portableAad($projectId), $nonce, $key);
+        } finally {
+            if (is_string($key)) sodium_memzero($key);
+            sodium_memzero($payload);
+            foreach ($profiles as &$profile) sodium_memzero($profile['apiKey']);
+            unset($profile);
+        }
+        return [
+            'format'=>'juzimder-ai-portable-v1',
+            'algorithm'=>'argon2id13+xchacha20poly1305-ietf',
+            'salt'=>base64_encode($salt),
+            'nonce'=>base64_encode($nonce),
+            'ciphertext'=>base64_encode($ciphertext),
+        ];
+    }
+
+    /** Decrypt portable credentials and immediately re-encrypt them for this installation. */
+    public function restorePortableBackupSnapshot(string $projectId, string $userId, mixed $value, string $passphrase): array {
+        self::validatePortablePassphrase($passphrase);
+        if (!function_exists('sodium_crypto_aead_xchacha20poly1305_ietf_decrypt') || !function_exists('sodium_crypto_pwhash')) {
+            throw new Problem(503, 'На сервере недоступно защищённое восстановление переносимых профилей AI.');
+        }
+        $fields = $value instanceof \stdClass ? get_object_vars($value) : (is_array($value) && !array_is_list($value) ? $value : null);
+        if ($fields === null || array_diff(array_keys($fields), ['format','algorithm','salt','nonce','ciphertext']) || ($fields['format'] ?? null) !== 'juzimder-ai-portable-v1' || ($fields['algorithm'] ?? null) !== 'argon2id13+xchacha20poly1305-ietf' || !is_string($fields['salt'] ?? null) || !is_string($fields['nonce'] ?? null) || !is_string($fields['ciphertext'] ?? null)) {
+            throw new Problem(422, 'Переносимые настройки AI в резервной копии имеют неверный формат.');
+        }
+        $salt = base64_decode($fields['salt'], true);
+        $nonce = base64_decode($fields['nonce'], true);
+        $ciphertext = base64_decode($fields['ciphertext'], true);
+        if (!is_string($salt) || strlen($salt) !== SODIUM_CRYPTO_PWHASH_SALTBYTES || !is_string($nonce) || strlen($nonce) !== SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES || !is_string($ciphertext) || strlen($ciphertext) < SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_ABYTES || strlen($ciphertext) > 524288) {
+            throw new Problem(422, 'Переносимые настройки AI в резервной копии повреждены.');
+        }
+        $key = self::portableKey($passphrase, $salt);
+        try { $plain = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($ciphertext, self::portableAad($projectId), $nonce, $key); }
+        finally { sodium_memzero($key); }
+        if (!is_string($plain)) throw new Problem(422, 'Не удалось открыть переносимые настройки AI. Проверьте пароль-фразу или целостность файла.');
+        try {
+            try { $payload = json_decode($plain, true, 16, JSON_THROW_ON_ERROR); }
+            catch (\Throwable) { throw new Problem(422, 'Переносимые настройки AI в резервной копии повреждены.'); }
+            if (!is_array($payload) || array_diff(array_keys($payload), ['format','version','sourceProjectId','activeProfileId','profiles']) || ($payload['format'] ?? null) !== 'juzimder-ai-portable-credentials' || ($payload['version'] ?? null) !== 1 || ($payload['sourceProjectId'] ?? null) !== $projectId || !is_array($payload['profiles'] ?? null) || !array_is_list($payload['profiles'])) {
+                throw new Problem(422, 'Переносимые настройки AI не соответствуют этому проекту.');
+            }
+            $portableProfiles = []; $seen = [];
+            foreach ($payload['profiles'] as &$profile) {
+                if (!is_array($profile) || array_diff(array_keys($profile), ['id','name','model','fallbackModel','apiKey']) || !is_string($profile['id'] ?? null) || !preg_match('/^[a-f0-9]{24}$/D', $profile['id']) || isset($seen[$profile['id']]) || !is_string($profile['name'] ?? null) || !is_string($profile['model'] ?? null) || !(($profile['fallbackModel'] ?? null) === null || is_string($profile['fallbackModel'])) || !is_string($profile['apiKey'] ?? null)) {
+                    throw new Problem(422, 'В переносимой резервной копии есть некорректный профиль AI.');
+                }
+                $name = self::validateName($profile['name']);
+                $model = self::validateModel($profile['model']);
+                $fallback = self::validateFallbackModel($profile['fallbackModel'], $model);
+                $apiKey = self::validateApiKey($profile['apiKey'], true);
+                $portableProfiles[] = ['id'=>$profile['id'],'name'=>$name,'model'=>$model,'fallbackModel'=>$fallback,'apiKey'=>$apiKey];
+                sodium_memzero($profile['apiKey']);
+                sodium_memzero($apiKey);
+                $seen[$profile['id']] = true;
+            }
+            unset($profile);
+            $activeId = $payload['activeProfileId'] ?? null;
+            if (!(($activeId === null) || (is_string($activeId) && isset($seen[$activeId])))) throw new Problem(422, 'Активный AI-профиль отсутствует в резервной копии.');
+            if ($portableProfiles === [] && $activeId !== null) throw new Problem(422, 'Некорректный активный профиль AI в резервной копии.');
+            $profiles = [];
+            try {
+                foreach ($portableProfiles as &$profile) {
+                    $ciphertext = $this->encrypt($profile['apiKey'], true);
+                    sodium_memzero($profile['apiKey']);
+                    $profiles[] = ['id'=>$profile['id'],'name'=>$profile['name'],'model'=>$profile['model'],'fallbackModel'=>$profile['fallbackModel'],'credentialCiphertext'=>$ciphertext];
+                }
+                unset($profile);
+            } finally {
+                foreach ($portableProfiles as &$profile) if (is_string($profile['apiKey'] ?? null)) sodium_memzero($profile['apiKey']);
+                unset($profile);
+            }
+            return ['activeProfileId'=>$activeId,'profiles'=>$profiles,'integrity'=>$profiles === [] ? null : $this->snapshotIntegrity($projectId, $userId, $activeId, $profiles)];
+        } finally {
+            if (is_array($payload['profiles'] ?? null)) foreach ($payload['profiles'] as &$profile) if (is_array($profile) && is_string($profile['apiKey'] ?? null)) sodium_memzero($profile['apiKey']);
+            unset($profile);
+            sodium_memzero($plain);
+        }
+    }
+
+    private static function validatePortablePassphrase(string $passphrase): void {
+        if (!function_exists('sodium_crypto_aead_xchacha20poly1305_ietf_encrypt') || !function_exists('sodium_crypto_pwhash')) throw new Problem(503, 'На сервере недоступно защищённое восстановление переносимых профилей AI.');
+        if (!mb_check_encoding($passphrase, 'UTF-8') || mb_strlen($passphrase, 'UTF-8') < 16 || strlen($passphrase) > 1024) throw new Problem(422, 'Пароль-фраза бэкапа должна содержать не менее 16 символов.');
+    }
+
+    private static function portableKey(string $passphrase, string $salt): string {
+        try {
+            return sodium_crypto_pwhash(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES, $passphrase, $salt, SODIUM_CRYPTO_PWHASH_OPSLIMIT_INTERACTIVE, SODIUM_CRYPTO_PWHASH_MEMLIMIT_INTERACTIVE, SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13);
+        } catch (\Throwable) {
+            throw new Problem(503, 'Сервер не смог подготовить ключ для переносимого бэкапа.');
+        }
+    }
+
+    private static function portableAad(string $projectId): string { return 'juzimder-project-backup:ai-profiles:v1:' . $projectId; }
+
+    /**
      * Return a project-backup projection. API keys stay encrypted with this
      * installation's secretbox key and are bound to the owner and source project.
      */
@@ -67,7 +198,7 @@ final class AiCredentialVault {
                 $plaintext = $this->decrypt($ciphertext);
                 self::validateApiKey($plaintext, true);
             } catch (Problem $error) {
-                if ($error->status === 503 && str_contains($error->getMessage(), 'Сохранённый ключ AI недоступен')) {
+                if ($error->status === 503) {
                     throw new Problem(422, 'Зашифрованные ключи AI из этого бэкапа принадлежат другой установке или повреждены. Для переноса сервера сохраните системную базу вместе с файлом ключа AI.');
                 }
                 throw $error;
@@ -356,11 +487,13 @@ final class AiCredentialVault {
         return $apiKey;
     }
 
-    private function encrypt(string $apiKey): string {
+    private function encrypt(string $apiKey, bool $allowPortableKeyRecovery = false): string {
         if (!function_exists('sodium_crypto_secretbox')) throw new Problem(503, 'На сервере недоступно защищённое хранилище ключей AI.');
-        $key = $this->encryptionKey(true);
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-        return base64_encode($nonce . sodium_crypto_secretbox($apiKey, $nonce, $key));
+        $key = $this->encryptionKey(true, $allowPortableKeyRecovery);
+        try {
+            $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+            return base64_encode($nonce . sodium_crypto_secretbox($apiKey, $nonce, $key));
+        } finally { sodium_memzero($key); }
     }
 
     private function decrypt(string $ciphertext): string {
@@ -374,11 +507,14 @@ final class AiCredentialVault {
         return $plain;
     }
 
-    private function encryptionKey(bool $create): string {
+    private function encryptionKey(bool $create, bool $allowPortableRecovery = false): string {
         if (!function_exists('sodium_crypto_secretbox')) throw new Problem(503, 'На сервере недоступно защищённое хранилище ключей AI.');
         $path = $this->store->path . '.ai-key';
         if (is_link($path)) throw new Problem(503, 'Файл защищённого хранилища AI должен быть обычным закрытым файлом.');
         if (!is_file($path) && $create) {
+            if (!$allowPortableRecovery && $this->store->query('SELECT 1 FROM project_ai_profiles LIMIT 1')->fetchColumn() !== false) {
+                throw new Problem(503, 'Не найден закрытый файл ключа AI, но в базе уже есть профили. Сначала восстановите исходный файл ключа; новый ключ не создан.');
+            }
             $key = random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
             $oldUmask = umask(0077);
             try { $handle = @fopen($path, 'x+b'); }

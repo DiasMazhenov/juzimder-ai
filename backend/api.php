@@ -170,8 +170,8 @@ try {
         result($store->resolveProjectSlug($slugMatch[1], $user));
     }
     if ($path === '/api/projects/restore-from-backup' && $method === 'POST') {
-        if (array_diff(array_keys($body), ['backup']) || !array_key_exists('backup', $body)) throw new Problem(422, 'Передайте файл резервной копии.');
-        result($store->restoreBackupAsNewProject($user, $body['backup']), 201);
+        if (array_diff(array_keys($body), ['backup','portablePassphrase']) || !array_key_exists('backup', $body) || (array_key_exists('portablePassphrase', $body) && !is_string($body['portablePassphrase']))) throw new Problem(422, 'Передайте файл резервной копии и корректную пароль-фразу.');
+        result($store->restoreBackupAsNewProject($user, $body['backup'], $body['portablePassphrase'] ?? null), 201);
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/backup$~D', $path, $backupMatch)) {
         if ($method === 'GET') {
@@ -182,8 +182,17 @@ try {
             echo json_encode($backup, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR); exit;
         }
         if ($method === 'POST') {
-            if (array_diff(array_keys($body), ['version','backup']) || !is_int($body['version'] ?? null) || $body['version'] < 0) throw new Problem(422, 'Укажите текущую версию проекта и файл резервной копии.');
-            result($store->restoreBackup($backupMatch[1], $user, $body['version'], $body['backup'] ?? null));
+            if (($body['action'] ?? null) === 'export') {
+                if (array_diff(array_keys($body), ['action','portablePassphrase']) || !is_string($body['portablePassphrase'] ?? null)) throw new Problem(422, 'Укажите пароль-фразу для защищённого переносимого бэкапа.');
+                $backup = $store->backup($backupMatch[1], $user, $body['portablePassphrase']);
+                $filename = 'juzimder-backup-' . $backupMatch[1] . '-' . gmdate('Ymd-His') . '.json';
+                header('Content-Type: application/json; charset=utf-8');
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                header('Cache-Control: no-store, private');
+                echo json_encode($backup, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR); exit;
+            }
+            if (array_diff(array_keys($body), ['version','backup','portablePassphrase']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || (array_key_exists('portablePassphrase', $body) && !is_string($body['portablePassphrase']))) throw new Problem(422, 'Укажите текущую версию проекта и файл резервной копии.');
+            result($store->restoreBackup($backupMatch[1], $user, $body['version'], $body['backup'] ?? null, $body['portablePassphrase'] ?? null));
         }
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})/form-submissions$~D', $path, $formInboxMatch) && $method === 'GET') {
@@ -604,6 +613,10 @@ try {
     if (preg_match('~^/api/projects/([a-f0-9]{24})/name$~D', $path, $renameMatch) && $method === 'PUT') {
         if (array_diff(array_keys($body), ['version','expectedName','name']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['expectedName'] ?? null) || !is_string($body['name'] ?? null)) throw new Problem(422, 'Укажите актуальное название и версию проекта.');
         result($store->renameProject($renameMatch[1], $user, $body['version'], $body['expectedName'], $body['name']));
+    }
+    if (preg_match('~^/api/projects/([a-f0-9]{24})$~D', $path, $deleteProjectMatch) && $method === 'DELETE') {
+        if (array_diff(array_keys($body), ['version','expectedName']) || !is_int($body['version'] ?? null) || $body['version'] < 0 || !is_string($body['expectedName'] ?? null)) throw new Problem(422, 'Укажите актуальное название и версию проекта.');
+        result($store->deleteProject($deleteProjectMatch[1], $user, $body['version'], $body['expectedName']));
     }
     if (preg_match('~^/api/projects/([a-f0-9]{24})(/revisions(?:/restore)?)?$~D',$path,$match)) {
         $id=$match[1]; $store->owned($id,$user);
