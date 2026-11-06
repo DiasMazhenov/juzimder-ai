@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/McpIngressProbe.php';
+try { Juzimder\McpIngressProbe::record(getenv('JUZIMDER_DB') ?: __DIR__.'/../var/app.sqlite', $_GET['diagnostic_id'] ?? null, $_SERVER['REQUEST_METHOD'] ?? 'GET'); }
+catch (Throwable) { /* Entry diagnostics must not interrupt MCP. */ }
+
+
+
 $mcpAutoload = is_file(__DIR__ . '/vendor/autoload.php')
     ? __DIR__ . '/vendor/autoload.php'
     : __DIR__ . '/../vendor/autoload.php';

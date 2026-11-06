@@ -77,3 +77,7 @@ Codex CLI `0.166.0-alpha.5.1` completed a real local DCR + OAuth/PKCE login agai
 On the project dashboard, choose **Доступ для AI** in the account header. Select owned projects, read access or explicit write access, and 7/30/90 days. Save the token immediately: it is shown once. Send it only as `Authorization: Bearer <token>` to the installation HTTPS `/mcp` endpoint, never in a URL. Codex supports `bearer_token_env_var`; Claude Code HTTP servers support an Authorization header. These are remote HTTP connections; no local MCP server or relay is required. OAuth remains available.
 
 Tokens are stored only as SHA-256 hashes. Every request validates expiry, revocation, current account auth version, ownership and the selected project allowlist. Revoke from the same dialog. Project backups do not transfer these account credentials. Standard HTTPS JSON POST access to `/mcp` is still required. Token authentication removes OAuth registration/token exchange, but does not establish network reachability. Real client acceptance remains pending.
+
+
+## Temporary ingress probe
+Installation managers can start a ten-minute diagnostic under Доступ для AI. A random diagnostic_id query parameter enables recording of only request method/time at entry to backend/mcp.php. A browser control request and external POST can be compared in the authenticated UI. No secrets or request body are retained; only ten hits are kept. A missing hit proves no observed entry into the instrumented handler during the active window, provided the control request succeeds.

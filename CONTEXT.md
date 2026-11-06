@@ -1,5 +1,8 @@
 # Juzimder AI — контекст проекта
 
+06.11.2026 · 00.00.371: opt-in MCP PHP-entry probe. Installation manager creates a random ten-minute probe in a private sidecar; only matching requests record method/time (maximum ten entries) before MCP bootstrap. Manager-only GET/CSRF POST control and account UI show the probe. No credentials, body, cookies, IPs or user agents are recorded. No authentication or challenge handling changed.
+
+
 06.11.2026 · Выпуск 00.00.370: персональные MCP-токены с выбранными проектами, read/write, сроком действия и отзывом; в базе только хеш. Добавлен HTTP execution POST для AI-задач без обязательного CLI worker. Проверены token boundaries, HTTP MCP handshake/tool call/revocation и OAuth regression. Полный npm test, build, PHP syntax и diff-check PASS в рабочей копии. Реальные клиентские подключения и размещённое обновление ещё не приняты.
 
 

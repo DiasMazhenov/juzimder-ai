@@ -86,6 +86,13 @@ try {
             : false;
         result(['user'=>$sessionUser,'csrf'=>$_SESSION['csrf'],'devAuth'=>$devAuth,'sessionExpired'=>$sessionExpired,'canManageUpdates'=>$canManageUpdates]);
     }
+    if ($path === '/api/system/mcp-ingress-probe' && in_array($method,['GET','POST'],true)) {
+        if(!is_array($sessionUser)||!is_string($sessionUser['id']??null))throw new Problem(401,'Войдите в аккаунт.');
+        if(!Juzimder\AppUpdates::isInstallationManager($store,$sessionUser['id']))throw new Problem(403,'Диагностика доступна владельцу установки.');
+        require_once __DIR__.'/McpIngressProbe.php';
+        if($method==='POST'&&$body)throw new Problem(422,'Диагностика не принимает параметры.');
+        result(['probe'=>$method==='POST'?Juzimder\McpIngressProbe::start($databasePath):Juzimder\McpIngressProbe::read($databasePath)]);
+    }
     if ($path === '/api/system/updates' && $method === 'GET') {
         if (!is_array($sessionUser) || !is_string($sessionUser['id'] ?? null)) throw new Problem(401, 'Войдите, чтобы проверять обновления.');
         if (!Juzimder\AppUpdates::isInstallationManager($store, $sessionUser['id'])) throw new Problem(403, 'Проверять и устанавливать обновления может только первый аккаунт этой установки.');
