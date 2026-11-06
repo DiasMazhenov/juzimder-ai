@@ -34,7 +34,7 @@ $dbPath = $dir . '/app.sqlite';
 putenv('JUZIMDER_PUBLIC_BASE_URL=https://mcp.example.test');
 try {
     $store = new Store($dbPath);
-    mcpCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn() === 19 && (bool)$store->db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='mcp_oauth_refresh_tokens'")->fetchColumn(), 'OAuth, rotating refresh-token and MCP session migrations');
+    mcpCheck((int)$store->db->query('PRAGMA user_version')->fetchColumn() === 20 && (bool)$store->db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='mcp_oauth_refresh_tokens'")->fetchColumn(), 'OAuth, rotating refresh-token and MCP session migrations');
     $store->query('INSERT INTO users(id,email,password_hash,auth_version) VALUES(?,?,?,1)', ['owner','owner@example.test',password_hash('test password', PASSWORD_DEFAULT)]);
     $store->query('INSERT INTO users(id,email,password_hash,auth_version) VALUES(?,?,?,1)', ['other','other@example.test',password_hash('test password', PASSWORD_DEFAULT)]);
     $ownerProject = $store->create('owner', 'MCP sample');

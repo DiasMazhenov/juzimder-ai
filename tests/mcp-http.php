@@ -9,6 +9,7 @@ require __DIR__ . '/../backend/McpOAuth.php';
 require __DIR__ . '/../backend/McpReadTools.php';
 require __DIR__ . '/../backend/McpWriteTools.php';
 require __DIR__ . '/../backend/McpSessionStore.php';
+require __DIR__ . '/../backend/McpPersonalTokens.php';
 
 use Juzimder\CustomCode;
 use Juzimder\Document;
@@ -274,6 +275,15 @@ try {
     $revokeAccessResponse = httpRequest('POST',$base . '/oauth/revoke',[$hostHeader,'Content-Type: application/x-www-form-urlencoded'],http_build_query(['token'=>$revokeAccessToken,'token_type_hint'=>'access_token','client_id'=>$registration['client_id']], '', '&', PHP_QUERY_RFC3986));
     $revokedAccessResponse = httpRequest('POST',$endpoint,[$hostHeader,'Authorization: Bearer ' . $revokeAccessToken,'Content-Type: application/json'],'{}');
     httpCheck($revokeAccessResponse['status'] === 200 && $revokedAccessResponse['status'] === 401, 'OAuth access-token revocation invalidates an issued token on the next request');
+    $personalVault=new Juzimder\McpPersonalTokens(new Store($dbPath));
+    $personal=$personalVault->create('owner',['name'=>'HTTP personal QA','projectIds'=>[$project['id']],'write'=>false,'days'=>7]);
+    $patInit=$call(90,'initialize',['protocolVersion'=>'2025-11-25','capabilities'=>(object)[],'clientInfo'=>['name'=>'personal-qa','version'=>'1']],$personal['token']);
+    httpCheck($patInit['status']===200,'Personal token initializes remote HTTP MCP without OAuth');
+    $patList=$call(91,'tools/call',['name'=>'list_projects','arguments'=>[]],$personal['token'],$patInit['headers']['mcp-session-id']??null);
+    httpCheck($patList['status']===200&&!($patList['json']['result']['isError']??false),'Personal token calls tools over the real endpoint');
+    $personalVault->revoke('owner',$personal['id']);
+    $denied=httpRequest('POST',$endpoint,[$hostHeader,'Authorization: Bearer '.$personal['token'],'Content-Type: application/json'],'{}');
+    httpCheck($denied['status']===401,'Revoked personal token denied at HTTP boundary');
     $storeAfter = new Store($dbPath);
     $revisionAfter = (int)$storeAfter->query('SELECT version FROM documents WHERE project_id=?', [$project['id']])->fetchColumn();
     httpCheck($revisionAfter === $revisionBefore + 2, 'Only the two explicitly authorized write calls create project revisions');

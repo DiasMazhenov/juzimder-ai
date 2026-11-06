@@ -16,6 +16,7 @@ require_once __DIR__ . '/SessionPolicy.php';
 require_once __DIR__ . '/TrustedProxyPolicy.php';
 require_once __DIR__ . '/AccountRecovery.php';
 require_once __DIR__ . '/Updates.php';
+require_once __DIR__ . '/McpPersonalTokens.php';
 use Juzimder\{Store, Problem, CustomCode};
 header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); header('X-Content-Type-Options: nosniff'); header('X-Frame-Options: DENY');
 ini_set('session.use_strict_mode','1');
@@ -142,6 +143,14 @@ try {
     if ($store->query('SELECT 1 FROM users WHERE id=?', [$user])->fetchColumn() === false) {
         expireLocalSession();
         throw new Problem(401,'Локальная сессия устарела. Войдите снова.');
+    }
+    if ($path === '/api/account/mcp-tokens') {
+        $tokens=new Juzimder\McpPersonalTokens($store);
+        if($method==='GET')result(['items'=>$tokens->listing($user)]);
+        if($method==='POST')result($tokens->create($user,$body),201);
+    }
+    if(preg_match('~^/api/account/mcp-tokens/([a-f0-9]{24})$~D',$path,$tokenMatch)&&$method==='DELETE'){
+        (new Juzimder\McpPersonalTokens($store))->revoke($user,$tokenMatch[1]);result(['ok'=>true]);
     }
     if ($path === '/api/account/recovery-codes' && $method === 'POST') {
         $store->consumeAuthAttemptAllowance(Juzimder\TrustedProxyPolicy::clientIp($_SERVER) ?? '');
@@ -480,6 +489,25 @@ try {
         if($body)throw new Problem(422,'Отмена не принимает дополнительные поля.');
         result((new Juzimder\AiGenerationJobs($store))->cancel($cancelJob[1],$user,$cancelJob[2]));
     }
+    if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/generation-jobs/([a-f0-9]{24})/execute$~D',$path,$executeJob)&&$method==='POST'){
+        if($body)throw new Problem(422,'Запуск задачи не принимает дополнительные поля.');
+        $jobs=new Juzimder\AiGenerationJobs($store);
+        $job=$jobs->get($executeJob[1],$user,$executeJob[2]);
+        // Authorization and CSRF have completed. Release the session lock before provider I/O.
+        session_write_close();
+        if(function_exists('set_time_limit'))@set_time_limit(630);
+        $jobs->run($job['id'],static function(string $project,string $owner)use($store,$jobs,$job):Juzimder\StructuredAiProvider{
+            $profiles=(new Juzimder\AiCredentialVault($store))->failoverSettings($project,$owner);
+            if(!$profiles)throw new Juzimder\AiProviderFailure('No AI profiles.',false,'credentials');
+            $lastCheck=0.0;$cancelled=false;
+            $transport=new Juzimder\StreamAiHttpTransport(static function()use($jobs,$job,&$lastCheck,&$cancelled):bool{
+                if(microtime(true)-$lastCheck>=0.5){$cancelled=$jobs->shouldCancel($job['id']);$lastCheck=microtime(true);}
+                return $cancelled;
+            });
+            return new Juzimder\ProfileFailoverProvider($profiles,$transport,600,180);
+        });
+        result($jobs->get($executeJob[1],$user,$job['id']));
+    }
     if(preg_match('~^/api/projects/([a-f0-9]{24})/ai/generation-jobs(?:/([a-f0-9]{24}))?$~D',$path,$jobMatch)&&$method==='GET'){
         result((new Juzimder\AiGenerationJobs($store))->get($jobMatch[1],$user,$jobMatch[2]??null,is_string($_GET['pageId']??null)?$_GET['pageId']:null));
     }
@@ -505,7 +533,6 @@ try {
             $store->consumeAiRequestAllowance($user);
             $jobs=new Juzimder\AiGenerationJobs($store);
             $job=$jobs->create($aiDesignMatch[1],$user,$body['pageId'],$body['version'],['prompt'=>$prompt,'skillProfile'=>$skillProfile,'userSkill'=>$userSkill,'projectDesignTokens'=>$projectDesignTokens]);
-            $jobs->launch($job['id']);
             result($jobs->get($aiDesignMatch[1],$user,$job['id']),202);
         }
         $store->consumeAiRequestAllowance($user);

@@ -1,5 +1,8 @@
 # План Juzimder AI
 
+06.11.2026 · Выпуск 00.00.370: персональные MCP-токены с выбранными проектами, read/write, сроком действия и отзывом; в базе только хеш. Добавлен HTTP execution POST для AI-задач без обязательного CLI worker. Проверены token boundaries, HTTP MCP handshake/tool call/revocation и OAuth regression. Полный npm test, build, PHP syntax и diff-check PASS в рабочей копии. Реальные клиентские подключения и размещённое обновление ещё не приняты.
+
+
 05.11.2026 · `00.00.366` Изменения опубликованы в GitHub `main`; Shared hosting workflow завершился успешно и опубликовал пакет `00.00.366` в `shared-hosting-build`. Локальная сборка, полный `npm test`, PHP syntax и `git diff --check` прошли; точная локальная Composer-установка была недоступна из-за DNS, GitHub workflow проверил чистую сборку пакета. Реальная установка на ByetHost кнопкой «Проверить обновления» ещё не подтверждена. Новые пункты плана не добавлялись и существующие не закрывались.
 
 

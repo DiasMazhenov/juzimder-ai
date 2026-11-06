@@ -1,5 +1,8 @@
 # Juzimder AI — контекст проекта
 
+06.11.2026 · Выпуск 00.00.370: персональные MCP-токены с выбранными проектами, read/write, сроком действия и отзывом; в базе только хеш. Добавлен HTTP execution POST для AI-задач без обязательного CLI worker. Проверены token boundaries, HTTP MCP handshake/tool call/revocation и OAuth regression. Полный npm test, build, PHP syntax и diff-check PASS в рабочей копии. Реальные клиентские подключения и размещённое обновление ещё не приняты.
+
+
 05.11.2026 · `00.00.366` Опубликован в GitHub `main` (`6207f5d7270d90b4e7dff77feea488c8bd957cf4`) и собран workflow `Build shared hosting package` (`42049729933`, PASS). В `shared-hosting-build/repository-build.json` указаны `00.00.366`, исходный commit и SHA-256 ZIP `37158ecf65c9355951a1bbdf7852c5caed0291d28c7948a07f7b52ca30d26ed0`. Добавлен переносимый бэкап AI Engine: формат v3 шифрует профили и API-ключи пароль-фразой от 16 символов; при восстановлении целевой сервер заново шифрует ключи собственным `.ai-key`. Формат v2 и восстановление на той же установке сохранены. Неверная фраза не создаёт sidecar и не меняет проект. В интерфейсе добавлен экспорт/импорт по пароль-фразе и контекстные меню проектов. `npm run build`, `npm test`, PHP syntax и `git diff --check` прошли. Локальный `npm test` использовал имеющийся Composer vendor; точный `composer install` локально не запускался из-за недоступного DNS, тогда как hosting workflow успешно собрал пакет в чистом GitHub runner.
 
 

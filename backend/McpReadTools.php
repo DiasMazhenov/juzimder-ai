@@ -13,13 +13,13 @@ final class McpReadTools
     private const MAX_PAGE_BYTES = 262144;
     private const MAX_PAGE_NODES = 50000;
 
-    public function __construct(private readonly Store $store, private readonly string $userId) {}
+    public function __construct(private readonly Store $store, private readonly string $userId, private readonly ?array $projectIds = null) {}
 
     public function list_projects(int $limit = 20, int $offset = 0): array
     {
         $limit = max(1, min(50, $limit));
         $offset = max(0, min(100000, $offset));
-        $rows = $this->store->projects($this->userId, $limit + 1, $offset);
+        $rows = $this->projectIds===null ? $this->store->projects($this->userId, $limit + 1, $offset) : $this->store->query('SELECT p.id,p.slug,p.name,d.version,d.updated_at FROM projects p JOIN documents d ON p.id=d.project_id WHERE p.owner_id=? AND p.id IN ('.implode(',',array_fill(0,count($this->projectIds),'?')).') ORDER BY p.created_at DESC LIMIT ? OFFSET ?',[$this->userId,...$this->projectIds,$limit+1,$offset])->fetchAll();
         $hasMore = count($rows) > $limit;
         $rows = array_slice($rows, 0, $limit);
         $items = array_map(static fn(array $row): array => [
@@ -132,6 +132,7 @@ final class McpReadTools
 
     private function owned(string $projectId): array
     {
+        if($this->projectIds!==null&&!in_array($projectId,$this->projectIds,true))throw new ToolCallException('Проект недоступен.');
         try { return $this->store->owned($projectId, $this->userId); }
         catch (Problem) { throw new ToolCallException('Проект недоступен.'); }
     }

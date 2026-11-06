@@ -21,6 +21,7 @@ final class McpWriteTools
         private readonly Store $store,
         private readonly string $userId,
         private readonly array $scopes,
+        private readonly ?array $projectIds = null,
     ) {}
 
     public function apply_page_operations(string $project_id, string $page_id, int $expected_version, mixed $operations): array
@@ -236,6 +237,7 @@ final class McpWriteTools
 
     private function owned(string $projectId): array
     {
+        if($this->projectIds!==null&&!in_array($projectId,$this->projectIds,true))throw new ToolCallException('Проект недоступен.');
         try { return $this->store->owned($projectId, $this->userId); }
         catch (Problem) { throw new ToolCallException('Проект недоступен.'); }
     }

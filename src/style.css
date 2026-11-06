@@ -241,3 +241,11 @@
 
 #update-install-confirm form{margin:0}
 #update-install-message{line-height:1.6}
+
+/* Account MCP access dialog */
+.recovery-dialog:has(.mcp-projects) { max-height:90dvh; overflow:auto; }
+.mcp-projects { display:grid; gap:10px; max-height:180px; overflow:auto; }
+.recovery-dialog .mcp-projects label,
+.recovery-dialog label:has(input[type="checkbox"]) { display:flex; flex-direction:row; align-items:center; gap:10px; margin:8px 0; }
+.recovery-dialog input[type="checkbox"] { width:18px; height:18px; flex:0 0 18px; margin:0; }
+.mcp-secret { white-space:pre-wrap; overflow-wrap:anywhere; user-select:all; }

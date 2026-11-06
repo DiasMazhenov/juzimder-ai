@@ -10,6 +10,7 @@ require_once __DIR__ . '/SessionPolicy.php';
 require_once __DIR__ . '/TrustedProxyPolicy.php';
 require_once __DIR__ . '/Operations.php';
 require_once __DIR__ . '/McpOAuth.php';
+require_once __DIR__ . '/McpPersonalTokens.php';
 require_once __DIR__ . '/McpReadTools.php';
 require_once __DIR__ . '/McpWriteTools.php';
 require_once __DIR__ . '/McpSessionStore.php';
@@ -247,7 +248,8 @@ function mcpEndpoint(string $method, Store $store, OAuthConfig $config): never
     foreach ($headers as $name=>$value) if (is_string($name) && strtolower($name) === 'authorization' && is_string($value)) $authorization = $value;
     if ($authorization === '' && isset($_SERVER['HTTP_AUTHORIZATION']) && is_string($_SERVER['HTTP_AUTHORIZATION'])) $authorization = $_SERVER['HTTP_AUTHORIZATION'];
     if (!preg_match('/^Bearer\s+([^\s]+)$/iD', $authorization, $match)) mcpUnauthorized($config);
-    $principal = BearerValidator::validate($match[1], $config);
+    $personal=(new Juzimder\McpPersonalTokens($store))->validate($match[1]);
+    $principal = $personal===null ? BearerValidator::validate($match[1], $config) : new Juzimder\McpAuth\BearerPrincipal($personal['userId'],'personal:'.$personal['id'],$personal['scopes']);
     if ($principal === null) mcpUnauthorized($config, 'invalid_token');
     if (!in_array(OAuthConfig::SCOPE, $principal->scopes, true)) {
         $metadataUrl = $config->issuer() . '/.well-known/oauth-protected-resource/mcp';
@@ -261,8 +263,8 @@ function mcpEndpoint(string $method, Store $store, OAuthConfig $config): never
     $issuerHost = strtolower((string)parse_url($config->issuer(), PHP_URL_HOST));
     if ($requestHost === '' || $requestHost !== $issuerHost) mcpJson(['error'=>'Invalid host.'], 400);
 
-    $tools = new McpReadTools($store, $principal->userId);
-    $writeTools = new McpWriteTools($store, $principal->userId, $principal->scopes);
+    $tools = new McpReadTools($store, $principal->userId, $personal['projectIds']??null);
+    $writeTools = new McpWriteTools($store, $principal->userId, $principal->scopes, $personal['projectIds']??null);
     $version = mcpProductVersion();
     $builder = Mcp\Server::builder()->setServerInfo('juzimder-ai', $version, 'Read and write access to the authenticated user’s Juzimder AI projects.');
     $builder->addTool([$tools,'list_projects'], 'list_projects', 'List projects', 'List the authenticated user’s projects. Returns paginated project metadata.', null,

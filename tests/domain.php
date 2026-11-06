@@ -8,7 +8,7 @@ function sameJson(mixed $left,mixed $right): bool { return json_encode($left,JSO
 $path=sys_get_temp_dir().'/juzimder-test-'.bin2hex(random_bytes(6)).'.sqlite';
 try {
 $s=new Store($path);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['a','a@example.test','hash']);$s->query('INSERT INTO users(id,email,password_hash) VALUES(?,?,?)',['b','b@example.test','hash']);
-check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===19,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['slug']==='studio','Create project with readable slug');check($p['version']===0,'Create empty project');
+check((int)$s->db->query('PRAGMA user_version')->fetchColumn()===20,'Migrations');$p=$s->create('a','Studio');$id=$p['id'];check($p['slug']==='studio','Create project with readable slug');check($p['version']===0,'Create empty project');
 $authIp='192.0.2.44';for($attempt=0;$attempt<15;$attempt++)$s->consumeAuthAttemptAllowance($authIp,1000);rejects(fn()=>$s->consumeAuthAttemptAllowance($authIp,1000),429,'authentication attempt cap is atomic and bounded');$s->consumeAuthAttemptAllowance($authIp,1900);$authWindow=$s->query('SELECT attempts,started_at FROM auth_attempts WHERE ip=?',[$authIp])->fetch();check((int)$authWindow['attempts']===1&&(int)$authWindow['started_at']===1900,'Authentication attempt window resets exactly after 15 minutes');
 for($attempt=0;$attempt<5;$attempt++)$s->consumeAiRequestAllowance('a',10000);
 rejects(fn()=>$s->consumeAiRequestAllowance('a',10000),429,'AI quota caps an account at five requests in a rolling minute');

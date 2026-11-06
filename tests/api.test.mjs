@@ -710,3 +710,25 @@ test('Project deletion requires owner, CSRF and the current project name and ver
   const remainingDocuments=execFileSync('php',['-r',"$db=new PDO('sqlite:'.$argv[1]);$q=$db->prepare('SELECT COUNT(*) FROM documents WHERE project_id=?');$q->execute([$argv[2]]);echo $q->fetchColumn();",testDbPath,project.id],{encoding:'utf8'});
   assert.equal(remainingDocuments,'0','Project deletion cascades to its saved document');
 });
+
+test('HTTP generation execution requires owner and CSRF and claims a queued job once without CLI launch',async()=>{
+  const owner=new Client(),other=new Client();
+  await owner.call('/session');await other.call('/session');
+  await owner.call('/register','POST',{email:'http-job-owner@example.test',password:'http-job-password'});
+  await other.call('/register','POST',{email:'http-job-other@example.test',password:'http-job-password'});
+  const project=(await owner.call('/projects','POST',{name:'HTTP execution QA'})).data;
+  const jobId=execFileSync('php',['-r',
+    "require 'backend/Domain.php';require 'backend/Ai.php';require 'backend/AiGenerationJobs.php';$s=new Juzimder\\Store($argv[1]);$p=$s->query('SELECT * FROM projects WHERE id=?',[$argv[2]])->fetch();$owner=$p['owner_id'];$p=$s->owned($p['id'],$owner);$j=(new Juzimder\\AiGenerationJobs($s))->create($p['id'],$owner,$p['document']->data->pages[0]->id,$p['version'],['prompt'=>'A pottery workshop','skillProfile'=>'standard','userSkill'=>null]);echo $j['id'];",
+    testDbPath,project.id],{encoding:'utf8'}).trim();
+  const path=`/projects/${project.id}/ai/generation-jobs/${jobId}/execute`;
+  assert.equal((await owner.call(path,'POST',{},'invalid')).status,403);
+  assert.equal((await other.call(path,'POST',{})).status,404);
+  assert.equal((await owner.call(path,'POST',{unexpected:true})).status,422);
+  const executed=await owner.call(path,'POST',{});
+  assert.equal(executed.status,200);assert.equal(executed.data.status,'failed');
+  assert.equal(executed.data.diagnostics.outcome,'credentials');
+  assert.equal(executed.data.diagnostics.stage,'provider_setup');
+  const repeated=await owner.call(path,'POST',{});
+  assert.deepEqual(repeated.data.diagnostics,executed.data.diagnostics);
+  assert.equal((await owner.call(`/projects/${project.id}`)).data.version,project.version);
+});
